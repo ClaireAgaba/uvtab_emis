@@ -1,0 +1,96 @@
+{# templates/assessment_centers/create.html #}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto mt-10 bg-white p-6 shadow rounded">
+  <!-- Back Link -->
+  <a href="{% url 'assessment_center_list' %}" class="text-blue-600 hover:underline mb-4 inline-block">
+    ← Back to Assessment Centers
+  </a>
+
+  <h1 class="text-2xl font-bold mb-6">Create Assessment Center</h1>
+
+  <form method="post" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {% csrf_token %}
+
+    <!-- Left Column -->
+    <div class="space-y-4">
+      <div>
+        <label class="block font-medium mb-1">Center Number</label>
+        {{ form.center_number }}
+      </div>
+
+      <div>
+        <label class="block font-medium mb-1">Assessment Category</label>
+        {{ form.category }}
+      </div>
+
+      <div>
+        <label class="block font-medium mb-1">Village</label>
+        {{ form.village }}
+      </div>
+    </div>
+
+    <!-- Right Column -->
+    <div class="space-y-4">
+      <div>
+        <label class="block font-medium mb-1">Center Name</label>
+        {{ form.center_name }}
+      </div>
+
+      <div>
+        <label class="block font-medium mb-1">District</label>
+        {{ form.district }}
+      </div>
+    </div>
+
+    <!-- Submit Button full width -->
+    <div class="md:col-span-2 text-right mt-4">
+      <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+        Create Center
+      </button>
+      <a href="{% url 'assessment_center_list' %}" class="ml-4 text-gray-600 hover:underline">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const districtSelect = document.getElementById('id_district');
+  const villageSelect  = document.getElementById('id_village');
+
+  function loadVillages(districtId) {
+    if (!districtId) {
+      villageSelect.innerHTML = '<option value="">---------</option>';
+      return;
+    }
+    fetch(`/eims/api/districts/${districtId}/villages/`)
+      .then(resp => resp.json())
+      .then(data => {
+        villageSelect.innerHTML = '<option value="">---------</option>';
+        data.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.text  = v.name;
+          villageSelect.appendChild(opt);
+        });
+      });
+  }
+
+  // On page load, if a district is pre-selected, load its villages
+  if (districtSelect.value) {
+    loadVillages(districtSelect.value);
+  }
+
+  // Whenever district changes, reload villages
+  districtSelect.addEventListener('change', () => {
+    loadVillages(districtSelect.value);
+  });
+});
+</script>
+
+
+{% endblock %}

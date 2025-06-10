@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block content %}
+
+
+<!-- Breadcrumb -->
+<div class="text-sm text-gray-500 mb-4">
+    <a href="{% url 'candidate_list' %}" class="text-blue-600 hover:underline">Candidates</a> /
+    <span class="text-gray-700">{{ candidate.full_name }}</span>
+</div>
+
+<div class="max-w-6xl mx-auto mt-6 space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">
+      {{ candidate.full_name }} ({{ candidate.reg_number }})
+    </h1>
+    <div class="space-x-2">
+      <a href="{% url 'enroll_candidate' candidate.id %}" class="bg-blue-500 text-white px-4 py-2 rounded">Enroll</a>
+      <a href="{% url 'edit_candidate' candidate.id %}" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Edit</a>
+      <a href="#" class="bg-green-600 text-white px-4 py-2 rounded">Transcript</a>
+      <a href="#" class="bg-purple-600 text-white px-4 py-2 rounded">Certificate</a>
+    </div>
+  </div>
+
+  <!-- Summary Info + Photo -->
+  <div class="grid grid-cols-3 gap-6 bg-white p-6 rounded shadow">
+    <!-- Info -->
+    <div class="col-span-2 space-y-1">
+      <p><strong>Gender:</strong> {{ candidate.gender }}</p>
+      <p><strong>Date of Birth:</strong> {{ candidate.date_of_birth }}</p>
+      <p><strong>Nationality:</strong> {{ candidate.nationality }}</p>
+      <p><strong>Contact:</strong> {{ candidate.contact }}</p>
+      <p><strong>Assessment Center:</strong> {{ candidate.assessment_center.center_name }}</p>
+      <p><strong>Occupation:</strong> {{ candidate.occupation.name }}</p>
+      <p><strong>Registration Category:</strong> {{ candidate.registration_category }}</p>
+      <p><strong>Entry Year:</strong> {{ candidate.entry_year }}</p>
+      <p><strong>Intake:</strong> {{ candidate.intake }}</p>
+    </div>
+
+    <!-- Image + Badge -->
+    <div class="relative">
+      {% if candidate.passport_photo %}
+        <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="w-48 h-auto rounded shadow" />
+        {% if candidate.is_enrolled %}
+          <div class="absolute top-0 left-0 bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded-br">
+            Registered
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="w-48 h-48 bg-gray-200 flex items-center justify-center rounded shadow">
+          <span class="text-gray-500 text-sm">No photo available</span>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+ <!-- Enrollment Summary -->
+<div class="bg-white p-4 rounded shadow mt-4">
+    <h2 class="text-lg font-semibold mb-2">Enrollment</h2>
+  
+    {% if candidate.registration_category == 'Formal' and level_enrollment %}
+      <p>Enrolled in:  {{ level_enrollment.level.name }}</p>
+  
+    {% elif candidate.registration_category == 'Modular' or candidate.registration_category == 'Informal' %}
+      {% if module_enrollments %}
+        <p>Enrolled in {{ module_enrollments.count }} Module{{ module_enrollments.count|pluralize }}</p>
+        <ul class="list-disc ml-6">
+          {% for enrollment in module_enrollments %}
+            <li>{{ enrollment.module.name }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No modules selected.</p>
+      {% endif %}
+  
+    {% else %}
+      <p>Not enrolled yet.</p>
+    {% endif %}
+  </div>
+  
+
+  <!-- Messages -->
+  {% if messages %}
+    <div>
+      {% for message in messages %}
+        <div class="p-3 rounded text-white {% if message.tags == 'success' %}bg-green-500{% elif message.tags == 'error' %}bg-red-500{% else %}bg-gray-500{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Biodata -->
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-lg font-semibold mb-2">Bio Data</h2>
+    <p><strong>Village:</strong> {{ candidate.village.name }}</p>
+    <p><strong>District:</strong> {{ candidate.district.name }}</p>
+    <p><strong>Start Date:</strong> {{ candidate.start_date }}</p>
+    <p><strong>Finish Date:</strong> {{ candidate.finish_date }}</p>
+    <p><strong>Assessment Date:</strong> {{ candidate.assessment_date }}</p>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-6">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold"> {{ center.center_number }} {{ center.center_name }}</h1>
+      
+    </div>
+   
+    <div>
+      <a href="{% url 'assessment_center_list' %}" class="text-blue-600 hover:underline">← Back to Centers </a>
+      <a href="{% url 'edit_assessment_center' center.id %}" class="ml-4 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">Edit</a>
+    </div>
+  </div>
+  <div>
+    <p class="text-sm text-gray-600">Center Number: {{ center.center_number }}</p>
+    <p class="text-sm text-gray-600">Center Name: {{ center.center_name }}</p>
+    <p class="text-sm text-gray-600">Assessment Category: {{ center.category.name }}</p>
+    <p class="text-sm text-gray-600">District: {{ center.district.name }}</p>
+    <p class="text-sm text-gray-600">Village: {{ center.village.name }}</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="border-b flex space-x-4 mb-4">
+    <button class="tab-btn px-4 py-2 font-semibold text-blue-600 border-b-2 border-blue-600" onclick="showTab('candidates')">Candidates</button>
+    <button class="tab-btn px-4 py-2 font-semibold text-gray-600 hover:text-blue-600" onclick="showTab('occupations')">Occupations</button>
+  </div>
+
+  <!-- Tab Content -->
+  <div id="candidates" class="tab-content block">
+    <table class="w-full table-auto bg-white shadow rounded">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="px-4 py-2 text-left">Registration Number</th>
+          <th class="px-4 py-2 text-left">Full Name</th>
+          <th class="px-4 py-2 text-left">Occupation</th>
+          <th class="px-4 py-2 text-left">Registration Type</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for candidate in candidates %}
+          <tr class="border-b">
+            <td class="px-4 py-2">{{ candidate.reg_number }}</td>
+            <td class="px-4 py-2">{{ candidate.full_name }}</td>
+            <td class="px-4 py-2">{{ candidate.occupation.name }}</td>
+            <td class="px-4 py-2">{{ candidate.registration_category }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="text-center py-4 text-gray-500">No candidates available.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div id="occupations" class="tab-content hidden">
+    <table class="w-full table-auto bg-white shadow rounded">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="px-4 py-2 text-left">Occupation Name</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for occupation in occupations %}
+          <tr class="border-b">
+            <td class="px-4 py-2">{{ occupation.name }}</td>
+          </tr>
+        {% empty %}
+          <tr><td class="text-center py-4 text-gray-500">No occupations assigned to this center.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.getElementById(tabId).classList.remove('hidden');
+    
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('text-blue-600', 'border-blue-600'));
+    event.target.classList.add('text-blue-600', 'border-blue-600');
+  }
+</script>
+{% endblock %}

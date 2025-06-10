@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 px-6 py-8">
+  <h1 class="text-2xl font-semibold mb-6 text-gray-700">
+    Welcome, {{ request.user.first_name|default:request.user.username }}
+  </h1>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <a href="{% url 'candidate_list' %}">
+    <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center">
+      <div class="text-4xl text-blue-600 mb-3">🎓</div>
+      <div class="text-lg font-medium">Candidates</div>
+    </div>
+    </a>
+    
+    <a href="{% url 'occupation_list' %}">
+    <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center">
+      <div class="text-4xl text-green-600 mb-3">💼</div>
+      <div class="text-lg font-medium">Occupation</div>
+    </div>
+    </a>
+  
+    <a href="{% url 'assessment_center_list' %}">
+      <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center">
+        <div class="text-4xl text-cyan-600 mb-3">📝</div>
+        <div class="text-lg font-medium">Assessment Center</div>
+      </div>
+    </a>
+
+    <a href="{% url 'report_list' %}">
+      <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center">
+        <div class="text-4xl text-purple-600 mb-3">📊</div>
+        <div class="text-lg font-medium">Reports</div>
+      </div>
+    </a>
+    
+  </div>
+</div>
+{% endblock %}

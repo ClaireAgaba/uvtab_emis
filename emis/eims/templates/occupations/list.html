@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-4">
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold">Occupations</h1>
+    </div>
+    <div class="flex items-center space-x-4">
+      <a href="{% url 'module_list' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Modules</a>
+      <a href="{% url 'paper_list' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Papers</a>
+    </div>
+  </div>
+
+  <div class="mb-6">
+    <a href="{% url 'occupation_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Create Occupation</a>
+  </div>
+  <table class="min-w-full bg-white border">
+    <thead>
+      <tr>
+        <th class="py-2 px-4 border">Code</th>
+        <th class="py-2 px-4 border">Name</th>
+        <th class="py-2 px-4 border">Structure</th>
+        <th class="py-2 px-4 border">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for occ in occupations %}
+      <tr>
+        <td class="border px-4 py-2">{{ occ.code }}</td>
+        <td class="border px-4 py-2">{{ occ.name }}</td>
+        <td class="border px-4 py-2">{{ occ.structure_type }}</td>
+        <td class="border px-4 py-2">
+          <a href="{% url 'occupation_detail' occ.pk %}" class="text-blue-600">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

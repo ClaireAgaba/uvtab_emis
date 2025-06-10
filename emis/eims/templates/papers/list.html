@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto mt-10 px-4">
+  <!-- Header Section -->
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold">Papers</h1>
+      <p class="text-gray-600 mt-2">Manage assessment papers across all levels</p>
+    </div>
+    <div class="flex items-center space-x-4">
+      <a href="{% url 'occupation_list' %}" class="text-blue-600 hover:text-blue-800">
+        ← Back to Occupations
+      </a>
+      <a href="{% url 'paper_create' %}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+        + Create Paper
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters Section -->
+  <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+        <select name="level" class="w-full border rounded-md px-3 py-2">
+          <option value="">All Levels</option>
+          {% for level in levels %}
+            <option value="{{ level.id }}" {% if selected_level == level.id %}selected{% endif %}>
+              {{ level.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
+        <select name="occupation" class="w-full border rounded-md px-3 py-2">
+          <option value="">All Occupations</option>
+          {% for occupation in occupations %}
+            <option value="{{ occupation.id }}" {% if selected_occupation == occupation.id %}selected{% endif %}>
+              {{ occupation.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex items-end">
+        <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-md">
+          Apply Filters
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Papers Table -->
+  {% if papers %}
+    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead>
+          <tr class="bg-gray-50">
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Occupation</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for paper in papers %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ paper.code }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ paper.name }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ paper.level.name }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ paper.occupation.name }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ paper.grade_type|title }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <a href="{% url 'paper_edit' paper.id %}" class="text-blue-600 hover:text-blue-900">Edit</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="bg-white rounded-lg shadow-sm p-12 text-center">
+      <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <h3 class="mt-4 text-lg font-medium text-gray-900">No papers found</h3>
+      <p class="mt-2 text-gray-500">Get started by creating a new paper.</p>
+      <a href="{% url 'paper_create' %}" class="mt-6 inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md">
+        Create First Paper
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

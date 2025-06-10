@@ -1,0 +1,716 @@
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse, HttpResponse
+from .models import AssessmentCenter, Candidate, Occupation, AssessmentCenterCategory, Level, Module, Paper, CandidateLevel, CandidateModule, Village
+from .forms import AssessmentCenterForm, OccupationForm, ModuleForm, PaperForm, CandidateForm, EnrollmentForm
+from django.contrib import messages 
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.units import inch
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from io import BytesIO
+from PIL import Image as PILImage
+import os
+from django.conf import settings
+
+
+@login_required
+def dashboard(request):     
+    return render(request, 'dashboard.html')
+
+def district_villages_api(request, district_id):
+    villages = Village.objects.filter(district_id=district_id).values('id', 'name')
+    # returns [{"id": 3, "name": "Ntare"}, ...]
+    return JsonResponse(list(villages), safe=False)
+
+
+def assessment_center_list(request):
+    centers = AssessmentCenter.objects.all()
+    return render(request, 'assessment_centers/list.html', {'centers': centers})
+
+""" def assessment_center_detail(request, pk):
+    center = get_object_or_404(AssessmentCenter, pk=pk)
+    candidates = Candidate.objects.filter(assessment_center=center)
+    context = {
+        'center': center,
+        'candidates': candidates
+    }
+    return render(request, 'assessment_centers/view.html', context) """
+
+
+def assessment_center_view(request, id):
+    center = get_object_or_404(AssessmentCenter, id=id)
+    candidates = Candidate.objects.filter(assessment_center=center)
+    
+    # Get unique occupations from candidates in this assessment center
+    occupations = Occupation.objects.filter(candidate__assessment_center=center).distinct()
+
+    return render(request, 'assessment_centers/view.html', {
+        'center': center,
+        'candidates': candidates,
+        'occupations': occupations,
+    })
+
+
+def assessment_center_list(request):
+    centers = AssessmentCenter.objects.all()
+    search = request.GET.get('search')
+    category_id = request.GET.get('category')
+
+    if search:
+        centers = centers.filter(center_name__icontains=search)
+    if category_id:
+        centers = centers.filter(category_id=category_id)
+
+    categories = AssessmentCenterCategory.objects.all()
+
+    return render(request, 'assessment_centers/list.html', {
+        'centers': centers,
+        'categories': categories
+    })
+
+
+def assessment_center_create(request):
+    if request.method == 'POST':
+        form = AssessmentCenterForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('assessment_center_list')
+    else:
+        form = AssessmentCenterForm()
+
+    return render(request, 'assessment_centers/create.html', {'form': form})
+
+
+def edit_assessment_center(request, id):
+    center = get_object_or_404(AssessmentCenter, id=id)
+    if request.method == 'POST':
+        form = AssessmentCenterForm(request.POST, instance=center)
+        if form.is_valid():
+            form.save()
+            return redirect('assessment_center_view', id=center.id)
+    else:
+        form = AssessmentCenterForm(instance=center)
+    
+    return render(request, 'assessment_centers/edit.html', {
+        'form': form,
+        'center': center,
+    })
+
+
+def occupation_list(request):
+    occupations = Occupation.objects.all()
+    return render(request, 'occupations/list.html', {'occupations': occupations})
+
+def occupation_create(request):
+    if request.method == 'POST':
+        form = OccupationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('occupation_list')
+    else:
+        form = OccupationForm()
+    return render(request, 'occupations/create.html', {'form': form})
+
+def occupation_view(request, pk):
+    occupation = get_object_or_404(Occupation, pk=pk)
+    return render(request, 'occupations/view.html', {'occupation': occupation})
+
+
+def occupation_detail(request, pk):
+    occupation = get_object_or_404(Occupation, pk=pk)
+    levels = occupation.levels.all()
+
+    level_data = []
+    for level in levels:
+        if occupation.structure_type == 'modules':
+            content = Module.objects.filter(occupation=occupation, level=level)
+        else:
+            content = Paper.objects.filter(occupation=occupation, level=level)
+        level_data.append({'level': level, 'content': content})
+
+    return render(request, 'occupations/view.html', {
+        'occupation': occupation,
+        'levels': levels,
+        'level_data': level_data
+    })    
+
+
+#Add Module View
+
+def module_list(request):
+    modules = Module.objects.all()
+    occupations = Occupation.objects.all()
+    levels = Level.objects.all()
+    
+    # Filter by occupation if specified
+    occupation_id = request.GET.get('occupation')
+    if occupation_id:
+        modules = modules.filter(occupation_id=occupation_id)
+    
+    # Filter by level if specified
+    level_id = request.GET.get('level')
+    if level_id:
+        modules = modules.filter(level_id=level_id)
+    
+    context = {
+        'modules': modules,
+        'occupations': occupations,
+        'levels': levels,
+        'selected_occupation': occupation_id,
+        'selected_level': level_id
+    }
+    
+    return render(request, 'modules/list.html', context)
+
+def module_create(request):
+    if request.method == 'POST':
+        form = ModuleForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('module_list')
+    else:
+        form = ModuleForm()
+    return render(request, 'modules/create.html', {'form': form})
+
+
+def paper_list(request):
+    papers = Paper.objects.all()
+    occupations = Occupation.objects.all()
+    levels = Level.objects.all()
+    
+    # Filter by occupation if specified
+    occupation_id = request.GET.get('occupation')
+    if occupation_id:
+        papers = papers.filter(occupation_id=occupation_id)
+    
+    # Filter by level if specified
+    level_id = request.GET.get('level')
+    if level_id:
+        papers = papers.filter(level_id=level_id)
+    
+    context = {
+        'papers': papers,
+        'occupations': occupations,
+        'levels': levels,
+        'selected_occupation': occupation_id,
+        'selected_level': level_id
+    }
+    
+    return render(request, 'papers/list.html', context)
+
+def paper_create(request):
+    if request.method == 'POST':
+        form = PaperForm(request.POST)
+        if form.is_valid():
+            paper = form.save()
+            return redirect('paper_list')
+    else:
+        form = PaperForm()
+    return render(request, 'papers/create.html', {'form': form})
+
+def paper_edit(request, pk):
+    paper = get_object_or_404(Paper, pk=pk)
+    if request.method == 'POST':
+        form = PaperForm(request.POST, instance=paper)
+        if form.is_valid():
+            paper = form.save()
+            return redirect('paper_list')
+    else:
+        form = PaperForm(instance=paper)
+    return render(request, 'papers/edit.html', {'form': form, 'paper': paper})
+
+def report_list(request):
+    """Main reports dashboard showing available reports"""
+    return render(request, 'reports/list.html')
+
+def _get_candidate_photo(candidate):
+    """Helper function to get and format candidate photo for PDF"""
+    if candidate.passport_photo and os.path.exists(candidate.passport_photo.path):
+        try:
+            # Open and resize image to fit in cell
+            img = PILImage.open(candidate.passport_photo.path)
+            # Convert to RGB if necessary
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            # Calculate aspect ratio and resize
+            aspect = img.height / float(img.width)
+            desired_width = 1*inch  # 1 inch width
+            desired_height = desired_width * aspect
+            
+            # Create ReportLab Image object
+            img_reader = BytesIO()
+            img.save(img_reader, 'JPEG')
+            img_reader.seek(0)
+            return Image(img_reader, width=desired_width, height=min(desired_height, 1.2*inch))
+        except Exception as e:
+            print(f"Error processing image for {candidate.full_name}: {e}")
+            return 'No Photo'
+    return 'No Photo'
+
+@login_required
+def generate_album(request):
+    """Generate registration list (album) PDF based on selected parameters"""
+    # Get all centers and occupations for the form
+    centers = AssessmentCenter.objects.all()
+    occupations = Occupation.objects.all()
+    levels = Level.objects.all()
+    
+    if request.method == 'POST':
+        # Debug form data
+        print('POST data:', request.POST)
+        
+        center_id = request.POST.get('center')
+        occupation_id = request.POST.get('occupation')
+        reg_category = request.POST.get('registration_category', '').lower()
+        level_id = request.POST.get('level')
+        assessment_month = request.POST.get('assessment_month')
+        assessment_year = request.POST.get('assessment_year')
+        
+        # Debug query parameters
+        print('Query params:', {
+            'center_id': center_id,
+            'occupation_id': occupation_id,
+            'registration_category': reg_category,
+            'level_id': level_id,
+            'assessment_month': assessment_month,
+            'assessment_year': assessment_year
+        })
+        
+        # Query candidates based on parameters
+        print('Checking candidates with category:', repr(reg_category))
+        # First get all candidates for debugging
+        from datetime import datetime
+        
+        # Handle assessment month and year
+        print('Received assessment month/year:', assessment_month, assessment_year)
+        if not assessment_month or not assessment_year:
+            return HttpResponse('Assessment month and year are required', status=400)
+
+        try:
+            # Convert to integers
+            month = int(assessment_month)
+            year = int(assessment_year)
+            
+            print(f'Using month: {month}, year: {year}')
+
+            # Filter candidates
+            candidates = Candidate.objects.filter(
+                assessment_center_id=center_id,
+                occupation_id=occupation_id,
+                registration_category__iexact=reg_category
+            )
+
+            # Debug candidate query
+            print('Initial candidate count:', candidates.count())
+            print('SQL Query:', candidates.query)
+
+            # Add date filtering
+            candidates = candidates.filter(
+                assessment_date__year=year,
+                assessment_date__month=month
+            )
+
+            print('Final candidate count:', candidates.count())
+            print('Assessment dates:', [c.assessment_date for c in candidates])
+
+        except ValueError as e:
+            print(f'Error parsing date: {e}')
+            print(f'Raw values - Month: {assessment_month!r}, Year: {assessment_year!r}')
+            return HttpResponse(f'Invalid date format: {e}', status=400)
+        print('All candidates before category filter:', candidates.count())
+        print('Their categories:', [c.registration_category for c in candidates])
+        
+        # Debug query results
+        print('SQL Query:', candidates.query)
+        print('Found candidates:', candidates.count())
+        for candidate in candidates:
+            print(f'- {candidate.full_name} ({candidate.registration_category})')
+        
+        # Add level filter for formal/informal
+        if reg_category in ['formal', 'informal'] and level_id:
+            candidates = candidates.filter(level_id=level_id)
+        
+        # Create PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+        elements = []
+        
+        # Create header styles
+        styles = getSampleStyleSheet()
+        header_style = ParagraphStyle(
+            'CustomHeader',
+            parent=styles['Heading1'],
+            fontSize=16,
+            alignment=1,  # Center alignment
+            spaceAfter=6
+        )
+        subheader_style = ParagraphStyle(
+            'CustomSubHeader',
+            parent=styles['Normal'],
+            fontSize=12,
+            alignment=1,  # Center alignment
+            spaceAfter=20
+        )
+        
+        # First row: Contact info and logo
+        contact_table_data = [
+            [
+                Paragraph('P.O.Box 1499<br/>Email: info@uvtab.go.ug', styles['Normal']),
+                '',  # Logo will go here
+                Paragraph('Tel: 256 414 289786', styles['Normal'])
+            ]
+        ]
+        
+        # Find and add logo
+        logo_path = None
+        possible_paths = [
+            os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab logo.png'),
+            os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab logo.png'),
+            os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab logo.png')
+        ]
+        for path in possible_paths:
+            if os.path.exists(path):
+                logo_path = path
+                break
+        
+        if logo_path:
+            logo = Image(logo_path, width=1.2*inch, height=1.2*inch)
+            contact_table_data[0][1] = logo
+        
+        # Create contact info table
+        contact_table = Table(contact_table_data, colWidths=[2.5*inch, 2*inch, 2.5*inch])
+        contact_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(contact_table)
+        elements.append(Spacer(1, 12))
+        
+        # Second row: UVTAB full name
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            alignment=TA_CENTER,
+            spaceAfter=12
+        )
+        elements.append(Paragraph('UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD', title_style))
+        
+        # Third row: Assessment period
+        month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December']
+        formatted_date = f"{month_names[int(assessment_month)-1]} {assessment_year}"
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=14,
+            alignment=TA_CENTER,
+            spaceAfter=12
+        )
+        elements.append(Paragraph(f"Registered Candidates for {formatted_date} Assessment", subtitle_style))
+        
+        # Fourth row: Assessment Center
+        center = AssessmentCenter.objects.get(id=center_id)
+        center_style = ParagraphStyle(
+            'CenterInfo',
+            parent=styles['Normal'],
+            fontSize=12,
+            alignment=TA_CENTER,
+            spaceAfter=12
+        )
+        elements.append(Paragraph(f"Assessment Center: {center.center_number} - {center.center_name}", center_style))
+        
+        # Add spacer before details
+        elements.append(Spacer(1, 20))
+        
+        # Details section
+        occupation = Occupation.objects.get(id=occupation_id)
+        details_style = ParagraphStyle(
+            'Details',
+            parent=styles['Normal'],
+            fontSize=11,
+            alignment=TA_LEFT,
+            spaceAfter=6
+        )
+        
+        # Occupation details
+        elements.append(Paragraph(f"Occupation Name: {occupation.name}", details_style))
+        elements.append(Paragraph(f"Occupation Code: {occupation.code}", details_style))
+        elements.append(Paragraph(f"Registration Category: {reg_category.title()}", details_style))
+        
+        # Add level for formal/informal
+        if reg_category.lower() in ['formal', 'informal'] and level_id:
+            level = Level.objects.get(id=level_id)
+            elements.append(Paragraph(f"Level: {level.name}", details_style))
+        
+        # Add spacer before table
+        elements.append(Spacer(1, 20))
+        
+        # Table headers
+        headers = ['S/N', 'Photo', 'Reg No.', 'Full Name', 'Occupation', 'Reg Type']
+        if reg_category in ['formal', 'informal']:
+            headers.append('Level')
+        if reg_category in ['informal', 'modular']:
+            headers.append('No. of Modules')
+        headers.append('Signature')
+        
+        # Prepare table data with word wrapping
+        styles = getSampleStyleSheet()
+        normal_style = styles['Normal']
+        normal_style.wordWrap = 'CJK'  # Better word wrapping
+        normal_style.fontSize = 9  # Slightly smaller font for better fit
+        
+        data = [headers]
+        for index, candidate in enumerate(candidates, 1):
+            row = [
+                str(index),  # Serial number
+                _get_candidate_photo(candidate),
+                Paragraph(candidate.reg_number, normal_style),
+                Paragraph(candidate.full_name, normal_style),
+                Paragraph(candidate.occupation.name, normal_style),
+                Paragraph(candidate.registration_category, normal_style)
+            ]
+            if reg_category in ['formal', 'informal']:
+                row.append(candidate.level.name)
+            if reg_category in ['informal', 'modular']:
+                # Get count of modules through the reverse relationship
+                module_count = candidate.candidatemodule_set.count()
+                row.append(str(module_count))
+            row.append('')  # Empty signature field
+            data.append(row)
+        
+        # Calculate page width and margins
+        page_width = landscape(letter)[0]
+        left_margin = right_margin = 0.5*inch
+        available_width = page_width - (left_margin + right_margin)
+
+        # Base column widths (will be adjusted based on available space)
+        col_widths = [
+            0.4*inch,   # S/N - very narrow for numbers
+            1.0*inch,   # Photo - small square
+            1.8*inch,   # Reg No
+            2.2*inch,   # Full Name
+            1.4*inch,   # Occupation
+            1.0*inch,   # Reg Type
+        ]
+
+        # Add optional columns
+        if reg_category in ['Formal', 'Informal']:
+            col_widths.append(1.0*inch)  # Level
+        if reg_category in ['Informal', 'Modular']:
+            col_widths.append(0.8*inch)  # No. of Modules
+        col_widths.append(1.0*inch)  # Signature
+
+        # Adjust margins if needed
+        total_col_width = sum(col_widths)
+        if total_col_width > available_width:
+            # Scale down columns proportionally
+            scale_factor = available_width / total_col_width
+            col_widths = [w * scale_factor for w in col_widths]
+        
+        # Create and style the table
+        table = Table(data, colWidths=col_widths)
+        # Enhanced table styling
+        table.setStyle(TableStyle([
+            # Header styling
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),  # Blue header
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),  # Slightly smaller header
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            
+            # Cell styling
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),  # Smaller text for content
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),  # Smaller horizontal padding
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            
+            # Alignment
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # Center all cells
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            
+            # Borders
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),  # Thinner grid lines
+            ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#2563eb')),  # Header bottom border
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),  # Outer border
+            
+            # Specific column alignments
+            ('ALIGN', (2, 1), (2, -1), 'LEFT'),   # Left align reg numbers
+            ('ALIGN', (3, 1), (3, -1), 'LEFT'),   # Left align names
+            
+            # Alternating row colors (very subtle)
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+        ]))
+        elements.append(table)
+        
+        # Build PDF
+        doc.build(elements)
+        
+        # Get the value of the BytesIO buffer and return the PDF as a response
+        pdf = buffer.getvalue()
+        buffer.close()
+        response = HttpResponse(content_type='application/pdf')
+        filename = f'Registration List - {center.center_name} - {occupation.name} - {reg_category.title()}'
+        if reg_category in ['FORMAL', 'INFORMAL'] and level_id:
+            level = Level.objects.get(id=level_id)
+            filename += f' - {level.name}'
+        filename = filename.replace(' ', '_') + '.pdf'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response.write(pdf)
+        return response
+    
+    return render(request, 'reports/albums.html', {
+        'centers': centers,
+        'occupations': occupations,
+        'levels': levels
+    })
+
+def add_module(request, level_id):
+    level = get_object_or_404(Level, id=level_id)
+    occupation = level.occupation  # If Level has ForeignKey to Occupation
+
+    if request.method == 'POST':
+        form = ModuleForm(request.POST)
+        if form.is_valid():
+            module = form.save(commit=False)
+            module.level = level
+            module.occupation = occupation
+            module.save()
+            return redirect('occupation_detail', pk=occupation.pk)
+    else:
+        form = ModuleForm()
+
+    return render(request, 'modules/create.html', {'form': form, 'level': level})
+
+
+# Add Paper View
+def add_paper(request, level_id):
+    level = get_object_or_404(Level, id=level_id)
+    occupation = level.occupation  # If Level has ForeignKey to Occupation
+
+    if request.method == 'POST':
+        form = PaperForm(request.POST)
+        if form.is_valid():
+            paper = form.save(commit=False)
+            paper.level = level
+            paper.occupation = occupation
+            paper.save()
+            return redirect('occupation_detail', pk=occupation.pk)
+    else:
+        form = PaperForm()
+
+    return render(request, 'papers/create.html', {'form': form, 'level': level})
+
+def candidate_list(request):
+    candidates = Candidate.objects.select_related('occupation', 'assessment_center')
+    return render(request, 'candidates/list.html', {'candidates': candidates})
+
+
+def candidate_create(request):
+    if request.method == 'POST':
+        form = CandidateForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            return redirect('candidate_list')
+    else:
+        form = CandidateForm()
+    return render(request, 'candidates/create.html', {'form': form})
+
+def candidate_view(request, id):
+    candidate = get_object_or_404(Candidate, id=id)
+    return render(request, 'candidates/view.html', {'candidate': candidate})
+
+def edit_candidate(request, id):
+    candidate = get_object_or_404(Candidate, id=id)
+
+    if request.method == 'POST':
+        form = CandidateForm(request.POST, request.FILES, instance=candidate)
+        if form.is_valid():
+            form.save()
+            return redirect('candidate_view', id=candidate.id)
+    else:
+        form = CandidateForm(instance=candidate)
+
+    return render(request, 'candidates/edit.html', {'form': form, 'candidate': candidate})
+
+
+def enroll_candidate_view(request, id):
+    candidate = get_object_or_404(Candidate, id=id)
+
+    if request.method == 'POST':
+        form = EnrollmentForm(request.POST, candidate=candidate)
+        if form.is_valid():
+            registration_category = candidate.registration_category
+
+            # First, clear previous enrollments if any
+            CandidateLevel.objects.filter(candidate=candidate).delete()
+            CandidateModule.objects.filter(candidate=candidate).delete()
+
+            # Handle formal registration (level only)
+            if registration_category == 'Formal':
+                level = form.cleaned_data['level']
+                CandidateLevel.objects.create(candidate=candidate, level=level)
+                messages.success(request, f"{candidate.full_name} enrolled for {level.name}")
+
+            # Handle modular registration (must select 1–2 modules, Level 1 only)
+            elif registration_category == 'Modular':
+                modules = form.cleaned_data['modules']
+                if len(modules) > 2:
+                    messages.error(request, "You can only select up to 2 modules.")
+                else:
+                    for module in modules:
+                        CandidateModule.objects.create(candidate=candidate, module=module)
+                    messages.success(request, f"{candidate.full_name} enrolled for {len(modules)} module(s)")
+
+            # Handle informal registration (level + any number of modules)
+            elif registration_category == 'Informal':
+                level = form.cleaned_data['level']
+                modules = form.cleaned_data['modules']
+                CandidateLevel.objects.create(candidate=candidate, level=level)
+                for module in modules:
+                    CandidateModule.objects.create(candidate=candidate, module=module)
+                messages.success(request, f"{candidate.full_name} enrolled in {level.name} and selected {len(modules)} module(s)")
+
+            messages.success(request, "Candidate enrolled successfully.")
+            return redirect('candidate_view', id=candidate.id)
+
+    else:
+        form = EnrollmentForm(candidate=candidate)
+
+    return render(request, 'candidates/enroll.html', {
+        'form': form,
+        'candidate': candidate,
+    })
+
+from .models import Candidate, CandidateLevel, CandidateModule
+
+def candidate_view(request, id):
+    candidate = get_object_or_404(Candidate, id=id)
+
+    # Get enrolled level (if any)
+    level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
+
+    # Get enrolled modules (if any)
+    module_enrollments = CandidateModule.objects.filter(candidate=candidate)
+
+    context = {
+        'candidate': candidate,
+        'level_enrollment': level_enrollment,
+        'module_enrollments': module_enrollments,
+    }
+
+    return render(request, 'candidates/view.html', context)
+
+
+            
+

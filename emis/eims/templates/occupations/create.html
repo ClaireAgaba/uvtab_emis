@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="max-w-3xl mx-auto mt-10 bg-white p-6 shadow rounded">
+  <!-- Back Link -->
+  <a href="{% url 'occupation_list' %}" class="text-blue-600 hover:underline mb-4 inline-block">
+    ← Back to Occupations
+  </a>
+
+  <h1 class="text-2xl font-bold mb-6">Create Occupation</h1>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Left Column -->
+      <div class="space-y-4">
+        <div>
+          <label class="block font-medium mb-1">Occupation Code</label>
+          {{ form.code }}
+        </div>
+
+        <div>
+          <label class="block font-medium mb-1">Occupation Category</label>
+          {{ form.category }}
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div class="space-y-4">
+        <div>
+          <label class="block font-medium mb-1">Occupation Name</label>
+          {{ form.name }}
+        </div>
+
+        <div>
+          <label class="block font-medium mb-1">Occupation Structure Type</label>
+          {{ form.structure_type }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Levels Section (Full Width) -->
+    <div class="mt-6">
+      <label class="block font-medium mb-2">Levels</label>
+      <div class="bg-gray-50 p-4 rounded">
+        {{ form.levels }}
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="text-right mt-6">
+      <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+        Create Occupation
+      </button>
+      <a href="{% url 'occupation_list' %}" class="ml-4 text-gray-600 hover:underline">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+

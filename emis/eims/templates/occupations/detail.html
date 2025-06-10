@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<a href="{% url 'occupation_list' %}" class="text-blue-600 hover:underline mb-4 inline-block">
+  ← Back to Occupations
+</a>
+
+<h1 class="text-3xl font-bold mb-4">{{ occupation.name }} ({{ occupation.code }})</h1>
+
+<ul class="flex border-b mb-4">
+  <li class="mr-6"><a class="tab-link font-semibold text-blue-500" href="#general">General Information</a></li>
+  {% for level in levels %}
+    <li class="mr-6"><a class="tab-link" href="#level-{{ level.id }}">Level {{ level.name }}</a></li>
+  {% endfor %}
+</ul>
+
+<!-- General Info Tab -->
+<div id="general" class="tab-content mb-6">
+  <p><strong>Category:</strong> {{ occupation.category.name }}</p>
+  <p><strong>Structure Type:</strong> {{ occupation.get_structure_type_display }}</p>
+</div>
+
+<!-- Level Content Tabs -->
+{% for row in level_data %}
+  <div id="level-{{ row.level.id }}" class="tab-content mb-6">
+    <h2 class="text-xl font-semibold mb-2">Level {{ row.level.name }}</h2>
+
+    {% if occupation.structure_type == 'modules' %}
+      {% if row.content %}
+        <ul class="list-disc ml-6">
+          {% for module in row.content %}
+            <li>{{ module.name }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No modules added yet.</p>
+      {% endif %}
+      <a href="{% url 'add_module' row.level.id %}" class="mt-2 inline-block bg-blue-600 text-white px-4 py-2 rounded">+ Add Module</a>
+
+    {% else %}
+      {% if row.content %}
+        <ul class="list-disc ml-6">
+          {% for paper in row.content %}
+            <li>{{ paper.code }} - {{ paper.name }} ({{ paper.get_type_display }})</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No papers added yet.</p>
+      {% endif %}
+      <a href="{% url 'add_paper' row.level.id %}" class="mt-2 inline-block bg-blue-600 text-white px-4 py-2 rounded">+ Add Paper</a>
+    {% endif %}
+  </div>
+{% endfor %}
+
+<!-- Tab switching script -->
+<script>
+  const tabLinks = document.querySelectorAll(".tab-link");
+  const tabContents = document.querySelectorAll(".tab-content");
+
+  tabLinks.forEach(link => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const target = link.getAttribute("href").substring(1);
+
+      tabContents.forEach(tc => tc.style.display = "none");
+      document.getElementById(target).style.display = "block";
+
+      tabLinks.forEach(l => l.classList.remove("text-blue-500", "font-semibold"));
+      link.classList.add("text-blue-500", "font-semibold");
+    });
+  });
+
+  // Initialize first tab
+  tabContents.forEach((tc, i) => tc.style.display = i === 0 ? "block" : "none");
+</script>
+{% endblock %}

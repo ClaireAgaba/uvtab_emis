@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto mt-10 px-4">
+  <!-- Header Section -->
+  <div class="mb-8">
+      <a href="{% url 'occupation_list' %}" class="text-blue-600 hover:underline mb-4 inline-block">
+        ← Back to Occupations
+      </a>
+    <h1 class="text-3xl font-bold mt-4">{{ occupation.name }} <span class="text-gray-500">({{ occupation.code }})</span></h1>
+  </div>
+
+  <!-- General Info Card -->
+  <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+    <h2 class="text-xl font-semibold mb-4">General Information</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <p class="text-gray-600">Category</p>
+        <p class="text-lg">{{ occupation.category.name }}</p>
+      </div>
+      <div>
+        <p class="text-gray-600">Structure Type</p>
+        <p class="text-lg">{{ occupation.get_structure_type_display }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs Navigation -->
+  <div class="border-b border-gray-200">
+    <ul class="flex -mb-px">
+      {% for level in levels %}
+        <li class="mr-6">
+          <a class="tab-link py-4 px-1 border-b-2 {% if forloop.first %}border-blue-500 text-blue-600{% else %}border-transparent{% endif %} hover:border-gray-300" 
+             href="#level-{{ level.id }}">{{ level.name }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+<!-- Level Content Tabs -->
+{% for row in level_data %}
+  <div id="level-{{ row.level.id }}" class="tab-content mt-8 bg-white rounded-lg shadow-sm p-6">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-xl font-semibold">{{ row.level.name }} Content</h2>
+      {% if occupation.structure_type == 'modules' %}
+        <a href="{% url 'add_module' row.level.id %}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+          + Add Module
+        </a>
+      {% else %}
+        <a href="{% url 'add_paper' row.level.id %}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+          + Add Paper
+        </a>
+      {% endif %}
+    </div>
+
+    <div class="bg-gray-50 rounded-lg p-6">
+      {% if occupation.structure_type == 'modules' %}
+        {% if row.content %}
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for module in row.content %}
+              <div class="bg-white p-4 rounded-md shadow-sm">
+                <p class="font-medium">{{ module.name }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-gray-500 text-center py-8">No modules added yet.</p>
+        {% endif %}
+      {% else %}
+        {% if row.content %}
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for paper in row.content %}
+              <div class="bg-white p-4 rounded-md shadow-sm">
+                <p class="font-medium">{{ paper.code }}</p>
+                <p class="text-gray-600">{{ paper.name }}</p>
+                <p class="text-sm text-gray-500 mt-1">{{ paper.get_type_display }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-gray-500 text-center py-8">No papers added yet.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+
+<!-- Tab switching script -->
+<script>
+  const tabLinks = document.querySelectorAll(".tab-link");
+  const tabContents = document.querySelectorAll(".tab-content");
+
+  tabLinks.forEach(link => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const target = link.getAttribute("href").substring(1);
+
+      tabContents.forEach(tc => tc.style.display = "none");
+      document.getElementById(target).style.display = "block";
+
+      tabLinks.forEach(l => {
+        l.classList.remove("border-blue-500", "text-blue-600");
+        l.classList.add("border-transparent");
+      });
+      link.classList.remove("border-transparent");
+      link.classList.add("border-blue-500", "text-blue-600");
+    });
+  });
+
+  // Initialize first tab
+  tabContents.forEach((tc, i) => tc.style.display = i === 0 ? "block" : "none");
+</script>
+{% endblock %}
+

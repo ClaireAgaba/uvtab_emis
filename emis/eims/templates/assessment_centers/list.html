@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">Assessment Centers</h2>
+
+<form method="get" class="mb-4 flex gap-4">
+    <input type="text" name="search" placeholder="Search by name..." class="border p-2 rounded" value="{{ request.GET.search }}">
+    <select name="category" class="border p-2 rounded">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+            <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Filter</button>
+</form>
+
+<div class="mb-4 text-right">
+    <a href="{% url 'create_assessment_center' %}" class="bg-green-500 text-white px-4 py-2 rounded">+ Create Center</a>
+</div>
+
+
+<div class="overflow-x-auto">
+    
+  <table class="min-w-full bg-white rounded shadow">
+    <thead class="bg-gray-100 text-left text-sm font-medium text-gray-700">
+      <tr>
+        <th class="py-2 px-4">Center Number</th>
+        <th class="py-2 px-4">Center Name</th>
+        <th class="py-2 px-4">District</th>
+        <th class="py-2 px-4">Village</th>
+        <th class="py-2 px-4">Category</th>
+        <th class="py-2 px-4">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="text-sm text-gray-800">
+      {% for center in centers %}
+      <tr class="border-t">
+        <td class="py-2 px-4">{{ center.center_number }}</td>
+        <td class="py-2 px-4">{{ center.center_name }}</td>
+        <td class="py-2 px-4">{{ center.district.name }}</td>
+        <td class="py-2 px-4">{{ center.village.name }}</td>
+        <td class="py-2 px-4">{{ center.category.name }}</td>
+        <td class="py-2 px-4">
+          <a href="{% url 'assessment_center_view' center.pk %}" class="text-blue-600 hover:underline">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

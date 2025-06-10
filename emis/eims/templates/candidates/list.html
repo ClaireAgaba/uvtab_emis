@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto mt-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Candidates</h1>
+    <a href="{% url 'candidate_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Candidate</a>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="mb-4 bg-white p-4 shadow rounded grid grid-cols-1 md:grid-cols-4 gap-4">
+    <input type="text" name="search" value="{{ request.GET.search }}" placeholder="Search by name" class="border rounded px-3 py-2 w-full" />
+    
+    <select name="registration_category" class="border rounded px-3 py-2 w-full">
+      <option value="">All Categories</option>
+      <option value="formal" {% if request.GET.registration_category == 'formal' %}selected{% endif %}>Formal</option>
+      <option value="modular" {% if request.GET.registration_category == 'modular' %}selected{% endif %}>Modular</option>
+      <option value="informal" {% if request.GET.registration_category == 'informal' %}selected{% endif %}>Informal</option>
+    </select>
+
+    <select name="occupation" class="border rounded px-3 py-2 w-full">
+      <option value="">All Occupations</option>
+      {% for occupation in occupations %}
+        <option value="{{ occupation.id }}" {% if request.GET.occupation == occupation.id|stringformat:"s" %}selected{% endif %}>{{ occupation.name }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="assessment_center" class="border rounded px-3 py-2 w-full">
+      <option value="">All Centers</option>
+      {% for center in centers %}
+        <option value="{{ center.id }}" {% if request.GET.assessment_center == center.id|stringformat:"s" %}selected{% endif %}>{{ center.center_name }}</option>
+      {% endfor %}
+    </select>
+
+    <div class="md:col-span-4 text-right mt-2">
+      <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900">Filter</button>
+    </div>
+  </form>
+
+  <!-- Candidate Table -->
+  <div class="overflow-x-auto bg-white shadow rounded">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Reg No</th>
+          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Full Name</th>
+          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Occupation</th>
+          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Reg. Category</th>
+          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Center</th>
+          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for candidate in candidates %}
+        <tr>
+          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.reg_number }}</td>
+          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.full_name }}</td>
+          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.occupation.name }}</td>
+          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.get_registration_category_display }}</td>
+          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.assessment_center.name }}</td>
+          <td class="px-4 py-2 text-sm">
+            <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:underline">View</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="px-4 py-4 text-center text-gray-500">No candidates found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 px-4 py-8">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header Section -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">Generate Reports</h1>
+      <p class="mt-2 text-sm text-gray-600">Select a report type to generate</p>
+    </div>
+
+    <!-- Report Types Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Albums (Registration Lists) -->
+      <a href="{% url 'generate_album' %}" class="transform hover:scale-105 transition-transform duration-200">
+        <div class="bg-white rounded-lg shadow-sm p-6 text-center">
+          <div class="text-4xl mb-4">📓</div>
+          <h3 class="text-lg font-medium text-gray-900">Albums</h3>
+          <p class="mt-2 text-sm text-gray-600">Generate Registration Lists</p>
+        </div>
+      </a>
+
+      <!-- Transcripts -->
+      <a href="#" class="transform hover:scale-105 transition-transform duration-200">
+        <div class="bg-white rounded-lg shadow-sm p-6 text-center">
+          <div class="text-4xl mb-4">📝</div>
+          <h3 class="text-lg font-medium text-gray-900">Transcripts</h3>
+          <p class="mt-2 text-sm text-gray-600">Generate Academic Transcripts</p>
+        </div>
+      </a>
+
+      <!-- Certificates -->
+      <a href="#" class="transform hover:scale-105 transition-transform duration-200">
+        <div class="bg-white rounded-lg shadow-sm p-6 text-center">
+          <div class="text-4xl mb-4">🎓</div>
+          <h3 class="text-lg font-medium text-gray-900">Certificates</h3>
+          <p class="mt-2 text-sm text-gray-600">Generate Academic Certificates</p>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

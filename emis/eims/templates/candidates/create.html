@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div class="text-sm text-gray-500 mb-4">
+    <a href="{% url 'candidate_list' %}" class="text-blue-600 hover:underline">Candidates</a> /
+    
+</div>
+
+<div class="max-w-4xl mx-auto mt-10 bg-white p-6 shadow rounded">
+  <h1 class="text-2xl font-bold mb-6">Register New Candidate</h1>
+  <form method="post" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {% csrf_token %}
+    
+    <!-- Personal Details -->
+    <div>
+      <label class="block font-semibold mb-1">Full Name</label>
+      {{ form.full_name }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Passport Photo</label>
+      {{ form.passport_photo }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Date of Birth</label>
+      {{ form.date_of_birth }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Gender</label>
+      {{ form.gender }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Nationality</label>
+      {{ form.nationality }}
+    </div>
+
+    <!-- Contact & Location -->
+    <div>
+      <label class="block font-semibold mb-1">Contact</label>
+      {{ form.contact }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">District</label>
+      {{ form.district }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Village</label>
+      {{ form.village }}
+    </div>
+
+    <!-- Assessment Info -->
+    <div>
+      <label class="block font-semibold mb-1">Assessment Center</label>
+      {{ form.assessment_center }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Entry Year</label>
+      {{ form.entry_year }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Intake</label>
+      {{ form.intake }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Occupation</label>
+      {{ form.occupation }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Registration Category</label>
+      {{ form.registration_category }}
+    </div>
+
+    <!-- Assessment Dates -->
+    <div>
+      <label class="block font-semibold mb-1">Start Date</label>
+      {{ form.start_date }}
+    </div>
+
+    <div>
+      <label class="block font-semibold mb-1">Finish Date</label>
+      {{ form.finish_date }}
+    </div>
+
+    <div class="md:col-span-2">
+      <label class="block font-semibold mb-1">Assessment Date</label>
+      {{ form.assessment_date }}
+    </div>
+
+    <!-- Submit Button -->
+    <div class="md:col-span-2 text-right mt-4">
+      <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Save Candidate</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

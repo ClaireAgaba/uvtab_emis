@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="max-w-2xl mx-auto mt-8">
+  <h2 class="text-xl font-bold mb-4">Enroll Candidate</h2>
+
+  <form method="POST" class="bg-white shadow p-6 rounded">
+    {% csrf_token %}
+    <div class="space-y-4">
+      {% if form.level and not form.fields.level.widget.is_hidden %}
+        <div>
+          <label class="block font-medium mb-1">Level:</label>
+          {{ form.level }}
+        </div>
+      {% endif %}
+
+      {% if form.modules and not form.fields.modules.widget.is_hidden %}
+        <div>
+          <label class="block font-medium mb-1">Select Modules:</label>
+          {{ form.modules }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="mt-6">
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Enroll Candidate
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

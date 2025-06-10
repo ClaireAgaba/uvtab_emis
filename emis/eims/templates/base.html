@@ -1,0 +1,37 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EMIS Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- Navbar -->
+    {% if user.is_authenticated %}
+    <nav class="bg-white shadow-md p-4 flex justify-between items-center">
+      <div class="text-lg font-semibold text-gray-800">
+        <a href="{% url 'dashboard' %}" class="hover:text-blue-600">EMIS Dashboard</a>
+      </div>
+      <div class="flex items-center space-x-4">
+        <a href="{% url 'dashboard' %}" class="text-gray-700 hover:text-blue-600">Home</a>
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+            Logout
+          </button>
+        </form>
+      </div>
+    </nav>
+    {% endif %}
+    
+
+    <!-- Page Content -->
+    <div class="p-6">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+</body>
+</html>

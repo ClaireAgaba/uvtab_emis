@@ -1,0 +1,45 @@
+from django.urls import path
+from . import views
+from django.contrib.auth import views as auth_views
+
+urlpatterns = [
+    #path('create/', views.eims_create, name='eims_create'),
+    # add more views later
+
+    path('login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('', views.dashboard, name='dashboard'),
+    path('assessment-centers/', views.assessment_center_list, name='assessment_center_list'),
+    #path('assessment-centers/<int:pk>/', views.assessment_center_detail, name='assessment_center_detail'),
+    path('assessment-centers/create/', views.assessment_center_create, name='create_assessment_center'),
+    path('occupations/', views.occupation_list, name='occupation_list'),
+    path('occupations/create/', views.occupation_create, name='occupation_create'),
+    path('occupations/<int:pk>/', views.occupation_view, name='occupation_view'),
+    path('occupations/<int:pk>/detail/', views.occupation_detail, name='occupation_detail'),
+    path('modules/add/<int:level_id>/', views.add_module, name='add_module'),
+    path('papers/add/<int:level_id>/', views.add_paper, name='add_paper'),
+    path('candidates/', views.candidate_list, name='candidate_list'),
+    path('candidates/create/', views.candidate_create, name='candidate_create'),
+    path('candidates/<int:id>/', views.candidate_view, name='candidate_view'),
+    path('candidates/<int:id>/enroll/', views.enroll_candidate_view, name='enroll_candidate'),
+    path('candidates/<int:id>/edit/', views.edit_candidate, name='edit_candidate'), 
+    path('api/districts/<int:district_id>/villages/', views.district_villages_api, name='api_district_villages'),
+    path('assessment-centers/<int:id>/', views.assessment_center_view, name='assessment_center_view'),
+    path('assessment-centers/<int:id>/edit/', views.edit_assessment_center, name='edit_assessment_center'), 
+    path('modules/', views.module_list, name='module_list'),
+    path('papers/', views.paper_list, name='paper_list'),
+    path('papers/create/', views.paper_create, name='paper_create'),
+    path('papers/<int:pk>/edit/', views.paper_edit, name='paper_edit'),
+    path('modules/create/', views.module_create, name='module_create'),
+    
+    # Reports URLs
+    path('reports/', views.report_list, name='report_list'),
+    path('reports/albums/', views.generate_album, name='generate_album'),
+
+]    
+
+
+
+  
+
+
