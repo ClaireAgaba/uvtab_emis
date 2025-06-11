@@ -264,7 +264,7 @@ def generate_album(request):
         
         center_id = request.POST.get('center')
         occupation_id = request.POST.get('occupation')
-        reg_category = request.POST.get('registration_category', '').lower()
+        reg_category = request.POST.get('registration_category', '')
         level_id = request.POST.get('level')
         assessment_month = request.POST.get('assessment_month')
         assessment_year = request.POST.get('assessment_year')
