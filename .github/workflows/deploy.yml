@@ -25,7 +25,7 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cd /home/deploy/uvtab_emis/uvtab_emis
+          cd /home/deploy/uvtab_emis/uvtab_emis/emis
           git pull origin main
           source venv/bin/activate
           python manage.py migrate --noinput
