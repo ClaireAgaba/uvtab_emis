@@ -40,7 +40,7 @@
 <!-- Level Content Tabs -->
 {% for row in level_data %}
   <div id="level-{{ row.level.id }}" class="tab-content mt-8 bg-white rounded-lg shadow-sm p-6">
-    <div class="flex justify-between items-center mb-6">
+  <!--   <div class="flex justify-between items-center mb-6">
       <h2 class="text-xl font-semibold">{{ row.level.name }} Content</h2>
       {% if occupation.structure_type == 'modules' %}
         <a href="{% url 'add_module' row.level.id %}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
@@ -51,7 +51,7 @@
           + Add Paper
         </a>
       {% endif %}
-    </div>
+    </div> -->
 
     <div class="bg-gray-50 rounded-lg p-6">
       {% if occupation.structure_type == 'modules' %}
