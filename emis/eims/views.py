@@ -770,3 +770,14 @@ def village_create(request):
 def config_home(request):
     """Configuration home page showing available settings"""
     return render(request, 'configurations/config_home.html')
+
+def occupation_edit(request, pk):
+    occupation = get_object_or_404(Occupation, pk=pk)
+    if request.method == 'POST':
+        form = OccupationForm(request.POST, instance=occupation)
+        if form.is_valid():
+            form.save()
+            return redirect('occupation_detail', pk=occupation.pk)
+    else:
+        form = OccupationForm(instance=occupation)
+    return render(request, 'occupations/edit.html', {'form': form, 'occupation': occupation})

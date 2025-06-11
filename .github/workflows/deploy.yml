@@ -23,6 +23,9 @@ jobs:
             cd ${{ secrets.SERVER_PATH }}
             git pull origin main
             source venv/bin/activate
+            cd /home/deploy/uvtab_emis/uvtab_emis/emis
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
             sudo systemctl restart gunicorn
+
+          
