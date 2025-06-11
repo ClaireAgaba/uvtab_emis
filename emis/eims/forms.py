@@ -1,6 +1,6 @@
 from django import forms
-from .models import AssessmentCenter, Occupation, OccupationCategory, Module, Paper, Candidate, Level   
-from datetime import datetime
+from .models import AssessmentCenter, Occupation, OccupationCategory, Module, Paper, Candidate, Level, District, Village   
+from datetime import datetime   
 
 CURRENT_YEAR = datetime.now().year
 YEAR_CHOICES = [(year, year) for year in range(CURRENT_YEAR, CURRENT_YEAR - 30, -1)]
@@ -151,3 +151,59 @@ class EnrollmentForm(forms.Form):
             self.fields['level'].queryset = Level.objects.filter(occupations=candidate.occupation)
             self.fields['level'].required = True
             self.fields['modules'].required = True
+
+class DistrictForm(forms.ModelForm):
+    name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+            'placeholder': 'Enter district name'
+        }),
+        help_text='Enter the name of the district (max 100 characters)'
+    )
+    region = forms.CharField(
+        max_length=50,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+            'placeholder': 'Enter region name'
+        }),
+        help_text='Enter the region where this district is located'
+    )
+
+    class Meta:
+        model = District
+        fields = ['name', 'region']
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if District.objects.filter(name__iexact=name).exclude(id=self.instance.id if self.instance else None).exists():
+            raise forms.ValidationError('A district with this name already exists.')
+        return name
+
+class VillageForm(forms.ModelForm):
+    name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+            'placeholder': 'Enter village name'
+        }),
+        help_text='Enter the name of the village (max 100 characters)'
+    )
+    district = forms.ModelChoiceField(
+        queryset=District.objects.all(),
+        widget=forms.Select(attrs={
+            'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        }),
+        help_text='Select the district where this village is located'
+    )
+
+    class Meta:
+        model = Village
+        fields = ['name', 'district']
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        district = self.cleaned_data.get('district')
+        if district and Village.objects.filter(name__iexact=name, district=district).exclude(id=self.instance.id if self.instance else None).exists():
+            raise forms.ValidationError('A village with this name already exists in the selected district.')
+        return name

@@ -27,6 +27,10 @@ class Village(models.Model):
     name = models.CharField(max_length=100)
     district = models.ForeignKey(District, on_delete=models.CASCADE)
 
+    class Meta:
+        unique_together = ('name', 'district')
+        ordering = ['district', 'name']
+
     def __str__(self):
         return f"{self.name} ({self.district.name})"
 

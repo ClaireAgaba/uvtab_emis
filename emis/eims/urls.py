@@ -31,8 +31,11 @@ urlpatterns = [
     path('papers/create/', views.paper_create, name='paper_create'),
     path('papers/<int:pk>/edit/', views.paper_edit, name='paper_edit'),
     path('modules/create/', views.module_create, name='module_create'),
-    
-    # Reports URLs
+    path('config/', views.config_home, name='config_home'),
+    path('config/districts/', views.district_list, name='district_list'),
+    path('config/districts/create/', views.district_create, name='district_create'),
+    path('config/villages/', views.village_list, name='village_list'),
+    path('config/villages/create/', views.village_create, name='village_create'),
     path('reports/', views.report_list, name='report_list'),
     path('reports/albums/', views.generate_album, name='generate_album'),
 

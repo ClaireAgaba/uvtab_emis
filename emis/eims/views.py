@@ -1,10 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
-from .models import AssessmentCenter, Candidate, Occupation, AssessmentCenterCategory, Level, Module, Paper, CandidateLevel, CandidateModule, Village
-from .forms import AssessmentCenterForm, OccupationForm, ModuleForm, PaperForm, CandidateForm, EnrollmentForm
+from django.urls import reverse
+from .models import AssessmentCenter, Candidate, Occupation, AssessmentCenterCategory, Level, Module, Paper, CandidateLevel, CandidateModule, Village, District
+from .forms import AssessmentCenterForm, OccupationForm, ModuleForm, PaperForm, CandidateForm, EnrollmentForm, DistrictForm, VillageForm
 from django.contrib import messages 
-from reportlab.lib import colors
+from reportlab.lib import colors    
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -711,6 +712,61 @@ def candidate_view(request, id):
 
     return render(request, 'candidates/view.html', context)
 
+def district_list(request):
+    districts = District.objects.all()
+    return render(request, 'configurations/district_list.html', {'districts': districts})
 
-            
+def district_create(request):
+    form = DistrictForm(request.POST or None)
+    if form.is_valid():
+        form.save()
+        return redirect('district_list')
+    return render(request, 'configurations/district_form.html', {'form': form})
 
+def village_list(request):
+    district_id = request.GET.get('district')
+    villages = Village.objects.select_related('district').all()
+    
+    if district_id:
+        villages = villages.filter(district_id=district_id)
+        district = District.objects.get(id=district_id)
+        context = {
+            'villages': villages,
+            'current_district': district
+        }
+    else:
+        districts = District.objects.all()
+        context = {
+            'villages': villages,
+            'districts': districts
+        }
+    
+    return render(request, 'configurations/village_list.html', context)
+
+def village_create(request):
+    district_id = request.GET.get('district')
+    initial = {}
+    
+    if district_id:
+        try:
+            district = District.objects.get(id=district_id)
+            initial['district'] = district
+        except District.DoesNotExist:
+            pass
+    
+    form = VillageForm(request.POST or None, initial=initial)
+    if form.is_valid():
+        village = form.save()
+        if district_id:
+            return redirect(f'{reverse("village_list")}?district={district_id}')
+        return redirect('village_list')
+    
+    context = {'form': form}
+    if district_id and 'district' in initial:
+        context['district'] = initial['district']
+    
+    return render(request, 'configurations/village_form.html', context)
+
+def config_home(request):
+    """Configuration home page showing available settings"""
+    return render(request, 'configurations/config_home.html')
