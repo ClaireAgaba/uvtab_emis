@@ -112,21 +112,54 @@
         </div>
       </form>
     </div>
-  </div>
-</div>
-
-<script>
-function toggleLevelField() {
-  const regCategory = document.getElementById('registration_category').value;
-  const levelField = document.getElementById('level_field');
-  
-  if (regCategory === 'Formal' || regCategory === 'Informal') {
-    levelField.style.display = 'block';
-    document.getElementById('level').required = true;
-  } else {
-    levelField.style.display = 'none';
-    document.getElementById('level').required = false;
-  }
-}
-</script>
+  {% load static %}
+<a href="/eims/reports/" style="display:inline-block;margin:16px 0 0 0;padding:6px 18px;background:#2563eb;color:#fff;border-radius:4px;text-decoration:none;font-weight:500;">&larr; Back to Reports</a>
+{% if pages %}
+  {% for candidates in pages %}
+    {% if forloop.first %}
+      <!-- HEADER/INFO ONLY ON FIRST PAGE -->
+      <div style="text-align: center;">
+        <img src="{% static 'images/uvtab_logo.png' %}" alt="Logo" style="height: 60px;" />
+        <h2>UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD</h2>
+        <h3>Registered Candidates for June 2025 Assessment</h3>
+        <!-- Add other info as needed -->
+      </div>
+    {% endif %}
+    <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
+      <thead>
+        <tr>
+          <th>S/N</th>
+          <th>Photo</th>
+          <th>Reg No.</th>
+          <th>Full Name</th>
+          <th>Occupation</th>
+          <th>Reg Type</th>
+          <th>Signature</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for candidate in candidates %}
+        <tr>
+          <td>{{ forloop.parentloop.counter0|add:forloop.counter }}</td>
+          <td>
+            {% if candidate.photo %}
+              <img src="{{ candidate.photo.url }}" alt="Photo" style="height: 60px;" />
+            {% else %}
+              N/A
+            {% endif %}
+          </td>
+          <td>{{ candidate.reg_no }}</td>
+          <td>{{ candidate.full_name }}</td>
+          <td>{{ candidate.occupation }}</td>
+          <td>{{ candidate.reg_type }}</td>
+          <td><!-- Signature field, if any --></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if not forloop.last %}
+      <div style="page-break-after: always;"></div>
+    {% endif %}
+  {% endfor %}
+{% endif %}
 {% endblock %}

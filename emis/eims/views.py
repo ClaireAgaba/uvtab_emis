@@ -587,10 +587,18 @@ def generate_album(request):
         response.write(pdf)
         return response
     
+    pages = None
+    if request.method == 'POST':
+        candidates = Candidate.objects.all()
+        def chunked(lst, n):
+            for i in range(0, len(lst), n):
+                yield lst[i:i + n]
+        pages = list(chunked(list(candidates), 5))
     return render(request, 'reports/albums.html', {
         'centers': centers,
         'occupations': occupations,
-        'levels': levels
+        'levels': levels,
+        'pages': pages,
     })
 
 def add_module(request, level_id):
