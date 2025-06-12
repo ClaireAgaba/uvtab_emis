@@ -530,28 +530,31 @@ def generate_album(request):
             scale_factor = available_width / total_col_width
             col_widths = [w * scale_factor for w in col_widths]
 
+        # Defensive: ensure all candidate rows have the same length as headers
+        for r in candidate_rows:
+            while len(r) < len(headers):
+                r.append('')
+            while len(r) > len(headers):
+                r.pop()
+
         # Paginate candidate rows into pages
         pages = list(chunked(candidate_rows, candidates_per_page))
         for page_num, page_rows in enumerate(pages):
-            if page_num == 0:
-                # First page: add headers
-                data = [headers] + page_rows
-            else:
-                # Subsequent pages: no headers
-                data = page_rows
+            # Always include only the column headers at the top of each page
+            data = [headers] + page_rows
             table = Table(data, colWidths=col_widths)
             table.setStyle(TableStyle([
-                # Header styling (only if present)
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')) if page_num == 0 else (),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white) if page_num == 0 else (),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold') if page_num == 0 else (),
-                ('FONTSIZE', (0, 0), (-1, 0), 9) if page_num == 0 else (),
-                ('TOPPADDING', (0, 0), (-1, 0), 5) if page_num == 0 else (),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 5) if page_num == 0 else (),
+                # Header styling (only for first row)
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('TOPPADDING', (0, 0), (-1, 0), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
                 # Row style
-                ('FONTSIZE', (0, 1 if page_num == 0 else 0), (-1, -1), 7),
-                ('TOPPADDING', (0, 1 if page_num == 0 else 0), (-1, -1), 1),
-                ('BOTTOMPADDING', (0, 1 if page_num == 0 else 0), (-1, -1), 1),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('TOPPADDING', (0, 1), (-1, -1), 1),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
                 ('LEFTPADDING', (0, 0), (-1, -1), 2),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 2),
                 # Alignment
@@ -559,13 +562,13 @@ def generate_album(request):
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 # Borders
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#2563eb')) if page_num == 0 else (),
+                ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#2563eb')),
                 ('BOX', (0, 0), (-1, -1), 1, colors.black),
                 # Specific column alignments
-                ('ALIGN', (2, 1 if page_num == 0 else 0), (2, -1), 'LEFT'),
-                ('ALIGN', (3, 1 if page_num == 0 else 0), (3, -1), 'LEFT'),
+                ('ALIGN', (2, 1), (2, -1), 'LEFT'),
+                ('ALIGN', (3, 1), (3, -1), 'LEFT'),
                 # Alternating row colors
-                ('ROWBACKGROUNDS', (0, 1 if page_num == 0 else 0), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
             ]))
             elements.append(table)
             # Add page break except after last page
