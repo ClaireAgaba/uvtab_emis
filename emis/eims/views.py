@@ -352,7 +352,9 @@ def generate_album(request):
         
         # Create PDF
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
+                               rightMargin=0.5*inch, leftMargin=0.5*inch,
+                               topMargin=0.3*inch, bottomMargin=0.5*inch)
         elements = []
         
         # Create header styles
@@ -406,7 +408,8 @@ def generate_album(request):
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
         elements.append(contact_table)
-        elements.append(Spacer(1, 12))
+        # Reduced or removed spacer to save vertical space
+        # elements.append(Spacer(1, 0.3*inch))  # Space after logo/contact
         
         # Second row: UVTAB full name
         title_style = ParagraphStyle(
