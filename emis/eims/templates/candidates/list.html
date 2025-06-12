@@ -26,6 +26,7 @@
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-100">
         <tr>
+          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Image</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Reg No</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Full Name</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Occupation</th>
@@ -35,6 +36,7 @@
         </tr>
         <tr>
           <form method="get">
+            <th></th> <!-- No filter for image -->
             <th class="px-2 py-1">
               <input type="text" name="reg_number" value="{{ request.GET.reg_number }}" placeholder="Search Reg No" class="border px-2 py-1 w-full" />
             </th>
@@ -66,7 +68,7 @@
               </select>
             </th>
             <th class="px-2 py-1">
-              <button type="submit" class="bg-blue-500 text-white px-3 py-1 rounded">Filter</button>
+              <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Filter</button>
             </th>
           </form>
         </tr>
@@ -74,6 +76,15 @@
       <tbody class="divide-y divide-gray-100">
         {% for candidate in candidates %}
         <tr>
+          <td class="px-4 py-2 whitespace-nowrap">
+            {% if candidate.passport_photo %}
+              <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-12 w-12 object-cover rounded" />
+            {% else %}
+              <div class="h-12 w-12 bg-gray-200 rounded flex items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              </div>
+            {% endif %}
+          </td>
           <td class="px-4 py-2 whitespace-nowrap">{{ candidate.reg_number }}</td>
           <td class="px-4 py-2">{{ candidate.full_name }}</td>
           <td class="px-4 py-2">{{ candidate.occupation.name }}</td>
