@@ -17,6 +17,27 @@
   <table class="min-w-full bg-white border">
     <thead>
       <tr>
+        <form method="get">
+          <th class="py-2 px-4 border">
+            <input type="text" name="code" value="{{ request.GET.code }}" class="border px-2 py-1 w-full" placeholder="Filter code">
+          </th>
+          <th class="py-2 px-4 border">
+            <input type="text" name="name" value="{{ request.GET.name }}" class="border px-2 py-1 w-full" placeholder="Filter name">
+          </th>
+          <th class="py-2 px-4 border">
+            <select name="structure" class="border px-2 py-1 w-full">
+              <option value="">All</option>
+              {% for value, label in structure_choices %}
+                <option value="{{ value }}" {% if request.GET.structure == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </th>
+          <th class="py-2 px-4 border">
+            <button type="submit" class="bg-blue-500 text-white px-3 py-1 rounded">Filter</button>
+          </th>
+        </form>
+      </tr>
+      <tr>
         <th class="py-2 px-4 border">Code</th>
         <th class="py-2 px-4 border">Name</th>
         <th class="py-2 px-4 border">Structure</th>
@@ -28,7 +49,7 @@
       <tr>
         <td class="border px-4 py-2">{{ occ.code }}</td>
         <td class="border px-4 py-2">{{ occ.name }}</td>
-        <td class="border px-4 py-2">{{ occ.structure_type }}</td>
+        <td class="border px-4 py-2">{{ occ.get_structure_type_display }}</td>
         <td class="border px-4 py-2">
           <a href="{% url 'occupation_detail' occ.pk %}" class="text-blue-600">View</a>
         </td>

@@ -105,7 +105,21 @@ def edit_assessment_center(request, id):
 
 def occupation_list(request):
     occupations = Occupation.objects.all()
-    return render(request, 'occupations/list.html', {'occupations': occupations})
+    code = request.GET.get('code', '').strip()
+    name = request.GET.get('name', '').strip()
+    structure = request.GET.get('structure', '').strip()
+
+    if code:
+        occupations = occupations.filter(code__icontains=code)
+    if name:
+        occupations = occupations.filter(name__icontains=name)
+    if structure:
+        occupations = occupations.filter(structure_type=structure)
+
+    return render(request, 'occupations/list.html', {
+        'occupations': occupations,
+        'structure_choices': Occupation.STRUCTURE_CHOICES,
+    })
 
 def occupation_create(request):
     if request.method == 'POST':
@@ -625,7 +639,34 @@ def candidate_list(request):
             candidates = candidates.filter(assessment_center=center_rep.center)
         except CenterRepresentative.DoesNotExist:
             candidates = candidates.none()
-    return render(request, 'candidates/list.html', {'candidates': candidates})
+
+    # Filtering logic
+    reg_number = request.GET.get('reg_number', '').strip()
+    search = request.GET.get('search', '').strip()
+    occupation = request.GET.get('occupation', '').strip()
+    registration_category = request.GET.get('registration_category', '').strip()
+    assessment_center = request.GET.get('assessment_center', '').strip()
+
+    if reg_number:
+        candidates = candidates.filter(reg_number__icontains=reg_number)
+    if search:
+        candidates = candidates.filter(full_name__icontains=search)
+    if occupation:
+        candidates = candidates.filter(occupation_id=occupation)
+    if registration_category:
+        candidates = candidates.filter(registration_category=registration_category)
+    if assessment_center:
+        candidates = candidates.filter(assessment_center_id=assessment_center)
+
+    from .models import Occupation, AssessmentCenter
+    occupations = Occupation.objects.all()
+    centers = AssessmentCenter.objects.all()
+
+    return render(request, 'candidates/list.html', {
+        'candidates': candidates,
+        'occupations': occupations,
+        'centers': centers,
+    })
 
 
 def candidate_create(request):
