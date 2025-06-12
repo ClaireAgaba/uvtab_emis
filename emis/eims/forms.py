@@ -140,32 +140,6 @@ class CandidateForm(forms.ModelForm):
                 raise ValidationError("Informal candidates cannot be registered for paper-based occupations.")
 
 
-""" class EnrollmentForm(forms.Form):
-    level = forms.ModelChoiceField(queryset=Level.objects.none(), required=False)
-    modules = forms.ModelMultipleChoiceField(queryset=Module.objects.none(), required=False)
-
-    def __init__(self, *args, **kwargs):
-        candidate = kwargs.pop('candidate')  # This is where the error came from
-        super().__init__(*args, **kwargs)
-
-        if candidate.registration_category == 'Formal':
-            self.fields['level'].queryset = Level.objects.filter(occupations=candidate.occupation)
-            self.fields['level'].required = True
-            self.fields['modules'].widget = forms.HiddenInput()
-
-
-        elif candidate.registration_category == 'Modular':
-            level = Level.objects.get(name='Level 1')  # since modular is always Level 1
-            modules = Module.objects.filter(level=level, occupation=candidate.occupation)
-            self.fields['modules'].queryset = modules
-            self.fields['modules'].required = True
-
-
-        elif candidate.registration_category == 'Informal':
-            self.fields['level'].queryset = Level.objects.filter(occupations=candidate.occupation)
-            self.fields['level'].required = True
-            self.fields['modules'].required = True """
-
 class EnrollmentForm(forms.Form):
     level = forms.ModelChoiceField(queryset=Level.objects.all(), required=False, label='Level')
     modules = forms.ModelMultipleChoiceField(
@@ -200,7 +174,7 @@ class EnrollmentForm(forms.Form):
                 self.fields['modules'].widget = forms.HiddenInput()  # Hide modules for formal candidates
 
 
-class DistrictForm(forms.ModelForm):
+""" class DistrictForm(forms.ModelForm):
     name = forms.CharField(
         max_length=100,
         widget=forms.TextInput(attrs={
@@ -221,6 +195,33 @@ class DistrictForm(forms.ModelForm):
     class Meta:
         model = District
         fields = ['name', 'region']
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if District.objects.filter(name__iexact=name).exclude(id=self.instance.id if self.instance else None).exists():
+            raise forms.ValidationError('A district with this name already exists.')
+        return name """
+
+class DistrictForm(forms.ModelForm):
+    name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+            'placeholder': 'Enter district name'
+        }),
+        help_text='Enter the name of the district (max 100 characters)'
+    )
+    # REMOVE this:
+    # region = forms.CharField(...)
+
+    class Meta:
+        model = District
+        fields = ['name', 'region']
+        widgets = {
+            'region': forms.Select(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            })
+        }
 
     def clean_name(self):
         name = self.cleaned_data.get('name')
