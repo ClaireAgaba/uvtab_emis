@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<a href="{% url 'user_home' %}" class="text-sm text-gray-600 hover:underline block mb-2">&larr; Back to Users</a>
+<div class="max-w-5xl mx-auto mt-10">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Support Staff</h1>
+    <a href="{% url 'create_support_staff' %}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">+ Create</a>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full bg-white rounded-lg shadow border border-gray-200">
+      <thead>
+        <tr class="bg-gray-100 text-gray-700">
+          <th class="py-3 px-4 text-left border-b border-gray-200">Name</th>
+          <th class="py-3 px-4 text-left border-b border-gray-200">Department</th>
+          <th class="py-3 px-4 text-left border-b border-gray-200">Contact</th>
+          <th class="py-3 px-4 text-left border-b border-gray-200">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for staff in support_staff %}
+        <tr class="hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
+          <td class="py-2 px-4 border-r border-gray-100">{{ staff.user.get_full_name }}</td>
+          <td class="py-2 px-4 border-r border-gray-100">{{ staff.department }}</td>
+          <td class="py-2 px-4 border-r border-gray-100">{{ staff.contact }}</td>
+          <td class="py-2 px-4 space-x-2">
+            <a href="{% url 'view_support_staff_detail' staff.pk %}" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">View</a>
+            <a href="{% url 'edit_support_staff' staff.pk %}" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded">Edit</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="py-4 text-center text-gray-500">No support staff found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
 
+
 urlpatterns = [
     #path('create/', views.eims_create, name='eims_create'),
     # add more views later
@@ -39,11 +40,20 @@ urlpatterns = [
     path('config/villages/create/', views.village_create, name='village_create'),
     path('reports/', views.report_list, name='report_list'),
     path('reports/albums/', views.generate_album, name='generate_album'),
+    path('users/', views.user_home, name='user_home'),
+    # Center Representatives
+    path('users/center-representatives/', views.view_center_reps, name='view_center_reps'),
+    path('users/center-representatives/create/', views.create_center_rep, name='create_center_rep'),
+    path('users/center-representatives/<int:pk>/', views.view_center_rep_detail, name='view_center_rep'),
+    path('users/center-representatives/<int:pk>/edit/', views.edit_center_rep, name='edit_center_rep'),
+    # Support Staff
+    path('users/support-staff/', views.view_support_staff, name='view_support_staff'),
+    path('users/support-staff/create/', views.create_support_staff, name='create_support_staff'),
+    path('users/support-staff/<int:pk>/', views.view_support_staff_detail, name='view_support_staff_detail'),
+    path('users/support-staff/<int:pk>/edit/', views.edit_support_staff, name='edit_support_staff'),
 
-]    
+ ]    
 
 
 
   
-
-

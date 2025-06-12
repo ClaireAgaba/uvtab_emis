@@ -9,6 +9,20 @@
   </h1>
 
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% if "SupportStaff" in group_names or "CenterRep" in group_names %}
+      <a href="{% url 'candidate_list' %}">
+        <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center">
+          <div class="text-4xl text-blue-600 mb-3">🎓</div>
+          <div class="text-lg font-medium">Candidates</div>
+        </div>
+      </a>
+      <a href="{% url 'report_list' %}">
+        <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center">
+          <div class="text-4xl text-purple-600 mb-3">📊</div>
+          <div class="text-lg font-medium">Reports</div>
+        </div>
+      </a>
+    {% else %}
     <a href="{% url 'candidate_list' %}">
     <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center">
       <div class="text-4xl text-blue-600 mb-3">🎓</div>
@@ -43,7 +57,14 @@
         <div class="text-lg font-medium">Configuration</div>
       </div>
     </a>
-    
+
+    <a href="{% url 'user_home' %}">
+      <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center">
+        <div class="text-4xl text-blue-600 mb-3">👤</div>
+        <div class="text-lg font-medium">Users</div>
+      </div>
+    </a>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

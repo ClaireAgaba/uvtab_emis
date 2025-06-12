@@ -19,7 +19,7 @@
           <p class="mt-2 text-sm text-gray-600">Generate Registration Lists</p>
         </div>
       </a>
-
+      {% if not 'CenterRep' in group_names %}
       <!-- Transcripts -->
       <a href="#" class="transform hover:scale-105 transition-transform duration-200">
         <div class="bg-white rounded-lg shadow-sm p-6 text-center">
@@ -28,7 +28,6 @@
           <p class="mt-2 text-sm text-gray-600">Generate Academic Transcripts</p>
         </div>
       </a>
-
       <!-- Certificates -->
       <a href="#" class="transform hover:scale-105 transition-transform duration-200">
         <div class="bg-white rounded-lg shadow-sm p-6 text-center">
@@ -37,6 +36,7 @@
           <p class="mt-2 text-sm text-gray-600">Generate Academic Certificates</p>
         </div>
       </a>
+      {% endif %}
     </div>
   </div>
 </div>

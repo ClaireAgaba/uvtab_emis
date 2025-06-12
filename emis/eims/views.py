@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from .forms import SupportStaffForm, CenterRepForm
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 from django.urls import reverse
@@ -18,8 +19,9 @@ from django.conf import settings
 
 
 @login_required
-def dashboard(request):     
-    return render(request, 'dashboard.html')
+def dashboard(request):
+    group_names = list(request.user.groups.values_list('name', flat=True))
+    return render(request, 'dashboard.html', {'group_names': group_names})
 
 def district_villages_api(request, district_id):
     villages = Village.objects.filter(district_id=district_id).values('id', 'name')
@@ -225,7 +227,8 @@ def paper_edit(request, pk):
 
 def report_list(request):
     """Main reports dashboard showing available reports"""
-    return render(request, 'reports/list.html')
+    group_names = list(request.user.groups.values_list('name', flat=True))
+    return render(request, 'reports/list.html', {'group_names': group_names})
 
 def _get_candidate_photo(candidate):
     """Helper function to get and format candidate photo for PDF"""
@@ -614,17 +617,25 @@ def add_paper(request, level_id):
 
 def candidate_list(request):
     candidates = Candidate.objects.select_related('occupation', 'assessment_center')
+    # Restrict for Center Representatives
+    if request.user.groups.filter(name='CenterRep').exists():
+        from .models import CenterRepresentative
+        try:
+            center_rep = CenterRepresentative.objects.get(user=request.user)
+            candidates = candidates.filter(assessment_center=center_rep.center)
+        except CenterRepresentative.DoesNotExist:
+            candidates = candidates.none()
     return render(request, 'candidates/list.html', {'candidates': candidates})
 
 
 def candidate_create(request):
     if request.method == 'POST':
-        form = CandidateForm(request.POST, request.FILES)
+        form = CandidateForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             form.save()
             return redirect('candidate_list')
     else:
-        form = CandidateForm()
+        form = CandidateForm(user=request.user)
     return render(request, 'candidates/create.html', {'form': form})
 
 def candidate_view(request, id):
@@ -781,3 +792,75 @@ def occupation_edit(request, pk):
     else:
         form = OccupationForm(instance=occupation)
     return render(request, 'occupations/edit.html', {'form': form, 'occupation': occupation})
+
+def create_center_rep(request):
+    if request.method == 'POST':
+        form = CenterRepForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('view_center_reps')
+    else:
+        form = CenterRepForm()
+    return render(request, 'users/center_representatives/create_center_rep.html', {'form': form})
+
+def create_support_staff(request):
+    if request.method == 'POST':
+        form = SupportStaffForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('view_support_staff')
+    else:
+        form = SupportStaffForm()
+    return render(request, 'users/support_staff/create_support_staff.html', {'form': form})
+
+
+def user_home(request):
+    return render(request, 'users/user_home.html')
+
+
+def view_center_reps(request):
+    from .models import CenterRepresentative
+    center_reps = CenterRepresentative.objects.select_related('user', 'center').all()
+    return render(request, 'users/center_representatives/list_center_rep.html', {'center_reps': center_reps})
+
+def view_center_rep_detail(request, pk):
+    from .models import CenterRepresentative
+    rep = CenterRepresentative.objects.select_related('user', 'center').get(pk=pk)
+    return render(request, 'users/center_representatives/view_center_rep.html', {'rep': rep})
+
+def edit_center_rep(request, pk):
+    from .models import CenterRepresentative
+    from .forms import CenterRepForm
+    rep = CenterRepresentative.objects.select_related('user', 'center').get(pk=pk)
+    if request.method == 'POST':
+        form = CenterRepForm(request.POST, instance=rep)
+        if form.is_valid():
+            form.save()
+            return redirect('view_center_rep', pk=rep.pk)
+    else:
+        form = CenterRepForm(instance=rep)
+    return render(request, 'users/center_representatives/edit_center_rep.html', {'form': form, 'rep': rep})
+
+def view_support_staff(request):
+    from .models import SupportStaff
+    support_staff = SupportStaff.objects.select_related('user').all()
+    return render(request, 'users/support_staff/list_support_staff.html', {'support_staff': support_staff})
+
+def view_support_staff_detail(request, pk):
+    from .models import SupportStaff
+    staff = SupportStaff.objects.select_related('user').get(pk=pk)
+    return render(request, 'users/support_staff/view_support_staff.html', {'staff': staff})
+
+def edit_support_staff(request, pk):
+    from .models import SupportStaff
+    from .forms import SupportStaffForm, CenterRepForm
+    staff = SupportStaff.objects.select_related('user').get(pk=pk)
+    if request.method == 'POST':
+        form = SupportStaffForm(request.POST, instance=staff)
+        if form.is_valid():
+            form.save()
+            return redirect('view_support_staff_detail', pk=staff.pk)
+    else:
+        form = SupportStaffForm(instance=staff)
+    return render(request, 'users/support_staff/edit_support_staff.html', {'form': form, 'staff': staff})
+

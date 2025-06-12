@@ -1,5 +1,6 @@
 from django import forms
-from .models import AssessmentCenter, Occupation, OccupationCategory, Module, Paper, Candidate, Level, District, Village   
+from django.contrib.auth.models import User, Group
+from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff
 from datetime import datetime   
 
 CURRENT_YEAR = datetime.now().year
@@ -82,6 +83,19 @@ class CandidateForm(forms.ModelForm):
         choices=YEAR_CHOICES,
         widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'})
     )
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user and user.groups.filter(name='CenterRep').exists():
+            from .models import CenterRepresentative
+            try:
+                center_rep = CenterRepresentative.objects.get(user=user)
+                self.fields['assessment_center'].queryset = self.fields['assessment_center'].queryset.filter(pk=center_rep.center.pk)
+                self.fields['assessment_center'].initial = center_rep.center.pk
+                self.fields['assessment_center'].disabled = True
+            except CenterRepresentative.DoesNotExist:
+                self.fields['assessment_center'].queryset = self.fields['assessment_center'].queryset.none()
     class Meta:
         model = Candidate
         fields = '__all__'
@@ -207,3 +221,81 @@ class VillageForm(forms.ModelForm):
         if district and Village.objects.filter(name__iexact=name, district=district).exclude(id=self.instance.id if self.instance else None).exists():
             raise forms.ValidationError('A village with this name already exists in the selected district.')
         return name
+
+
+class CenterRepForm(forms.ModelForm):
+    class Meta:
+        model = CenterRepresentative
+        fields = ['name', 'contact', 'center']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'}),
+            'contact': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'}),
+            'center': forms.Select(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'})
+        }
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        name = self.cleaned_data.get('name', '')
+        center = self.cleaned_data['center']
+        center_number = center.center_number
+        email = f"{center_number}@uvtab.go.ug"
+        if not profile.pk or not getattr(profile, 'user', None):
+            # Creating new CenterRep and User
+            password = "Uvtab@2025"
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password,
+                first_name=name
+            )
+            group = Group.objects.get(name='CenterRep')
+            user.groups.add(group)
+            profile.user = user
+        else:
+            # Editing existing CenterRep: update user fields, but do not change username/email
+            user = profile.user
+            user.first_name = name
+            user.save()
+        if commit:
+            profile.save()
+        return profile
+
+class SupportStaffForm(forms.ModelForm):
+    class Meta:
+        model = SupportStaff
+        fields = ['name', 'contact', 'department']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'}),
+            'contact': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'}),
+            'department': forms.Select(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'})
+        }
+
+    def save(self, commit=True):
+        from django.utils.text import slugify
+        base_username = slugify(self.cleaned_data.get('name', 'support'))
+        if not base_username:
+            base_username = 'support'
+        username = f"{base_username}.support"
+        email = f"{username}@uvtab.go.ug"
+        # Ensure uniqueness
+        original_username = username
+        original_email = email
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{original_username}{counter}"
+            email = f"{username}@uvtab.go.ug"
+            counter += 1
+        password = "uvtab"
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            first_name=self.cleaned_data.get('name', '')
+        )
+        group = Group.objects.get(name='SupportStaff')
+        user.groups.add(group)
+        profile = super().save(commit=False)
+        profile.user = user
+        if commit:
+            profile.save()
+        return profile
