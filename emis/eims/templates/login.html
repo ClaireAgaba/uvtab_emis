@@ -1,33 +1,69 @@
 {% extends "base.html" %}
 {% load widget_tweaks %}
+{% load static %}
 
 
 {% block content %}
 <div class="min-h-screen flex items-center justify-center bg-gray-100">
-  <div class="bg-white shadow-md rounded-xl p-8 w-full max-w-md">
-    <h2 class="text-2xl font-semibold text-center mb-6">Login</h2>
-
-    {% if form.errors %}
-    <div class="bg-red-100 text-red-700 p-2 rounded mb-4 text-sm">
-      Invalid credentials. Please try again.
+  <div class="w-full max-w-6xl mx-auto flex flex-col md:flex-row shadow-2xl rounded-3xl overflow-hidden bg-white relative" style="min-height: 600px;">
+    <!-- Left: Illustration & Features -->
+    <div class="md:w-1/2 flex flex-col justify-center items-center bg-[#002366] px-10 py-12 relative overflow-hidden text-center" style="z-index:1;">
+      <!-- Curved Shape -->
+      <svg class="absolute right-0 top-0 h-full w-32 text-white opacity-40" fill="none" viewBox="0 0 100 600" preserveAspectRatio="none" style="z-index:0;"><path d="M0,0 Q100,300 0,600 L100,600 L100,0 Z" fill="currentColor"/></svg>
+      <div class="relative z-10">
+        <div class="mb-8">
+          <!-- Hands-on/vocational SVG illustration -->
+          <svg viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-80 h-56 object-contain rounded-xl shadow-lg bg-white">
+              <rect x="30" y="60" width="60" height="30" rx="6" fill="#FBBF24"/>
+              <rect x="110" y="40" width="60" height="50" rx="8" fill="#2563EB"/>
+              <rect x="200" y="70" width="60" height="24" rx="5" fill="#FBBF24"/>
+              <rect x="80" y="120" width="160" height="20" rx="10" fill="#2563EB"/>
+              <rect x="130" y="90" width="20" height="40" rx="5" fill="#93C5FD"/>
+              <rect x="170" y="90" width="20" height="40" rx="5" fill="#93C5FD"/>
+              <circle cx="60" cy="140" r="10" fill="#2563EB"/>
+              <circle cx="260" cy="140" r="10" fill="#FBBF24"/>
+              <!-- Tools: wrench -->
+              <rect x="230" y="120" width="8" height="30" rx="3" fill="#374151"/>
+              <rect x="228" y="145" width="12" height="8" rx="4" fill="#FBBF24"/>
+              <!-- Tools: screwdriver -->
+              <rect x="80" y="120" width="6" height="30" rx="3" fill="#374151"/>
+              <rect x="76" y="146" width="14" height="6" rx="3" fill="#FBBF24"/>
+          </svg>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-bold text-white mb-4 drop-shadow">Uganda Vocational & Technical Assessment Board</h1>
+        <p class="text-white text-lg mb-8">EMIS For Informal Assessment</p>
+      </div>
     </div>
-    {% endif %}
-
-    <form method="post">
-      {% csrf_token %}
-      <div class="mb-4">
-        <label class="block mb-1 font-medium">Username</label>
-        {{ form.username|add_class:"w-full p-2 border rounded" }}
+    <!-- Right: Login Form -->
+    <div class="md:w-1/2 flex flex-col justify-center items-center p-10 bg-white z-10">
+      <div class="w-full max-w-sm">
+        <div class="flex flex-col items-center mb-8">
+          <img src="{% static 'images/uvtab logo.png' %}" alt="UVTAB Logo" class="w-32 h-32 mb-4" onerror="this.onerror=null;this.src='https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg';" />
+          <h2 class="text-2xl font-bold text-center mb-1 text-blue-800">Welcome to UVTAB EMIS</h2>
+          <div class="text-xs text-gray-500 text-center mb-2">Uganda Vocational & Technical Assessment Board<br>Education Management Information System</div>
+        </div>
+        {% if form.errors %}
+        <div class="bg-red-100 text-red-700 p-2 rounded mb-4 text-sm text-center">
+          Invalid credentials. Please try again.
+        </div>
+        {% endif %}
+        <form method="post" autocomplete="off">
+          {% csrf_token %}
+          <div class="mb-4">
+            <label class="block mb-1 font-medium">Username</label>
+            {{ form.username|add_class:"w-full p-2 border rounded bg-yellow-50" }}
+          </div>
+          <div class="mb-4">
+            <label class="block mb-1 font-medium">Password</label>
+            {{ form.password|add_class:"w-full p-2 border rounded bg-yellow-50" }}
+          </div>
+          <button type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white py-2 rounded font-semibold shadow">
+            Login
+          </button>
+        </form>
+        
       </div>
-      <div class="mb-4">
-        <label class="block mb-1 font-medium">Password</label>
-        {{ form.password|add_class:"w-full p-2 border rounded" }}
-      </div>
-
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded">
-        Login
-      </button>
-    </form>
+    </div>
   </div>
 </div>
 {% endblock %}
