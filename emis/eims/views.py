@@ -244,7 +244,7 @@ def report_list(request):
     group_names = list(request.user.groups.values_list('name', flat=True))
     return render(request, 'reports/list.html', {'group_names': group_names})
 
-def _get_candidate_photo(candidate):
+def _get_candidate_photo(candidate, photo_width=1*inch, photo_height=1.2*inch):
     """Helper function to get and format candidate photo for PDF"""
     if candidate.passport_photo and os.path.exists(candidate.passport_photo.path):
         try:
@@ -255,14 +255,13 @@ def _get_candidate_photo(candidate):
                 img = img.convert('RGB')
             # Calculate aspect ratio and resize
             aspect = img.height / float(img.width)
-            desired_width = 1*inch  # 1 inch width
-            desired_height = desired_width * aspect
-            
+            desired_width = photo_width
+            desired_height = min(photo_height, desired_width * aspect)
             # Create ReportLab Image object
             img_reader = BytesIO()
             img.save(img_reader, 'JPEG')
             img_reader.seek(0)
-            return Image(img_reader, width=desired_width, height=min(desired_height, 1.2*inch))
+            return Image(img_reader, width=desired_width, height=desired_height)
         except Exception as e:
             print(f"Error processing image for {candidate.full_name}: {e}")
             return 'No Photo'
@@ -481,13 +480,19 @@ def generate_album(request):
         styles = getSampleStyleSheet()
         normal_style = styles['Normal']
         normal_style.wordWrap = 'CJK'  # Better word wrapping
-        normal_style.fontSize = 9  # Slightly smaller font for better fit
-        
-        data = [headers]
+        normal_style.fontSize = 8  # Smaller font for better fit
+
+        def chunked(lst, n):
+            for i in range(0, len(lst), n):
+                yield lst[i:i + n]
+
+        # Estimate how many candidates fit per page (experimentally, 8-12)
+        candidates_per_page = 10
+        candidate_rows = []
         for index, candidate in enumerate(candidates, 1):
             row = [
                 str(index),  # Serial number
-                _get_candidate_photo(candidate),
+                _get_candidate_photo(candidate, photo_width=0.7*inch, photo_height=0.7*inch),
                 Paragraph(candidate.reg_number, normal_style),
                 Paragraph(candidate.full_name, normal_style),
                 Paragraph(candidate.occupation.name, normal_style),
@@ -496,83 +501,81 @@ def generate_album(request):
             if reg_category in ['formal', 'informal']:
                 row.append(candidate.level.name)
             if reg_category in ['informal', 'modular']:
-                # Get count of modules through the reverse relationship
                 module_count = candidate.candidatemodule_set.count()
                 row.append(str(module_count))
             row.append('')  # Empty signature field
-            data.append(row)
-        
+            candidate_rows.append(row)
+
         # Calculate page width and margins
         page_width = landscape(letter)[0]
         left_margin = right_margin = 0.5*inch
         available_width = page_width - (left_margin + right_margin)
 
-        # Base column widths (will be adjusted based on available space)
         col_widths = [
-            0.4*inch,   # S/N - very narrow for numbers
-            1.0*inch,   # Photo - small square
+            0.4*inch,   # S/N
+            0.7*inch,   # Photo
             1.8*inch,   # Reg No
             2.2*inch,   # Full Name
             1.4*inch,   # Occupation
             1.0*inch,   # Reg Type
         ]
-
-        # Add optional columns
         if reg_category in ['Formal', 'Informal']:
             col_widths.append(1.0*inch)  # Level
         if reg_category in ['Informal', 'Modular']:
             col_widths.append(0.8*inch)  # No. of Modules
         col_widths.append(1.0*inch)  # Signature
 
-        # Adjust margins if needed
         total_col_width = sum(col_widths)
         if total_col_width > available_width:
-            # Scale down columns proportionally
             scale_factor = available_width / total_col_width
             col_widths = [w * scale_factor for w in col_widths]
-        
-        # Create and style the table
-        table = Table(data, colWidths=col_widths)
-        # Enhanced table styling
-        table.setStyle(TableStyle([
-            # Header styling
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),  # Blue header
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),  # Slightly smaller header
-            ('TOPPADDING', (0, 0), (-1, 0), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            
-            # Cell styling
-            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),  # Smaller text for content
-            ('TOPPADDING', (0, 1), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-            ('LEFTPADDING', (0, 0), (-1, -1), 3),  # Smaller horizontal padding
-            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-            
-            # Alignment
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # Center all cells
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            
-            # Borders
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),  # Thinner grid lines
-            ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#2563eb')),  # Header bottom border
-            ('BOX', (0, 0), (-1, -1), 1, colors.black),  # Outer border
-            
-            # Specific column alignments
-            ('ALIGN', (2, 1), (2, -1), 'LEFT'),   # Left align reg numbers
-            ('ALIGN', (3, 1), (3, -1), 'LEFT'),   # Left align names
-            
-            # Alternating row colors (very subtle)
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
-        ]))
-        elements.append(table)
-        
+
+        # Paginate candidate rows into pages
+        pages = list(chunked(candidate_rows, candidates_per_page))
+        for page_num, page_rows in enumerate(pages):
+            if page_num == 0:
+                # First page: add headers
+                data = [headers] + page_rows
+            else:
+                # Subsequent pages: no headers
+                data = page_rows
+            table = Table(data, colWidths=col_widths)
+            table.setStyle(TableStyle([
+                # Header styling (only if present)
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')) if page_num == 0 else (),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white) if page_num == 0 else (),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold') if page_num == 0 else (),
+                ('FONTSIZE', (0, 0), (-1, 0), 9) if page_num == 0 else (),
+                ('TOPPADDING', (0, 0), (-1, 0), 5) if page_num == 0 else (),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 5) if page_num == 0 else (),
+                # Row style
+                ('FONTSIZE', (0, 1 if page_num == 0 else 0), (-1, -1), 7),
+                ('TOPPADDING', (0, 1 if page_num == 0 else 0), (-1, -1), 1),
+                ('BOTTOMPADDING', (0, 1 if page_num == 0 else 0), (-1, -1), 1),
+                ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                # Alignment
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                # Borders
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#2563eb')) if page_num == 0 else (),
+                ('BOX', (0, 0), (-1, -1), 1, colors.black),
+                # Specific column alignments
+                ('ALIGN', (2, 1 if page_num == 0 else 0), (2, -1), 'LEFT'),
+                ('ALIGN', (3, 1 if page_num == 0 else 0), (3, -1), 'LEFT'),
+                # Alternating row colors
+                ('ROWBACKGROUNDS', (0, 1 if page_num == 0 else 0), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+            ]))
+            elements.append(table)
+            # Add page break except after last page
+            if page_num < len(pages) - 1:
+                from reportlab.platypus import PageBreak
+                elements.append(PageBreak())
+
         # Build PDF
         doc.build(elements)
+
         
         # Get the value of the BytesIO buffer and return the PDF as a response
         pdf = buffer.getvalue()
