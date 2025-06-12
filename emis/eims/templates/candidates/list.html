@@ -8,11 +8,25 @@
   </div>
 
   <!-- Candidate Table -->
-  <div class="overflow-x-auto bg-white shadow rounded">
+  <div class="mb-2 text-sm text-gray-600 flex justify-between items-center">
+  <span>
+    {{ page_obj.start_index }}-{{ page_obj.end_index }} / {{ paginator.count }}
+  </span>
+  <span>
+    {% if page_obj.has_previous %}
+      <a href="?{% if request.GET %}{{ request.GET.urlencode|safe }}&{% endif %}page={{ page_obj.previous_page_number }}" class="inline-block px-2">&#60;</a>
+    {% endif %}
+    {% if page_obj.has_next %}
+      <a href="?{% if request.GET %}{{ request.GET.urlencode|safe }}&{% endif %}page={{ page_obj.next_page_number }}" class="inline-block px-2">&#62;</a>
+    {% endif %}
+  </span>
+</div>
+
+<div class="overflow-x-auto bg-white shadow rounded">
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-100">
         <tr>
-          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Reg No</th>
+          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Reg No</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Full Name</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Occupation</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Reg. Category</th>
@@ -60,12 +74,14 @@
       <tbody class="divide-y divide-gray-100">
         {% for candidate in candidates %}
         <tr>
-          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.reg_number }}</td>
-          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.full_name }}</td>
-          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.occupation.name }}</td>
-          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.get_registration_category_display }}</td>
-          <td class="px-4 py-2 text-sm text-gray-800">{{ candidate.assessment_center.name }}</td>
-          <td class="px-4 py-2 text-sm">
+          <td class="px-4 py-2 whitespace-nowrap">{{ candidate.reg_number }}</td>
+          <td class="px-4 py-2">{{ candidate.full_name }}</td>
+          <td class="px-4 py-2">{{ candidate.occupation.name }}</td>
+          <td class="px-4 py-2">{{ candidate.get_registration_category_display }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">
+            {{ candidate.assessment_center.center_name|default:"—" }}
+          </td>
+          <td class="px-4 py-2">
             <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:underline">View</a>
           </td>
         </tr>

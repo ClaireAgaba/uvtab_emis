@@ -173,35 +173,6 @@ class EnrollmentForm(forms.Form):
                 self.fields['level'].queryset = occupation.levels.all()
                 self.fields['modules'].widget = forms.HiddenInput()  # Hide modules for formal candidates
 
-
-""" class DistrictForm(forms.ModelForm):
-    name = forms.CharField(
-        max_length=100,
-        widget=forms.TextInput(attrs={
-            'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-            'placeholder': 'Enter district name'
-        }),
-        help_text='Enter the name of the district (max 100 characters)'
-    )
-    region = forms.CharField(
-        max_length=50,
-        widget=forms.TextInput(attrs={
-            'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-            'placeholder': 'Enter region name'
-        }),
-        help_text='Enter the region where this district is located'
-    )
-
-    class Meta:
-        model = District
-        fields = ['name', 'region']
-
-    def clean_name(self):
-        name = self.cleaned_data.get('name')
-        if District.objects.filter(name__iexact=name).exclude(id=self.instance.id if self.instance else None).exists():
-            raise forms.ValidationError('A district with this name already exists.')
-        return name """
-
 class DistrictForm(forms.ModelForm):
     name = forms.CharField(
         max_length=100,

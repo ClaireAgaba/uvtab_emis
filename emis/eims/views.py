@@ -629,6 +629,8 @@ def add_paper(request, level_id):
 
     return render(request, 'papers/create.html', {'form': form, 'level': level})
 
+from django.core.paginator import Paginator
+
 def candidate_list(request):
     candidates = Candidate.objects.select_related('occupation', 'assessment_center')
     # Restrict for Center Representatives
@@ -662,8 +664,16 @@ def candidate_list(request):
     occupations = Occupation.objects.all()
     centers = AssessmentCenter.objects.all()
 
+    # Pagination: 20 per page
+    paginator = Paginator(candidates, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'candidates/list.html', {
-        'candidates': candidates,
+        'candidates': page_obj.object_list,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'total_candidates': paginator.count,
         'occupations': occupations,
         'centers': centers,
     })
@@ -744,6 +754,9 @@ def enroll_candidate_view(request, id):
         'form': form,
         'candidate': candidate,
     })
+
+
+
 
 from .models import Candidate, CandidateLevel, CandidateModule
 
