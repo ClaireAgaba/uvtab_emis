@@ -543,11 +543,11 @@ def generate_album(request):
         # Paginate candidate rows into pages
         pages = list(chunked(candidate_rows, candidates_per_page))
         for page_num, page_rows in enumerate(pages):
-            # Always include only the column headers at the top of each page
+            # Always prepend headers to every page (fix for missing middle headers)
             data = [headers] + page_rows
             table = Table(data, colWidths=col_widths)
             table.setStyle(TableStyle([
-                # Header styling (only for first row)
+                # Header styling (always for first row on every page)
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
