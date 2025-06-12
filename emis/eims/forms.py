@@ -169,7 +169,7 @@ class CandidateForm(forms.ModelForm):
 class EnrollmentForm(forms.Form):
     level = forms.ModelChoiceField(queryset=Level.objects.all(), required=False, label='Level')
     modules = forms.ModelMultipleChoiceField(
-        queryset=Module.objects.none(),  # will be set in __init__
+        queryset=Module.objects.none(),
         widget=forms.CheckboxSelectMultiple,
         required=False,
         label="Select Modules"
@@ -181,17 +181,24 @@ class EnrollmentForm(forms.Form):
 
         if candidate:
             occupation = candidate.occupation
-            self.fields['level'].queryset = occupation.levels.all()
 
             if candidate.registration_category == 'Modular':
-                # Modular = only Level 1 modules
+                # Hide level field
+                self.fields.pop('level', None)
+
+                # Filter to Level 1 modules only
                 level_1 = occupation.levels.filter(name__icontains='Level 1').first()
                 self.fields['modules'].queryset = Module.objects.filter(occupation=occupation, level=level_1)
+
             elif candidate.registration_category == 'Informal':
-                # Informal = allow modules from selected level
+                # Allow both level and modules
+                self.fields['level'].queryset = occupation.levels.all()
                 self.fields['modules'].queryset = Module.objects.filter(occupation=occupation)
-            else:
-                self.fields['modules'].queryset = Module.objects.none()
+
+            else:  # Formal (Level only)
+                self.fields['level'].queryset = occupation.levels.all()
+                self.fields['modules'].widget = forms.HiddenInput()  # Hide modules for formal candidates
+
 
 class DistrictForm(forms.ModelForm):
     name = forms.CharField(

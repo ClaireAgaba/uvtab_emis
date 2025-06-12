@@ -1,22 +1,38 @@
 {% extends "base.html" %}
 {% load static %}
 {% block content %}
-<div class="max-w-2xl mx-auto mt-8">
-  <h2 class="text-xl font-bold mb-4">Enroll Candidate</h2>
+<div class="max-w-3xl mx-auto mt-12">
+  <h2 class="text-2xl font-bold mb-6 text-center">Enroll Candidate</h2>
 
-  <form method="post">
+  <form method="post" class="bg-white border-2 border-gray-300 shadow-lg p-10 rounded-lg">
     {% csrf_token %}
     <div class="mb-4">
-      <label class="font-semibold">Level:</label>
-      {{ form.level }}
+      {% if form.level %}
+        <label for="{{ form.level.id_for_label }}" class="block font-semibold mb-1">Level:</label>
+        {{ form.level }}
+      {% else %}
+        <label class="block font-semibold mb-1">Level:</label>
+        <p class="text-gray-600 italic">Not Applicable for Modular candidates</p>
+      {% endif %}
+    </div>    
+
+    <div class="mb-8">
+      <label class="font-semibold text-lg block mb-2">Select Modules:</label>
+      <table class="min-w-full border border-gray-400 rounded">
+        <tbody>
+          {% for checkbox in form.modules %}
+            <tr class="border-b border-gray-300 hover:bg-gray-50">
+              <td class="px-4 py-2">{{ checkbox.tag }}</td>
+              <td class="px-4 py-2">{{ checkbox.choice_label }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-  
-    <div class="mb-4">
-      <label class="font-semibold">Select Modules:</label>
-      {{ form.modules }}
+
+    <div class="flex justify-center">
+      <button type="submit" class="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow hover:bg-blue-700 transition">Enroll Candidate</button>
     </div>
-  
-    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Enroll Candidate</button>
   </form>
 </div>
 {% endblock %}
