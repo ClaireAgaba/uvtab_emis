@@ -140,7 +140,7 @@ class CandidateForm(forms.ModelForm):
                 raise ValidationError("Informal candidates cannot be registered for paper-based occupations.")
 
 
-class EnrollmentForm(forms.Form):
+""" class EnrollmentForm(forms.Form):
     level = forms.ModelChoiceField(queryset=Level.objects.none(), required=False)
     modules = forms.ModelMultipleChoiceField(queryset=Module.objects.none(), required=False)
 
@@ -164,7 +164,34 @@ class EnrollmentForm(forms.Form):
         elif candidate.registration_category == 'Informal':
             self.fields['level'].queryset = Level.objects.filter(occupations=candidate.occupation)
             self.fields['level'].required = True
-            self.fields['modules'].required = True
+            self.fields['modules'].required = True """
+
+class EnrollmentForm(forms.Form):
+    level = forms.ModelChoiceField(queryset=Level.objects.all(), required=False, label='Level')
+    modules = forms.ModelMultipleChoiceField(
+        queryset=Module.objects.none(),  # will be set in __init__
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Select Modules"
+    )
+
+    def __init__(self, *args, **kwargs):
+        candidate = kwargs.pop('candidate', None)
+        super().__init__(*args, **kwargs)
+
+        if candidate:
+            occupation = candidate.occupation
+            self.fields['level'].queryset = occupation.levels.all()
+
+            if candidate.registration_category == 'Modular':
+                # Modular = only Level 1 modules
+                level_1 = occupation.levels.filter(name__icontains='Level 1').first()
+                self.fields['modules'].queryset = Module.objects.filter(occupation=occupation, level=level_1)
+            elif candidate.registration_category == 'Informal':
+                # Informal = allow modules from selected level
+                self.fields['modules'].queryset = Module.objects.filter(occupation=occupation)
+            else:
+                self.fields['modules'].queryset = Module.objects.none()
 
 class DistrictForm(forms.ModelForm):
     name = forms.CharField(
