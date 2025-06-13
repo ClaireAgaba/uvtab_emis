@@ -130,44 +130,42 @@
         <h3>Registered Candidates for June 2025 Assessment</h3>
         <!-- Add other info as needed -->
       </div>
-    {% endif %}
-    {% if forloop.first %}
-    <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
-      <thead>
-        <tr>
-          <th>S/N</th>
-          <th>Photo</th>
-          <th>Reg No.</th>
-          <th>Full Name</th>
-          <th>Occupation</th>
-          <th>Reg Type</th>
-          <th>Signature</th>
-        </tr>
-      </thead>
-      <tbody>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
+        <thead>
+          <tr>
+            <th>S/N</th>
+            <th>Photo</th>
+            <th>Reg No.</th>
+            <th>Full Name</th>
+            <th>Occupation</th>
+            <th>Reg Type</th>
+            <th>Signature</th>
+          </tr>
+        </thead>
+        <tbody>
     {% else %}
-    <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
-      <tbody>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
+        <tbody>
     {% endif %}
-        {% for candidate in candidates %}
-        <tr>
-          <td>{{ forloop.parentloop.counter0|add:forloop.counter }}</td>
-          <td>
-            {% if candidate.photo %}
-              <img src="{{ candidate.photo.url }}" alt="Photo" style="height: 60px;" />
-            {% else %}
-              N/A
-            {% endif %}
-          </td>
-          <td>{{ candidate.reg_no }}</td>
-          <td>{{ candidate.full_name }}</td>
-          <td>{{ candidate.occupation }}</td>
-          <td>{{ candidate.reg_type }}</td>
-          <td><!-- Signature field, if any --></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+      {% for candidate in candidates %}
+      <tr>
+        <td>{{ forloop.parentloop.counter0|add:forloop.counter }}</td>
+        <td>
+          {% if candidate.photo %}
+            <img src="{{ candidate.photo.url }}" alt="Photo" style="height: 60px;" />
+          {% else %}
+            N/A
+          {% endif %}
+        </td>
+        <td>{{ candidate.reg_no }}</td>
+        <td>{{ candidate.full_name }}</td>
+        <td>{{ candidate.occupation }}</td>
+        <td>{{ candidate.reg_type }}</td>
+        <td><!-- Signature field, if any --></td>
+      </tr>
+      {% endfor %}
+        </tbody>
+      </table>
     {% if not forloop.last %}
       <div style="page-break-after: always;"></div>
     {% endif %}
