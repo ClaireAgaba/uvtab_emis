@@ -125,7 +125,10 @@ def occupation_create(request):
     if request.method == 'POST':
         form = OccupationForm(request.POST)
         if form.is_valid():
-            form.save()
+            occupation = form.save(commit=False)
+            occupation.created_by = request.user
+            occupation.updated_by = request.user
+            occupation.save()
             return redirect('occupation_list')
     else:
         form = OccupationForm()
@@ -700,7 +703,10 @@ def candidate_create(request):
     if request.method == 'POST':
         form = CandidateForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
-            form.save()
+            candidate = form.save(commit=False)
+            candidate.created_by = request.user
+            candidate.updated_by = request.user
+            candidate.save()
             return redirect('candidate_list')
     else:
         form = CandidateForm(user=request.user)
@@ -716,7 +722,9 @@ def edit_candidate(request, id):
     if request.method == 'POST':
         form = CandidateForm(request.POST, request.FILES, instance=candidate)
         if form.is_valid():
-            form.save()
+            candidate = form.save(commit=False)
+            candidate.updated_by = request.user
+            candidate.save()
             return redirect('candidate_view', id=candidate.id)
     else:
         form = CandidateForm(instance=candidate)
@@ -858,7 +866,9 @@ def occupation_edit(request, pk):
     if request.method == 'POST':
         form = OccupationForm(request.POST, instance=occupation)
         if form.is_valid():
-            form.save()
+            occupation = form.save(commit=False)
+            occupation.updated_by = request.user
+            occupation.save()
             return redirect('occupation_detail', pk=occupation.pk)
     else:
         form = OccupationForm(instance=occupation)
@@ -868,7 +878,10 @@ def create_center_rep(request):
     if request.method == 'POST':
         form = CenterRepForm(request.POST)
         if form.is_valid():
-            form.save()
+            center_rep = form.save(commit=False)
+            center_rep.created_by = request.user
+            center_rep.updated_by = request.user
+            center_rep.save()
             return redirect('view_center_reps')
     else:
         form = CenterRepForm()
@@ -878,7 +891,10 @@ def create_support_staff(request):
     if request.method == 'POST':
         form = SupportStaffForm(request.POST)
         if form.is_valid():
-            form.save()
+            staff = form.save(commit=False)
+            staff.created_by = request.user
+            staff.updated_by = request.user
+            staff.save()
             return redirect('view_support_staff')
     else:
         form = SupportStaffForm()
@@ -906,7 +922,9 @@ def edit_center_rep(request, pk):
     if request.method == 'POST':
         form = CenterRepForm(request.POST, instance=rep)
         if form.is_valid():
-            form.save()
+            center_rep = form.save(commit=False)
+            center_rep.updated_by = request.user
+            center_rep.save()
             return redirect('view_center_rep', pk=rep.pk)
     else:
         form = CenterRepForm(instance=rep)
@@ -929,7 +947,9 @@ def edit_support_staff(request, pk):
     if request.method == 'POST':
         form = SupportStaffForm(request.POST, instance=staff)
         if form.is_valid():
-            form.save()
+            staff_obj = form.save(commit=False)
+            staff_obj.updated_by = request.user
+            staff_obj.save()
             return redirect('view_support_staff_detail', pk=staff.pk)
     else:
         form = SupportStaffForm(instance=staff)

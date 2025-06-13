@@ -101,5 +101,11 @@
     <p><strong>Assessment Date:</strong> {{ candidate.assessment_date }}</p>
   </div>
 
+  <!-- Audit Trail -->
+  <div class="text-xs text-gray-500 mt-4 text-right">
+    <p>Created: {{ candidate.created_at|date:'Y-m-d H:i' }}{% if candidate.created_by %} by {{ candidate.created_by }}{% endif %}</p>
+    <p>Last updated: {{ candidate.updated_at|date:'Y-m-d H:i' }}{% if candidate.updated_by %} by {{ candidate.updated_by }}{% endif %}</p>
+  </div>
+
 </div>
 {% endblock %}

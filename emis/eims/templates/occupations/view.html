@@ -95,6 +95,12 @@
 {% endfor %}
 </div>
 
+<!-- Audit Trail -->
+<div class="text-xs text-gray-500 mt-4 text-right">
+  <p>Created: {{ occupation.created_at|date:'Y-m-d H:i' }}{% if occupation.created_by %} by {{ occupation.created_by }}{% endif %}</p>
+  <p>Last updated: {{ occupation.updated_at|date:'Y-m-d H:i' }}{% if occupation.updated_by %} by {{ occupation.updated_by }}{% endif %}</p>
+</div>
+
 <!-- Tab switching script -->
 <script>
   const tabLinks = document.querySelectorAll(".tab-link");

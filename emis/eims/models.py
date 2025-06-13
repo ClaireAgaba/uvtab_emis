@@ -99,6 +99,7 @@ class AssessmentCenter(models.Model):
 
 
 class Occupation(models.Model):
+    from django.contrib.auth import get_user_model
     STRUCTURE_CHOICES = [
         ('modules', 'Modules'),
         ('papers', 'Papers'),
@@ -113,6 +114,12 @@ class Occupation(models.Model):
         help_text="Specify whether this occupation uses modules or papers"
     )
     levels = models.ManyToManyField('Level', related_name='occupations')
+
+    # Audit trail fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), related_name='created_occupations', null=True, blank=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(get_user_model(), related_name='updated_occupations', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return self.name
@@ -157,6 +164,7 @@ class Paper(models.Model):
 # models.py
 
 class Candidate(models.Model):
+    from django.contrib.auth import get_user_model
     GENDER_CHOICES = [('M', 'Male'), ('F', 'Female')]
     NATIONALITY_CHOICES = [('U', 'Ugandan'), ('X', 'Foreigner')]
 
@@ -176,7 +184,7 @@ class Candidate(models.Model):
     assessment_center = models.ForeignKey(AssessmentCenter, on_delete=models.SET_NULL, null=True)
     entry_year = models.PositiveIntegerField()
     intake = models.CharField(max_length=6, choices=[('M', 'March'), ('A', 'August')])
-    occupation = models.ForeignKey(Occupation, on_delete=models.SET_NULL, null=True)
+    occupation = models.ForeignKey('Occupation', on_delete=models.SET_NULL, null=True)
     registration_category = models.CharField(max_length=10, choices=[
         ('Formal', 'Formal'),
         ('Modular', 'Modular'),
@@ -188,6 +196,11 @@ class Candidate(models.Model):
     finish_date = models.DateField()
     assessment_date = models.DateField()
 
+    # Audit trail fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), related_name='created_candidates', null=True, blank=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(get_user_model(), related_name='updated_candidates', null=True, blank=True, on_delete=models.SET_NULL)
 
     def is_enrolled(self):
         return self.candidatelevel_set.exists() or self.candidatemodule_set.exists()
@@ -225,16 +238,24 @@ class CandidateModule(models.Model):
 
 
 class CenterRepresentative(models.Model):
+    from django.contrib.auth import get_user_model
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     center = models.ForeignKey(AssessmentCenter, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     contact = models.CharField(max_length=15)
+
+    # Audit trail fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), related_name='created_centerreps', null=True, blank=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(get_user_model(), related_name='updated_centerreps', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return f"{self.name} ({self.center.center_number})"
 
 
 class SupportStaff(models.Model):
+    from django.contrib.auth import get_user_model
     DEPARTMENT_CHOICES = [
         ('Data', 'Data'),
         ('Accounts', 'Accounts'),
@@ -244,6 +265,12 @@ class SupportStaff(models.Model):
     name = models.CharField(max_length=100)
     contact = models.CharField(max_length=15)
     department = models.CharField(max_length=20, choices=DEPARTMENT_CHOICES)
+
+    # Audit trail fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), related_name='created_supportstaff', null=True, blank=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(get_user_model(), related_name='updated_supportstaff', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return f"{self.name} - {self.department}"

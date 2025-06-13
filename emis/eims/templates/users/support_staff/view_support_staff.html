@@ -19,5 +19,10 @@
     <a href="{% url 'edit_support_staff' staff.pk %}" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">Edit</a>
     <a href="{% url 'view_support_staff' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded">Back to List</a>
   </div>
+  <!-- Audit Trail -->
+  <div class="text-xs text-gray-500 mt-4 text-right">
+    <p>Created: {{ staff.created_at|date:'Y-m-d H:i' }}{% if staff.created_by %} by {{ staff.created_by }}{% endif %}</p>
+    <p>Last updated: {{ staff.updated_at|date:'Y-m-d H:i' }}{% if staff.updated_by %} by {{ staff.updated_by }}{% endif %}</p>
+  </div>
 </div>
 {% endblock %}

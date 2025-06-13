@@ -140,7 +140,7 @@ class CandidateForm(forms.ModelForm):
                 raise ValidationError("Informal candidates cannot be registered for paper-based occupations.")
 
 
-class EnrollmentForm(forms.Form):
+""" class EnrollmentForm(forms.Form):
     level = forms.ModelChoiceField(queryset=Level.objects.all(), required=False, label='Level')
     modules = forms.ModelMultipleChoiceField(
         queryset=Module.objects.none(),
@@ -148,6 +148,7 @@ class EnrollmentForm(forms.Form):
         required=False,
         label="Select Modules"
     )
+    
 
     def __init__(self, *args, **kwargs):
         candidate = kwargs.pop('candidate', None)
@@ -163,6 +164,8 @@ class EnrollmentForm(forms.Form):
                 # Filter to Level 1 modules only
                 level_1 = occupation.levels.filter(name__icontains='Level 1').first()
                 self.fields['modules'].queryset = Module.objects.filter(occupation=occupation, level=level_1)
+                
+                
 
             elif candidate.registration_category == 'Informal':
                 # Allow both level and modules
@@ -171,7 +174,63 @@ class EnrollmentForm(forms.Form):
 
             else:  # Formal (Level only)
                 self.fields['level'].queryset = occupation.levels.all()
-                self.fields['modules'].widget = forms.HiddenInput()  # Hide modules for formal candidates
+                self.fields['modules'].widget = forms.HiddenInput()  # Hide modules for formal candidates """
+
+# forms.py  (only the EnrollmentForm needs to change)
+# … top of forms.py (imports and other forms unchanged) …
+
+class EnrollmentForm(forms.Form):
+    level = forms.ModelChoiceField(
+        queryset=Level.objects.none(),
+        required=False,
+        label='Level'
+    )
+    modules = forms.ModelMultipleChoiceField(
+        queryset=Module.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label='Select Modules'
+    )
+
+    def __init__(self, *args, **kwargs):
+        candidate = kwargs.pop('candidate', None)
+        super().__init__(*args, **kwargs)
+
+        if not candidate:
+            return  # Defensive
+
+        occupation = candidate.occupation
+        reg_cat = candidate.registration_category
+
+        if reg_cat == "Modular":
+            # Show placeholder level note instead of dropdown
+            self.fields["level"] = forms.CharField(
+                label="Level",
+                initial="Not applicable for Modular candidates",
+                required=False,
+                widget=forms.TextInput(attrs={
+                    'readonly': True,
+                    'class': 'border-0 bg-transparent italic text-gray-500'
+                })
+            )
+
+            # Set only Level 1 modules for Modular candidates
+            level1 = occupation.levels.filter(name__icontains="1").first()
+            self.fields["modules"].queryset = Module.objects.filter(
+                occupation=occupation,
+                level=level1
+            )
+
+        elif reg_cat == "Informal":
+            self.fields["level"].queryset = occupation.levels.all()
+            self.fields["modules"].queryset = Module.objects.filter(occupation=occupation)
+
+        else:  # Formal
+            self.fields["level"].queryset = occupation.levels.all()
+            self.fields.pop("modules", None)
+
+
+
 
 class DistrictForm(forms.ModelForm):
     name = forms.CharField(

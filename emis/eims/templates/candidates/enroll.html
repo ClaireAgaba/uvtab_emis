@@ -6,32 +6,41 @@
 
   <form method="post" class="bg-white border-2 border-gray-300 shadow-lg p-10 rounded-lg">
     {% csrf_token %}
-    <div class="mb-4">
-      {% if form.level %}
-        <label for="{{ form.level.id_for_label }}" class="block font-semibold mb-1">Level:</label>
-        {{ form.level }}
-      {% else %}
-        <label class="block font-semibold mb-1">Level:</label>
-        <p class="text-gray-600 italic">Not Applicable for Modular candidates</p>
-      {% endif %}
-    </div>    
 
-    <div class="mb-8">
-      <label class="font-semibold text-lg block mb-2">Select Modules:</label>
-      <table class="min-w-full border border-gray-400 rounded">
-        <tbody>
-          {% for checkbox in form.modules %}
-            <tr class="border-b border-gray-300 hover:bg-gray-50">
-              <td class="px-4 py-2">{{ checkbox.tag }}</td>
-              <td class="px-4 py-2">{{ checkbox.choice_label }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <!-- LEVEL: Either dropdown or read-only note -->
+    <div class="mb-6">
+      {% if form.level %}
+        {% if form.level.field.widget.attrs.readonly %}
+          <label class="block font-semibold mb-1">Level:</label>
+          <p class="italic text-gray-600">{{ form.level.value }}</p>
+        {% else %}
+          <label for="{{ form.level.id_for_label }}" class="block font-semibold mb-1">Level:</label>
+          {{ form.level }}
+        {% endif %}
+      {% endif %}
     </div>
 
+    <!-- MODULES: Only show if present -->
+    {% if form.modules %}
+      <div class="mb-8">
+        <label class="font-semibold text-lg block mb-2">Select Modules:</label>
+        <table class="min-w-full border border-gray-400 rounded">
+          <tbody>
+            {% for checkbox in form.modules %}
+              <tr class="border-b border-gray-300 hover:bg-gray-50">
+                <td class="px-4 py-2">{{ checkbox.tag }}</td>
+                <td class="px-4 py-2">{{ checkbox.choice_label }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
     <div class="flex justify-center">
-      <button type="submit" class="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow hover:bg-blue-700 transition">Enroll Candidate</button>
+      <button type="submit" class="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow hover:bg-blue-700 transition">
+        Enroll Candidate
+      </button>
     </div>
   </form>
 </div>
