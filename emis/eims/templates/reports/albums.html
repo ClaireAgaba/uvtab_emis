@@ -131,6 +131,7 @@
         <!-- Add other info as needed -->
       </div>
     {% endif %}
+    {% if forloop.first %}
     <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
       <thead>
         <tr>
@@ -144,6 +145,10 @@
         </tr>
       </thead>
       <tbody>
+    {% else %}
+    <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
+      <tbody>
+    {% endif %}
         {% for candidate in candidates %}
         <tr>
           <td>{{ forloop.parentloop.counter0|add:forloop.counter }}</td>
