@@ -493,7 +493,7 @@ def generate_album(request):
                 yield lst[i:i + n]
 
         # Estimate how many candidates fit per page (experimentally, 8-12)
-        candidates_per_page = 15
+        candidates_per_page = 1000
         candidate_rows = []
         for index, candidate in enumerate(candidates, 1):
             row = [
