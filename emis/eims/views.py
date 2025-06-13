@@ -376,8 +376,7 @@ def _get_candidate_photo(candidate, photo_width=1*inch, photo_height=1.2*inch):
                 return Paragraph("[Photo Too Large]", ParagraphStyle('Normal'))
             from reportlab.platypus import Image
             return Image(photo.path, width=scaled_width, height=scaled_height)
-                return Paragraph("[Photo Format Error]", ParagraphStyle('Normal'))
-                
+
         except Exception as e:
             print(f"Error processing photo for {candidate.full_name}: {e}")
             # Return placeholder if photo processing fails
