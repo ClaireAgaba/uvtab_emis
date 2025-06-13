@@ -116,7 +116,7 @@ class Occupation(models.Model):
     levels = models.ManyToManyField('Level', related_name='occupations')
 
     def __str__(self):
-        return self.name
+        return f"{self.code} - {self.name}"
 
     class Meta:
         ordering = ['name']
