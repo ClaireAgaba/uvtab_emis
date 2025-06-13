@@ -99,7 +99,7 @@ def bulk_candidate_action(request):
                 for m in modules:
                     CandidateModule.objects.create(candidate=c, module=m)
                 enrolled += 1
-            return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates for Modular registration in modules: ' + ', '.join(m.name for m in modules)})
+            return JsonResponse({'success': True, 'message': f'Successfully enrolled {enrolled} candidates in {modules.count()} module(s).'})
         else:
             return JsonResponse({'success': False, 'error': 'Bulk enroll only supported for Formal or Modular registration categories.'}, status=400)
 

@@ -16,7 +16,7 @@
       <option value="regenerate">Regenerate Reg. Number</option>
     </select>
     <!-- Module selector for Modular bulk enroll -->
-    <select id="bulk-module-select" class="border px-2 py-1 rounded hidden" multiple size="2" style="min-width:180px;" title="Select up to 2 modules"></select>
+    <div id="bulk-module-checkboxes" class="hidden" style="min-width:240px; min-height:120px; max-height:240px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
     <button id="bulk-action-apply" class="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Apply</button>
     <span id="bulk-action-error" class="text-red-600 text-sm ml-4"></span>
   </div>
@@ -159,12 +159,10 @@ checkboxes.forEach(cb => {
   });
 });
 
-// --- Bulk Modular Module Selection Logic ---
-const bulkModuleSelect = document.getElementById('bulk-module-select');
+// --- Bulk Modular Module Selection Logic (with checkboxes) ---
+const bulkModuleBox = document.getElementById('bulk-module-checkboxes');
 
-// Helper to fetch modules for Modular bulk enroll
 function fetchModulesForCandidates(candidateIds, callback) {
-  // Simple AJAX to backend (new endpoint needed: /eims/candidates/bulk-modules/)
   fetch('/eims/candidates/bulk-modules/', {
     method: 'POST',
     headers: {
@@ -178,45 +176,46 @@ function fetchModulesForCandidates(candidateIds, callback) {
   .catch(() => callback({success: false, error: 'Could not fetch modules.'}));
 }
 
-// Show/hide module selector based on action and candidate selection
 function updateBulkModuleSelector() {
   const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
   if (bulkSelect.value === 'enroll' && checked.length > 0) {
-    // Check if all selected are Modular and same occupation/level
     fetchModulesForCandidates(checked.map(cb => cb.value), function(data) {
       if (data.success && data.modules && data.modules.length > 0) {
-        bulkModuleSelect.innerHTML = '';
+        bulkModuleBox.innerHTML = '<div class="font-semibold mb-2 text-gray-800">Select Modules (max 2):</div>';
         data.modules.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = m.id;
-          opt.textContent = m.name;
-          bulkModuleSelect.appendChild(opt);
+          const id = 'bulkmod_' + m.id;
+          const wrapper = document.createElement('div');
+          wrapper.className = 'flex items-center mb-1';
+          wrapper.innerHTML = `<input type="checkbox" id="${id}" value="${m.id}" class="bulk-module-checkbox mr-2"> <label for="${id}" class="text-gray-700">${m.name}</label>`;
+          bulkModuleBox.appendChild(wrapper);
         });
-        bulkModuleSelect.classList.remove('hidden');
-        bulkModuleSelect.size = Math.min(2, data.modules.length);
-        bulkModuleSelect.title = 'Select up to 2 modules';
+        bulkModuleBox.classList.remove('hidden');
+        // Add logic to limit to 2 checked
+        bulkModuleBox.querySelectorAll('.bulk-module-checkbox').forEach(cb => {
+          cb.addEventListener('change', function() {
+            const selected = bulkModuleBox.querySelectorAll('.bulk-module-checkbox:checked');
+            if (selected.length > 2) {
+              this.checked = false;
+              bulkError.textContent = 'You can select up to 2 modules.';
+            } else {
+              bulkError.textContent = '';
+            }
+          });
+        });
       } else {
-        bulkModuleSelect.innerHTML = '';
-        bulkModuleSelect.classList.add('hidden');
+        bulkModuleBox.innerHTML = '';
+        bulkModuleBox.classList.add('hidden');
       }
     });
   } else {
-    bulkModuleSelect.innerHTML = '';
-    bulkModuleSelect.classList.add('hidden');
+    bulkModuleBox.innerHTML = '';
+    bulkModuleBox.classList.add('hidden');
   }
 }
 
 bulkSelect.addEventListener('change', updateBulkModuleSelector);
 document.querySelectorAll('.candidate-checkbox').forEach(cb => {
   cb.addEventListener('change', updateBulkModuleSelector);
-});
-
-// Limit selection to 2 modules
-bulkModuleSelect.addEventListener('change', function() {
-  const selected = Array.from(bulkModuleSelect.selectedOptions);
-  if (selected.length > 2) {
-    selected[selected.length - 1].selected = false;
-  }
 });
 
 bulkApply && bulkApply.addEventListener('click', function() {
@@ -229,10 +228,10 @@ bulkApply && bulkApply.addEventListener('click', function() {
     bulkError.textContent = 'Please select at least one candidate.';
     return;
   }
-  // For Modular enroll, require module selection
+  // For Modular enroll, require module selection via checkboxes
   let moduleIds = [];
-  if (!bulkModuleSelect.classList.contains('hidden') && bulkSelect.value === 'enroll') {
-    moduleIds = Array.from(bulkModuleSelect.selectedOptions).map(opt => opt.value);
+  if (!bulkModuleBox.classList.contains('hidden') && bulkSelect.value === 'enroll') {
+    moduleIds = Array.from(bulkModuleBox.querySelectorAll('.bulk-module-checkbox:checked')).map(cb => cb.value);
     if (moduleIds.length < 1 || moduleIds.length > 2) {
       bulkError.textContent = 'Select 1 or 2 modules.';
       return;
@@ -256,7 +255,10 @@ bulkApply && bulkApply.addEventListener('click', function() {
   .then(data => {
     if (data.success) {
       bulkError.textContent = '';
-      alert(data.message);
+      // Custom message: "Successfully enrolled X candidates in Y module(s)"
+      let modCount = moduleIds.length;
+      let candCount = checked.length;
+      alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in ${modCount} module${modCount > 1 ? 's' : ''}.`);
       window.location.reload();
     } else {
       bulkError.textContent = data.error || 'An error occurred.';
