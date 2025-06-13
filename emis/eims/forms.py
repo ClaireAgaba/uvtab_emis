@@ -214,8 +214,9 @@ class EnrollmentForm(forms.Form):
             self.fields["level"].queryset = occupation.levels.all()
             # Dynamically filter modules by selected level (if present)
             level = None
-            if "data" in kwargs:
-                level_id = kwargs["data"].get("level")
+            data = self.data
+            if data is not None:
+                level_id = data.get("level")
                 if level_id:
                     try:
                         level = Level.objects.get(pk=level_id)

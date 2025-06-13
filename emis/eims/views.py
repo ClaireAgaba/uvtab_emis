@@ -461,9 +461,13 @@ def generate_album(request):
         for candidate in candidates:
             print(f'- {candidate.full_name} ({candidate.registration_category})')
         
-        # Add level filter for formal/informal
-        if reg_category in ['formal', 'informal'] and level_id:
-            candidates = candidates.filter(level_id=level_id)
+        # Add level filter for formal/informal/Workers PAS
+        if reg_category.lower() in ['formal', 'informal', 'workers pas'] and level_id:
+            from .models import CandidateLevel
+            # Only filter by level if CandidateLevel exists for this candidate and level
+            candidates = candidates.filter(
+                id__in=CandidateLevel.objects.filter(level_id=level_id).values('candidate_id')
+            )
         
         # Create PDF
         buffer = BytesIO()
@@ -850,7 +854,8 @@ def edit_candidate(request, id):
 def enroll_candidate_view(request, id):
     candidate = get_object_or_404(Candidate, id=id)
 
-    if request.method == 'POST':
+    # Only enroll if POST and _enroll=1
+    if request.method == 'POST' and request.POST.get('_enroll') == '1':
         form = EnrollmentForm(request.POST, candidate=candidate)
         if form.is_valid():
             registration_category = candidate.registration_category
@@ -888,7 +893,7 @@ def enroll_candidate_view(request, id):
                     messages.success(request, f"{candidate.full_name} enrolled for {len(modules)} module(s)")
 
             # Handle informal registration (level + any number of modules)
-            elif registration_category == 'Informal':
+            elif registration_category == 'Informal' or registration_category == 'Workers PAS':
                 level = form.cleaned_data['level']
                 modules = form.cleaned_data['modules']
                 CandidateLevel.objects.create(candidate=candidate, level=level)
@@ -897,16 +902,13 @@ def enroll_candidate_view(request, id):
                 messages.success(request, f"{candidate.full_name} enrolled in {level.name} and selected {len(modules)} module(s)")
 
             messages.success(request, "Candidate enrolled successfully.")
-            return redirect('candidate_view', id=candidate.id)
-
     else:
-        form = EnrollmentForm(candidate=candidate)
-
+        # Support dynamic module filtering by selected level (GET param)
+        form = EnrollmentForm(request.GET, candidate=candidate)
     return render(request, 'candidates/enroll.html', {
         'form': form,
         'candidate': candidate,
     })
-
 
 
 from .models import Candidate, CandidateLevel, CandidateModule, Occupation

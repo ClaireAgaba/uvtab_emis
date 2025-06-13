@@ -15,7 +15,9 @@
   {% if form.level.errors %}
     <div class="mb-4 text-red-600 font-semibold">Please select a level.</div>
   {% endif %}
-  <form method="post" class="bg-white border-2 border-gray-300 shadow-lg p-10 rounded-lg">
+  <form method="get" class="bg-white border-2 border-gray-300 shadow-lg p-10 rounded-lg" id="enrollForm">
+    <input type="hidden" name="_enroll" id="_enrollFlag" value="0">
+    {% csrf_token %}
     {% csrf_token %}
 
     <!-- LEVEL: Either dropdown or read-only note -->
@@ -27,6 +29,18 @@
         {% else %}
           <label for="{{ form.level.id_for_label }}" class="block font-semibold mb-1">Level:</label>
           {{ form.level }}
+          <script>
+            document.addEventListener('DOMContentLoaded', function() {
+              var levelField = document.getElementById('{{ form.level.id_for_label }}');
+              if (levelField) {
+                levelField.addEventListener('change', function() {
+                  document.getElementById('_enrollFlag').value = '0';
+                  document.getElementById('enrollForm').method = 'get';
+                  document.getElementById('enrollForm').submit();
+                });
+              }
+            });
+          </script>
         {% endif %}
       {% endif %}
     </div>
@@ -56,22 +70,42 @@
     {% endif %}
 
     <div class="flex justify-center">
-      <button type="submit" class="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow hover:bg-blue-700 transition">
+      <button type="button" class="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow hover:bg-blue-700 transition" id="enrollSubmitBtn">
         Enroll Candidate
       </button>
     </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var enrollBtn = document.getElementById('enrollSubmitBtn');
+        if (enrollBtn) {
+          enrollBtn.addEventListener('click', function() {
+            document.getElementById('_enrollFlag').value = '1';
+            var form = document.getElementById('enrollForm');
+            form.method = 'post';
+            form.submit();
+          });
+        }
+      });
+    </script>
   </form>
 </div>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"][name^="modules"]'));
+    // Only restrict for Modular candidates
+    const regCat = '{{ candidate.registration_category|escapejs }}';
     function updateCheckboxes() {
-      const checked = checkboxes.filter(cb => cb.checked);
-      if (checked.length >= 2) {
-        checkboxes.forEach(cb => {
-          if (!cb.checked) cb.disabled = true;
-        });
+      if (regCat === 'Modular') {
+        const checked = checkboxes.filter(cb => cb.checked);
+        if (checked.length >= 2) {
+          checkboxes.forEach(cb => {
+            if (!cb.checked) cb.disabled = true;
+          });
+        } else {
+          checkboxes.forEach(cb => cb.disabled = false);
+        }
       } else {
+        // For Informal/Workers PAS: never disable
         checkboxes.forEach(cb => cb.disabled = false);
       }
     }
