@@ -41,6 +41,9 @@ class AssessmentCenterCategory(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = "Assessment Center Category"
+        verbose_name_plural = "Assessment Center Categories"
 class OccupationCategory(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -52,6 +55,10 @@ class RegistrationCategory(models.Model):
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        verbose_name = "Registration Category"
+        verbose_name_plural = "Registration Categories"
 
 
 
