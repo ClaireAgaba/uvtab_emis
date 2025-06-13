@@ -459,6 +459,7 @@ def generate_album(request):
             assessment_date__year=assessment_year,
             assessment_date__month=assessment_month
         ).order_by('full_name').limit(50) # Ensure consistent ordering
+        print("Number of generated candidates = ", candidate_qs.count())
 
         # Optional level filtering (if applicable for the registration category)
         if reg_category_form.lower() in ['formal', 'informal', 'workers pas'] and level_id:
