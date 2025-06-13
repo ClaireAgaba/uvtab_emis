@@ -360,32 +360,22 @@ def report_list(request):
     return render(request, 'reports/list.html', {'group_names': group_names})
 
 def _get_candidate_photo(candidate, photo_width=1*inch, photo_height=1.2*inch):
-    if candidate.photo and hasattr(candidate.photo, 'path') and os.path.exists(candidate.photo.path):
+    photo = getattr(candidate, 'passport_photo', None)
+    if photo and hasattr(photo, 'path') and os.path.exists(photo.path):
         try:
-            img = PILImage.open(candidate.photo.path)
+            img = PILImage.open(photo.path)
             # Scale photo to fit in the table cell
             scale_factor = min(photo_width/img.width, photo_height/img.height)
             scaled_width = img.width * scale_factor
             scaled_height = img.height * scale_factor
             
             # Check file size
-            file_size = os.path.getsize(candidate.photo.path)
-            if file_size > 2000000:  # 2MB
-                print(f"Warning: Large photo for {candidate.full_name}: {file_size/1000000:.2f}MB")
-            
-            try:
-                # Convert to RGB if it's not (to handle CMYK, RGBA, etc.)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                    # Save a temp version to use
-                    temp_path = os.path.join(settings.MEDIA_ROOT, f'temp_{candidate.id}_photo.jpg')
-                    img.save(temp_path, 'JPEG')
-                    return Image(temp_path, width=scaled_width, height=scaled_height)
-                
-                return Image(candidate.photo.path, width=scaled_width, height=scaled_height)
-            except Exception as img_err:
-                print(f"Error converting image format for {candidate.full_name}: {img_err}")
+            file_size = os.path.getsize(photo.path)
+            if file_size > 2*1024*1024:  # 2MB limit
                 from reportlab.platypus import Paragraph
+                return Paragraph("[Photo Too Large]", ParagraphStyle('Normal'))
+            from reportlab.platypus import Image
+            return Image(photo.path, width=scaled_width, height=scaled_height)
                 return Paragraph("[Photo Format Error]", ParagraphStyle('Normal'))
                 
         except Exception as e:
