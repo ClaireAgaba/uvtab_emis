@@ -352,9 +352,22 @@ def generate_album(request):
         
         # Create PDF
         buffer = BytesIO()
+        
+        # Prepare document title for metadata
+        center = AssessmentCenter.objects.get(id=center_id)
+        occupation = Occupation.objects.get(id=occupation_id)
+        month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December']
+        formatted_date = f"{month_names[int(assessment_month)-1]} {assessment_year}"
+        
+        # Create document title
+        doc_title = f"UVTAB Registration List - {center.center_name} - {occupation.name} - {formatted_date}"
+        
         doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
-                               rightMargin=0.5*inch, leftMargin=0.5*inch,
-                               topMargin=0.3*inch, bottomMargin=0.5*inch)
+                                rightMargin=0.5*inch, leftMargin=0.5*inch,
+                                topMargin=0.3*inch, bottomMargin=0.5*inch,
+                                title=doc_title, author="UVTAB EMIS",
+                                subject=f"Registration List for {formatted_date} Assessment")
         elements = []
         
         # Create header styles
@@ -422,9 +435,7 @@ def generate_album(request):
         elements.append(Paragraph('UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD', title_style))
         
         # Third row: Assessment period
-        month_names = ['January', 'February', 'March', 'April', 'May', 'June',
-                      'July', 'August', 'September', 'October', 'November', 'December']
-        formatted_date = f"{month_names[int(assessment_month)-1]} {assessment_year}"
+        # Month names already defined above
         subtitle_style = ParagraphStyle(
             'CustomSubtitle',
             parent=styles['Heading2'],
@@ -579,8 +590,17 @@ def generate_album(request):
                 from reportlab.platypus import PageBreak
                 elements.append(PageBreak())
 
-        # Build PDF
-        doc.build(elements)
+        # Build PDF with page numbers
+        def add_page_number(canvas, doc):
+            canvas.saveState()
+            canvas.setFont('Helvetica', 9)
+            canvas.setFillColor(colors.grey)
+            page_num = canvas.getPageNumber()
+            text = f"Page {page_num} of {len(pages)}"
+            canvas.drawCentredString(doc.width/2 + doc.leftMargin, 0.5*inch, text)
+            canvas.restoreState()
+            
+        doc.build(elements, onFirstPage=add_page_number, onLaterPages=add_page_number)
 
         
         # Get the value of the BytesIO buffer and return the PDF as a response
@@ -598,11 +618,35 @@ def generate_album(request):
     
     pages = None
     if request.method == 'POST':
-        candidates = Candidate.objects.all()
+        # Use the same filtered candidates as in the PDF generation for preview
+        try:
+            center_id = request.POST.get('center')
+            occupation_id = request.POST.get('occupation')
+            reg_category = request.POST.get('registration_category', '')
+            level_id = request.POST.get('level')
+            assessment_month = request.POST.get('assessment_month')
+            assessment_year = request.POST.get('assessment_year')
+            
+            # Filter candidates with the same criteria as above
+            candidates = Candidate.objects.filter(
+                assessment_center_id=center_id,
+                occupation_id=occupation_id,
+                registration_category__iexact=reg_category,
+                assessment_date__year=int(assessment_year),
+                assessment_date__month=int(assessment_month)
+            )
+            
+            # Add level filter for formal/informal
+            if reg_category.lower() in ['formal', 'informal'] and level_id:
+                candidates = candidates.filter(level_id=level_id)
+        except:
+            # Fallback in case of errors
+            candidates = Candidate.objects.all()
         def chunked(lst, n):
             for i in range(0, len(lst), n):
                 yield lst[i:i + n]
-        pages = list(chunked(list(candidates), 5))
+        # Use the same number of candidates per page as in the PDF generation
+        pages = list(chunked(list(candidates), 10))
     return render(request, 'reports/albums.html', {
         'centers': centers,
         'occupations': occupations,
