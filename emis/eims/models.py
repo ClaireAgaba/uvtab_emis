@@ -91,7 +91,11 @@ class AssessmentCenter(models.Model):
     village = models.ForeignKey('Village', on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"{self.center_name} ({self.center_number})"
+        return f"{self.center_number} - {self.center_name}"
+
+    class Meta:
+        verbose_name = "Assessment Center"
+        verbose_name_plural = "Assessment Centers"
 
 
 class Occupation(models.Model):
