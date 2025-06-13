@@ -29,6 +29,9 @@
       <label class="block font-semibold mb-1">Date of Birth</label>
       {{ form.date_of_birth }}
     </div>
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
 
     <div>
       <label class="block font-semibold mb-1">Gender</label>
@@ -104,4 +107,19 @@
     </div>
   </form>
 </div>
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var dobInput = document.querySelector('input[name="date_of_birth"]');
+    if (dobInput) {
+      flatpickr(dobInput, {
+        dateFormat: "d/m/Y",
+        allowInput: true,
+        altInput: true,
+        altFormat: "d/m/Y"
+      });
+    }
+  });
+</script>
 {% endblock %}
