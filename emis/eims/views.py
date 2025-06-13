@@ -702,7 +702,11 @@ def generate_album(request):
                 elements.append(PageBreak())
 
         # Build PDF
-        doc.build(elements)
+        try:
+            doc.build(elements)
+        except Exception as e:
+            print(f"Error building PDF: \n\n{e}\n\n")
+            return HttpResponse('Error building PDF', status=500)
 
         
         # Get the value of the BytesIO buffer and return the PDF as a response
