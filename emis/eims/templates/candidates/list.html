@@ -7,6 +7,20 @@
     <a href="{% url 'candidate_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Candidate</a>
   </div>
 
+  <!-- Bulk Action Bar (hidden by default) -->
+  <div id="bulk-action-bar" class="hidden mb-4 bg-gray-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-4">
+    <span class="font-semibold text-gray-700">Bulk Actions:</span>
+    <select id="bulk-action-select" class="border px-2 py-1 rounded">
+      <option value="">Select Action</option>
+      <option value="enroll">Enroll</option>
+      <option value="regenerate">Regenerate Reg. Number</option>
+    </select>
+    <!-- Module selector for Modular bulk enroll -->
+    <select id="bulk-module-select" class="border px-2 py-1 rounded hidden" multiple size="2" style="min-width:180px;" title="Select up to 2 modules"></select>
+    <button id="bulk-action-apply" class="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Apply</button>
+    <span id="bulk-action-error" class="text-red-600 text-sm ml-4"></span>
+  </div>
+
   <!-- Candidate Table -->
   <div class="mb-2 text-sm text-gray-600 flex justify-between items-center">
   <span>
@@ -26,6 +40,9 @@
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-100">
         <tr>
+          <th class="px-2 py-2 text-center">
+            <input type="checkbox" id="select-all" class="form-checkbox h-4 w-4">
+          </th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Image</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Reg No</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Full Name</th>
@@ -76,6 +93,9 @@
       <tbody class="divide-y divide-gray-100">
         {% for candidate in candidates %}
         <tr>
+          <td class="px-2 py-2 text-center">
+            <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}">
+          </td>
           <td class="px-4 py-2 whitespace-nowrap">
             {% if candidate.passport_photo %}
               <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-12 w-12 object-cover rounded" />
@@ -105,4 +125,164 @@
     </table>
   </div>
 </div>
+
+<script>
+// Bulk select logic
+const selectAll = document.getElementById('select-all');
+const checkboxes = document.querySelectorAll('.candidate-checkbox');
+const bulkBar = document.getElementById('bulk-action-bar');
+const bulkApply = document.getElementById('bulk-action-apply');
+const bulkSelect = document.getElementById('bulk-action-select');
+const bulkError = document.getElementById('bulk-action-error');
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.candidate-checkbox:checked');
+  if (checked.length > 0) {
+    bulkBar.classList.remove('hidden');
+  } else {
+    bulkBar.classList.add('hidden');
+    bulkError.textContent = '';
+    bulkSelect.value = '';
+  }
+}
+
+if (selectAll) {
+  selectAll.addEventListener('change', function() {
+    checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+    updateBulkBar();
+  });
+}
+checkboxes.forEach(cb => {
+  cb.addEventListener('change', function() {
+    if (!cb.checked) selectAll.checked = false;
+    updateBulkBar();
+  });
+});
+
+// --- Bulk Modular Module Selection Logic ---
+const bulkModuleSelect = document.getElementById('bulk-module-select');
+
+// Helper to fetch modules for Modular bulk enroll
+function fetchModulesForCandidates(candidateIds, callback) {
+  // Simple AJAX to backend (new endpoint needed: /eims/candidates/bulk-modules/)
+  fetch('/eims/candidates/bulk-modules/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
+    },
+    body: JSON.stringify({candidate_ids: candidateIds})
+  })
+  .then(res => res.json())
+  .then(data => callback(data))
+  .catch(() => callback({success: false, error: 'Could not fetch modules.'}));
+}
+
+// Show/hide module selector based on action and candidate selection
+function updateBulkModuleSelector() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  if (bulkSelect.value === 'enroll' && checked.length > 0) {
+    // Check if all selected are Modular and same occupation/level
+    fetchModulesForCandidates(checked.map(cb => cb.value), function(data) {
+      if (data.success && data.modules && data.modules.length > 0) {
+        bulkModuleSelect.innerHTML = '';
+        data.modules.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.name;
+          bulkModuleSelect.appendChild(opt);
+        });
+        bulkModuleSelect.classList.remove('hidden');
+        bulkModuleSelect.size = Math.min(2, data.modules.length);
+        bulkModuleSelect.title = 'Select up to 2 modules';
+      } else {
+        bulkModuleSelect.innerHTML = '';
+        bulkModuleSelect.classList.add('hidden');
+      }
+    });
+  } else {
+    bulkModuleSelect.innerHTML = '';
+    bulkModuleSelect.classList.add('hidden');
+  }
+}
+
+bulkSelect.addEventListener('change', updateBulkModuleSelector);
+document.querySelectorAll('.candidate-checkbox').forEach(cb => {
+  cb.addEventListener('change', updateBulkModuleSelector);
+});
+
+// Limit selection to 2 modules
+bulkModuleSelect.addEventListener('change', function() {
+  const selected = Array.from(bulkModuleSelect.selectedOptions);
+  if (selected.length > 2) {
+    selected[selected.length - 1].selected = false;
+  }
+});
+
+bulkApply && bulkApply.addEventListener('click', function() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  if (!bulkSelect.value) {
+    bulkError.textContent = 'Please select an action.';
+    return;
+  }
+  if (checked.length === 0) {
+    bulkError.textContent = 'Please select at least one candidate.';
+    return;
+  }
+  // For Modular enroll, require module selection
+  let moduleIds = [];
+  if (!bulkModuleSelect.classList.contains('hidden') && bulkSelect.value === 'enroll') {
+    moduleIds = Array.from(bulkModuleSelect.selectedOptions).map(opt => opt.value);
+    if (moduleIds.length < 1 || moduleIds.length > 2) {
+      bulkError.textContent = 'Select 1 or 2 modules.';
+      return;
+    }
+  }
+  // AJAX POST to backend
+  bulkError.textContent = '';
+  fetch("/eims/candidates/bulk-action/", {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      action: bulkSelect.value,
+      candidate_ids: checked.map(cb => cb.value),
+      module_ids: moduleIds
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      bulkError.textContent = '';
+      alert(data.message);
+      window.location.reload();
+    } else {
+      bulkError.textContent = data.error || 'An error occurred.';
+    }
+  })
+  .catch(() => {
+    bulkError.textContent = 'Server error.';
+  });
+});
+
+// Helper to get CSRF token from cookie if not present in DOM
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+</script>
+
 {% endblock %}

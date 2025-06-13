@@ -1,7 +1,118 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .forms import SupportStaffForm, CenterRepForm
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, QueryDict
+
+from django.views.decorators.http import require_POST
+
+@require_POST
+def bulk_candidate_modules(request):
+    import json
+    from .models import Candidate, Module, Level
+    try:
+        data = json.loads(request.body.decode()) if request.body else request.POST
+        ids = data.get('candidate_ids')
+        if isinstance(ids, str):
+            ids = ids.split(',')
+        candidate_ids = [int(i) for i in ids if str(i).isdigit()]
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid request.'}, status=400)
+
+    candidates = Candidate.objects.filter(id__in=candidate_ids)
+    if not candidates.exists():
+        return JsonResponse({'success': False, 'error': 'No candidates found.'}, status=400)
+
+    occupations = set(c.occupation_id for c in candidates)
+    regcats = set(c.registration_category for c in candidates)
+    if len(occupations) != 1 or len(regcats) != 1 or regcats.pop() != 'Modular':
+        return JsonResponse({'success': False, 'error': 'All candidates must be Modular and have the same occupation.'}, status=400)
+
+    occupation_id = occupations.pop()
+    level = Level.objects.filter(name__icontains='1').first()
+    if not level:
+        return JsonResponse({'success': False, 'error': 'Level 1 not found.'}, status=400)
+    modules = Module.objects.filter(occupation_id=occupation_id, level=level)
+    module_list = [{'id': m.id, 'name': m.name} for m in modules]
+    return JsonResponse({'success': True, 'modules': module_list})
+
+@login_required
+@require_POST
+def bulk_candidate_action(request):
+    import json
+    try:
+        data = json.loads(request.body.decode()) if request.body else request.POST
+        action = data.get('action')
+        ids = data.get('candidate_ids')
+        if isinstance(ids, str):
+            ids = ids.split(',')
+        candidate_ids = [int(i) for i in ids if str(i).isdigit()]
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid request.'}, status=400)
+
+    candidates = Candidate.objects.filter(id__in=candidate_ids)
+    if not candidates.exists():
+        return JsonResponse({'success': False, 'error': 'No candidates found.'}, status=400)
+
+    if action == 'enroll':
+        # Enforce same occupation and reg category
+        occupations = set(c.occupation_id for c in candidates)
+        regcats = set(c.registration_category for c in candidates)
+        if len(occupations) != 1 or len(regcats) != 1:
+            return JsonResponse({'success': False, 'error': 'All candidates must have the same occupation and registration category to enroll together.'}, status=400)
+        regcat = regcats.pop()
+        from .models import Level, CandidateLevel, CandidateModule, Module
+        if regcat == 'Formal':
+            # Enroll each candidate in Level 1 (or add TODO for level selection)
+            level = Level.objects.filter(name__icontains='1').first()
+            if not level:
+                return JsonResponse({'success': False, 'error': 'Level 1 not found.'}, status=400)
+            enrolled = 0
+            for c in candidates:
+                # Remove previous
+                CandidateLevel.objects.filter(candidate=c).delete()
+                CandidateLevel.objects.create(candidate=c, level=level)
+                enrolled += 1
+            return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in Level 1.'})
+        elif regcat == 'Modular':
+            # Modular: use provided module_ids
+            occupation_id = occupations.pop()
+            level = Level.objects.filter(name__icontains='1').first()
+            if not level:
+                return JsonResponse({'success': False, 'error': 'Level 1 not found.'}, status=400)
+            try:
+                data = json.loads(request.body.decode()) if request.body else request.POST
+                module_ids = data.get('module_ids', [])
+                if isinstance(module_ids, str):
+                    module_ids = module_ids.split(',')
+                module_ids = [int(mid) for mid in module_ids if str(mid).isdigit()]
+            except Exception:
+                return JsonResponse({'success': False, 'error': 'Could not read selected modules.'}, status=400)
+            if not (1 <= len(module_ids) <= 2):
+                return JsonResponse({'success': False, 'error': 'Select 1 or 2 modules.'}, status=400)
+            modules = Module.objects.filter(id__in=module_ids, occupation_id=occupation_id, level=level)
+            if modules.count() != len(module_ids):
+                return JsonResponse({'success': False, 'error': 'Invalid module selection.'}, status=400)
+            enrolled = 0
+            for c in candidates:
+                # Remove previous
+                CandidateModule.objects.filter(candidate=c).delete()
+                for m in modules:
+                    CandidateModule.objects.create(candidate=c, module=m)
+                enrolled += 1
+            return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates for Modular registration in modules: ' + ', '.join(m.name for m in modules)})
+        else:
+            return JsonResponse({'success': False, 'error': 'Bulk enroll only supported for Formal or Modular registration categories.'}, status=400)
+
+    elif action == 'regenerate':
+        updated = 0
+        for c in candidates:
+            c.reg_number = None
+            c.save()
+            updated += 1
+        return JsonResponse({'success': True, 'message': f'Regenerated registration numbers for {updated} candidates.'})
+    else:
+        return JsonResponse({'success': False, 'error': 'Unknown action.'}, status=400)
+
 from django.urls import reverse
 from .models import AssessmentCenter, Candidate, Occupation, AssessmentCenterCategory, Level, Module, Paper, CandidateLevel, CandidateModule, Village, District
 from .forms import AssessmentCenterForm, OccupationForm, ModuleForm, PaperForm, CandidateForm, EnrollmentForm, DistrictForm, VillageForm

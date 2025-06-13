@@ -4,6 +4,8 @@ from django.contrib.auth import views as auth_views
 
 
 urlpatterns = [
+    path('candidates/bulk-action/', views.bulk_candidate_action, name='bulk_candidate_action'),
+    path('candidates/bulk-modules/', views.bulk_candidate_modules, name='bulk_candidate_modules'),
     #path('create/', views.eims_create, name='eims_create'),
     # add more views later
 
