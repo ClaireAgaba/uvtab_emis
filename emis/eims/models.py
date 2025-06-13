@@ -94,6 +94,7 @@ class AssessmentCenter(models.Model):
         return f"{self.center_number} - {self.center_name}"
 
     class Meta:
+        ordering = ['center_number']
         verbose_name = "Assessment Center"
         verbose_name_plural = "Assessment Centers"
 
@@ -117,6 +118,11 @@ class Occupation(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Occupation"
+        verbose_name_plural = "Occupations"
+
 
 
 class Level(models.Model):
@@ -135,6 +141,10 @@ class Module(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+    class Meta:
+        ordering = ['name']
+
 
 
     
