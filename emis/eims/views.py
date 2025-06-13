@@ -804,7 +804,7 @@ def candidate_list(request):
     centers = AssessmentCenter.objects.all()
 
     # Pagination: 20 per page
-    paginator = Paginator(candidates, 20)
+    paginator = Paginator(candidates, 100)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
