@@ -451,14 +451,14 @@ def generate_album(request):
         except (ValueError, AssessmentCenter.DoesNotExist, Occupation.DoesNotExist) as e:
             return HttpResponse(f"Invalid parameter: {e}", status=400)
 
-        # Candidate Querying
+        # Candidate Querying lets limit candididate_qs to 5 candidates
         candidate_qs = Candidate.objects.select_related('occupation', 'assessment_center').filter(
             assessment_center=center,
             occupation=occupation,
             registration_category__iexact=reg_category_form, # Use form value for filtering
             assessment_date__year=assessment_year,
             assessment_date__month=assessment_month
-        ).order_by('full_name').limit(5)# Ensure consistent ordering
+        ).order_by('full_name')[:5]
         print("Number of generated candidates = ", candidate_qs.count())
 
         # Optional level filtering (if applicable for the registration category)
