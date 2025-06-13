@@ -461,13 +461,16 @@ def generate_album(request):
         for candidate in candidates:
             print(f'- {candidate.full_name} ({candidate.registration_category})')
         
-        # Add level filter for formal/informal/Workers PAS
+        # Add level filter for Formal/Informal/Workers PAS only
         if reg_category.lower() in ['formal', 'informal', 'workers pas'] and level_id:
             from .models import CandidateLevel
-            # Only filter by level if CandidateLevel exists for this candidate and level
             candidates = candidates.filter(
                 id__in=CandidateLevel.objects.filter(level_id=level_id).values('candidate_id')
             )
+        # For Modular, do NOT filter by level or require enrollment
+        # Just use the other filters above (center, occupation, reg_category, assessment_date)
+        # so all matching candidates (enrolled or not) are included
+        # No action needed here for Modular
         
         # Create PDF
         buffer = BytesIO()
