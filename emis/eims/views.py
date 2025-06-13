@@ -16,6 +16,7 @@ from io import BytesIO
 from PIL import Image as PILImage
 import os
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 
 
 @login_required
@@ -801,6 +802,15 @@ def candidate_view(request, id):
     }
 
     return render(request, 'candidates/view.html', context)
+
+@login_required
+def regenerate_candidate_reg_number(request, id):
+    candidate = get_object_or_404(Candidate, id=id)
+    # Clear reg_number and save to regenerate
+    candidate.reg_number = None
+    candidate.save()
+    messages.success(request, f"Registration number regenerated: {candidate.reg_number}")
+    return redirect('candidate_view', id=candidate.id)
 
 def district_list(request):
     districts = District.objects.all()

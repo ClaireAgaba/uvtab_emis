@@ -11,45 +11,61 @@
 <div class="max-w-6xl mx-auto mt-6 space-y-6">
 
   <!-- Header -->
-  <div class="flex items-center justify-between">
-    <h1 class="text-2xl font-bold">
-      {{ candidate.full_name }} ({{ candidate.reg_number }})
-    </h1>
-    <div class="space-x-2">
-      <a href="{% url 'enroll_candidate' candidate.id %}" class="bg-blue-500 text-white px-4 py-2 rounded">Enroll</a>
-      <a href="{% url 'edit_candidate' candidate.id %}" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Edit</a>
-      <a href="#" class="bg-green-600 text-white px-4 py-2 rounded">Transcript</a>
-      <a href="#" class="bg-purple-600 text-white px-4 py-2 rounded">Certificate</a>
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-extrabold mb-1">{{ candidate.full_name }}</h1>
+      <div class="text-lg text-gray-500 font-mono">{{ candidate.reg_number }}</div>
+    </div>
+    <div class="flex flex-wrap gap-3 mt-2 md:mt-0">
+      <a href="{% url 'enroll_candidate' candidate.id %}" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition" title="Enroll candidate">
+         Enroll
+      </a>
+      <a href="{% url 'edit_candidate' candidate.id %}" class="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded shadow transition" title="Edit candidate">
+       Edit
+      </a>
+      <form method="post" action="{% url 'regenerate_candidate_reg_number' candidate.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to regenerate the registration number? This cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow transition" title="Regenerate registration number">
+          Regenerate Reg. Number
+        </button>
+      </form>
+      <a href="#" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition" title="View transcript">
+         Transcript
+      </a>
+      <a href="#" class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow transition" title="View certificate">
+         Certificate
+      </a>
     </div>
   </div>
 
   <!-- Summary Info + Photo -->
-  <div class="grid grid-cols-3 gap-6 bg-white p-6 rounded shadow">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-8 bg-white p-8 rounded-xl shadow-lg">
     <!-- Info -->
-    <div class="col-span-2 space-y-1">
-      <p><strong>Gender:</strong> {{ candidate.gender }}</p>
-      <p><strong>Date of Birth:</strong> {{ candidate.date_of_birth }}</p>
-      <p><strong>Nationality:</strong> {{ candidate.nationality }}</p>
-      <p><strong>Contact:</strong> {{ candidate.contact }}</p>
-      <p><strong>Assessment Center:</strong> {{ candidate.assessment_center.center_name }}</p>
-      <p><strong>Occupation:</strong> {{ candidate.occupation.name }}</p>
-      <p><strong>Registration Category:</strong> {{ candidate.registration_category }}</p>
-      <p><strong>Entry Year:</strong> {{ candidate.entry_year }}</p>
-      <p><strong>Intake:</strong> {{ candidate.intake }}</p>
+    <div class="md:col-span-2 space-y-2">
+      <div class="grid grid-cols-2 gap-x-8 gap-y-2">
+        <p><span class="font-semibold text-gray-700">Gender:</span> {{ candidate.gender }}</p>
+        <p><span class="font-semibold text-gray-700">Date of Birth:</span> {{ candidate.date_of_birth }}</p>
+        <p><span class="font-semibold text-gray-700">Nationality:</span> {{ candidate.nationality }}</p>
+        <p><span class="font-semibold text-gray-700">Contact:</span> {{ candidate.contact }}</p>
+        <p><span class="font-semibold text-gray-700">Assessment Center:</span> {{ candidate.assessment_center.center_name }}</p>
+        <p><span class="font-semibold text-gray-700">Occupation:</span> {{ candidate.occupation.name }}</p>
+        <p><span class="font-semibold text-gray-700">Registration Category:</span> {{ candidate.registration_category }}</p>
+        <p><span class="font-semibold text-gray-700">Entry Year:</span> {{ candidate.entry_year }}</p>
+        <p><span class="font-semibold text-gray-700">Intake:</span> {{ candidate.intake }}</p>
+      </div>
     </div>
-
     <!-- Image + Badge -->
-    <div class="relative">
+    <div class="flex flex-col items-center justify-center relative">
       {% if candidate.passport_photo %}
-        <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="w-48 h-auto rounded shadow" />
+        <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="w-56 h-56 object-cover rounded-lg shadow-lg border-2 border-gray-200" />
         {% if candidate.is_enrolled %}
-          <div class="absolute top-0 left-0 bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded-br">
+          <div class="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold px-3 py-1 rounded shadow">
             Registered
           </div>
         {% endif %}
       {% else %}
-        <div class="w-48 h-48 bg-gray-200 flex items-center justify-center rounded shadow">
-          <span class="text-gray-500 text-sm">No photo available</span>
+        <div class="w-56 h-56 bg-gray-100 flex items-center justify-center rounded-lg shadow-lg border-2 border-gray-200">
+          <span class="text-gray-400 text-lg">No photo</span>
         </div>
       {% endif %}
     </div>

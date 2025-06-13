@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db import transaction
 
 
 
@@ -209,14 +210,37 @@ class Candidate(models.Model):
 
     reg_number = models.CharField(max_length=100, unique=True, blank=True, null=True)
 
+
     def save(self, *args, **kwargs):
         if not self.reg_number:
             occ_code = self.occupation.code if self.occupation else "XXX"
             reg_type = self.registration_category[0].upper()
             intake_str = self.intake.upper()
             year_suffix = str(self.entry_year)[-2:]
-            unique_num = Candidate.objects.count() + 1
-            self.reg_number = f"{self.nationality}/{year_suffix}/{intake_str}/{occ_code}/{reg_type}/{str(unique_num).zfill(3)}-{self.assessment_center.center_number}"
+            center = self.assessment_center
+            entry_year = self.entry_year
+            intake = self.intake
+            # Atomic block for safe serial assignment
+            with transaction.atomic():
+                # Filter for candidates in the same center, intake, year
+                qs = Candidate.objects.filter(
+                    assessment_center=center,
+                    intake=intake,
+                    entry_year=entry_year
+                )
+                # Extract serials from existing reg_numbers
+                max_serial = 0
+                for c in qs.only('reg_number'):
+                    try:
+                        serial_part = c.reg_number.split('/')[-1].split('-')[0]
+                        serial_int = int(serial_part)
+                        if serial_int > max_serial:
+                            max_serial = serial_int
+                    except Exception:
+                        continue
+                next_serial = max_serial + 1
+                serial_str = str(next_serial).zfill(3)
+                self.reg_number = f"{self.nationality}/{year_suffix}/{intake_str}/{occ_code}/{reg_type}/{serial_str}-{center.center_number}"
         super().save(*args, **kwargs)
 
     def __str__(self):
