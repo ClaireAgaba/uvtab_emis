@@ -359,449 +359,246 @@ def report_list(request):
     group_names = list(request.user.groups.values_list('name', flat=True))
     return render(request, 'reports/list.html', {'group_names': group_names})
 
-def _get_candidate_photo(candidate, photo_width=1*inch, photo_height=1.2*inch):
-    if candidate.photo and hasattr(candidate.photo, 'path') and os.path.exists(candidate.photo.path):
+from reportlab.platypus import Image, Paragraph, Spacer, Table, TableStyle, PageBreak,KeepInFrame
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from io import BytesIO
+from django.conf import settings
+import os
+from PIL import Image as PILImage
+
+def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_height=0.8*inch):
+    """Creates a list of flowables for the candidate photo cell, including image, name, and details."""
+    cell_elements = []
+    photo_image = None
+
+    # Photo Styles
+    photo_name_style = ParagraphStyle(
+        'PhotoName',
+        parent=styles['Normal'],
+        fontSize=7,
+        alignment=TA_CENTER,
+        spaceBefore=1,
+        leading=8
+    )
+    photo_detail_style = ParagraphStyle(
+        'PhotoDetail',
+        parent=styles['Normal'],
+        fontSize=6,
+        alignment=TA_CENTER,
+        spaceBefore=1,
+        leading=7
+    )
+
+    if hasattr(candidate, 'passport_photo') and candidate.passport_photo and hasattr(candidate.passport_photo, 'path') and os.path.exists(candidate.passport_photo.path):
         try:
-            img = PILImage.open(candidate.photo.path)
-            # Scale photo to fit in the table cell
-            scale_factor = min(photo_width/img.width, photo_height/img.height)
+            img = PILImage.open(candidate.passport_photo.path)
+            scale_factor = min(photo_width / img.width, photo_height / img.height)
             scaled_width = img.width * scale_factor
             scaled_height = img.height * scale_factor
-            
-            # Check file size
-            file_size = os.path.getsize(candidate.photo.path)
-            if file_size > 2000000:  # 2MB
-                print(f"Warning: Large photo for {candidate.full_name}: {file_size/1000000:.2f}MB")
-            
-            try:
-                # Convert to RGB if it's not (to handle CMYK, RGBA, etc.)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                    # Save a temp version to use
-                    temp_path = os.path.join(settings.MEDIA_ROOT, f'temp_{candidate.id}_photo.jpg')
-                    img.save(temp_path, 'JPEG')
-                    return Image(temp_path, width=scaled_width, height=scaled_height)
-                
-                return Image(candidate.photo.path, width=scaled_width, height=scaled_height)
-            except Exception as img_err:
-                print(f"Error converting image format for {candidate.full_name}: {img_err}")
-                from reportlab.platypus import Paragraph
-                return Paragraph("[Photo Format Error]", ParagraphStyle('Normal'))
-                
+
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+                temp_path = os.path.join(settings.MEDIA_ROOT, f'temp_photo_cell_{candidate.id}.jpg')
+                img.save(temp_path, 'JPEG')
+                photo_image = Image(temp_path, width=scaled_width, height=scaled_height)
+            else:
+                photo_image = Image(candidate.passport_photo.path, width=scaled_width, height=scaled_height)
+            # Attempt to clean up temp file if created, though might be too soon if ReportLab needs it longer
+            # Consider cleanup after PDF generation if issues arise.
+            # if img.mode != 'RGB' and os.path.exists(temp_path):
+            #     os.remove(temp_path)
         except Exception as e:
-            print(f"Error processing photo for {candidate.full_name}: {e}")
-            # Return placeholder if photo processing fails
-            from reportlab.platypus import Paragraph
-            return Paragraph("[No Photo]", ParagraphStyle('Normal'))
+            print(f"Error processing photo for cell (ID: {candidate.id}): {e}")
+            photo_image = Paragraph("[No Photo]", photo_detail_style)
     else:
-        # No photo available
-        from reportlab.platypus import Paragraph
-        return Paragraph("[No Photo]", ParagraphStyle('Normal'))
+        photo_image = Paragraph("[No Photo]", photo_detail_style)
+    
+    cell_elements.append(photo_image)
+    cell_elements.append(Paragraph(candidate.full_name.upper(), photo_name_style))
+    
+    occupation_code = candidate.occupation.code if candidate.occupation else 'N/A'
+    reg_category_short = candidate.registration_category.upper() if candidate.registration_category else 'N/A'
+    cell_elements.append(Paragraph(f"{reg_category_short} | {occupation_code}", photo_detail_style))
+    
+    return cell_elements
 
 @login_required
 def generate_album(request):
-    """Generate registration list (album) PDF based on selected parameters"""
-    # Get all centers and occupations for the form
     centers = AssessmentCenter.objects.all()
     occupations = Occupation.objects.all()
-    levels = Level.objects.all()
-    
+    levels = Level.objects.all() # Though not directly used in this version's header/table structure as per screenshot
+
     if request.method == 'POST':
-        # Debug form data
-        print('POST data:', request.POST)
-        
         center_id = request.POST.get('center')
         occupation_id = request.POST.get('occupation')
-        reg_category = request.POST.get('registration_category', '')
-        level_id = request.POST.get('level')
-        assessment_month = request.POST.get('assessment_month')
-        assessment_year = request.POST.get('assessment_year')
-        
-        # Debug query parameters
-        print('Query params:', {
-            'center_id': center_id,
-            'occupation_id': occupation_id,
-            'registration_category': reg_category,
-            'level_id': level_id,
-            'assessment_month': assessment_month,
-            'assessment_year': assessment_year
-        })
-        
-        # Query candidates based on parameters
-        print('Checking candidates with category:', repr(reg_category))
-        # First get all candidates for debugging
-        from datetime import datetime
-        
-        # Handle assessment month and year
-        print('Received assessment month/year:', assessment_month, assessment_year)
-        if not assessment_month or not assessment_year:
-            return HttpResponse('Assessment month and year are required', status=400)
+        reg_category_form = request.POST.get('registration_category', '') # Name from form
+        level_id = request.POST.get('level') # Keep for filtering logic if needed
+        assessment_month_str = request.POST.get('assessment_month')
+        assessment_year_str = request.POST.get('assessment_year')
+
+        if not all([center_id, occupation_id, reg_category_form, assessment_month_str, assessment_year_str]):
+            return HttpResponse("All filter parameters are required.", status=400)
 
         try:
-            # Convert to integers
-            month = int(assessment_month)
-            year = int(assessment_year)
-            
-            print(f'Using month: {month}, year: {year}')
+            assessment_month = int(assessment_month_str)
+            assessment_year = int(assessment_year_str)
+            center = AssessmentCenter.objects.get(id=center_id)
+            occupation = Occupation.objects.get(id=occupation_id)
+        except (ValueError, AssessmentCenter.DoesNotExist, Occupation.DoesNotExist) as e:
+            return HttpResponse(f"Invalid parameter: {e}", status=400)
 
-            # Filter candidates
-            candidates = Candidate.objects.filter(
-                assessment_center_id=center_id,
-                occupation_id=occupation_id,
-                registration_category__iexact=reg_category
-            )
+        # Candidate Querying
+        candidate_qs = Candidate.objects.select_related('occupation', 'assessment_center').filter(
+            assessment_center=center,
+            occupation=occupation,
+            registration_category__iexact=reg_category_form, # Use form value for filtering
+            assessment_date__year=assessment_year,
+            assessment_date__month=assessment_month
+        ).order_by('full_name') # Ensure consistent ordering
 
-            # Debug candidate query
-            print('Initial candidate count:', candidates.count())
-            print('SQL Query:', candidates.query)
-
-            # Add date filtering
-            candidates = candidates.filter(
-                assessment_date__year=year,
-                assessment_date__month=month
-            )
-
-            print('Final candidate count:', candidates.count())
-            print('Assessment dates:', [c.assessment_date for c in candidates])
-
-        except ValueError as e:
-            print(f'Error parsing date: {e}')
-            print(f'Raw values - Month: {assessment_month!r}, Year: {assessment_year!r}')
-            return HttpResponse(f'Invalid date format: {e}', status=400)
-        print('All candidates before category filter:', candidates.count())
-        print('Their categories:', [c.registration_category for c in candidates])
-        
-        # Debug query results
-        print('SQL Query:', candidates.query)
-        print('Found candidates:', candidates.count())
-        for candidate in candidates:
-            print(f'- {candidate.full_name} ({candidate.registration_category})')
-        
-        # Add level filter for Formal/Informal/Workers PAS only
-        if reg_category.lower() in ['formal', 'informal', 'workers pas'] and level_id:
-            from .models import CandidateLevel
-            candidates = candidates.filter(
+        # Optional level filtering (if applicable for the registration category)
+        if reg_category_form.lower() in ['formal', 'informal', 'workers pas'] and level_id:
+            candidate_qs = candidate_qs.filter(
                 id__in=CandidateLevel.objects.filter(level_id=level_id).values('candidate_id')
             )
-        # For Modular, do NOT filter by level or require enrollment
-        # Just use the other filters above (center, occupation, reg_category, assessment_date)
-        # so all matching candidates (enrolled or not) are included
-        # No action needed here for Modular
         
-        # Create PDF
+        final_candidates = list(candidate_qs)
+        if not final_candidates:
+            return HttpResponse("No candidates found matching the criteria.", status=404)
+
+        # PDF Generation
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
-                               rightMargin=0.5*inch, leftMargin=0.5*inch,
-                               topMargin=0.3*inch, bottomMargin=0.5*inch)
+                                rightMargin=0.4*inch, leftMargin=0.4*inch,
+                                topMargin=0.3*inch, bottomMargin=0.3*inch)
         elements = []
-        
-        # Create header styles
         styles = getSampleStyleSheet()
-        header_style = ParagraphStyle(
-            'CustomHeader',
-            parent=styles['Heading1'],
-            fontSize=16,
-            alignment=1,  # Center alignment
-            spaceAfter=6
-        )
-        subheader_style = ParagraphStyle(
-            'CustomSubHeader',
-            parent=styles['Normal'],
-            fontSize=12,
-            alignment=1,  # Center alignment
-            spaceAfter=20
-        )
+
+        # Define Styles
+        contact_style = ParagraphStyle('ContactInfo', parent=styles['Normal'], fontSize=9, leading=11)
+        board_title_style = ParagraphStyle('BoardTitle', parent=styles['h1'], fontSize=14, alignment=TA_CENTER, spaceBefore=6, spaceAfter=6, textColor=colors.HexColor('#000000'))
+        report_title_style = ParagraphStyle('ReportTitle', parent=styles['h2'], fontSize=12, alignment=TA_CENTER, spaceAfter=4)
+        center_info_style = ParagraphStyle('CenterInfo', parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, spaceAfter=10)
+        details_label_style = ParagraphStyle('DetailsLabel', parent=styles['Normal'], fontSize=9, alignment=TA_LEFT, spaceAfter=2)
         
-        # First row: Contact info and logo
-        contact_table_data = [
-            [
-                Paragraph('P.O.Box 1499<br/>Email: info@uvtab.go.ug', styles['Normal']),
-                '',  # Logo will go here
-                Paragraph('Tel: 256 414 289786', styles['Normal'])
-            ]
-        ]
-        
-        # Find and add logo
+        # 1. Header Section
+        # Top contact line
         logo_path = None
         possible_paths = [
             os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab logo.png'),
             os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab logo.png'),
-            os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab logo.png')
+            os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab logo.png'),
+            os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab logo.png') # Check collected static too
         ]
         for path in possible_paths:
-            if os.path.exists(path):
+            if path and os.path.exists(path):
                 logo_path = path
                 break
         
-        if logo_path:
-            logo = Image(logo_path, width=1.2*inch, height=1.2*inch)
-            contact_table_data[0][1] = logo
-        
-        # Create contact info table
-        contact_table = Table(contact_table_data, colWidths=[2.5*inch, 2*inch, 2.5*inch])
-        contact_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        elements.append(contact_table)
-        # Reduced or removed spacer to save vertical space
-        # elements.append(Spacer(1, 0.3*inch))  # Space after logo/contact
-        
-        # Second row: UVTAB full name
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=16,
-            alignment=TA_CENTER,
-            spaceAfter=12
-        )
-        elements.append(Paragraph('UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD', title_style))
-        
-        # Third row: Assessment period
-        month_names = ['January', 'February', 'March', 'April', 'May', 'June',
-                      'July', 'August', 'September', 'October', 'November', 'December']
-        formatted_date = f"{month_names[int(assessment_month)-1]} {assessment_year}"
-        subtitle_style = ParagraphStyle(
-            'CustomSubtitle',
-            parent=styles['Heading2'],
-            fontSize=14,
-            alignment=TA_CENTER,
-            spaceAfter=12
-        )
-        elements.append(Paragraph(f"Registered Candidates for {formatted_date} Assessment", subtitle_style))
-        
-        # Fourth row: Assessment Center
-        center = AssessmentCenter.objects.get(id=center_id)
-        center_style = ParagraphStyle(
-            'CenterInfo',
-            parent=styles['Normal'],
-            fontSize=12,
-            alignment=TA_CENTER,
-            spaceAfter=12
-        )
-        elements.append(Paragraph(f"Assessment Center: {center.center_number} - {center.center_name}", center_style))
-        
-        # Add spacer before details
-        elements.append(Spacer(1, 20))
-        
-        # Details section
-        occupation = Occupation.objects.get(id=occupation_id)
-        details_style = ParagraphStyle(
-            'Details',
-            parent=styles['Normal'],
-            fontSize=11,
-            alignment=TA_LEFT,
-            spaceAfter=6
-        )
-        
-        # Occupation details
-        elements.append(Paragraph(f"Occupation Name: {occupation.name}", details_style))
-        elements.append(Paragraph(f"Occupation Code: {occupation.code}", details_style))
-        elements.append(Paragraph(f"Registration Category: {reg_category.title()}", details_style))
-        
-        # Add level for formal/informal
-        if reg_category.lower() in ['formal', 'informal'] and level_id:
-            level = Level.objects.get(id=level_id)
-            elements.append(Paragraph(f"Level: {level.name}", details_style))
-        
-        # Add spacer before table
-        elements.append(Spacer(1, 20))
-        
-        # Table headers
-        headers = ['S/N', 'Photo', 'Reg No.', 'Full Name', 'Occupation', 'Reg Type']
-        if reg_category in ['formal', 'informal']:
-            headers.append('Level')
-        if reg_category in ['informal', 'modular']:
-            headers.append('No. of Modules')
-        headers.append('Signature')
-        
-        # Prepare table data with word wrapping
-        styles = getSampleStyleSheet()
-        normal_style = styles['Normal']
-        normal_style.wordWrap = 'CJK'  # Better word wrapping
-        normal_style.fontSize = 8  # Smaller font for better fit
+        logo_image = Image(logo_path, width=0.8*inch, height=0.8*inch) if logo_path else Paragraph(" ", styles['Normal'])
 
-        def chunked(lst, n):
-            for i in range(0, len(lst), n):
-                yield lst[i:i + n]
-
-        # Estimate how many candidates fit per page (experimentally, 8-12)
-        # For each candidate, extract their data and photo with error handling
-        candidate_rows = []
-        for i, candidate in enumerate(candidates, 1):
-            try:
-                # Add candidate photo with error handling
-                try:
-                    candidate_photo = _get_candidate_photo(candidate)
-                except Exception as photo_err:
-                    print(f"Error processing photo for candidate {candidate.id}: {photo_err}")
-                    # Use a placeholder instead of failing
-                    candidate_photo = Paragraph("[Photo Error]", normal_style)
-                
-                # Add candidate details
-                row = [
-                    str(i),  # Serial number
-                    candidate_photo,
-                    Paragraph(candidate.reg_number, normal_style),
-                    Paragraph(candidate.full_name, normal_style),
-                    Paragraph(candidate.occupation.name, normal_style),
-                    Paragraph(candidate.registration_category, normal_style)
-                ]
-                if reg_category in ['formal', 'informal']:
-                    # Safe access to level name with error handling
-                    try:
-                        if hasattr(candidate, 'level') and candidate.level:
-                            row.append(candidate.level.name)
-                        else:
-                            # Find level from CandidateLevel
-                            candidate_level = CandidateLevel.objects.filter(candidate=candidate).first()
-                            row.append(candidate_level.level.name if candidate_level else 'N/A')
-                    except Exception as level_err:
-                        print(f"Error getting level for candidate {candidate.id}: {level_err}")
-                        row.append('Error')
-                        
-                if reg_category in ['informal', 'modular']:
-                    try:
-                        module_count = candidate.candidatemodule_set.count()
-                        row.append(str(module_count))
-                    except Exception as module_err:
-                        print(f"Error counting modules for candidate {candidate.id}: {module_err}")
-                        row.append('?')
-                        
-                row.append('')  # Empty signature field
-                candidate_rows.append(row)
-            except Exception as row_err:
-                print(f"Error building row for candidate {candidate.id}: {row_err}")
-                # Continue with next candidate rather than failing entire PDF
-
-        # Calculate page width and margins
-        page_width = landscape(letter)[0]
-        left_margin = right_margin = 0.5*inch
-        available_width = page_width - (left_margin + right_margin)
-
-        col_widths = [
-            0.4*inch,   # S/N
-            0.7*inch,   # Photo
-            1.8*inch,   # Reg No
-            2.2*inch,   # Full Name
-            1.4*inch,   # Occupation
-            1.0*inch,   # Reg Type
+        header_table_data = [
+            [Paragraph("P.O.Box 1499<br/>Email: info@uvtab.go.ug", contact_style), 
+             logo_image, 
+             Paragraph("Tel: 256 414 289786", contact_style)]
         ]
-        if reg_category in ['Formal', 'Informal']:
-            col_widths.append(1.0*inch)  # Level
-        if reg_category in ['Informal', 'Modular']:
-            col_widths.append(0.8*inch)  # No. of Modules
-        col_widths.append(1.0*inch)  # Signature
+        header_table = Table(header_table_data, colWidths=[3*inch, 3*inch, 3*inch]) # Adjusted for landscape
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'CENTER'),
+            ('ALIGN', (2,0), (2,0), 'RIGHT'),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 0.1*inch))
 
-        total_col_width = sum(col_widths)
-        if total_col_width > available_width:
-            scale_factor = available_width / total_col_width
-            col_widths = [w * scale_factor for w in col_widths]
-
-        # Defensive: ensure all candidate rows have the same length as headers
-        for r in candidate_rows:
-            while len(r) < len(headers):
-                r.append('')
-            while len(r) > len(headers):
-                r.pop()
-
-        # Paginate candidate rows into pages
-        pages = list(chunked(candidate_rows, candidates_per_page))
-        for page_num, page_rows in enumerate(pages):
-            # Always prepend headers to every page (fix for missing middle headers)
-            data = [headers] + page_rows
-            table = Table(data, colWidths=col_widths)
-            table.setStyle(TableStyle([
-                # Header styling (always for first row on every page)
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),
-                ('TOPPADDING', (0, 0), (-1, 0), 5),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
-                # Row style
-                ('FONTSIZE', (0, 1), (-1, -1), 7),
-                ('TOPPADDING', (0, 1), (-1, -1), 1),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
-                ('LEFTPADDING', (0, 0), (-1, -1), 2),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-                # Alignment
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                # Borders
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#2563eb')),
-                ('BOX', (0, 0), (-1, -1), 1, colors.black),
-                # Specific column alignments
-                ('ALIGN', (2, 1), (2, -1), 'LEFT'),
-                ('ALIGN', (3, 1), (3, -1), 'LEFT'),
-                # Alternating row colors
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
-            ]))
-            elements.append(table)
-            # Add page break except after last page
-            if page_num < len(pages) - 1:
-                from reportlab.platypus import PageBreak
-                elements.append(PageBreak())
-
-        # Build PDF with detailed error handling
-        try:
-            for idx, element in enumerate(elements):
-                try:
-                    # Validate each element before building
-                    if hasattr(element, 'validate'):
-                        element.validate()
-                except Exception as elem_err:
-                    print(f"Error with element {idx}, type {type(element).__name__}: {elem_err}")
-                    # Return detailed error information for debugging
-                    error_message = f"Error with element {idx}, type: {type(element).__name__}: {str(elem_err)}"
-                    return HttpResponse(error_message, status=500)
-
-            try:
-                doc.build(elements)
-            except Exception as build_err:
-                print(f"Error during PDF build: {build_err}")
-                # Try to identify what might be causing the issue
-                if 'image' in str(build_err).lower() or 'photo' in str(build_err).lower():
-                    return HttpResponse(f'Error with image processing: {build_err}', status=500)
-                elif 'ascii' in str(build_err).lower() or 'encoding' in str(build_err).lower():
-                    return HttpResponse(f'Error with text encoding: {build_err}', status=500)
-                elif 'memory' in str(build_err).lower():
-                    return HttpResponse('Error: Not enough memory to generate PDF. Try with fewer candidates.', status=500)
-                else:
-                    return HttpResponse(f'Error building PDF: {build_err}', status=500)
-        except Exception as e:
-            print(f"Unexpected error in PDF generation: \n\n{e}\n\n")
-            return HttpResponse(f'Unexpected error: {e}', status=500)
-
+        elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", board_title_style))
         
-        # Get the value of the BytesIO buffer and return the PDF as a response
-        pdf = buffer.getvalue()
-        buffer.close()
-        response = HttpResponse(content_type='application/pdf')
-        filename = f'Registration List - {center.center_name} - {occupation.name} - {reg_category.title()}'
-        if reg_category in ['FORMAL', 'INFORMAL'] and level_id:
-            level = Level.objects.get(id=level_id)
-            filename += f' - {level.name}'
-        filename = filename.replace(' ', '_') + '.pdf'
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        response.write(pdf)
-        return response
-    
-    pages = None
-    if request.method == 'POST':
-        candidates = Candidate.objects.all()
-        def chunked(lst, n):
-            for i in range(0, len(lst), n):
-                yield lst[i:i + n]
-        pages = list(chunked(list(candidates), 5))
+        month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+        assessment_period_str = f"{month_names[assessment_month-1]} {assessment_year}"
+        elements.append(Paragraph(f"Registered Candidates for {assessment_period_str} Assessment", report_title_style))
+        elements.append(Paragraph(f"Assessment Center: {center.center_number} - {center.center_name}", center_info_style))
+        
+        # Occupation Details Section (below Assessment Center info)
+        elements.append(Paragraph(f"Occupation Name: {occupation.name.upper()}<br/>Occupation Code: {occupation.code.upper()}<br/>Registration Category: {reg_category_form.upper()}{(' - Level: ' + Level.objects.get(id=level_id).name.upper()) if reg_category_form.lower() in ['formal', 'informal'] and level_id else ''}", details_label_style))
+        elements.append(Spacer(1, 0.2*inch))
+
+        # 2. Candidate Table
+        table_header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER, textColor=colors.white)
+        table_cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8, alignment=TA_LEFT, leading=10)
+        table_cell_center_style = ParagraphStyle('TableCellCenter', parent=table_cell_style, alignment=TA_CENTER)
+
+        data = []
+        # Table Headers
+        header_row = [Paragraph(h, table_header_style) for h in ['S/N', 'PHOTO', 'REG NO.', 'FULL NAME', 'OCCUPATION', 'REG TYPE', 'SIGNATURE']]
+        data.append(header_row)
+
+        for i, cand in enumerate(final_candidates):
+            photo_cell_flowables = _create_photo_cell_content(cand, styles)
+            row = [
+                Paragraph(str(i + 1), table_cell_center_style),
+                photo_cell_flowables, # This is a list of flowables
+                Paragraph(cand.reg_number or 'N/A', table_cell_style),
+                Paragraph(cand.full_name.upper(), table_cell_style),
+                Paragraph(cand.occupation.name.upper() if cand.occupation else 'N/A', table_cell_style),
+                Paragraph(cand.registration_category.upper() if cand.registration_category else 'N/A', table_cell_style),
+                Paragraph('', table_cell_style) # Empty for signature
+            ]
+            data.append(row)
+        
+        # Column widths (adjust as needed, total should be around 10.2 inch for landscape letter with 0.4 margins)
+        col_widths = [0.4*inch, 1.3*inch, 1.8*inch, 2.7*inch, 1.5*inch, 1.2*inch, 1.3*inch] 
+
+        candidate_table = Table(data, colWidths=col_widths, repeatRows=1)
+        candidate_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4F81BD')), # Header background
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'), # Header text alignment
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), # All cells middle aligned vertically
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 8),
+            ('BOTTOMPADDING', (0,0), (-1,0), 6),
+            ('TOPPADDING', (0,0), (-1,0), 6),
+            
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('BOX', (0,0), (-1,-1), 1, colors.black),
+            
+            # Data row styling
+            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (0,-1), 'CENTER'), # S/N centered
+            ('ALIGN', (2,1), (2,-1), 'LEFT'), # Reg No left
+            ('ALIGN', (3,1), (3,-1), 'LEFT'), # Full Name left
+            ('ALIGN', (4,1), (4,-1), 'LEFT'), # Occupation left
+            ('ALIGN', (5,1), (5,-1), 'CENTER'), # Reg Type center
+            ('TOPPADDING', (0,1), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,1), (-1,-1), 4),
+        ]))
+        elements.append(candidate_table)
+
+        # Build PDF
+        try:
+            doc.build(elements)
+            buffer.seek(0)
+            response = HttpResponse(buffer, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="candidate_album_{center.center_number}_{occupation.code}_{assessment_year}_{assessment_month}.pdf"'
+            return response
+        except Exception as e:
+            print(f"Error building PDF: {e}")
+            import traceback
+            traceback.print_exc()
+            return HttpResponse(f"Error generating PDF: {e}", status=500)
+
+    # GET request or if form not submitted properly
     return render(request, 'reports/albums.html', {
         'centers': centers,
         'occupations': occupations,
         'levels': levels,
-        'pages': pages,
+        'form_action': reverse('generate_album')
     })
 
 def add_module(request, level_id):

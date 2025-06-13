@@ -144,6 +144,9 @@ class Module(models.Model):
     def __str__(self):
         return f"{self.code} - {self.name}"
 
+    class Meta:
+        ordering = ['name']
+
 
     
 class Paper(models.Model):
@@ -244,7 +247,10 @@ class Candidate(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.full_name} ({self.reg_number})"
+        return f"{self.reg_number} - {self.full_name}"
+
+    class Meta:
+        ordering = ['reg_number']
 
 class CandidateLevel(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE)
