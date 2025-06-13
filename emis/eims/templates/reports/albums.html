@@ -137,12 +137,15 @@
   <style>
     /* Prevent rows / images splitting across pages */
     table, tr, img      { page-break-inside: avoid; }
-    thead               { display: table-header-group; }
+    /* thead { display: table-header-group; }  <-- REMOVE this line to prevent repeated headers */
     tbody               { display: table-row-group; }
     table               { width: 100%; border-collapse: collapse; }
     th, td              { border: 1px solid #000; padding: .25rem .4rem; }
     th                  { background: #0060c0; color: #fff; font-size: 0.9rem; }
     td                  { font-size: 0.85rem; }
+    @media print {
+      thead { display: table-row-group !important; }
+    }
   </style>
 
   {# ---- Optional report title / logo (only once) ---- #}
@@ -164,8 +167,6 @@
         <th>Signature</th>
       </tr>
     </thead>
-
-    {# ---- We output tbody for every page chunk ---- #}
     {% for candidate_page in pages %}
       <tbody>
         {% for cand in candidate_page %}
