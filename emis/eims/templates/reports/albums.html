@@ -137,7 +137,6 @@
   <style>
     /* Prevent rows / images splitting across pages */
     table, tr, img      { page-break-inside: avoid; }
-    /* thead { display: table-header-group; }  <-- REMOVE this line to prevent repeated headers */
     tbody               { display: table-row-group; }
     table               { width: 100%; border-collapse: collapse; }
     th, td              { border: 1px solid #000; padding: .25rem .4rem; }
@@ -145,6 +144,16 @@
     td                  { font-size: 0.85rem; }
     @media print {
       thead { display: table-row-group !important; }
+    }
+    /* --- WeasyPrint/PrinceXML: True page numbers in footer --- */
+    @page {
+      size: A4;
+      margin: 1cm 1.5cm 2cm 1.5cm;
+      @bottom-center {
+        content: "Page " counter(page) " of " counter(pages);
+        font-size: 0.9em;
+        color: #888;
+      }
     }
   </style>
 
@@ -156,18 +165,20 @@
   </div>
 
   <table>
-    <thead>
-      <tr>
-        <th>S/N</th>
-        <th>Photo</th>
-        <th>Reg&nbsp;No.</th>
-        <th>Full&nbsp;Name</th>
-        <th>Occupation</th>
-        <th>Reg&nbsp;Type</th>
-        <th>Signature</th>
-      </tr>
-    </thead>
     {% for candidate_page in pages %}
+      {% if forloop.first %}
+        <thead>
+          <tr>
+            <th>S/N</th>
+            <th>Photo</th>
+            <th>Reg&nbsp;No.</th>
+            <th>Full&nbsp;Name</th>
+            <th>Occupation</th>
+            <th>Reg&nbsp;Type</th>
+            <th>Signature</th>
+          </tr>
+        </thead>
+      {% endif %}
       <tbody>
         {% for cand in candidate_page %}
           <tr>
@@ -185,11 +196,23 @@
           </tr>
         {% endfor %}
       </tbody>
-      {% if not forloop.last %}
-        <tbody class="page-break"></tbody>
-      {% endif %}
+
     {% endfor %}
   </table>
+  <style>
+    table, tr, img      { page-break-inside: avoid; }
+    /* thead { display: table-header-group; } */
+    tbody               { display: table-row-group; }
+    table               { width: 100%; border-collapse: collapse; }
+    th, td              { border: 1px solid #000; padding: .25rem .4rem; }
+    th                  { background: #0060c0; color: #fff; font-size: 0.9rem; }
+    td                  { font-size: 0.85rem; }
+    .page-number-row    { page-break-after: always; }
+    @media print {
+      thead { display: table-row-group !important; }
+      .page-number-row { page-break-after: always !important; }
+    }
+  </style>
 {% endif %}
 
 {# ------------------------------------------------------------------ #}
