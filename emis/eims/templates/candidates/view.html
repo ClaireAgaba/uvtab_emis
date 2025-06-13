@@ -14,9 +14,9 @@
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
     <div>
       <h1 class="text-3xl font-extrabold mb-1">{{ candidate.full_name }}</h1>
-      <div class="text-lg text-gray-500 font-mono">{{ candidate.reg_number }}</div>
+      <div class="text-lg text-gray-500 font-mono" data-field="reg_number">{{ candidate.reg_number }}</div>
     </div>
-    <div class="flex flex-wrap gap-3 mt-2 md:mt-0">
+    <div class="flex flex-wrap gap-3 mt-2 md:mt-0 items-center">
       <a href="{% url 'enroll_candidate' candidate.id %}" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition" title="Enroll candidate">
          Enroll
       </a>
@@ -35,6 +35,111 @@
       <a href="#" class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow transition" title="View certificate">
          Certificate
       </a>
+      <!-- Action Dropdown -->
+      <div class="relative inline-block text-left ml-2">
+        <button id="actionDropdownBtn" type="button" class="flex items-center gap-2 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded shadow transition focus:outline-none" aria-haspopup="true" aria-expanded="false">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          Action
+        </button>
+        <div id="actionDropdownMenu" class="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+          <div class="py-1">
+            {% if not candidate.is_enrolled %}
+
+            {% endif %}
+            <a href="#" id="changeCenterAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Assessment Center</a>
+            <a href="#" id="changeOccupationAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Occupation</a>
+
+            <!-- Change Occupation Modal -->
+            <div id="changeOccupationModal" class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40 hidden">
+              <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+                <button type="button" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onclick="closeOccupationModal()">&times;</button>
+                <h3 class="text-lg font-semibold mb-4">Change Occupation</h3>
+                <form id="changeOccupationForm">
+                  <label for="occupationSelect" class="block mb-2 font-medium">Select New Occupation</label>
+                  <select id="occupationSelect" name="occupation" class="w-full border rounded px-3 py-2 mb-4">
+                    <option value="">-- Select Occupation --</option>
+                    {% for occ in occupations %}
+                      <option value="{{ occ.id }}" {% if candidate.occupation.id == occ.id %}disabled selected{% endif %}>{{ occ.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <div id="occupationChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
+                  <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply</button>
+                </form>
+              </div>
+            </div>
+
+            <script>
+              function openOccupationModal() {
+                document.getElementById('changeOccupationModal').classList.remove('hidden');
+                document.getElementById('occupationChangeError').classList.add('hidden');
+                document.getElementById('occupationChangeError').innerText = '';
+              }
+              function closeOccupationModal() {
+                document.getElementById('changeOccupationModal').classList.add('hidden');
+              }
+              var changeOccupationBtn = document.getElementById('changeOccupationAction');
+              if (changeOccupationBtn) {
+                changeOccupationBtn.onclick = function(e) {
+                  e.preventDefault();
+                  openOccupationModal();
+                  document.getElementById('actionDropdownMenu').classList.add('hidden');
+                };
+              }
+              document.getElementById('changeOccupationForm').onsubmit = function(e) {
+                e.preventDefault();
+                var occId = document.getElementById('occupationSelect').value;
+                if (!occId) {
+                  var err = document.getElementById('occupationChangeError');
+                  err.innerText = 'Please select an occupation.';
+                  err.classList.remove('hidden');
+                  return;
+                }
+                fetch("{% url 'change_candidate_occupation' candidate.id %}", {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest',
+                  },
+                  body: JSON.stringify({occupation: occId})
+                })
+                .then(resp => resp.json())
+                .then(data => {
+                  if (data.success) {
+                    document.querySelector('[data-field="occupation"]').innerText = data.occupation_name;
+                    document.querySelector('[data-field="reg_number"]').innerText = data.reg_number;
+                    closeOccupationModal();
+                  } else {
+                    var err = document.getElementById('occupationChangeError');
+                    err.innerText = data.error || 'Failed to change occupation.';
+                    err.classList.remove('hidden');
+                  }
+                })
+                .catch(() => {
+                  var err = document.getElementById('occupationChangeError');
+                  err.innerText = 'Failed to change occupation.';
+                  err.classList.remove('hidden');
+                });
+              };
+            </script>
+          </div>
+        </div>
+      </div>
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          const btn = document.getElementById('actionDropdownBtn');
+          const menu = document.getElementById('actionDropdownMenu');
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            menu.classList.toggle('hidden');
+          });
+          document.addEventListener('click', function(e) {
+            if (!menu.classList.contains('hidden')) {
+              menu.classList.add('hidden');
+            }
+          });
+        });
+      </script>
     </div>
   </div>
 
@@ -47,11 +152,15 @@
         <p><span class="font-semibold text-gray-700">Date of Birth:</span> {{ candidate.date_of_birth }}</p>
         <p><span class="font-semibold text-gray-700">Nationality:</span> {{ candidate.nationality }}</p>
         <p><span class="font-semibold text-gray-700">Contact:</span> {{ candidate.contact }}</p>
-        <p><span class="font-semibold text-gray-700">Assessment Center:</span> {{ candidate.assessment_center.center_name }}</p>
-        <p><span class="font-semibold text-gray-700">Occupation:</span> {{ candidate.occupation.name }}</p>
+        <p><span class="font-semibold text-gray-700">Assessment Center:</span> <span data-field="assessment_center">{{ candidate.assessment_center.center_name }}</span></p>
+        <p><span class="font-semibold text-gray-700">Occupation:</span> <span data-field="occupation">{{ candidate.occupation.name }}</span></p>
         <p><span class="font-semibold text-gray-700">Registration Category:</span> {{ candidate.registration_category }}</p>
+        {% if candidate.registration_category == 'Formal' or candidate.registration_category == 'Informal' %}
+          <p><span class="font-semibold text-gray-700">Level:</span> {% if level_enrollment %}{{ level_enrollment.level.name }}{% else %}<span class="text-gray-400">-</span>{% endif %}</p>
+        {% endif %}
         <p><span class="font-semibold text-gray-700">Entry Year:</span> {{ candidate.entry_year }}</p>
         <p><span class="font-semibold text-gray-700">Intake:</span> {{ candidate.intake }}</p>
+        <p><span class="font-semibold text-gray-700">Registration Number:</span> <span data-field="reg_number">{{ candidate.reg_number }}</span></p>
       </div>
     </div>
     <!-- Image + Badge -->
@@ -78,7 +187,21 @@
     {% if candidate.registration_category == 'Formal' and level_enrollment %}
       <p>Enrolled in:  {{ level_enrollment.level.name }}</p>
   
-    {% elif candidate.registration_category == 'Modular' or candidate.registration_category == 'Informal' %}
+    {% elif candidate.registration_category == 'Informal' %}
+      {% if level_enrollment %}
+        <p>Level: {{ level_enrollment.level.name }}</p>
+      {% endif %}
+      {% if module_enrollments %}
+        <p>Enrolled in {{ module_enrollments.count }} Module{{ module_enrollments.count|pluralize }}</p>
+        <ul class="list-disc ml-6">
+          {% for enrollment in module_enrollments %}
+            <li>{{ enrollment.module.name }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No modules selected.</p>
+      {% endif %}
+    {% elif candidate.registration_category == 'Modular' %}
       {% if module_enrollments %}
         <p>Enrolled in {{ module_enrollments.count }} Module{{ module_enrollments.count|pluralize }}</p>
         <ul class="list-disc ml-6">
@@ -124,4 +247,96 @@
   </div>
 
 </div>
+<!-- Change Assessment Center Modal -->
+<div id="changeCenterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+  <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+    <h2 class="text-xl font-bold mb-4">Change Assessment Center</h2>
+    <form id="changeCenterForm">
+      <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+      <label for="centerSelect" class="block mb-2 font-semibold">Select New Assessment Center</label>
+      <select id="centerSelect" name="assessment_center" class="w-full border px-3 py-2 rounded mb-4" required>
+        <option value="">-- Select Center --</option>
+        {% for center in centers %}
+          <option value="{{ center.id }}" {% if center.id == candidate.assessment_center.id %}disabled selected{% endif %}>{{ center.center_number }} - {{ center.center_name }}</option>
+        {% endfor %}
+      </select>
+      <div id="centerChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
+      <div class="flex justify-end gap-2">
+        <button type="button" id="closeCenterModal" class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Change Center</button>
+      </div>
+    </form>
+    <button id="closeCenterModalX" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+  </div>
+</div>
+
+<script>
+// Modal logic
+const modal = document.getElementById('changeCenterModal');
+const openBtn = document.getElementById('changeCenterAction');
+const closeBtn = document.getElementById('closeCenterModal');
+const closeX = document.getElementById('closeCenterModalX');
+const form = document.getElementById('changeCenterForm');
+const errorDiv = document.getElementById('centerChangeError');
+const centerSelect = document.getElementById('centerSelect');
+
+if (openBtn) {
+  openBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    modal.classList.remove('hidden');
+    errorDiv.classList.add('hidden');
+    errorDiv.textContent = '';
+  });
+}
+[closeBtn, closeX].forEach(btn => btn && btn.addEventListener('click', function() {
+  modal.classList.add('hidden');
+}));
+window.addEventListener('click', function(e) {
+  if (e.target === modal) modal.classList.add('hidden');
+});
+
+// AJAX form submission
+if (form) {
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    errorDiv.classList.add('hidden');
+    errorDiv.textContent = '';
+    const centerId = centerSelect.value;
+    if (!centerId) {
+      errorDiv.textContent = 'Please select a center.';
+      errorDiv.classList.remove('hidden');
+      return;
+    }
+    const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    fetch("{% url 'change_candidate_center' candidate.id %}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({ assessment_center: centerId })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Update center and regno in UI
+        document.querySelectorAll('[data-field="assessment_center"]').forEach(el => el.textContent = data.center_name);
+        document.querySelectorAll('[data-field="reg_number"]').forEach(el => el.textContent = data.reg_number);
+        modal.classList.add('hidden');
+        // Optionally show a success message
+        alert('Assessment center changed! Reg. number regenerated.');
+      } else {
+        errorDiv.textContent = data.error || 'An error occurred.';
+        errorDiv.classList.remove('hidden');
+      }
+    })
+    .catch(() => {
+      errorDiv.textContent = 'An error occurred. Please try again.';
+      errorDiv.classList.remove('hidden');
+    });
+  });
+}
+</script>
+
 {% endblock %}

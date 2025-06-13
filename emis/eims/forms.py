@@ -86,7 +86,12 @@ class CandidateForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
+        edit = kwargs.pop('edit', False)
         super().__init__(*args, **kwargs)
+        # Accept DD/MM/YYYY for all date fields
+        for field in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']:
+            if field in self.fields:
+                self.fields[field].input_formats = ['%d/%m/%Y']
         if user and user.groups.filter(name='CenterRep').exists():
             from .models import CenterRepresentative
             try:
@@ -96,14 +101,23 @@ class CandidateForm(forms.ModelForm):
                 self.fields['assessment_center'].disabled = True
             except CenterRepresentative.DoesNotExist:
                 self.fields['assessment_center'].queryset = self.fields['assessment_center'].queryset.none()
+        # Disable occupation, assessment dates, and center fields in edit mode
+        if edit:
+            for fname in [
+                'occupation', 'assessment_center', 'assessment_date', 'start_date', 'finish_date',
+                'registration_category', 'level', 'modules', 'reg_number', 'entry_year', 'intake', 'created_by',
+                'enrollment_label', 'updated_by'
+            ]:
+                if fname in self.fields:
+                    self.fields[fname].disabled = True
     class Meta:
         model = Candidate
         fields = '__all__'
         widgets = {
             'date_of_birth': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
-            'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'border rounded px-3 py-2 w-full'}),
-            'finish_date': forms.DateInput(attrs={'type': 'date', 'class': 'border rounded px-3 py-2 w-full'}),
-            'assessment_date': forms.DateInput(attrs={'type': 'date', 'class': 'border rounded px-3 py-2 w-full'}),
+            'start_date': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
+            'finish_date': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
+            'assessment_date': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
             'full_name': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'passport_photo': forms.ClearableFileInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'contact': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
@@ -125,56 +139,26 @@ class CandidateForm(forms.ModelForm):
         modules = cleaned_data.get("modules")
         level = cleaned_data.get("level")
 
+        # Date logic: allow assessment_date to be after finish_date
+        finish_date = cleaned_data.get("finish_date")
+        assessment_date = cleaned_data.get("assessment_date")
+        # No error if assessment_date is after finish_date; this is now allowed
+
         if reg_cat == 'modular':
             if occupation.structure_type == 'papers':
-                raise ValidationError("Modular candidates cannot register for paper-based occupations.")
+                raise forms.ValidationError("Modular candidates cannot register for paper-based occupations.")
             if not level or level.name != "1":
+                raise forms.ValidationError("Modular candidates can only register for Level 1.")
                 raise ValidationError("Modular candidates can only register for Level 1.")
             if modules.count() == 0 or modules.count() > 2:
                 raise ValidationError("Modular candidates must select 1 or 2 modules only.")
         elif reg_cat == 'formal':
-            if modules.exists():
+            if modules is not None and hasattr(modules, 'exists') and modules.exists():
                 raise ValidationError("Formal candidates should not select modules.")
         elif reg_cat == 'informal':
             if occupation.structure_type == 'papers':
                 raise ValidationError("Informal candidates cannot be registered for paper-based occupations.")
 
-
-""" class EnrollmentForm(forms.Form):
-    level = forms.ModelChoiceField(queryset=Level.objects.all(), required=False, label='Level')
-    modules = forms.ModelMultipleChoiceField(
-        queryset=Module.objects.none(),
-        widget=forms.CheckboxSelectMultiple,
-        required=False,
-        label="Select Modules"
-    )
-    
-
-    def __init__(self, *args, **kwargs):
-        candidate = kwargs.pop('candidate', None)
-        super().__init__(*args, **kwargs)
-
-        if candidate:
-            occupation = candidate.occupation
-
-            if candidate.registration_category == 'Modular':
-                # Hide level field
-                self.fields.pop('level', None)
-
-                # Filter to Level 1 modules only
-                level_1 = occupation.levels.filter(name__icontains='Level 1').first()
-                self.fields['modules'].queryset = Module.objects.filter(occupation=occupation, level=level_1)
-                
-                
-
-            elif candidate.registration_category == 'Informal':
-                # Allow both level and modules
-                self.fields['level'].queryset = occupation.levels.all()
-                self.fields['modules'].queryset = Module.objects.filter(occupation=occupation)
-
-            else:  # Formal (Level only)
-                self.fields['level'].queryset = occupation.levels.all()
-                self.fields['modules'].widget = forms.HiddenInput()  # Hide modules for formal candidates """
 
 # forms.py  (only the EnrollmentForm needs to change)
 # … top of forms.py (imports and other forms unchanged) …
@@ -214,16 +198,33 @@ class EnrollmentForm(forms.Form):
                 })
             )
 
-            # Set only Level 1 modules for Modular candidates
+            # Set only Level 1 modules for Modular candidates, fallback to all occupation modules if not found
             level1 = occupation.levels.filter(name__icontains="1").first()
-            self.fields["modules"].queryset = Module.objects.filter(
-                occupation=occupation,
-                level=level1
-            )
+            if level1:
+                modules_qs = Module.objects.filter(occupation=occupation, level=level1)
+                if not modules_qs.exists():
+                    # Fallback: show all modules for occupation
+                    modules_qs = Module.objects.filter(occupation=occupation)
+                self.fields["modules"].queryset = modules_qs
+            else:
+                # Fallback: show all modules for occupation
+                self.fields["modules"].queryset = Module.objects.filter(occupation=occupation)
 
-        elif reg_cat == "Informal":
+        elif reg_cat == "Informal" or reg_cat == "Workers PAS":
             self.fields["level"].queryset = occupation.levels.all()
-            self.fields["modules"].queryset = Module.objects.filter(occupation=occupation)
+            # Dynamically filter modules by selected level (if present)
+            level = None
+            if "data" in kwargs:
+                level_id = kwargs["data"].get("level")
+                if level_id:
+                    try:
+                        level = Level.objects.get(pk=level_id)
+                    except Level.DoesNotExist:
+                        level = None
+            if level:
+                self.fields["modules"].queryset = Module.objects.filter(occupation=occupation, level=level)
+            else:
+                self.fields["modules"].queryset = Module.objects.none()
 
         else:  # Formal
             self.fields["level"].queryset = occupation.levels.all()

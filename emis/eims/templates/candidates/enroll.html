@@ -2,8 +2,19 @@
 {% load static %}
 {% block content %}
 <div class="max-w-3xl mx-auto mt-12">
+  <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:underline mb-4 inline-block">&larr; Back to Candidate</a>
   <h2 class="text-2xl font-bold mb-6 text-center">Enroll Candidate</h2>
+  {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}
+        <li class="alert alert-{{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
 
+  {% if form.level.errors %}
+    <div class="mb-4 text-red-600 font-semibold">Please select a level.</div>
+  {% endif %}
   <form method="post" class="bg-white border-2 border-gray-300 shadow-lg p-10 rounded-lg">
     {% csrf_token %}
 
@@ -26,6 +37,13 @@
         <label class="font-semibold text-lg block mb-2">Select Modules:</label>
         <table class="min-w-full border border-gray-400 rounded">
           <tbody>
+            {% if messages %}
+              <ul class="messages">
+                {% for message in messages %}
+                  <li class="alert alert-{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
             {% for checkbox in form.modules %}
               <tr class="border-b border-gray-300 hover:bg-gray-50">
                 <td class="px-4 py-2">{{ checkbox.tag }}</td>
@@ -44,4 +62,21 @@
     </div>
   </form>
 </div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"][name^="modules"]'));
+    function updateCheckboxes() {
+      const checked = checkboxes.filter(cb => cb.checked);
+      if (checked.length >= 2) {
+        checkboxes.forEach(cb => {
+          if (!cb.checked) cb.disabled = true;
+        });
+      } else {
+        checkboxes.forEach(cb => cb.disabled = false);
+      }
+    }
+    checkboxes.forEach(cb => cb.addEventListener('change', updateCheckboxes));
+    updateCheckboxes(); // initialize on load
+  });
+</script>
 {% endblock %}

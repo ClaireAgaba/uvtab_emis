@@ -825,21 +825,24 @@ def candidate_create(request):
     return render(request, 'candidates/create.html', {'form': form})
 
 def candidate_view(request, id):
+    from .models import AssessmentCenter, Occupation
     candidate = get_object_or_404(Candidate, id=id)
-    return render(request, 'candidates/view.html', {'candidate': candidate})
+    centers = AssessmentCenter.objects.all()
+    occupations = Occupation.objects.all()
+    return render(request, 'candidates/view.html', {'candidate': candidate, 'centers': centers, 'occupations': occupations})
 
 def edit_candidate(request, id):
     candidate = get_object_or_404(Candidate, id=id)
 
     if request.method == 'POST':
-        form = CandidateForm(request.POST, request.FILES, instance=candidate)
+        form = CandidateForm(request.POST, request.FILES, instance=candidate, edit=True)
         if form.is_valid():
             candidate = form.save(commit=False)
             candidate.updated_by = request.user
             candidate.save()
             return redirect('candidate_view', id=candidate.id)
     else:
-        form = CandidateForm(instance=candidate)
+        form = CandidateForm(instance=candidate, edit=True)
 
     return render(request, 'candidates/edit.html', {'form': form, 'candidate': candidate})
 
@@ -852,15 +855,27 @@ def enroll_candidate_view(request, id):
         if form.is_valid():
             registration_category = candidate.registration_category
 
-            # First, clear previous enrollments if any
-            CandidateLevel.objects.filter(candidate=candidate).delete()
-            CandidateModule.objects.filter(candidate=candidate).delete()
-
             # Handle formal registration (level only)
             if registration_category == 'Formal':
-                level = form.cleaned_data['level']
+                level = form.cleaned_data.get('level')
+                if not level:
+                    form.add_error('level', 'Please select a level.')
+                    return render(request, 'candidates/enroll.html', {
+                        'form': form,
+                        'candidate': candidate,
+                    })
+                # Check if already enrolled in this level
+                if CandidateLevel.objects.filter(candidate=candidate, level=level).exists():
+                    messages.error(request, "Candidate already enrolled for this level.")
+                    return render(request, 'candidates/enroll.html', {
+                        'form': form,
+                        'candidate': candidate,
+                    })
+                # Not already enrolled: clear previous enrollments and enroll
+                CandidateLevel.objects.filter(candidate=candidate).delete()
+                CandidateModule.objects.filter(candidate=candidate).delete()
                 CandidateLevel.objects.create(candidate=candidate, level=level)
-                messages.success(request, f"{candidate.full_name} enrolled for {level.name}")
+                messages.success(request, f"{candidate.full_name} enrolled in {level.name}")
 
             # Handle modular registration (must select 1–2 modules, Level 1 only)
             elif registration_category == 'Modular':
@@ -894,8 +909,42 @@ def enroll_candidate_view(request, id):
 
 
 
+from .models import Candidate, CandidateLevel, CandidateModule, Occupation
 
-from .models import Candidate, CandidateLevel, CandidateModule
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+@login_required
+@require_POST
+def change_candidate_occupation(request, id):
+    import json
+    candidate = get_object_or_404(Candidate, id=id)
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        try:
+            data = json.loads(request.body.decode())
+            occupation_id = data.get('occupation')
+            if not occupation_id:
+                return JsonResponse({'success': False, 'error': 'No occupation selected.'}, status=400)
+            new_occupation = Occupation.objects.filter(id=occupation_id).first()
+            if not new_occupation:
+                return JsonResponse({'success': False, 'error': 'Occupation not found.'}, status=404)
+            if candidate.is_enrolled():
+                return JsonResponse({'success': False, 'error': 'Occupation cannot be changed for enrolled/registered candidates.'}, status=400)
+            if new_occupation.id == candidate.occupation.id:
+                return JsonResponse({'success': False, 'error': 'Candidate already has this occupation.'}, status=400)
+            candidate.occupation = new_occupation
+            candidate.reg_number = None  # triggers regeneration
+            candidate.save()
+            return JsonResponse({
+                'success': True,
+                'occupation_name': new_occupation.name,
+                'occupation_id': new_occupation.id,
+                'reg_number': candidate.reg_number
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    # For GET, redirect to candidate view
+    return redirect('candidate_view', id=id)
 
 def candidate_view(request, id):
     candidate = get_object_or_404(Candidate, id=id)
@@ -913,6 +962,44 @@ def candidate_view(request, id):
     }
 
     return render(request, 'candidates/view.html', context)
+
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+@login_required
+def change_candidate_center(request, id):
+    from .models import AssessmentCenter
+    import json
+    candidate = get_object_or_404(Candidate, id=id)
+    if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        try:
+            data = json.loads(request.body.decode())
+            center_id = data.get('assessment_center')
+            if not center_id:
+                return JsonResponse({'success': False, 'error': 'No center selected.'}, status=400)
+            new_center = AssessmentCenter.objects.filter(id=center_id).first()
+            if not new_center:
+                return JsonResponse({'success': False, 'error': 'Assessment center not found.'}, status=404)
+            if new_center.id == candidate.assessment_center.id:
+                return JsonResponse({'success': False, 'error': 'Candidate is already in this center.'}, status=400)
+            candidate.assessment_center = new_center
+            candidate.reg_number = None  # triggers regeneration
+            candidate.save()
+            return JsonResponse({
+                'success': True,
+                'center_name': new_center.center_name,
+                'center_id': new_center.id,
+                'reg_number': candidate.reg_number
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    # For GET: render candidate view with all centers for modal
+    from .models import AssessmentCenter
+    centers = AssessmentCenter.objects.all()
+    return render(request, 'candidates/view.html', {
+        'candidate': candidate,
+        'centers': centers,
+    })
 
 @login_required
 def regenerate_candidate_reg_number(request, id):
