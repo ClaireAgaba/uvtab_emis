@@ -360,27 +360,43 @@ def report_list(request):
     return render(request, 'reports/list.html', {'group_names': group_names})
 
 def _get_candidate_photo(candidate, photo_width=1*inch, photo_height=1.2*inch):
-    """Helper function to get and format candidate photo for PDF"""
-    if candidate.passport_photo and os.path.exists(candidate.passport_photo.path):
+    if candidate.photo and hasattr(candidate.photo, 'path') and os.path.exists(candidate.photo.path):
         try:
-            # Open and resize image to fit in cell
-            img = PILImage.open(candidate.passport_photo.path)
-            # Convert to RGB if necessary
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            # Calculate aspect ratio and resize
-            aspect = img.height / float(img.width)
-            desired_width = photo_width
-            desired_height = min(photo_height, desired_width * aspect)
-            # Create ReportLab Image object
-            img_reader = BytesIO()
-            img.save(img_reader, 'JPEG')
-            img_reader.seek(0)
-            return Image(img_reader, width=desired_width, height=desired_height)
+            img = PILImage.open(candidate.photo.path)
+            # Scale photo to fit in the table cell
+            scale_factor = min(photo_width/img.width, photo_height/img.height)
+            scaled_width = img.width * scale_factor
+            scaled_height = img.height * scale_factor
+            
+            # Check file size
+            file_size = os.path.getsize(candidate.photo.path)
+            if file_size > 2000000:  # 2MB
+                print(f"Warning: Large photo for {candidate.full_name}: {file_size/1000000:.2f}MB")
+            
+            try:
+                # Convert to RGB if it's not (to handle CMYK, RGBA, etc.)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                    # Save a temp version to use
+                    temp_path = os.path.join(settings.MEDIA_ROOT, f'temp_{candidate.id}_photo.jpg')
+                    img.save(temp_path, 'JPEG')
+                    return Image(temp_path, width=scaled_width, height=scaled_height)
+                
+                return Image(candidate.photo.path, width=scaled_width, height=scaled_height)
+            except Exception as img_err:
+                print(f"Error converting image format for {candidate.full_name}: {img_err}")
+                from reportlab.platypus import Paragraph
+                return Paragraph("[Photo Format Error]", ParagraphStyle('Normal'))
+                
         except Exception as e:
-            print(f"Error processing image for {candidate.full_name}: {e}")
-            return 'No Photo'
-    return 'No Photo'
+            print(f"Error processing photo for {candidate.full_name}: {e}")
+            # Return placeholder if photo processing fails
+            from reportlab.platypus import Paragraph
+            return Paragraph("[No Photo]", ParagraphStyle('Normal'))
+    else:
+        # No photo available
+        from reportlab.platypus import Paragraph
+        return Paragraph("[No Photo]", ParagraphStyle('Normal'))
 
 @login_required
 def generate_album(request):
@@ -612,24 +628,53 @@ def generate_album(request):
                 yield lst[i:i + n]
 
         # Estimate how many candidates fit per page (experimentally, 8-12)
-        candidates_per_page = 1000
+        # For each candidate, extract their data and photo with error handling
         candidate_rows = []
-        for index, candidate in enumerate(candidates, 1):
-            row = [
-                str(index),  # Serial number
-                _get_candidate_photo(candidate, photo_width=0.7*inch, photo_height=0.7*inch),
-                Paragraph(candidate.reg_number, normal_style),
-                Paragraph(candidate.full_name, normal_style),
-                Paragraph(candidate.occupation.name, normal_style),
-                Paragraph(candidate.registration_category, normal_style)
-            ]
-            if reg_category in ['formal', 'informal']:
-                row.append(candidate.level.name)
-            if reg_category in ['informal', 'modular']:
-                module_count = candidate.candidatemodule_set.count()
-                row.append(str(module_count))
-            row.append('')  # Empty signature field
-            candidate_rows.append(row)
+        for i, candidate in enumerate(candidates, 1):
+            try:
+                # Add candidate photo with error handling
+                try:
+                    candidate_photo = _get_candidate_photo(candidate)
+                except Exception as photo_err:
+                    print(f"Error processing photo for candidate {candidate.id}: {photo_err}")
+                    # Use a placeholder instead of failing
+                    candidate_photo = Paragraph("[Photo Error]", normal_style)
+                
+                # Add candidate details
+                row = [
+                    str(i),  # Serial number
+                    candidate_photo,
+                    Paragraph(candidate.reg_number, normal_style),
+                    Paragraph(candidate.full_name, normal_style),
+                    Paragraph(candidate.occupation.name, normal_style),
+                    Paragraph(candidate.registration_category, normal_style)
+                ]
+                if reg_category in ['formal', 'informal']:
+                    # Safe access to level name with error handling
+                    try:
+                        if hasattr(candidate, 'level') and candidate.level:
+                            row.append(candidate.level.name)
+                        else:
+                            # Find level from CandidateLevel
+                            candidate_level = CandidateLevel.objects.filter(candidate=candidate).first()
+                            row.append(candidate_level.level.name if candidate_level else 'N/A')
+                    except Exception as level_err:
+                        print(f"Error getting level for candidate {candidate.id}: {level_err}")
+                        row.append('Error')
+                        
+                if reg_category in ['informal', 'modular']:
+                    try:
+                        module_count = candidate.candidatemodule_set.count()
+                        row.append(str(module_count))
+                    except Exception as module_err:
+                        print(f"Error counting modules for candidate {candidate.id}: {module_err}")
+                        row.append('?')
+                        
+                row.append('')  # Empty signature field
+                candidate_rows.append(row)
+            except Exception as row_err:
+                print(f"Error building row for candidate {candidate.id}: {row_err}")
+                # Continue with next candidate rather than failing entire PDF
 
         # Calculate page width and margins
         page_width = landscape(letter)[0]
@@ -701,12 +746,35 @@ def generate_album(request):
                 from reportlab.platypus import PageBreak
                 elements.append(PageBreak())
 
-        # Build PDF
+        # Build PDF with detailed error handling
         try:
-            doc.build(elements)
+            for idx, element in enumerate(elements):
+                try:
+                    # Validate each element before building
+                    if hasattr(element, 'validate'):
+                        element.validate()
+                except Exception as elem_err:
+                    print(f"Error with element {idx}, type {type(element).__name__}: {elem_err}")
+                    # Return detailed error information for debugging
+                    error_message = f"Error with element {idx}, type: {type(element).__name__}: {str(elem_err)}"
+                    return HttpResponse(error_message, status=500)
+
+            try:
+                doc.build(elements)
+            except Exception as build_err:
+                print(f"Error during PDF build: {build_err}")
+                # Try to identify what might be causing the issue
+                if 'image' in str(build_err).lower() or 'photo' in str(build_err).lower():
+                    return HttpResponse(f'Error with image processing: {build_err}', status=500)
+                elif 'ascii' in str(build_err).lower() or 'encoding' in str(build_err).lower():
+                    return HttpResponse(f'Error with text encoding: {build_err}', status=500)
+                elif 'memory' in str(build_err).lower():
+                    return HttpResponse('Error: Not enough memory to generate PDF. Try with fewer candidates.', status=500)
+                else:
+                    return HttpResponse(f'Error building PDF: {build_err}', status=500)
         except Exception as e:
-            print(f"Error building PDF: \n\n{e}\n\n")
-            return HttpResponse('Error building PDF', status=500)
+            print(f"Unexpected error in PDF generation: \n\n{e}\n\n")
+            return HttpResponse(f'Unexpected error: {e}', status=500)
 
         
         # Get the value of the BytesIO buffer and return the PDF as a response
