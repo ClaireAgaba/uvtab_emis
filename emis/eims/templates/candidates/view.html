@@ -94,7 +94,7 @@
                   err.classList.remove('hidden');
                   return;
                 }
-                fetch("{% url 'change_candidate_occupation' candidate.id %}", {
+                fetch("{% url 'change_occupation' candidate.id %}", {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -308,7 +308,7 @@ if (form) {
       return;
     }
     const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
-    fetch("{% url 'change_candidate_center' candidate.id %}", {
+    fetch("{% url 'change_center' candidate.id %}", {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

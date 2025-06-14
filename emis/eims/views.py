@@ -129,7 +129,7 @@ from PIL import Image as PILImage
 import os
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from .forms import ChangeOccupationForm
+from .forms import ChangeOccupationForm, ChangeCenterForm
 
 
 
