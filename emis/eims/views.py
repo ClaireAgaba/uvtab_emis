@@ -374,10 +374,10 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
     photo_name_style = ParagraphStyle(
         'PhotoName',
         parent=styles['Normal'],
-        fontSize=7,
+        fontSize=6,
         alignment=TA_CENTER,
         spaceBefore=1,
-        leading=8
+        leading=6
     )
     photo_detail_style = ParagraphStyle(
         'PhotoDetail',
@@ -385,7 +385,7 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
         fontSize=6,
         alignment=TA_CENTER,
         spaceBefore=1,
-        leading=7
+        leading=6
     )
 
     if hasattr(candidate, 'passport_photo') and candidate.passport_photo and hasattr(candidate.passport_photo, 'path') and os.path.exists(candidate.passport_photo.path):
