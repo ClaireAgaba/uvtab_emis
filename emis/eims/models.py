@@ -243,23 +243,39 @@ class Candidate(models.Model):
         """
         Build a registration number in the format
         N/YY/I/OC_CODE/###-CENTER_NO
-        …keeping the *serial* part exactly as it is if already set.
+        Serial is always unique for (center, intake, year, occupation, reg cat).
         """
+        from django.db import transaction
         nat      = self.nationality            # “U”, “X”, …
         year     = str(self.entry_year)[-2:]    # last 2 digits
         intake   = self.intake.upper()          # “M” or “A”
-        occ_code = self.occupation.code         # e.g. “BKR”
+        occ_code = self.occupation.code if self.occupation else "XXX"
+        reg_type = self.registration_category[0].upper() if self.registration_category else "X"
+        center_code = self.assessment_center.center_number if self.assessment_center else "NOCNTR"
 
-    # --- keep existing serial part if it already exists -------------
-        if self.reg_number and '-' in self.reg_number:
-            serial_part = self.reg_number.split('/')[-1].split('-')[0]   # the “###”
-        else:
-            # first time → count existing candidates in *this* occupation
-            next_no      = Candidate.objects.filter(occupation=self.occupation).count() + 1
-            serial_part  = str(next_no).zfill(3)                         # “001”, “002”, …
+        # Find max serial for this group
+        with transaction.atomic():
+            qs = Candidate.objects.filter(
+                assessment_center=self.assessment_center, 
+                intake=self.intake,
+                entry_year=self.entry_year,
+                occupation=self.occupation,
+                registration_category=self.registration_category
+            ).exclude(pk=self.pk)  # Exclude self if updating
+            max_serial = 0
+            for c in qs.only('reg_number'):
+                try:
+                    last_part = c.reg_number.split('/')[-1]
+                    serial_part = last_part.split('-')[0]
+                    serial_int = int(serial_part)
+                    if serial_int > max_serial:
+                        max_serial = serial_int
+                except (ValueError, IndexError, AttributeError):
+                    continue
+            next_serial = max_serial + 1
+            serial_str = str(next_serial).zfill(3)
 
-        center_no = self.assessment_center.center_number                # e.g. “UVT662”
-        self.reg_number = f"{nat}/{year}/{intake}/{occ_code}/{serial_part}-{center_no}"
+        self.reg_number = f"{nat}/{year}/{intake}/{occ_code}/{reg_type}/{serial_str}-{center_code}"
 
     def save(self, *args, **kwargs):
             # regenerate if reg_number is empty

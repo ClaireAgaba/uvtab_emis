@@ -259,9 +259,9 @@ class EnrollmentForm(forms.Form):
             )
 
             # Set only Level 1 modules for Modular candidates, fallback to all occupation modules if not found
-            level1 = occupation.levels.filter(name__icontains="1").first()
-            if level1:
-                modules_qs = Module.objects.filter(occupation=occupation, level=level1)
+            occ_level1 = occupation.occupation_levels.select_related('level').filter(level__name__icontains="1").first()
+            if occ_level1:
+                modules_qs = Module.objects.filter(occupation=occupation, level=occ_level1.level)
                 if not modules_qs.exists():
                     # Fallback: show all modules for occupation
                     modules_qs = Module.objects.filter(occupation=occupation)
@@ -271,7 +271,10 @@ class EnrollmentForm(forms.Form):
                 self.fields["modules"].queryset = Module.objects.filter(occupation=occupation)
 
         elif reg_cat == "Informal" or reg_cat == "Workers PAS":
-            self.fields["level"].queryset = occupation.levels.all()
+            # Use OccupationLevel join model to get levels for this occupation
+            occ_levels = occupation.occupation_levels.select_related('level').all()
+            levels_qs = Level.objects.filter(id__in=[ol.level.id for ol in occ_levels])
+            self.fields["level"].queryset = levels_qs
             # Dynamically filter modules by selected level (if present)
             level = None
             data = self.data
@@ -288,10 +291,11 @@ class EnrollmentForm(forms.Form):
                 self.fields["modules"].queryset = Module.objects.none()
 
         else:  # Formal
-            self.fields["level"].queryset = occupation.levels.all()
+            # Use OccupationLevel join model to get levels for this occupation
+            occ_levels = occupation.occupation_levels.select_related('level').all()
+            levels_qs = Level.objects.filter(id__in=[ol.level.id for ol in occ_levels])
+            self.fields["level"].queryset = levels_qs
             self.fields.pop("modules", None)
-
-
 
 
 class DistrictForm(forms.ModelForm):

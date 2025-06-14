@@ -953,6 +953,52 @@ def change_center(request, id):
         "reg_number": candidate.reg_number
     })
 
+@require_POST
+def change_registration_category(request, id):
+    candidate = get_object_or_404(Candidate, id=id)
+
+    if hasattr(candidate, 'is_enrolled') and callable(candidate.is_enrolled):
+        if candidate.is_enrolled():
+            return JsonResponse({"success": False, "error": "Enrolled candidates cannot be changed."})
+    elif getattr(candidate, 'is_enrolled', False):
+        return JsonResponse({"success": False, "error": "Enrolled candidates cannot be changed."})
+
+    try:
+        data = json.loads(request.body or '{}')
+        new_reg_cat = data["registration_category"]
+    except (KeyError, ValueError, TypeError):
+        return HttpResponseBadRequest("Invalid registration category")
+
+    occupation = candidate.occupation
+    occ_cat = occupation.category.name if occupation and occupation.category else None
+    has_modular = getattr(occupation, 'has_modular', False)
+
+    # Validate compatibility
+    if new_reg_cat == 'Modular':
+        if not has_modular:
+            return JsonResponse({"success": False, "error": "This occupation does not support Modular registration."})
+    elif new_reg_cat == 'Formal':
+        if occ_cat != 'Formal':
+            return JsonResponse({"success": False, "error": "Only occupations in the 'Formal' category can be registered as Formal."})
+    elif new_reg_cat == 'Informal':
+        if occ_cat != "Worker's PAS":
+            return JsonResponse({"success": False, "error": "Only occupations in the 'Worker's PAS' category can be registered as Informal."})
+    else:
+        return JsonResponse({"success": False, "error": "Invalid registration category selected."})
+
+    candidate.registration_category = new_reg_cat
+    candidate.reg_number = None
+    candidate.save(update_fields=["registration_category", "reg_number"])
+    # Regenerate reg_number as in regenerate_candidate_reg_number
+    candidate.reg_number = None
+    candidate.save(update_fields=["reg_number"])
+
+    return JsonResponse({
+        "success": True,
+        "registration_category": new_reg_cat,
+        "reg_number": candidate.reg_number
+    })
+
 
 
 

@@ -14,7 +14,7 @@
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
     <div>
       <h1 class="text-3xl font-extrabold mb-1">{{ candidate.full_name }}</h1>
-      <div class="text-lg text-gray-500 font-mono" data-field="reg_number">{{ candidate.reg_number }}</div>
+      <span class="text-lg text-gray-500 font-mono" data-field="reg_number">{{ candidate.reg_number }}</span>
     </div>
     <div class="flex flex-wrap gap-3 mt-2 md:mt-0 items-center">
       <a href="{% url 'enroll_candidate' candidate.id %}" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition" title="Enroll candidate">
@@ -48,64 +48,9 @@
             {% endif %}
             <a href="#" id="changeCenterAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Assessment Center</a>
             <a href="#" id="changeOccupationAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Occupation</a>
+            <a href="#" id="changeRegCatAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Registration Category</a>
 
-            <script>
-              function openOccupationModal() {
-                document.getElementById('changeOccupationModal').classList.remove('hidden');
-                document.getElementById('occupationChangeError').classList.add('hidden');
-                document.getElementById('occupationChangeError').innerText = '';
-              }
-              function closeOccupationModal() {
-                document.getElementById('changeOccupationModal').classList.add('hidden');
-              }
-              var changeOccupationBtn = document.getElementById('changeOccupationAction');
-              if (changeOccupationBtn) {
-                changeOccupationBtn.onclick = function(e) {
-                  e.preventDefault();
-                  openOccupationModal();
-                  document.getElementById('actionDropdownMenu').classList.add('hidden');
-                };
-              }
-              document.addEventListener('DOMContentLoaded', function() {
-                var occForm = document.getElementById('changeOccupationForm');
-                if (occForm) {
-                  occForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    var occId = document.getElementById('occupationSelect').value;
-                    var err = document.getElementById('occupationChangeError');
-                    if (!occId) {
-                      err.innerText = 'Please select an occupation.';
-                      err.classList.remove('hidden');
-                      return;
-                    }
-                    fetch("{% url 'change_occupation' candidate.id %}", {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}',
-                        'X-Requested-With': 'XMLHttpRequest',
-                      },
-                      body: JSON.stringify({occupation: occId})
-                    })
-                    .then(resp => resp.json())
-                    .then(data => {
-                      if (data.success) {
-                        document.querySelector('[data-field="occupation"]').innerText = data.occupation_name;
-                        document.querySelector('[data-field="reg_number"]').innerText = data.reg_number;
-                        closeOccupationModal();
-                      } else {
-                        err.innerText = data.error || 'Failed to change occupation.';
-                        err.classList.remove('hidden');
-                      }
-                    })
-                    .catch(() => {
-                      err.innerText = 'Failed to change occupation.';
-                      err.classList.remove('hidden');
-                    });
-                  });
-                }
-              });
-            </script>
+            
           </div>
         </div>
       </div>
@@ -138,7 +83,7 @@
         <p><span class="font-semibold text-gray-700">Contact:</span> {{ candidate.contact }}</p>
         <p><span class="font-semibold text-gray-700">Assessment Center:</span> <span data-field="assessment_center">{{ candidate.assessment_center.center_name }}</span></p>
         <p><span class="font-semibold text-gray-700">Occupation:</span> <span data-field="occupation">{{ candidate.occupation.name }}</span></p>
-        <p><span class="font-semibold text-gray-700">Registration Category:</span> {{ candidate.registration_category }}</p>
+        <p><span class="font-semibold text-gray-700">Registration Category:</span> <span data-field="registration_category">{{ candidate.registration_category }}</span></p>
         {% if candidate.registration_category == 'Formal' or candidate.registration_category == 'Informal' %}
           <p><span class="font-semibold text-gray-700">Level:</span> {% if level_enrollment %}{{ level_enrollment.level.name }}{% else %}<span class="text-gray-400">-</span>{% endif %}</p>
         {% endif %}
@@ -282,17 +227,148 @@
   </div>
 </div>
 
+<!-- Change Registration Category Modal -->
+<div id="changeRegCatModal"
+     class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40 hidden">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+    <button type="button" id="closeRegCatModalBtn" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700">&times;</button>
+    <h3 class="text-lg font-semibold mb-4">Change Registration Category</h3>
+    <form id="changeRegCatForm">
+      <label for="regCatSelect" class="block mb-2 font-medium">Select New Registration Category</label>
+      <select id="regCatSelect" name="registration_category" class="w-full border rounded px-3 py-2 mb-4">
+        <option value="">-- Select Category --</option>
+        <option value="Formal" {% if candidate.registration_category == 'Formal' %}disabled selected{% endif %}>Formal</option>
+        <option value="Modular" {% if candidate.registration_category == 'Modular' %}disabled selected{% endif %}>Modular</option>
+        <option value="Informal" {% if candidate.registration_category == 'Informal' %}disabled selected{% endif %}>Informal</option>
+      </select>
+      <div id="regCatChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply</button>
+    </form>
+  </div>
+</div>
 
 <script>
-  function closeCenterModal() {
-    document.getElementById('changeCenterModal').classList.add('hidden');
+document.addEventListener('DOMContentLoaded', function() {
+  // Change Occupation Modal
+  var changeOccupationBtn = document.getElementById('changeOccupationAction');
+  if (changeOccupationBtn) {
+    changeOccupationBtn.onclick = function(e) {
+      e.preventDefault();
+      openOccupationModal();
+      document.getElementById('actionDropdownMenu').classList.add('hidden');
+    };
+  }
+  function openOccupationModal() {
+    document.getElementById('changeOccupationModal').classList.remove('hidden');
+    document.getElementById('occupationChangeError').classList.add('hidden');
+    document.getElementById('occupationChangeError').innerText = '';
+  }
+  function closeOccupationModal() {
+    document.getElementById('changeOccupationModal').classList.add('hidden');
+  }
+  var occForm = document.getElementById('changeOccupationForm');
+  if (occForm) {
+    occForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var occId = document.getElementById('occupationSelect').value;
+      var err = document.getElementById('occupationChangeError');
+      if (!occId) {
+        err.innerText = 'Please select an occupation.';
+        err.classList.remove('hidden');
+        return;
+      }
+      fetch("{% url 'change_occupation' candidate.id %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({occupation: occId})
+      })
+      .then(resp => resp.json())
+      .then(data => {
+        if (data.success) {
+          document.querySelector('[data-field="occupation"]').innerText = data.occupation_name;
+          document.querySelectorAll('[data-field="reg_number"]').forEach(function(el) { el.innerText = data.reg_number; });
+          closeOccupationModal();
+        } else {
+          err.innerText = data.error || 'Failed to change occupation.';
+          err.classList.remove('hidden');
+        }
+      })
+      .catch(() => {
+        err.innerText = 'Failed to change occupation.';
+        err.classList.remove('hidden');
+      });
+    });
   }
 
-  function openCenterModal() {
-    document.getElementById('changeCenterModal').classList.remove('hidden');
+  // Change Registration Category Modal
+  var changeRegCatBtn = document.getElementById('changeRegCatAction');
+  if (changeRegCatBtn) {
+    changeRegCatBtn.onclick = function(e) {
+      e.preventDefault();
+      openRegCatModal();
+      document.getElementById('actionDropdownMenu').classList.add('hidden');
+    };
+  }
+  function openRegCatModal() {
+    document.getElementById('changeRegCatModal').classList.remove('hidden');
+    document.getElementById('regCatChangeError').classList.add('hidden');
+    document.getElementById('regCatChangeError').innerText = '';
+  }
+  function closeRegCatModal() {
+    document.getElementById('changeRegCatModal').classList.add('hidden');
+  }
+  var closeRegCatModalBtn = document.getElementById('closeRegCatModalBtn');
+  if (closeRegCatModalBtn) {
+    closeRegCatModalBtn.addEventListener('click', closeRegCatModal);
+  }
+  var regCatForm = document.getElementById('changeRegCatForm');
+  if (regCatForm) {
+    regCatForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var regCat = document.getElementById('regCatSelect').value;
+      var err = document.getElementById('regCatChangeError');
+      if (!regCat) {
+        err.innerText = 'Please select a registration category.';
+        err.classList.remove('hidden');
+        return;
+      }
+      fetch("{% url 'change_registration_category' candidate.id %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({registration_category: regCat})
+      })
+      .then(resp => resp.json())
+      .then(data => {
+        if (data.success) {
+          var regCatField = document.querySelector('[data-field="registration_category"]');
+          if (regCatField) {
+            regCatField.innerText = data.registration_category;
+          }
+          document.querySelectorAll('[data-field="reg_number"]').forEach(function(el) { el.innerText = data.reg_number; });
+          closeRegCatModal();
+          alert('Registration category updated successfully.');
+        } else {
+          err.innerText = data.error || 'Failed to change registration category.';
+          err.classList.remove('hidden');
+        }
+      })
+      .catch(() => {
+        err.innerText = 'Failed to change registration category.';
+        err.classList.remove('hidden');
+      });
+    });
   }
 
-  const centerBtn = document.getElementById('changeCenterAction');
+  // Change Assessment Center Modal
+  var centerBtn = document.getElementById('changeCenterAction');
   if (centerBtn) {
     centerBtn.addEventListener('click', function (e) {
       e.preventDefault();
@@ -300,44 +376,51 @@
       document.getElementById('actionDropdownMenu').classList.add('hidden');
     });
   }
-
-  document.getElementById('changeCenterForm').onsubmit = function (e) {
-    e.preventDefault();
-    const centerId = document.getElementById('centerSelect').value;
-    const errorDiv = document.getElementById('centerChangeError');
-
-    if (!centerId) {
-      errorDiv.innerText = 'Please select a center.';
-      errorDiv.classList.remove('hidden');
-      return;
-    }
-
-    fetch("{% url 'change_center' candidate.id %}", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': '{{ csrf_token }}',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body: JSON.stringify({ assessment_center: centerId })
-    })
-    .then(resp => resp.json())
-    .then(data => {
-      if (data.success) {
-        document.querySelector('[data-field="assessment_center"]').innerText = data.center_name;
-        document.querySelector('[data-field="reg_number"]').innerText = data.reg_number;
-        closeCenterModal();
-      } else {
-        errorDiv.innerText = data.error || 'Failed to change center.';
+  function openCenterModal() {
+    document.getElementById('changeCenterModal').classList.remove('hidden');
+  }
+  function closeCenterModal() {
+    document.getElementById('changeCenterModal').classList.add('hidden');
+  }
+  var centerForm = document.getElementById('changeCenterForm');
+  if (centerForm) {
+    centerForm.onsubmit = function (e) {
+      e.preventDefault();
+      const centerId = document.getElementById('centerSelect').value;
+      const errorDiv = document.getElementById('centerChangeError');
+      if (!centerId) {
+        errorDiv.innerText = 'Please select a center.';
         errorDiv.classList.remove('hidden');
+        return;
       }
-    })
-    .catch(() => {
-      errorDiv.innerText = 'An error occurred.';
-      errorDiv.classList.remove('hidden');
-    });
-  };
+      fetch("{% url 'change_center' candidate.id %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ assessment_center: centerId })
+      })
+      .then(resp => resp.json())
+      .then(data => {
+        if (data.success) {
+          document.querySelector('[data-field="assessment_center"]').innerText = data.center_name;
+          document.querySelectorAll('[data-field="reg_number"]').forEach(function(el) { el.innerText = data.reg_number; });
+          closeCenterModal();
+        } else {
+          errorDiv.innerText = data.error || 'Failed to change center.';
+          errorDiv.classList.remove('hidden');
+        }
+      })
+      .catch(() => {
+        errorDiv.innerText = 'An error occurred.';
+        errorDiv.classList.remove('hidden');
+      });
+    };
+  }
+});
 </script>
 
-
 {% endblock %}
+
