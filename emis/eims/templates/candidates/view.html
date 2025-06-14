@@ -49,25 +49,6 @@
             <a href="#" id="changeCenterAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Assessment Center</a>
             <a href="#" id="changeOccupationAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Occupation</a>
 
-            <!-- Change Occupation Modal -->
-            <div id="changeOccupationModal" class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40 hidden">
-              <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
-                <button type="button" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onclick="closeOccupationModal()">&times;</button>
-                <h3 class="text-lg font-semibold mb-4">Change Occupation</h3>
-                <form id="changeOccupationForm">
-                  <label for="occupationSelect" class="block mb-2 font-medium">Select New Occupation</label>
-                  <select id="occupationSelect" name="occupation" class="w-full border rounded px-3 py-2 mb-4">
-                    <option value="">-- Select Occupation --</option>
-                    {% for occ in occupations %}
-                      <option value="{{ occ.id }}" {% if candidate.occupation.id == occ.id %}disabled selected{% endif %}>{{ occ.name }}</option>
-                    {% endfor %}
-                  </select>
-                  <div id="occupationChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
-                  <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply</button>
-                </form>
-              </div>
-            </div>
-
             <script>
               function openOccupationModal() {
                 document.getElementById('changeOccupationModal').classList.remove('hidden');
@@ -85,42 +66,45 @@
                   document.getElementById('actionDropdownMenu').classList.add('hidden');
                 };
               }
-              document.getElementById('changeOccupationForm').onsubmit = function(e) {
-                e.preventDefault();
-                var occId = document.getElementById('occupationSelect').value;
-                if (!occId) {
-                  var err = document.getElementById('occupationChangeError');
-                  err.innerText = 'Please select an occupation.';
-                  err.classList.remove('hidden');
-                  return;
-                }
-                fetch("{% url 'change_occupation' candidate.id %}", {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}',
-                    'X-Requested-With': 'XMLHttpRequest',
-                  },
-                  body: JSON.stringify({occupation: occId})
-                })
-                .then(resp => resp.json())
-                .then(data => {
-                  if (data.success) {
-                    document.querySelector('[data-field="occupation"]').innerText = data.occupation_name;
-                    document.querySelector('[data-field="reg_number"]').innerText = data.reg_number;
-                    closeOccupationModal();
-                  } else {
+              document.addEventListener('DOMContentLoaded', function() {
+                var occForm = document.getElementById('changeOccupationForm');
+                if (occForm) {
+                  occForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var occId = document.getElementById('occupationSelect').value;
                     var err = document.getElementById('occupationChangeError');
-                    err.innerText = data.error || 'Failed to change occupation.';
-                    err.classList.remove('hidden');
-                  }
-                })
-                .catch(() => {
-                  var err = document.getElementById('occupationChangeError');
-                  err.innerText = 'Failed to change occupation.';
-                  err.classList.remove('hidden');
-                });
-              };
+                    if (!occId) {
+                      err.innerText = 'Please select an occupation.';
+                      err.classList.remove('hidden');
+                      return;
+                    }
+                    fetch("{% url 'change_occupation' candidate.id %}", {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest',
+                      },
+                      body: JSON.stringify({occupation: occId})
+                    })
+                    .then(resp => resp.json())
+                    .then(data => {
+                      if (data.success) {
+                        document.querySelector('[data-field="occupation"]').innerText = data.occupation_name;
+                        document.querySelector('[data-field="reg_number"]').innerText = data.reg_number;
+                        closeOccupationModal();
+                      } else {
+                        err.innerText = data.error || 'Failed to change occupation.';
+                        err.classList.remove('hidden');
+                      }
+                    })
+                    .catch(() => {
+                      err.innerText = 'Failed to change occupation.';
+                      err.classList.remove('hidden');
+                    });
+                  });
+                }
+              });
             </script>
           </div>
         </div>
@@ -247,96 +231,110 @@
   </div>
 
 </div>
-<!-- Change Assessment Center Modal -->
-<div id="changeCenterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
-  <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
-    <h2 class="text-xl font-bold mb-4">Change Assessment Center</h2>
-    <form id="changeCenterForm">
-      <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-      <label for="centerSelect" class="block mb-2 font-semibold">Select New Assessment Center</label>
-      <select id="centerSelect" name="assessment_center" class="w-full border px-3 py-2 rounded mb-4" required>
-        <option value="">-- Select Center --</option>
-        {% for center in centers %}
-          <option value="{{ center.id }}" {% if center.id == candidate.assessment_center.id %}disabled selected{% endif %}>{{ center.center_number }} - {{ center.center_name }}</option>
+
+
+<!-- Change Occupation Modal -->  
+<div id="changeOccupationModal"
+     class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40 hidden">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+    <button type="button" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            onclick="closeOccupationModal()">&times;</button>
+    <h3 class="text-lg font-semibold mb-4">Change Occupation</h3>
+    <form id="changeOccupationForm">
+      <label for="occupationSelect" class="block mb-2 font-medium">Select New Occupation</label>
+      <select id="occupationSelect" name="occupation" class="w-full border rounded px-3 py-2 mb-4">
+        <option value="">-- Select Occupation --</option>
+        {% for occ in occupations %}
+          <option value="{{ occ.id }}" {% if candidate.occupation.id == occ.id %}disabled selected{% endif %}>
+            {{ occ.name }}
+          </option>
         {% endfor %}
       </select>
-      <div id="centerChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
-      <div class="flex justify-end gap-2">
-        <button type="button" id="closeCenterModal" class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400">Cancel</button>
-        <button type="submit" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Change Center</button>
-      </div>
+      <div id="occupationChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply</button>
     </form>
-    <button id="closeCenterModalX" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
   </div>
 </div>
 
+<!-- Change Assessment Center Modal -->
+<div id="changeCenterModal"
+     class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40 hidden">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+    <button type="button" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            onclick="closeCenterModal()">&times;</button>
+    <h3 class="text-lg font-semibold mb-4">Change Assessment Center</h3>
+    <form id="changeCenterForm">
+      <label for="centerSelect" class="block mb-2 font-medium">Select New Assessment Center</label>
+      <select id="centerSelect" name="assessment_center" class="w-full border rounded px-3 py-2 mb-4" required>
+        <option value="">-- Select Center --</option>
+        {% for center in centers %}
+          <option value="{{ center.id }}" {% if center.id == candidate.assessment_center.id %}disabled selected{% endif %}>
+            {{ center.center_number }} - {{ center.center_name }}
+          </option>
+        {% endfor %}
+      </select>
+      <div id="centerChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply</button>
+    </form>
+  </div>
+</div>
+
+
 <script>
-// Modal logic
-const modal = document.getElementById('changeCenterModal');
-const openBtn = document.getElementById('changeCenterAction');
-const closeBtn = document.getElementById('closeCenterModal');
-const closeX = document.getElementById('closeCenterModalX');
-const form = document.getElementById('changeCenterForm');
-const errorDiv = document.getElementById('centerChangeError');
-const centerSelect = document.getElementById('centerSelect');
+  function closeCenterModal() {
+    document.getElementById('changeCenterModal').classList.add('hidden');
+  }
 
-if (openBtn) {
-  openBtn.addEventListener('click', function(e) {
-    e.preventDefault();
-    modal.classList.remove('hidden');
-    errorDiv.classList.add('hidden');
-    errorDiv.textContent = '';
-  });
-}
-[closeBtn, closeX].forEach(btn => btn && btn.addEventListener('click', function() {
-  modal.classList.add('hidden');
-}));
-window.addEventListener('click', function(e) {
-  if (e.target === modal) modal.classList.add('hidden');
-});
+  function openCenterModal() {
+    document.getElementById('changeCenterModal').classList.remove('hidden');
+  }
 
-// AJAX form submission
-if (form) {
-  form.addEventListener('submit', function(e) {
+  const centerBtn = document.getElementById('changeCenterAction');
+  if (centerBtn) {
+    centerBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      openCenterModal();
+      document.getElementById('actionDropdownMenu').classList.add('hidden');
+    });
+  }
+
+  document.getElementById('changeCenterForm').onsubmit = function (e) {
     e.preventDefault();
-    errorDiv.classList.add('hidden');
-    errorDiv.textContent = '';
-    const centerId = centerSelect.value;
+    const centerId = document.getElementById('centerSelect').value;
+    const errorDiv = document.getElementById('centerChangeError');
+
     if (!centerId) {
-      errorDiv.textContent = 'Please select a center.';
+      errorDiv.innerText = 'Please select a center.';
       errorDiv.classList.remove('hidden');
       return;
     }
-    const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
     fetch("{% url 'change_center' candidate.id %}", {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken,
-        'X-Requested-With': 'XMLHttpRequest'
+        'X-CSRFToken': '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest',
       },
       body: JSON.stringify({ assessment_center: centerId })
     })
-    .then(response => response.json())
+    .then(resp => resp.json())
     .then(data => {
       if (data.success) {
-        // Update center and regno in UI
-        document.querySelectorAll('[data-field="assessment_center"]').forEach(el => el.textContent = data.center_name);
-        document.querySelectorAll('[data-field="reg_number"]').forEach(el => el.textContent = data.reg_number);
-        modal.classList.add('hidden');
-        // Optionally show a success message
-        alert('Assessment center changed! Reg. number regenerated.');
+        document.querySelector('[data-field="assessment_center"]').innerText = data.center_name;
+        document.querySelector('[data-field="reg_number"]').innerText = data.reg_number;
+        closeCenterModal();
       } else {
-        errorDiv.textContent = data.error || 'An error occurred.';
+        errorDiv.innerText = data.error || 'Failed to change center.';
         errorDiv.classList.remove('hidden');
       }
     })
     .catch(() => {
-      errorDiv.textContent = 'An error occurred. Please try again.';
+      errorDiv.innerText = 'An error occurred.';
       errorDiv.classList.remove('hidden');
     });
-  });
-}
+  };
 </script>
+
 
 {% endblock %}

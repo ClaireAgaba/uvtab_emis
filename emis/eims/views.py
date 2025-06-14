@@ -837,7 +837,7 @@ def _blocked_if_enrolled(request, candidate, action_name):
     return False
 
 
-@login_required
+""" @login_required
 def change_occupation(request, pk):
     candidate = get_object_or_404(Candidate, pk=pk)
 
@@ -862,10 +862,64 @@ def change_occupation(request, pk):
         request,
         "candidates/change_occupation.html",
         {"form": form, "candidate": candidate}
-    )
+    ) """
+import json
+
+@require_POST
+def change_occupation(request, id):
+    candidate = get_object_or_404(Candidate, id=id)
+
+    if candidate.is_enrolled():
+        return JsonResponse({"success": False,
+                             "error": "Enrolled candidates cannot be changed."})
+
+    try:
+        data       = json.loads(request.body or "{}")
+        new_occ_id = int(data["occupation"])
+        new_occ    = Occupation.objects.get(pk=new_occ_id)
+    except (KeyError, ValueError, Occupation.DoesNotExist):
+        return HttpResponseBadRequest("Invalid occupation")
+
+    candidate.occupation = new_occ
+    candidate.build_reg_number()     # helper that rebuilds reg_number
+    candidate.save(update_fields=["occupation", "reg_number"])
+
+    return JsonResponse({
+        "success": True,
+        "occupation_name": new_occ.name,
+        "reg_number": candidate.reg_number
+    })
+
+@require_POST
+def change_center(request, id):
+    import json
+    candidate = get_object_or_404(Candidate, id=id)
+
+    if candidate.is_enrolled():
+        return JsonResponse({"success": False,
+                             "error": "Enrolled candidates cannot be changed."})
+
+    try:
+        data = json.loads(request.body or "{}")
+        new_center_id = int(data["assessment_center"])
+        new_center = AssessmentCenter.objects.get(pk=new_center_id)
+    except (KeyError, ValueError, AssessmentCenter.DoesNotExist):
+        return HttpResponseBadRequest("Invalid center")
+
+    candidate.assessment_center = new_center
+    candidate.build_reg_number()     # helper that rebuilds reg_number
+    candidate.save(update_fields=["assessment_center", "reg_number"])
+
+    return JsonResponse({
+        "success": True,
+        "center_name": new_center.center_name,
+        "reg_number": candidate.reg_number
+    })
 
 
-@login_required
+
+
+""" @login_required
 def change_center(request, pk):
     candidate = get_object_or_404(Candidate, pk=pk)
 
@@ -888,93 +942,23 @@ def change_center(request, pk):
         request,
         "candidates/change_center.html",
         {"form": form, "candidate": candidate}
-    )
-
-""" @require_POST
-def change_candidate_occupation(request, id):
-    import json
-    candidate = get_object_or_404(Candidate, id=id)
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        try:
-            data = json.loads(request.body.decode())
-            occupation_id = data.get('occupation')
-            if not occupation_id:
-                return JsonResponse({'success': False, 'error': 'No occupation selected.'}, status=400)
-            new_occupation = Occupation.objects.filter(id=occupation_id).first()
-            if not new_occupation:
-                return JsonResponse({'success': False, 'error': 'Occupation not found.'}, status=404)
-            if candidate.is_enrolled():
-                return JsonResponse({'success': False, 'error': 'Occupation cannot be changed for enrolled/registered candidates.'}, status=400)
-            if new_occupation.id == candidate.occupation.id:
-                return JsonResponse({'success': False, 'error': 'Candidate already has this occupation.'}, status=400)
-            candidate.occupation = new_occupation
-            candidate.reg_number = None  # triggers regeneration
-            candidate.save()
-            return JsonResponse({
-                'success': True,
-                'occupation_name': new_occupation.name,
-                'occupation_id': new_occupation.id,
-                'reg_number': candidate.reg_number
-            })
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)}, status=500)
-    # For GET, redirect to candidate view
-    return redirect('candidate_view', id=id) """
+    ) """
 
 def candidate_view(request, id):
     candidate = get_object_or_404(Candidate, id=id)
 
-    # Get enrolled level (if any)
-    level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
-
-    # Get enrolled modules (if any)
+    level_enrollment   = CandidateLevel.objects.filter(candidate=candidate).first()
     module_enrollments = CandidateModule.objects.filter(candidate=candidate)
 
     context = {
-        'candidate': candidate,
-        'level_enrollment': level_enrollment,
-        'module_enrollments': module_enrollments,
+        "candidate":          candidate,
+        "level_enrollment":   level_enrollment,
+        "module_enrollments": module_enrollments,
+
+        "occupations": Occupation.objects.exclude(pk=candidate.occupation_id),
+        "centers":     AssessmentCenter.objects.exclude(pk=candidate.assessment_center_id),
     }
-
-    return render(request, 'candidates/view.html', context)
-
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
-
-@login_required
-def change_candidate_center(request, id):
-    from .models import AssessmentCenter
-    import json
-    candidate = get_object_or_404(Candidate, id=id)
-    if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        try:
-            data = json.loads(request.body.decode())
-            center_id = data.get('assessment_center')
-            if not center_id:
-                return JsonResponse({'success': False, 'error': 'No center selected.'}, status=400)
-            new_center = AssessmentCenter.objects.filter(id=center_id).first()
-            if not new_center:
-                return JsonResponse({'success': False, 'error': 'Assessment center not found.'}, status=404)
-            if new_center.id == candidate.assessment_center.id:
-                return JsonResponse({'success': False, 'error': 'Candidate is already in this center.'}, status=400)
-            candidate.assessment_center = new_center
-            candidate.reg_number = None  # triggers regeneration
-            candidate.save()
-            return JsonResponse({
-                'success': True,
-                'center_name': new_center.center_name,
-                'center_id': new_center.id,
-                'reg_number': candidate.reg_number
-            })
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)}, status=500)
-    # For GET: render candidate view with all centers for modal
-    from .models import AssessmentCenter
-    centers = AssessmentCenter.objects.all()
-    return render(request, 'candidates/view.html', {
-        'candidate': candidate,
-        'centers': centers,
-    })
+    return render(request, "candidates/view.html", context)
 
 @login_required
 def regenerate_candidate_reg_number(request, id):
