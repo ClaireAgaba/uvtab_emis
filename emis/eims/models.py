@@ -1,6 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.db import transaction
+from PIL import Image, UnidentifiedImageError
+from io import BytesIO
+from django.core.files.base import ContentFile
+import os
 
 
 
@@ -144,6 +148,9 @@ class Module(models.Model):
     def __str__(self):
         return f"{self.code} - {self.name}"
 
+    class Meta:
+        ordering = ['name']
+
 
     
 class Paper(models.Model):
@@ -212,39 +219,105 @@ class Candidate(models.Model):
 
 
     def save(self, *args, **kwargs):
+        # --- Start of Reg Number Generation (with fix for nullable center) ---
         if not self.reg_number:
             occ_code = self.occupation.code if self.occupation else "XXX"
             reg_type = self.registration_category[0].upper()
             intake_str = self.intake.upper()
             year_suffix = str(self.entry_year)[-2:]
-            center = self.assessment_center
-            entry_year = self.entry_year
-            intake = self.intake
-            # Atomic block for safe serial assignment
+            center_code = self.assessment_center.center_number if self.assessment_center else "NOCNTR"
+
             with transaction.atomic():
-                # Filter for candidates in the same center, intake, year
                 qs = Candidate.objects.filter(
-                    assessment_center=center,
-                    intake=intake,
-                    entry_year=entry_year
+                    assessment_center=self.assessment_center, 
+                    intake=self.intake,
+                    entry_year=self.entry_year
                 )
-                # Extract serials from existing reg_numbers
                 max_serial = 0
                 for c in qs.only('reg_number'):
                     try:
-                        serial_part = c.reg_number.split('/')[-1].split('-')[0]
+                        last_part = c.reg_number.split('/')[-1]
+                        serial_part = last_part.split('-')[0]
                         serial_int = int(serial_part)
                         if serial_int > max_serial:
                             max_serial = serial_int
-                    except Exception:
+                    except (ValueError, IndexError, AttributeError):
                         continue
                 next_serial = max_serial + 1
                 serial_str = str(next_serial).zfill(3)
-                self.reg_number = f"{self.nationality}/{year_suffix}/{intake_str}/{occ_code}/{reg_type}/{serial_str}-{center.center_number}"
+                self.reg_number = f"{self.nationality}/{year_suffix}/{intake_str}/{occ_code}/{reg_type}/{serial_str}-{center_code}"
+        # --- End of Reg Number Generation ---
+
+        # --- Start of Image Resizing Logic ---
+        if self.passport_photo and hasattr(self.passport_photo, 'file') and self.passport_photo.file and hasattr(self.passport_photo.file, 'size'):
+            MAX_SIZE_KB = 500
+            if self.passport_photo.file.size > MAX_SIZE_KB * 1024:
+                try:
+                    self.passport_photo.file.seek(0)
+                    img = Image.open(self.passport_photo.file)
+                    original_format = img.format if img.format else 'JPEG'
+
+                    if img.mode in ('RGBA', 'P', 'LA'):
+                        img = img.convert('RGB')
+
+                    output_buffer = BytesIO()
+                    max_pixels = 800 
+                    if img.width > max_pixels or img.height > max_pixels:
+                        try:
+                            resampling_filter = Image.Resampling.LANCZOS
+                        except AttributeError:
+                            resampling_filter = Image.LANCZOS
+                        img.thumbnail((max_pixels, max_pixels), resampling_filter)
+
+                    if original_format.upper() == 'PNG':
+                        img.save(output_buffer, format='PNG', optimize=True)
+                        if output_buffer.tell() > MAX_SIZE_KB * 1024:
+                            output_buffer.seek(0); output_buffer.truncate(0)
+                            img.save(output_buffer, format='JPEG', quality=85)
+                    else:
+                        img.save(output_buffer, format='JPEG', quality=85)
+
+                    current_buffer_check_img = Image.open(BytesIO(output_buffer.getvalue()))
+                    if output_buffer.tell() > MAX_SIZE_KB * 1024 and current_buffer_check_img.format == 'JPEG':
+                        quality = 80
+                        while output_buffer.tell() > MAX_SIZE_KB * 1024 and quality >= 10:
+                            output_buffer.seek(0); output_buffer.truncate(0)
+                            img.save(output_buffer, format='JPEG', quality=quality)
+                            quality -= 5
+                    
+                    if output_buffer.tell() <= MAX_SIZE_KB * 1024:
+                        final_img_in_buffer = Image.open(BytesIO(output_buffer.getvalue()))
+                        final_format = final_img_in_buffer.format
+                        
+                        original_filename = os.path.basename(self.passport_photo.name)
+                        name_part, _ = os.path.splitext(original_filename)
+                        
+                        new_extension = '.jpg'
+                        if final_format == 'JPEG': new_extension = '.jpg'
+                        elif final_format == 'PNG': new_extension = '.png'
+                            
+                        new_filename = name_part + new_extension
+                        self.passport_photo.file = ContentFile(output_buffer.getvalue(), name=new_filename)
+                    else:
+                        print(f"Warning: Image {self.passport_photo.name} could not be resized to under {MAX_SIZE_KB}KB. Current size: {output_buffer.tell()/1024:.2f}KB. Original will be saved.")
+                        self.passport_photo.file.seek(0)
+
+                except (IOError, FileNotFoundError, UnidentifiedImageError, ValueError, TypeError, AttributeError) as e:
+                    print(f"Error resizing image {self.passport_photo.name if self.passport_photo and self.passport_photo.name else 'N/A'}: {e}")
+                    if hasattr(self.passport_photo, 'file') and self.passport_photo.file and hasattr(self.passport_photo.file, 'seek') and callable(self.passport_photo.file.seek):
+                        try:
+                            self.passport_photo.file.seek(0)
+                        except Exception as seek_e:
+                            print(f"Error seeking file pointer for {self.passport_photo.name}: {seek_e}")
+        # --- End of Image Resizing Logic ---
+
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.full_name} ({self.reg_number})"
+        return f"{self.reg_number} - {self.full_name}"
+
+    class Meta:
+        ordering = ['reg_number']
 
 class CandidateLevel(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE)
