@@ -98,15 +98,15 @@
             <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}" onclick="event.stopPropagation();">
           </td>
           <td class="px-4 py-2 whitespace-nowrap">
-            <div class="flex flex-col items-center w-16 mx-auto">
+            <div class="flex flex-col items-center w-20 mx-auto">
               {% if candidate.passport_photo %}
-                <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-16 w-16 object-cover rounded" onclick="event.stopPropagation();" />
+                <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-20 w-20 object-cover rounded" onclick="event.stopPropagation();" />
               {% else %}
-                <div class="h-16 w-16 bg-gray-200 rounded flex items-center justify-center text-gray-400" onclick="event.stopPropagation();">
+                <div class="h-20 w-20 bg-gray-200 rounded flex items-center justify-center text-gray-400" onclick="event.stopPropagation();">
                   <span class="text-lg">No photo</span>
                 </div>
               {% endif %}
-              <p class="text-center text-xs font-semibold mt-1 w-full break-words">{{ candidate.reg_number }}</p>
+              <p class="text-center text-[10px] font-semibold mt-1 w-full break-words">{{ candidate.reg_number }}</p>
             </div>
           </td>
           <td class="px-4 py-2 whitespace-nowrap">{{ candidate.reg_number }}</td>
