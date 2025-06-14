@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .forms import SupportStaffForm, CenterRepForm
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, QueryDict
+import copy
 
 from django.views.decorators.http import require_POST
 
@@ -458,7 +459,7 @@ def generate_album(request):
             registration_category__iexact=reg_category_form, # Use form value for filtering
             assessment_date__year=assessment_year,
             assessment_date__month=assessment_month
-        ).order_by('reg_number')[:25]
+        ).order_by('reg_number')
         print("Number of generated candidates = ", candidate_qs.count())
 
         # Optional level filtering (if applicable for the registration category)
@@ -582,6 +583,8 @@ def generate_album(request):
         elements.append(candidate_table)
 
         # --- First pass to count total pages ---
+        # Use a deep copy of elements for the first pass to avoid consuming them
+        first_pass_elements = copy.deepcopy(elements)
         count_buffer = BytesIO() # Temporary buffer for counting
         # Ensure all SimpleDocTemplate parameters match the final document for accurate page count
         count_doc = SimpleDocTemplate(count_buffer, pagesize=landscape(letter),
@@ -589,23 +592,34 @@ def generate_album(request):
                                       topMargin=0.3*inch, bottomMargin=0.3*inch)
         
         def _count_pages_callback(canvas, doc): # Minimal callback for the first pass
-            pass
+            pass # We only care about the page count
 
-        count_doc.build(elements, onFirstPage=_count_pages_callback, onLaterPages=_count_pages_callback)
-        total_pages = count_doc.page
+        try:
+            count_doc.build(first_pass_elements, onFirstPage=_count_pages_callback, onLaterPages=_count_pages_callback)
+            total_pages = count_doc.page
+        except Exception as e:
+            # Handle potential errors during the first pass, though less likely with a simple callback
+            print(f"Error during page count pass: {e}")
+            # Fallback to simple page numbering if counting fails
+            total_pages = 0 # Indicates an issue, or use a flag
+
         # --- End of first pass ---
 
-        # Helper function to add page numbers (now includes total_pages)
+        # Helper function to add page numbers (includes total_pages if available)
         def _add_page_numbers(canvas, doc, total_pages_count):
             canvas.saveState()
             canvas.setFont('Helvetica', 9)
-            page_number_text = f"Page {doc.page} of {total_pages_count}"
+            if total_pages_count > 0:
+                page_number_text = f"Page {doc.page} of {total_pages_count}"
+            else:
+                page_number_text = f"Page {doc.page}" # Fallback if total_pages is not available
+            
             page_width = doc.pagesize[0] # doc.pagesize[0] is width for landscape
             canvas.drawCentredString(page_width / 2.0, 0.2 * inch, page_number_text)
             canvas.restoreState()
 
         # Build PDF (Second pass - actual PDF generation with 'Page X of Y')
-        # The original 'doc' and 'buffer' are used for the final output.
+        # The original 'doc', 'buffer', and 'elements' are used for the final output.
         try:
             doc.build(elements, 
                       onFirstPage=lambda c, d: _add_page_numbers(c, d, total_pages), 
