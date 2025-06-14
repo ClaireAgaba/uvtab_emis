@@ -458,7 +458,7 @@ def generate_album(request):
             registration_category__iexact=reg_category_form, # Use form value for filtering
             assessment_date__year=assessment_year,
             assessment_date__month=assessment_month
-        ).order_by('registration_number')[:5]
+        ).order_by('reg_number')[:5]
         print("Number of generated candidates = ", candidate_qs.count())
 
         # Optional level filtering (if applicable for the registration category)
