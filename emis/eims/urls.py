@@ -28,8 +28,8 @@ urlpatterns = [
     path('candidates/<int:id>/enroll/', views.enroll_candidate_view, name='enroll_candidate'),
     path('candidates/<int:id>/edit/', views.edit_candidate, name='edit_candidate'),
     path('candidates/<int:id>/regenerate_reg_number/', views.regenerate_candidate_reg_number, name='regenerate_candidate_reg_number'),
-    path('candidates/<int:id>/change-center/', views.change_candidate_center, name='change_candidate_center'),
-    path('candidates/<int:id>/change-occupation/', views.change_candidate_occupation, name='change_candidate_occupation'), 
+    path('candidates/<int:id>/change-center/', views.change_center, name='change_center'),
+    path('candidates/<int:id>/change-occupation/', views.change_occupation, name='change_occupation'), 
     path('api/districts/<int:district_id>/villages/', views.district_villages_api, name='api_district_villages'),
     path('assessment-centers/<int:id>/', views.assessment_center_view, name='assessment_center_view'),
     path('assessment-centers/<int:id>/edit/', views.edit_assessment_center, name='edit_assessment_center'), 
@@ -56,6 +56,8 @@ urlpatterns = [
     path('users/support-staff/create/', views.create_support_staff, name='create_support_staff'),
     path('users/support-staff/<int:pk>/', views.view_support_staff_detail, name='view_support_staff_detail'),
     path('users/support-staff/<int:pk>/edit/', views.edit_support_staff, name='edit_support_staff'),
+
+    
 
  ]    
 

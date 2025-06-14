@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="max-w-md mx-auto mt-12 bg-white shadow-lg p-8 rounded">
-  <h2 class="text-xl font-bold mb-5">Change Assessment Center</h2>
+  <h2 class="text-xl font-bold mb-5">Change Occupation</h2>
 
   <form method="post">
     {% csrf_token %}
     <div class="mb-6">
-      {{ form.assessment_center.label_tag }}
-      {{ form.assessment_center }}
+      {{ form.occupation.label_tag }}
+      {{ form.occupation }}
     </div>
 
     <div class="flex justify-between">

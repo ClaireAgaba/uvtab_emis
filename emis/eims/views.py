@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .forms import SupportStaffForm, CenterRepForm
+from .forms import SupportStaffForm, CenterRepForm, ChangeOccupationForm, ChangeCenterForm
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse, QueryDict
+from django.http import JsonResponse, HttpResponse
 import copy
 
 from django.views.decorators.http import require_POST
@@ -129,6 +129,8 @@ from PIL import Image as PILImage
 import os
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from .forms import ChangeOccupationForm
+
 
 
 @login_required
@@ -146,14 +148,6 @@ def assessment_center_list(request):
     centers = AssessmentCenter.objects.all()
     return render(request, 'assessment_centers/list.html', {'centers': centers})
 
-""" def assessment_center_detail(request, pk):
-    center = get_object_or_404(AssessmentCenter, pk=pk)
-    candidates = Candidate.objects.filter(assessment_center=center)
-    context = {
-        'center': center,
-        'candidates': candidates
-    }
-    return render(request, 'assessment_centers/view.html', context) """
 
 
 def assessment_center_view(request, id):
@@ -360,26 +354,6 @@ def report_list(request):
     group_names = list(request.user.groups.values_list('name', flat=True))
     return render(request, 'reports/list.html', {'group_names': group_names})
 
-<<<<<<< HEAD
-def _get_candidate_photo(candidate, photo_width=1*inch, photo_height=1.2*inch):
-    photo = getattr(candidate, 'passport_photo', None)
-    if photo and hasattr(photo, 'path') and os.path.exists(photo.path):
-        try:
-            img = PILImage.open(photo.path)
-            # Scale photo to fit in the table cell
-            scale_factor = min(photo_width/img.width, photo_height/img.height)
-            scaled_width = img.width * scale_factor
-            scaled_height = img.height * scale_factor
-            
-            # Check file size
-            file_size = os.path.getsize(photo.path)
-            if file_size > 2*1024*1024:  # 2MB limit
-                from reportlab.platypus import Paragraph
-                return Paragraph("[Photo Too Large]", ParagraphStyle('Normal'))
-            from reportlab.platypus import Image
-            return Image(photo.path, width=scaled_width, height=scaled_height)
-
-=======
 from reportlab.platypus import Image, Paragraph, Spacer, Table, TableStyle, PageBreak,KeepInFrame
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
@@ -432,7 +406,6 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
             # Consider cleanup after PDF generation if issues arise.
             # if img.mode != 'RGB' and os.path.exists(temp_path):
             #     os.remove(temp_path)
->>>>>>> 6327ae15bf6738d6cdce46a18ed2e13ab9abfc30
         except Exception as e:
             print(f"Error processing photo for cell (ID: {candidate.id}): {e}")
             photo_image = Paragraph("[No Photo]", photo_detail_style)
@@ -852,8 +825,72 @@ from .models import Candidate, CandidateLevel, CandidateModule, Occupation
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+
+# Helper
+def _blocked_if_enrolled(request, candidate, action_name):
+    if candidate.is_enrolled():
+        messages.error(
+            request,
+            f"Candidate is already enrolled – cannot {action_name.lower()}."
+        )
+        return True
+    return False
+
+
 @login_required
-@require_POST
+def change_occupation(request, pk):
+    candidate = get_object_or_404(Candidate, pk=pk)
+
+    # 1) Block if already enrolled
+    if _blocked_if_enrolled(request, candidate, "Change Occupation"):
+        return redirect('candidate_detail', pk=pk)
+
+    # 2) Normal form workflow
+    if request.method == "POST":
+        form = ChangeOccupationForm(request.POST, instance=candidate)
+        if form.is_valid():
+            cand = form.save(commit=False)
+            cand.reg_number = ""           # clear to trigger rebuild in save()
+            cand.build_reg_number()        # keep same serial – new occ code
+            cand.save()
+            messages.success(request, "Occupation updated successfully.")
+            return redirect('candidate_detail', pk=pk)
+    else:
+        form = ChangeOccupationForm(instance=candidate)
+
+    return render(
+        request,
+        "candidates/change_occupation.html",
+        {"form": form, "candidate": candidate}
+    )
+
+
+@login_required
+def change_center(request, pk):
+    candidate = get_object_or_404(Candidate, pk=pk)
+
+    if _blocked_if_enrolled(request, candidate, "Change Assessment Center"):
+        return redirect('candidate_detail', pk=pk)
+
+    if request.method == "POST":
+        form = ChangeCenterForm(request.POST, instance=candidate)
+        if form.is_valid():
+            cand = form.save(commit=False)
+            cand.reg_number = ""           # clear → rebuild
+            cand.build_reg_number()        # same serial, new center suffix
+            cand.save()
+            messages.success(request, "Assessment center updated successfully.")
+            return redirect('candidate_detail', pk=pk)
+    else:
+        form = ChangeCenterForm(instance=candidate)
+
+    return render(
+        request,
+        "candidates/change_center.html",
+        {"form": form, "candidate": candidate}
+    )
+
+""" @require_POST
 def change_candidate_occupation(request, id):
     import json
     candidate = get_object_or_404(Candidate, id=id)
@@ -882,7 +919,7 @@ def change_candidate_occupation(request, id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     # For GET, redirect to candidate view
-    return redirect('candidate_view', id=id)
+    return redirect('candidate_view', id=id) """
 
 def candidate_view(request, id):
     candidate = get_object_or_404(Candidate, id=id)

@@ -366,3 +366,27 @@ class SupportStaffForm(forms.ModelForm):
         if commit:
             profile.save()
         return profile
+
+
+# --------------------------------------------------
+class ChangeOccupationForm(forms.ModelForm):
+    class Meta:
+        model  = Candidate
+        fields = ['occupation']
+        widgets = {
+            'occupation': forms.Select(
+                attrs={'class': 'w-full border rounded-md px-3 py-2'}
+            )
+        }
+
+class ChangeCenterForm(forms.ModelForm):
+    class Meta:
+        model  = Candidate
+        fields = ['assessment_center']
+        widgets = {
+            'assessment_center': forms.Select(
+                attrs={'class': 'w-full border rounded-md px-3 py-2'}
+            )
+        }
+
+

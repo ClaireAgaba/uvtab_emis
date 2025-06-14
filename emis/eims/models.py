@@ -218,7 +218,40 @@ class Candidate(models.Model):
     reg_number = models.CharField(max_length=100, unique=True, blank=True, null=True)
 
 
+    # models.py  (inside Candidate)
+# --------------------------------
+    def build_reg_number(self):
+        """
+        Build a registration number in the format
+        N/YY/I/OC_CODE/###-CENTER_NO
+        …keeping the *serial* part exactly as it is if already set.
+        """
+        nat      = self.nationality            # “U”, “X”, …
+        year     = str(self.entry_year)[-2:]    # last 2 digits
+        intake   = self.intake.upper()          # “M” or “A”
+        occ_code = self.occupation.code         # e.g. “BKR”
+
+    # --- keep existing serial part if it already exists -------------
+        if self.reg_number and '-' in self.reg_number:
+            serial_part = self.reg_number.split('/')[-1].split('-')[0]   # the “###”
+        else:
+            # first time → count existing candidates in *this* occupation
+            next_no      = Candidate.objects.filter(occupation=self.occupation).count() + 1
+            serial_part  = str(next_no).zfill(3)                         # “001”, “002”, …
+
+        center_no = self.assessment_center.center_number                # e.g. “UVT662”
+        self.reg_number = f"{nat}/{year}/{intake}/{occ_code}/{serial_part}-{center_no}"
+
     def save(self, *args, **kwargs):
+            # regenerate if reg_number is empty
+        if not self.reg_number:
+            self.build_reg_number()
+        super().save(*args, **kwargs)
+
+
+
+
+    """ def save(self, *args, **kwargs):
         # --- Start of Reg Number Generation (with fix for nullable center) ---
         if not self.reg_number:
             occ_code = self.occupation.code if self.occupation else "XXX"
@@ -246,9 +279,10 @@ class Candidate(models.Model):
                 next_serial = max_serial + 1
                 serial_str = str(next_serial).zfill(3)
                 self.reg_number = f"{self.nationality}/{year_suffix}/{intake_str}/{occ_code}/{reg_type}/{serial_str}-{center_code}"
-        # --- End of Reg Number Generation ---
+        # --- End of Reg Number Generation --- """
 
         # --- Start of Image Resizing Logic ---
+    def resize_passport_photo(self):
         if self.passport_photo and hasattr(self.passport_photo, 'file') and self.passport_photo.file and hasattr(self.passport_photo.file, 'size'):
             MAX_SIZE_KB = 500
             if self.passport_photo.file.size > MAX_SIZE_KB * 1024:
