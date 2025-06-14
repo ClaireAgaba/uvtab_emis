@@ -100,7 +100,7 @@
           <td class="px-4 py-2 whitespace-nowrap">
             {% if candidate.passport_photo %}
               <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-12 w-12 object-cover rounded" onclick="event.stopPropagation();" />
-              <p class="text-center text-sm font-semibold mt-2">Reg. No: <span data-field="reg_number">{{ candidate.reg_number }}</span></p>
+              <p class="text-center text-xs font-semibold mt-1">{{ candidate.reg_number }}</p>
             {% else %}
               <div class="h-12 w-12 bg-gray-200 rounded flex items-center justify-center text-gray-400" onclick="event.stopPropagation();">
                 <span class="text-lg">No photo</span>
