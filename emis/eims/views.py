@@ -54,6 +54,88 @@ def bulk_candidate_action(request):
     if not candidates.exists():
         return JsonResponse({'success': False, 'error': 'No candidates found.'}, status=400)
 
+    if action == 'add_regno_photo':
+        results = []
+        from PIL import Image as PILImage, ImageDraw, ImageFont
+        import glob
+        from django.core.files import File
+        for c in candidates:
+            try:
+                if not c.passport_photo or not c.reg_number:
+                    results.append({'id': c.id, 'success': False, 'error': 'Missing photo or regno.'})
+                    continue
+                image_path = c.passport_photo.path
+                img = PILImage.open(image_path).convert("RGBA")
+                draw = ImageDraw.Draw(img)
+                font_path = os.path.join(settings.BASE_DIR, "emis", "eims", "static", "fonts", "DejaVuSansMono-BoldOblique.ttf")
+                # Remove old regno-stamped images
+                base_dir = os.path.dirname(image_path)
+                base_name = os.path.splitext(os.path.basename(image_path))[0]
+                regno_img_pattern = os.path.join(base_dir, f"{base_name}_regno*.png")
+                for old in glob.glob(regno_img_pattern):
+                    try:
+                        os.remove(old)
+                    except Exception:
+                        pass
+                text = c.reg_number
+                width, height = img.size
+                max_width = width - 32
+                font_size = 40
+                min_font_size = 12
+                orig_text = text
+                font = ImageFont.truetype(font_path, size=font_size)
+                while font_size >= min_font_size:
+                    try:
+                        text_w, text_h = font.getsize(text)
+                    except AttributeError:
+                        bbox = font.getbbox(text)
+                        text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                    if text_w <= max_width:
+                        break
+                    font_size -= 2
+                    font = ImageFont.truetype(font_path, size=font_size)
+                if text_w > max_width:
+                    ellipsis = '...'
+                    for i in range(len(text)-1, 0, -1):
+                        truncated = text[:i] + ellipsis
+                        try:
+                            text_w, text_h = font.getsize(truncated)
+                        except AttributeError:
+                            bbox = font.getbbox(truncated)
+                            text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                        if text_w <= max_width:
+                            text = truncated
+                            break
+                padding_v = max(10, font_size // 4)
+                strip_h = text_h + 2 * padding_v
+                strip_y = height - strip_h
+                overlay = PILImage.new('RGBA', (width, strip_h), (0, 0, 0, 180))
+                img = img.convert('RGBA')
+                img.alpha_composite(overlay, (0, strip_y))
+                draw = ImageDraw.Draw(img)
+                x = (width - text_w) // 2
+                y = strip_y + (strip_h - text_h) // 2
+                outline_range = 2
+                for dx in range(-outline_range, outline_range+1):
+                    for dy in range(-outline_range, outline_range+1):
+                        if dx != 0 or dy != 0:
+                            draw.text((x+dx, y+dy), text, font=font, fill=(0,0,0,255))
+                draw.text((x, y), text, font=font, fill=(255,255,255,255))
+                new_filename = f"{os.path.splitext(image_path)[0]}_regno.png"
+                img.save(new_filename)
+                old_photo_path = image_path
+                if os.path.exists(old_photo_path) and os.path.basename(old_photo_path) != os.path.basename(new_filename):
+                    try:
+                        os.remove(old_photo_path)
+                    except Exception:
+                        pass
+                with open(new_filename, 'rb') as f:
+                    c.passport_photo.save(os.path.basename(new_filename), File(f), save=True)
+                results.append({'id': c.id, 'success': True})
+            except Exception as e:
+                results.append({'id': c.id, 'success': False, 'error': str(e)})
+        return JsonResponse({'success': True, 'results': results})
+
     if action == 'enroll':
         # Enforce same occupation and reg category
         occupations = set(c.occupation_id for c in candidates)
@@ -902,33 +984,6 @@ def _blocked_if_enrolled(request, candidate, action_name):
         return True
     return False
 
-
-""" @login_required
-def change_occupation(request, pk):
-    candidate = get_object_or_404(Candidate, pk=pk)
-
-    # 1) Block if already enrolled
-    if _blocked_if_enrolled(request, candidate, "Change Occupation"):
-        return redirect('candidate_detail', pk=pk)
-
-    # 2) Normal form workflow
-    if request.method == "POST":
-        form = ChangeOccupationForm(request.POST, instance=candidate)
-        if form.is_valid():
-            cand = form.save(commit=False)
-            cand.reg_number = ""           # clear to trigger rebuild in save()
-            cand.build_reg_number()        # keep same serial – new occ code
-            cand.save()
-            messages.success(request, "Occupation updated successfully.")
-            return redirect('candidate_detail', pk=pk)
-    else:
-        form = ChangeOccupationForm(instance=candidate)
-
-    return render(
-        request,
-        "candidates/change_occupation.html",
-        {"form": form, "candidate": candidate}
-    ) """
 import json
 
 @require_POST
@@ -1027,34 +1082,6 @@ def change_registration_category(request, id):
         "registration_category": new_reg_cat,
         "reg_number": candidate.reg_number
     })
-
-
-
-
-""" @login_required
-def change_center(request, pk):
-    candidate = get_object_or_404(Candidate, pk=pk)
-
-    if _blocked_if_enrolled(request, candidate, "Change Assessment Center"):
-        return redirect('candidate_detail', pk=pk)
-
-    if request.method == "POST":
-        form = ChangeCenterForm(request.POST, instance=candidate)
-        if form.is_valid():
-            cand = form.save(commit=False)
-            cand.reg_number = ""           # clear → rebuild
-            cand.build_reg_number()        # same serial, new center suffix
-            cand.save()
-            messages.success(request, "Assessment center updated successfully.")
-            return redirect('candidate_detail', pk=pk)
-    else:
-        form = ChangeCenterForm(instance=candidate)
-
-    return render(
-        request,
-        "candidates/change_center.html",
-        {"form": form, "candidate": candidate}
-    ) """
 
 def candidate_view(request, id):
     candidate = get_object_or_404(Candidate, id=id)
@@ -1285,4 +1312,102 @@ def edit_support_staff(request, pk):
     else:
         form = SupportStaffForm(instance=staff)
     return render(request, 'users/support_staff/edit_support_staff.html', {'form': form, 'staff': staff})
+
+
+from PIL import Image, ImageDraw, ImageFont
+from django.conf import settings
+from django.shortcuts import get_object_or_404, redirect
+from django.http import HttpResponse
+import os
+
+def add_regno_to_photo(request, id):
+    candidate = get_object_or_404(Candidate, id=id)
+
+    if not candidate.passport_photo or not candidate.reg_number:
+        return HttpResponse("Candidate must have both a photo and regno.", status=400)
+
+    image_path = candidate.passport_photo.path
+    img = Image.open(image_path).convert("RGBA")
+
+    # Overlay text (regno)
+    draw = ImageDraw.Draw(img)
+    font_path = os.path.join(settings.BASE_DIR, "emis", "eims", "static", "fonts", "DejaVuSansMono-BoldOblique.ttf")
+    import glob
+    # Remove any old regno-stamped images
+    base_dir = os.path.dirname(image_path)
+    base_name = os.path.splitext(os.path.basename(image_path))[0]
+    regno_img_pattern = os.path.join(base_dir, f"{base_name}_regno*.png")
+    for old in glob.glob(regno_img_pattern):
+        try:
+            os.remove(old)
+        except Exception:
+            pass
+
+    text = candidate.reg_number
+    width, height = img.size
+    # Dynamically find max font size to fit text
+    max_width = width - 32
+    font_size = 40
+    min_font_size = 12
+    orig_text = text
+    while font_size >= min_font_size:
+        font = ImageFont.truetype(font_path, size=font_size)
+        try:
+            text_w, text_h = font.getsize(text)
+        except AttributeError:
+            bbox = font.getbbox(text)
+            text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        if text_w <= max_width:
+            break
+        font_size -= 2
+    # If text still doesn't fit at min font size, truncate and add ellipsis
+    if text_w > max_width:
+        ellipsis = '...'
+        for i in range(len(text)-1, 0, -1):
+            truncated = text[:i] + ellipsis
+            try:
+                text_w, text_h = font.getsize(truncated)
+            except AttributeError:
+                bbox = font.getbbox(truncated)
+                text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            if text_w <= max_width:
+                text = truncated
+                break
+
+    # Draw a full-width semi-transparent black strip at the bottom
+    padding_v = max(10, font_size // 4)
+    strip_h = text_h + 2 * padding_v
+    strip_y = height - strip_h
+    overlay = Image.new('RGBA', (width, strip_h), (0, 0, 0, 180))
+    img = img.convert('RGBA')
+    img.alpha_composite(overlay, (0, strip_y))
+    draw = ImageDraw.Draw(img)
+    # Center text horizontally and vertically
+    x = (width - text_w) // 2
+    y = strip_y + (strip_h - text_h) // 2
+    # Draw outlined text for contrast
+    outline_range = 2
+    for dx in range(-outline_range, outline_range+1):
+        for dy in range(-outline_range, outline_range+1):
+            if dx != 0 or dy != 0:
+                draw.text((x+dx, y+dy), text, font=font, fill=(0,0,0,255))
+    draw.text((x, y), text, font=font, fill=(255,255,255,255))
+    # Save with a new filename
+    new_filename = f"{os.path.splitext(image_path)[0]}_regno.png"
+    img.save(new_filename)
+    # Delete old photo if different from new
+    old_photo_path = image_path
+    if os.path.exists(old_photo_path) and os.path.basename(old_photo_path) != os.path.basename(new_filename):
+        try:
+            os.remove(old_photo_path)
+        except Exception:
+            pass
+    # Update candidate's passport_photo to new stamped image
+    from django.core.files import File
+    from django.http import JsonResponse
+    with open(new_filename, 'rb') as f:
+        candidate.passport_photo.save(os.path.basename(new_filename), File(f), save=True)
+    url = candidate.passport_photo.url
+    return JsonResponse({'success': True, 'url': url})
+
 

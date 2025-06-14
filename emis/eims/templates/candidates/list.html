@@ -14,6 +14,7 @@
       <option value="">Select Action</option>
       <option value="enroll">Enroll</option>
       <option value="regenerate">Regenerate Reg. Number</option>
+      <option value="add_regno_photo">Add Regno on Photo</option>
       <option value="change_reg_cat">Change Reg Category</option>
     </select>
     <!-- Module selector for Modular bulk enroll -->
@@ -336,6 +337,41 @@ bulkApply && bulkApply.addEventListener('click', function() {
   }
   // AJAX POST to backend
   bulkError.textContent = '';
+  if (bulkSelect.value === 'add_regno_photo') {
+    fetch("/eims/candidates/bulk-action/", {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        action: 'add_regno_photo',
+        candidate_ids: checked.map(cb => cb.value)
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        let msg = '';
+        if (data.results) {
+          let ok = data.results.filter(r => r.success).length;
+          let fail = data.results.filter(r => !r.success).length;
+          msg = `Regno-stamped photo added for ${ok} candidate${ok!==1?'s':''}.`;
+          if (fail) msg += `\n${fail} failed.`;
+        } else {
+          msg = 'Regno-stamped photo added successfully.';
+        }
+        alert(msg);
+        window.location.reload();
+      } else {
+        bulkError.textContent = data.error || 'An error occurred.';
+      }
+    })
+    .catch(() => {
+      bulkError.textContent = 'Server error.';
+    });
+    return;
+  }
   fetch("/eims/candidates/bulk-action/", {
     method: "POST",
     headers: {
