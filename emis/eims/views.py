@@ -581,21 +581,35 @@ def generate_album(request):
         ]))
         elements.append(candidate_table)
 
-        # Helper function to add page numbers
-        def _add_page_numbers(canvas, doc):
+        # --- First pass to count total pages ---
+        count_buffer = BytesIO() # Temporary buffer for counting
+        # Ensure all SimpleDocTemplate parameters match the final document for accurate page count
+        count_doc = SimpleDocTemplate(count_buffer, pagesize=landscape(letter),
+                                      rightMargin=0.4*inch, leftMargin=0.4*inch,
+                                      topMargin=0.3*inch, bottomMargin=0.3*inch)
+        
+        def _count_pages_callback(canvas, doc): # Minimal callback for the first pass
+            pass
+
+        count_doc.build(elements, onFirstPage=_count_pages_callback, onLaterPages=_count_pages_callback)
+        total_pages = count_doc.page
+        # --- End of first pass ---
+
+        # Helper function to add page numbers (now includes total_pages)
+        def _add_page_numbers(canvas, doc, total_pages_count):
             canvas.saveState()
-            canvas.setFont('Helvetica', 9) # Using a standard font
-            page_number_text = f"Page {doc.page}"
-            # doc.pagesize correctly reflects the current page's dimensions (width, height)
-            # For landscape, doc.pagesize[0] is the width.
-            page_width = doc.pagesize[0]
-            # Draw the string centered horizontally, 0.2 inches from the bottom of the page.
+            canvas.setFont('Helvetica', 9)
+            page_number_text = f"Page {doc.page} of {total_pages_count}"
+            page_width = doc.pagesize[0] # doc.pagesize[0] is width for landscape
             canvas.drawCentredString(page_width / 2.0, 0.2 * inch, page_number_text)
             canvas.restoreState()
 
-        # Build PDF
+        # Build PDF (Second pass - actual PDF generation with 'Page X of Y')
+        # The original 'doc' and 'buffer' are used for the final output.
         try:
-            doc.build(elements, onFirstPage=_add_page_numbers, onLaterPages=_add_page_numbers)
+            doc.build(elements, 
+                      onFirstPage=lambda c, d: _add_page_numbers(c, d, total_pages), 
+                      onLaterPages=lambda c, d: _add_page_numbers(c, d, total_pages))
             buffer.seek(0)
             response = HttpResponse(buffer, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="candidate_album_{center.center_number}_{occupation.code}_{assessment_year}_{assessment_month}.pdf"'
