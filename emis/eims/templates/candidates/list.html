@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto mt-8">
+<div class="w-full px-2 md:px-8 mt-8">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold">Candidates</h1>
     <a href="{% url 'candidate_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Candidate</a>
@@ -36,7 +36,7 @@
   </span>
 </div>
 
-<div class="overflow-x-auto bg-white shadow rounded">
+<div class="bg-white shadow rounded">
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-100">
         <tr>
@@ -93,16 +93,16 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for candidate in candidates %}
-        <tr>
+        <tr class="cursor-pointer hover:bg-blue-50 transition" onclick="window.location='{% url 'candidate_view' candidate.id %}'">
           <td class="px-2 py-2 text-center">
-            <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}">
+            <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}" onclick="event.stopPropagation();">
           </td>
           <td class="px-4 py-2 whitespace-nowrap">
             {% if candidate.passport_photo %}
-              <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-12 w-12 object-cover rounded" />
+              <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-12 w-12 object-cover rounded" onclick="event.stopPropagation();" />
             {% else %}
-              <div class="h-12 w-12 bg-gray-200 rounded flex items-center justify-center text-gray-400">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <div class="h-12 w-12 bg-gray-200 rounded flex items-center justify-center text-gray-400" onclick="event.stopPropagation();">
+                <span class="text-lg">No photo</span>
               </div>
             {% endif %}
           </td>
@@ -114,7 +114,7 @@
             {{ candidate.assessment_center.center_name|default:"—" }}
           </td>
           <td class="px-4 py-2">
-            <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:underline">View</a>
+            <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:underline" onclick="event.stopPropagation();">View</a>
           </td>
         </tr>
         {% empty %}
