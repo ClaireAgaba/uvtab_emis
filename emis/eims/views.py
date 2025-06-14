@@ -422,7 +422,7 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
     
     occupation_code = candidate.occupation.code if candidate.occupation else 'N/A'
     reg_category_short = candidate.registration_category.upper() if candidate.registration_category else 'N/A'
-    cell_elements.append(Paragraph(f"{reg_category_short} | {occupation_code}", photo_detail_style))
+    # cell_elements.append(Paragraph(f"{reg_category_short} | {occupation_code}", photo_detail_style))
     
     return cell_elements
 
