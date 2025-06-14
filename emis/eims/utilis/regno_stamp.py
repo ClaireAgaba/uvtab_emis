@@ -12,7 +12,7 @@ def add_regno_to_image(img_path: str, reg_no: str) -> str:
     draw = ImageDraw.Draw(img)
 
     # pick a font – place a .ttf somewhere Django can reach, e.g. static/fonts
-    font_path = os.path.join(settings.BASE_DIR, "static", "fonts", "arial.ttf")
+    font_path = os.path.join(settings.BASE_DIR, "emis" , "static", "fonts", "DejaVuSansMono-BoldOblique.ttf")
     # fallback to default if font missing
     font = ImageFont.truetype(font_path, 20) if os.path.exists(font_path) else ImageFont.load_default()
 
