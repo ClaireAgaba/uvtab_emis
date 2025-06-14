@@ -581,9 +581,21 @@ def generate_album(request):
         ]))
         elements.append(candidate_table)
 
+        # Helper function to add page numbers
+        def _add_page_numbers(canvas, doc):
+            canvas.saveState()
+            canvas.setFont('Helvetica', 9) # Using a standard font
+            page_number_text = f"Page {doc.page}"
+            # doc.pagesize correctly reflects the current page's dimensions (width, height)
+            # For landscape, doc.pagesize[0] is the width.
+            page_width = doc.pagesize[0]
+            # Draw the string centered horizontally, 0.2 inches from the bottom of the page.
+            canvas.drawCentredString(page_width / 2.0, 0.2 * inch, page_number_text)
+            canvas.restoreState()
+
         # Build PDF
         try:
-            doc.build(elements)
+            doc.build(elements, onFirstPage=_add_page_numbers, onLaterPages=_add_page_numbers)
             buffer.seek(0)
             response = HttpResponse(buffer, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="candidate_album_{center.center_number}_{occupation.code}_{assessment_year}_{assessment_month}.pdf"'
