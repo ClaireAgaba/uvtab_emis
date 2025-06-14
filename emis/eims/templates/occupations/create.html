@@ -24,6 +24,13 @@
           <label class="block font-medium mb-1">Occupation Category</label>
           {{ form.category }}
         </div>
+        <div>
+          <label class="block font-medium mb-1">Has Modular</label>
+          <div class="flex items-center">
+            {{ form.has_modular }}
+            <span class="ml-2 text-gray-600 text-sm">Allows Modular registration (Level 1 only)</span>
+          </div>
+        </div>
       </div>
 
       <!-- Right Column -->
@@ -33,18 +40,24 @@
           {{ form.name }}
         </div>
 
-        <div>
-          <label class="block font-medium mb-1">Occupation Structure Type</label>
-          {{ form.structure_type }}
-        </div>
+
       </div>
     </div>
 
     <!-- Levels Section (Full Width) -->
     <div class="mt-6">
-      <label class="block font-medium mb-2">Levels</label>
-      <div class="bg-gray-50 p-4 rounded">
-        {{ form.levels }}
+      <label class="block font-medium mb-2">Levels & Structure Type</label>
+      <div class="bg-gray-50 p-4 rounded space-y-3">
+        {% for level in levels %}
+          <div class="flex items-center space-x-4">
+            <input type="checkbox" id="level_{{ level.id }}" name="levels" value="{{ level.id }}">
+            <label for="level_{{ level.id }}" class="mr-4">{{ level.name }}</label>
+            <select name="structure_type_{{ level.id }}" class="border rounded px-2 py-1">
+              <option value="modules">Modules</option>
+              <option value="papers">Papers</option>
+            </select>
+          </div>
+        {% endfor %}
       </div>
     </div>
 

@@ -1,0 +1,8 @@
+{# Partial: Occupation field only, for AJAX replacement #}
+<div class="mb-4" id="occupation-field-wrapper">
+  <label for="id_occupation" class="block text-sm font-medium text-gray-700">Occupation</label>
+  {{ form.occupation }}
+  {% if form.occupation.errors %}
+    <div class="text-red-600 text-xs mt-1">{{ form.occupation.errors }}</div>
+  {% endif %}
+</div>

@@ -93,13 +93,13 @@
     </div>
 
     <div>
-      <label class="block font-semibold mb-1">Occupation</label>
-      {{ form.occupation }}
-    </div>
-
-    <div>
       <label class="block font-semibold mb-1">Registration Category</label>
       {{ form.registration_category }}
+    </div>
+    <div id="occupation-field-wrapper">
+      <label class="block font-semibold mb-1">Occupation</label>
+      {{ form.occupation }}
+      <span id="occupation-loading" class="text-xs text-gray-500 hidden">Loading...</span>
     </div>
 
     <!-- Assessment Dates -->
@@ -146,5 +146,38 @@
       }
     });
   });
+// --- Dynamic Occupation Filtering ---
+document.addEventListener('DOMContentLoaded', function() {
+  const regCatField = document.getElementById('id_registration_category');
+  const occWrapper = document.getElementById('occupation-field-wrapper');
+  const occLoading = document.getElementById('occupation-loading');
+  if (!regCatField || !occWrapper) return;
+  function setOccupationDisabled(disabled=true) {
+    const occField = document.getElementById('id_occupation');
+    if (occField) occField.disabled = disabled;
+  }
+  // Initial state
+  if (!regCatField.value) setOccupationDisabled(true);
+  regCatField.addEventListener('change', function() {
+    const cat = regCatField.value;
+    setOccupationDisabled(true);
+    occLoading.classList.remove('hidden');
+    // Fetch filtered occupations from backend
+    const url = new URL(window.location.href);
+    url.searchParams.set('registration_category', cat);
+    fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(resp => resp.json())
+      .then(data => {
+        if (data.occupation_field_html) {
+          occWrapper.innerHTML = data.occupation_field_html;
+        }
+      })
+      .finally(() => {
+        occLoading.classList.add('hidden');
+        setOccupationDisabled(false);
+      });
+  });
+});
+// --- End Dynamic Occupation Filtering ---
 </script>
 {% endblock %}

@@ -113,12 +113,11 @@ class Occupation(models.Model):
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey('OccupationCategory', on_delete=models.CASCADE)
-    structure_type = models.CharField(
-        max_length=10,
-        choices=STRUCTURE_CHOICES,
-        help_text="Specify whether this occupation uses modules or papers"
+
+    has_modular = models.BooleanField(
+        default=False,
+        help_text="Tick if this occupation allows Modular registration (Level 1 only)"
     )
-    levels = models.ManyToManyField('Level', related_name='occupations')
 
     # Audit trail fields
     created_at = models.DateTimeField(auto_now_add=True)
@@ -133,10 +132,30 @@ class Occupation(models.Model):
 
 class Level(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    #occupation = models.ForeignKey(Occupation, on_delete=models.CASCADE)
+    # occupation = models.ForeignKey(Occupation, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
+
+class OccupationLevel(models.Model):
+    STRUCTURE_CHOICES = [
+        ('modules', 'Modules'),
+        ('papers', 'Papers'),
+    ]
+    occupation = models.ForeignKey('Occupation', on_delete=models.CASCADE, related_name='occupation_levels')
+    level = models.ForeignKey('Level', on_delete=models.CASCADE, related_name='occupation_levels')
+    structure_type = models.CharField(
+        max_length=10,
+        choices=STRUCTURE_CHOICES,
+        default='modules',
+        help_text="Specify whether this level for this occupation uses modules or papers"
+    )
+
+    class Meta:
+        unique_together = ('occupation', 'level')
+
+    def __str__(self):
+        return f"{self.occupation} - {self.level} ({self.structure_type})"
 
 class Module(models.Model):
     name = models.CharField(max_length=255)

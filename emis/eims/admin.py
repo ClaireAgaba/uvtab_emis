@@ -35,7 +35,38 @@ class ModuleAdminForm(forms.ModelForm):
 class ModuleAdmin(admin.ModelAdmin):
     form = ModuleAdminForm
 
+class CandidateAdminForm(forms.ModelForm):
+    class Meta:
+        model = Candidate
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import Occupation, OccupationCategory
+        reg_cat = None
+        # Prefer form data, then initial, then instance (admin edit)
+        if self.data.get('registration_category'):
+            reg_cat = self.data.get('registration_category')
+        elif self.initial.get('registration_category'):
+            reg_cat = self.initial.get('registration_category')
+        elif hasattr(self, 'instance') and getattr(self.instance, 'registration_category', None):
+            reg_cat = self.instance.registration_category
+        self.fields['occupation'].queryset = Occupation.objects.none()
+        self.fields['occupation'].widget.attrs['disabled'] = True
+        if reg_cat and str(reg_cat).strip():
+            self.fields['occupation'].widget.attrs.pop('disabled', None)
+            reg_cat_val = str(reg_cat).strip().lower()
+            if reg_cat_val == 'modular':
+                self.fields['occupation'].queryset = Occupation.objects.filter(has_modular=True)
+            elif reg_cat_val in ['formal', "worker's pas", 'workers pas']:
+                try:
+                    cat = OccupationCategory.objects.get(name__iexact=reg_cat)
+                    self.fields['occupation'].queryset = Occupation.objects.filter(category=cat)
+                except OccupationCategory.DoesNotExist:
+                    self.fields['occupation'].queryset = Occupation.objects.none()
+
 class CandidateAdmin(admin.ModelAdmin):
+    form = CandidateAdminForm
     list_display = ('full_name', 'reg_number', 'registration_category', 'occupation', 'assessment_center')
     search_fields = ('full_name', 'reg_number')
     list_filter = ('registration_category', 'occupation', 'assessment_center')
@@ -50,7 +81,6 @@ class CandidateAdmin(admin.ModelAdmin):
 
 
 # Register others normally
-admin.site.register(Occupation)
 admin.site.register(Grade)
 admin.site.register(AssessmentCenter)
 admin.site.register(District)
@@ -58,7 +88,25 @@ admin.site.register(Village)
 admin.site.register(AssessmentCenterCategory)
 admin.site.register(OccupationCategory)
 admin.site.register(RegistrationCategory)
-admin.site.register(Level)
+from .models import OccupationLevel
+from .forms import LevelForm, OccupationLevelForm
+
+class OccupationLevelInline(admin.TabularInline):
+    model = OccupationLevel
+    form = OccupationLevelForm
+    extra = 1
+
+class LevelAdmin(admin.ModelAdmin):
+    form = LevelForm
+    list_display = ('name',)
+    search_fields = ('name',)
+
+class OccupationAdmin(admin.ModelAdmin):
+    inlines = [OccupationLevelInline]
+    # No fields for structure_type or levels here; handled by inline only
+
+admin.site.register(Level, LevelAdmin)
+admin.site.register(Occupation, OccupationAdmin)
 admin.site.register(Module, ModuleAdmin)
 admin.site.register(Candidate, CandidateAdmin)
 from django.contrib import messages

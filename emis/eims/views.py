@@ -229,6 +229,8 @@ def occupation_list(request):
     })
 
 def occupation_create(request):
+    from .models import Level, OccupationLevel
+    levels = Level.objects.all()
     if request.method == 'POST':
         form = OccupationForm(request.POST)
         if form.is_valid():
@@ -236,10 +238,35 @@ def occupation_create(request):
             occupation.created_by = request.user
             occupation.updated_by = request.user
             occupation.save()
+            # Handle OccupationLevel creation
+            selected_level_ids = request.POST.getlist('levels')
+            # Enforce restriction: If has_modular is checked, Level 1 must be modules
+            has_modular = occupation.has_modular
+            level1 = levels.filter(name__icontains='1').first()
+            error = None
+            for level in levels:
+                if str(level.id) in selected_level_ids:
+                    if has_modular and level1 and level.id == level1.id:
+                        # If user tries to set Level 1 to papers, error
+                        if request.POST.get(f'structure_type_{level.id}') == 'papers':
+                            error = "If 'Has Modular' is checked, Level 1 must be set to Modules."
+                            break
+                        structure_type = 'modules'
+                    else:
+                        structure_type = request.POST.get(f'structure_type_{level.id}', 'modules')
+                    OccupationLevel.objects.create(
+                        occupation=occupation,
+                        level=level,
+                        structure_type=structure_type
+                    )
+            if error:
+                occupation.delete()
+                return render(request, 'occupations/create.html', {'form': form, 'levels': levels, 'error': error})
             return redirect('occupation_list')
     else:
         form = OccupationForm()
-    return render(request, 'occupations/create.html', {'form': form})
+    return render(request, 'occupations/create.html', {'form': form, 'levels': levels})
+
 
 def occupation_view(request, pk):
     occupation = get_object_or_404(Occupation, pk=pk)
@@ -248,21 +275,23 @@ def occupation_view(request, pk):
 
 def occupation_detail(request, pk):
     occupation = get_object_or_404(Occupation, pk=pk)
-    levels = occupation.levels.all()
+    from .models import OccupationLevel, Module, Paper
+    occupation_levels = OccupationLevel.objects.filter(occupation=occupation).select_related('level')
+    levels = [ol.level for ol in occupation_levels]
 
     level_data = []
-    for level in levels:
-        if occupation.structure_type == 'modules':
-            content = Module.objects.filter(occupation=occupation, level=level)
+    for ol in occupation_levels:
+        if ol.structure_type == 'modules':
+            content = Module.objects.filter(occupation=occupation, level=ol.level)
         else:
-            content = Paper.objects.filter(occupation=occupation, level=level)
-        level_data.append({'level': level, 'content': content})
+            content = Paper.objects.filter(occupation=occupation, level=ol.level)
+        level_data.append({'level': ol.level, 'structure_type': ol.structure_type, 'content': content})
 
     return render(request, 'occupations/view.html', {
         'occupation': occupation,
         'levels': levels,
         'level_data': level_data
-    })    
+    })
 
 
 #Add Module View
@@ -724,17 +753,26 @@ def candidate_list(request):
     })
 
 
+from django.template.loader import render_to_string
+
 def candidate_create(request):
-    if request.method == 'POST':
-        form = CandidateForm(request.POST, request.FILES, user=request.user)
-        if form.is_valid():
-            candidate = form.save(commit=False)
-            candidate.created_by = request.user
-            candidate.updated_by = request.user
-            candidate.save()
-            return redirect('candidate_list')
+    reg_cat = request.GET.get('registration_category')
+    form_kwargs = {'user': request.user}
+    if reg_cat:
+        form_kwargs['initial'] = {'registration_category': reg_cat}
+        if request.method == 'POST':
+            form = CandidateForm(request.POST, request.FILES, **form_kwargs)
+        else:
+            form = CandidateForm(**form_kwargs)
     else:
-        form = CandidateForm(user=request.user)
+        if request.method == 'POST':
+            form = CandidateForm(request.POST, request.FILES, user=request.user)
+        else:
+            form = CandidateForm(user=request.user)
+    # AJAX: return only occupation field HTML for dynamic update
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and reg_cat:
+        occupation_field_html = render_to_string('partials/occupation_field.html', {'form': form})
+        return JsonResponse({'occupation_field_html': occupation_field_html})
     return render(request, 'candidates/create.html', {'form': form})
 
 def candidate_view(request, id):
@@ -1029,17 +1067,69 @@ def config_home(request):
     return render(request, 'configurations/config_home.html')
 
 def occupation_edit(request, pk):
+    from .models import Level, OccupationLevel
     occupation = get_object_or_404(Occupation, pk=pk)
+    levels = Level.objects.all()
     if request.method == 'POST':
         form = OccupationForm(request.POST, instance=occupation)
         if form.is_valid():
             occupation = form.save(commit=False)
             occupation.updated_by = request.user
             occupation.save()
+            # Update OccupationLevel assignments
+            selected_level_ids = request.POST.getlist('levels')
+            # Remove old OccupationLevel objects for this occupation
+            OccupationLevel.objects.filter(occupation=occupation).delete()
+            # Enforce restriction: If has_modular is checked, Level 1 must be modules
+            has_modular = occupation.has_modular
+            level1 = levels.filter(name__icontains='1').first()
+            error = None
+            for level in levels:
+                if str(level.id) in selected_level_ids:
+                    if has_modular and level1 and level.id == level1.id:
+                        # If user tries to set Level 1 to papers, error
+                        if request.POST.get(f'structure_type_{level.id}') == 'papers':
+                            error = "If 'Has Modular' is checked, Level 1 must be set to Modules."
+                            break
+                        structure_type = 'modules'
+                    else:
+                        structure_type = request.POST.get(f'structure_type_{level.id}', 'modules')
+                    OccupationLevel.objects.create(
+                        occupation=occupation,
+                        level=level,
+                        structure_type=structure_type
+                    )
+            if error:
+                # Restore old OccupationLevel assignments
+                OccupationLevel.objects.filter(occupation=occupation).delete()
+                for lid, stype in selected_levels.items():
+                    OccupationLevel.objects.create(
+                        occupation=occupation,
+                        level=Level.objects.get(id=lid),
+                        structure_type=stype
+                    )
+                return render(request, 'occupations/edit.html', {
+                    'form': form,
+                    'occupation': occupation,
+                    'levels': levels,
+                    'selected_levels': selected_levels,
+                    'error': error
+                })
             return redirect('occupation_detail', pk=occupation.pk)
     else:
         form = OccupationForm(instance=occupation)
-    return render(request, 'occupations/edit.html', {'form': form, 'occupation': occupation})
+    # For edit, build levels with stype attribute for template
+    occupation_levels = OccupationLevel.objects.filter(occupation=occupation)
+    level_stype_map = {ol.level_id: ol.structure_type for ol in occupation_levels}
+    levels_with_stype = []
+    for level in levels:
+        level.stype = level_stype_map.get(level.id, '')
+        levels_with_stype.append(level)
+    return render(request, 'occupations/edit.html', {
+        'form': form,
+        'occupation': occupation,
+        'levels': levels_with_stype
+    })
 
 def create_center_rep(request):
     if request.method == 'POST':

@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff
+from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel
 from datetime import datetime   
 
 CURRENT_YEAR = datetime.now().year
@@ -23,14 +23,31 @@ class AssessmentCenterForm(forms.ModelForm):
 class OccupationForm(forms.ModelForm):
     class Meta:
         model = Occupation
-        fields = ['code', 'name', 'category', 'structure_type', 'levels']
+        fields = ['code', 'name', 'category', 'has_modular']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'name': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'category': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
-            'structure_type': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
-            'levels': forms.CheckboxSelectMultiple(attrs={'class': 'space-y-2'}),
+            'has_modular': forms.CheckboxInput(attrs={'class': 'ml-2'}),
         }
+
+class LevelForm(forms.ModelForm):
+    class Meta:
+        model = Level
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        }
+
+class OccupationLevelForm(forms.ModelForm):
+    class Meta:
+        model = OccupationLevel
+        fields = ['level', 'structure_type']
+        widgets = {
+            'level': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'structure_type': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        }
+
 
 class ModuleForm(forms.ModelForm):
     class Meta:
@@ -101,6 +118,39 @@ class CandidateForm(forms.ModelForm):
                 self.fields['assessment_center'].disabled = True
             except CenterRepresentative.DoesNotExist:
                 self.fields['assessment_center'].queryset = self.fields['assessment_center'].queryset.none()
+        from .models import Occupation, OccupationCategory
+        reg_cat = None
+        # Prefer form data, then initial, then instance (admin edit)
+        if self.data.get('registration_category'):
+            reg_cat = self.data.get('registration_category')
+        elif self.initial.get('registration_category'):
+            reg_cat = self.initial.get('registration_category')
+        elif hasattr(self, 'instance') and getattr(self.instance, 'registration_category', None):
+            reg_cat = self.instance.registration_category
+        # Default: Occupation field is empty and disabled
+        self.fields['occupation'].queryset = Occupation.objects.none()
+        self.fields['occupation'].widget.attrs['disabled'] = True
+        if reg_cat and str(reg_cat).strip():
+            # Enable occupation field
+            self.fields['occupation'].widget.attrs.pop('disabled', None)
+            reg_cat_val = str(reg_cat).strip().lower()
+            # Modular: has_modular occupations
+            if reg_cat_val == 'modular':
+                self.fields['occupation'].queryset = Occupation.objects.filter(has_modular=True)
+            # Formal: occupation category 'Formal'
+            elif reg_cat_val == 'formal':
+                try:
+                    cat = OccupationCategory.objects.get(name__iexact='Formal')
+                    self.fields['occupation'].queryset = Occupation.objects.filter(category=cat)
+                except OccupationCategory.DoesNotExist:
+                    self.fields['occupation'].queryset = Occupation.objects.none()
+            # Informal/Worker's PAS: occupation category 'Worker\'s PAS'
+            elif reg_cat_val in ["worker's pas", 'workers pas', 'informal']:
+                try:
+                    cat = OccupationCategory.objects.get(name__iexact="Worker's PAS")
+                    self.fields['occupation'].queryset = Occupation.objects.filter(category=cat)
+                except OccupationCategory.DoesNotExist:
+                    self.fields['occupation'].queryset = Occupation.objects.none()
         # Disable occupation, assessment dates, and center fields in edit mode
         if edit:
             for fname in [
@@ -134,30 +184,40 @@ class CandidateForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        occupation = cleaned_data.get("occupation")
-        reg_cat = cleaned_data.get("registration_category")
-        modules = cleaned_data.get("modules")
-        level = cleaned_data.get("level")
+        occupation = cleaned_data.get('occupation')
+        level = cleaned_data.get('level')
+        modules = cleaned_data.get('modules')
+        reg_cat = cleaned_data.get('registration_category')
 
-        # Date logic: allow assessment_date to be after finish_date
-        finish_date = cleaned_data.get("finish_date")
-        assessment_date = cleaned_data.get("assessment_date")
-        # No error if assessment_date is after finish_date; this is now allowed
+        if not occupation or not level:
+            return cleaned_data
+
+        # Fetch OccupationLevel instance for occupation and level
+        occ_level = None
+        try:
+            occ_level = occupation.occupation_levels.get(level=level)
+        except Exception:
+            raise forms.ValidationError("Selected level is not configured for this occupation.")
+
+        structure_type = occ_level.structure_type if occ_level else None
 
         if reg_cat == 'modular':
-            if occupation.structure_type == 'papers':
-                raise forms.ValidationError("Modular candidates cannot register for paper-based occupations.")
-            if not level or level.name != "1":
+            if not occupation.has_modular:
+                raise forms.ValidationError("This occupation does not allow Modular registration.")
+            if structure_type == 'papers':
+                raise forms.ValidationError("Modular candidates cannot register for paper-based levels.")
+            if level and level.name != 'Level 1':
                 raise forms.ValidationError("Modular candidates can only register for Level 1.")
-                raise ValidationError("Modular candidates can only register for Level 1.")
             if modules.count() == 0 or modules.count() > 2:
-                raise ValidationError("Modular candidates must select 1 or 2 modules only.")
+                raise forms.ValidationError("Modular candidates must select 1 or 2 modules only.")
         elif reg_cat == 'formal':
             if modules is not None and hasattr(modules, 'exists') and modules.exists():
-                raise ValidationError("Formal candidates should not select modules.")
+                raise forms.ValidationError("Formal candidates should not select modules.")
         elif reg_cat == 'informal':
-            if occupation.structure_type == 'papers':
-                raise ValidationError("Informal candidates cannot be registered for paper-based occupations.")
+            if structure_type == 'papers':
+                raise forms.ValidationError("Informal candidates cannot be registered for paper-based levels.")
+
+        return cleaned_data
 
 
 # forms.py  (only the EnrollmentForm needs to change)
