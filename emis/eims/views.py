@@ -475,6 +475,7 @@ def generate_album(request):
         # PDF Generation
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
+                                title="UVTAB",
                                 rightMargin=0.4*inch, leftMargin=0.4*inch,
                                 topMargin=0.3*inch, bottomMargin=0.3*inch)
         elements = []
@@ -501,7 +502,7 @@ def generate_album(request):
                 logo_path = path
                 break
         
-        logo_image = Image(logo_path, width=0.8*inch, height=0.8*inch) if logo_path else Paragraph(" ", styles['Normal'])
+        logo_image = Image(logo_path, width=1*inch, height=1*inch) if logo_path else Paragraph(" ", styles['Normal'])
 
         header_table_data = [
             [Paragraph("P.O.Box 1499<br/>Email: info@uvtab.go.ug", contact_style), 
@@ -573,12 +574,13 @@ def generate_album(request):
             ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
             ('FONTSIZE', (0,1), (-1,-1), 8),
             ('ALIGN', (0,1), (0,-1), 'CENTER'), # S/N centered
+            ('ALIGN', (1,1), (1,-1), 'CENTER'), # Photo centered horizontally
             ('ALIGN', (2,1), (2,-1), 'LEFT'), # Reg No left
             ('ALIGN', (3,1), (3,-1), 'LEFT'), # Full Name left
             ('ALIGN', (4,1), (4,-1), 'LEFT'), # Occupation left
             ('ALIGN', (5,1), (5,-1), 'CENTER'), # Reg Type center
-            ('TOPPADDING', (0,1), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,1), (-1,-1), 4),
+            ('TOPPADDING', (0,1), (-1,-1), 2), # Reduced padding
+            ('BOTTOMPADDING', (0,1), (-1,-1), 2), # Reduced padding
         ]))
         elements.append(candidate_table)
 
