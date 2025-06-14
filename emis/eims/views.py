@@ -403,10 +403,10 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
     photo_name_style = ParagraphStyle(
         'PhotoName',
         parent=styles['Normal'],
-        fontSize=7,
+        fontSize=6,
         alignment=TA_CENTER,
         spaceBefore=1,
-        leading=8
+        leading=6
     )
     photo_detail_style = ParagraphStyle(
         'PhotoDetail',
@@ -414,7 +414,7 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
         fontSize=6,
         alignment=TA_CENTER,
         spaceBefore=1,
-        leading=7
+        leading=6
     )
 
     if hasattr(candidate, 'passport_photo') and candidate.passport_photo and hasattr(candidate.passport_photo, 'path') and os.path.exists(candidate.passport_photo.path):
@@ -442,7 +442,7 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
         photo_image = Paragraph("[No Photo]", photo_detail_style)
     
     cell_elements.append(photo_image)
-    # cell_elements.append(Paragraph(candidate.full_name.upper(), photo_name_style))
+    # cell_elements.append(Paragraph(candidate.reg_number.upper(), photo_name_style))
     
     occupation_code = candidate.occupation.code if candidate.occupation else 'N/A'
     reg_category_short = candidate.registration_category.upper() if candidate.registration_category else 'N/A'
@@ -483,7 +483,6 @@ def generate_album(request):
             assessment_date__year=assessment_year,
             assessment_date__month=assessment_month
         ).order_by('reg_number')
-        print("Number of generated candidates = ", candidate_qs.count())
 
         # Optional level filtering (if applicable for the registration category)
         if reg_category_form.lower() in ['formal', 'informal', 'workers pas'] and level_id:
