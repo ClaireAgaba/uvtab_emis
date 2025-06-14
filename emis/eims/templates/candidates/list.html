@@ -98,7 +98,7 @@
             <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}" onclick="event.stopPropagation();">
           </td>
           <td class="px-4 py-2 whitespace-nowrap">
-            <div class="flex flex-col items-center w-24 mx-auto">
+            <div class="flex flex-col items-center w-32 mx-auto">
               {% if candidate.passport_photo %}
                 <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-32 w-32 object-cover rounded" onclick="event.stopPropagation();" />
               {% else %}
