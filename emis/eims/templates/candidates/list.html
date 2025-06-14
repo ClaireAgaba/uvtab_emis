@@ -14,11 +14,32 @@
       <option value="">Select Action</option>
       <option value="enroll">Enroll</option>
       <option value="regenerate">Regenerate Reg. Number</option>
+      <option value="change_reg_cat">Change Reg Category</option>
     </select>
     <!-- Module selector for Modular bulk enroll -->
     <div id="bulk-module-checkboxes" class="hidden" style="min-width:240px; min-height:120px; max-height:240px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
     <button id="bulk-action-apply" class="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Apply</button>
     <span id="bulk-action-error" class="text-red-600 text-sm ml-4"></span>
+  </div>
+
+  <!-- Bulk Change Reg Category Modal -->
+  <div id="bulk-change-regcat-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-sm p-6 relative">
+      <h2 class="text-lg font-bold mb-4">Change Registration Category</h2>
+      <label for="bulk-regcat-select" class="block mb-2 font-medium">Select New Registration Category</label>
+      <select id="bulk-regcat-select" class="w-full border rounded px-3 py-2 mb-4" required>
+        <option value="">-- Select Category --</option>
+        <option value="Formal">Formal</option>
+        <option value="Modular">Modular</option>
+        <option value="Informal">Informal</option>
+      </select>
+      <div id="bulk-regcat-error" class="text-red-600 text-sm mb-2 hidden"></div>
+      <div class="flex justify-between mt-4">
+        <button id="bulk-regcat-cancel" class="text-gray-600 hover:underline">Cancel</button>
+        <button id="bulk-regcat-apply" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Apply</button>
+      </div>
+      <button id="bulk-regcat-close" class="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+    </div>
   </div>
 
   <!-- Candidate Table -->
@@ -218,6 +239,78 @@ function updateBulkModuleSelector() {
 }
 
 bulkSelect.addEventListener('change', updateBulkModuleSelector);
+
+// Bulk Change Reg Category logic
+const bulkRegcatModal = document.getElementById('bulk-change-regcat-modal');
+const bulkRegcatSelect = document.getElementById('bulk-regcat-select');
+const bulkRegcatApply = document.getElementById('bulk-regcat-apply');
+const bulkRegcatCancel = document.getElementById('bulk-regcat-cancel');
+const bulkRegcatClose = document.getElementById('bulk-regcat-close');
+const bulkRegcatError = document.getElementById('bulk-regcat-error');
+
+function showBulkRegcatModal() {
+  bulkRegcatSelect.value = '';
+  bulkRegcatError.textContent = '';
+  bulkRegcatError.classList.add('hidden');
+  bulkRegcatModal.classList.remove('hidden');
+}
+function hideBulkRegcatModal() {
+  bulkRegcatModal.classList.add('hidden');
+}
+
+if (bulkRegcatCancel) bulkRegcatCancel.onclick = hideBulkRegcatModal;
+if (bulkRegcatClose) bulkRegcatClose.onclick = hideBulkRegcatModal;
+
+bulkSelect.addEventListener('change', function() {
+  if (bulkSelect.value === 'change_reg_cat') {
+    showBulkRegcatModal();
+  }
+});
+
+bulkRegcatApply && bulkRegcatApply.addEventListener('click', function() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  const newCat = bulkRegcatSelect.value;
+  if (!newCat) {
+    bulkRegcatError.textContent = 'Please select a registration category.';
+    bulkRegcatError.classList.remove('hidden');
+    return;
+  }
+  if (checked.length === 0) {
+    bulkRegcatError.textContent = 'Please select at least one candidate.';
+    bulkRegcatError.classList.remove('hidden');
+    return;
+  }
+  bulkRegcatError.textContent = '';
+  bulkRegcatError.classList.add('hidden');
+  // AJAX POST to backend
+  fetch("/eims/candidates/bulk-action/", {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      action: 'change_reg_cat',
+      candidate_ids: checked.map(cb => cb.value),
+      registration_category: newCat
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(`Successfully changed registration category for ${checked.length} candidate${checked.length>1?'s':''}.`);
+      window.location.reload();
+    } else {
+      bulkRegcatError.textContent = data.error || 'An error occurred.';
+      bulkRegcatError.classList.remove('hidden');
+    }
+  })
+  .catch(() => {
+    bulkRegcatError.textContent = 'Server error.';
+    bulkRegcatError.classList.remove('hidden');
+  });
+});
+
 document.querySelectorAll('.candidate-checkbox').forEach(cb => {
   cb.addEventListener('change', updateBulkModuleSelector);
 });

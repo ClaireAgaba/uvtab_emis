@@ -111,6 +111,35 @@ def bulk_candidate_action(request):
             c.save()
             updated += 1
         return JsonResponse({'success': True, 'message': f'Regenerated registration numbers for {updated} candidates.'})
+    elif action == 'change_reg_cat':
+        # Bulk change registration category with validation
+        new_cat = data.get('registration_category')
+        if not new_cat:
+            return JsonResponse({'success': False, 'error': 'No registration category provided.'}, status=400)
+        # Validate all candidates
+        for candidate in candidates:
+            occupation = candidate.occupation
+            occ_cat = occupation.category.name if occupation and occupation.category else None
+            has_modular = getattr(occupation, 'has_modular', False)
+            if new_cat == 'Modular':
+                if not has_modular:
+                    return JsonResponse({'success': False, 'error': f"Candidate {candidate.full_name} occupation does not support Modular registration."}, status=400)
+            elif new_cat == 'Formal':
+                if occ_cat != 'Formal':
+                    return JsonResponse({'success': False, 'error': f"Candidate {candidate.full_name} occupation is not in the 'Formal' category."}, status=400)
+            elif new_cat == 'Informal':
+                if occ_cat != "Worker's PAS":
+                    return JsonResponse({'success': False, 'error': f"Candidate {candidate.full_name} occupation is not in the 'Worker's PAS' category."}, status=400)
+            else:
+                return JsonResponse({'success': False, 'error': 'Invalid registration category selected.'}, status=400)
+        # If all valid, update
+        updated = 0
+        for candidate in candidates:
+            candidate.registration_category = new_cat
+            candidate.reg_number = None
+            candidate.save(update_fields=["registration_category", "reg_number"])
+            updated += 1
+        return JsonResponse({'success': True, 'message': f'Changed registration category for {updated} candidates.'})
     else:
         return JsonResponse({'success': False, 'error': 'Unknown action.'}, status=400)
 
