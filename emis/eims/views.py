@@ -494,7 +494,7 @@ def report_list(request):
     group_names = list(request.user.groups.values_list('name', flat=True))
     return render(request, 'reports/list.html', {'group_names': group_names})
 
-from reportlab.platypus import Image, Paragraph, Spacer, Table, TableStyle, PageBreak,KeepInFrame
+from reportlab.platypus import Image, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepInFrame
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, landscape
@@ -1322,7 +1322,7 @@ def edit_support_staff(request, pk):
     return render(request, 'users/support_staff/edit_support_staff.html', {'form': form, 'staff': staff})
 
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image as PILImage, ImageDraw, ImageFont
 from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect
 from django.http import HttpResponse
