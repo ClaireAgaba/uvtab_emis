@@ -67,7 +67,6 @@ def bulk_candidate_action(request):
                 image_path = c.passport_photo.path
                 img = PILImage.open(image_path).convert("RGBA")
                 draw = ImageDraw.Draw(img)
-                font_path = os.path.join(settings.BASE_DIR, "emis", "eims", "static", "fonts", "DejaVuSansMono-BoldOblique.ttf")
                 # Remove old regno-stamped images
                 base_dir = os.path.dirname(image_path)
                 base_name = os.path.splitext(os.path.basename(image_path))[0]
@@ -80,10 +79,28 @@ def bulk_candidate_action(request):
                 text = c.reg_number
                 width, height = img.size
                 max_width = width - 32
+                # Try to use system TrueType font (DejaVuSans-Bold), fallback to PIL default
+                font = None
+                truetype_paths = [
+                    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                    '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
+                    '/usr/local/share/fonts/DejaVuSans-Bold.ttf',
+                    '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+                ]
                 font_size = 40
-                min_font_size = 12
-                orig_text = text
-                font = ImageFont.truetype(font_path, size=font_size)
+                min_font_size = 10
+                for path in truetype_paths:
+                    if os.path.exists(path):
+                        try:
+                            font = ImageFont.truetype(path, size=font_size)
+                            break
+                        except Exception:
+                            font = None
+                if font is None:
+                    font = ImageFont.load_default()
+                    font_size = 12
+                    min_font_size = 8
+                # Dynamically shrink font size if needed
                 while font_size >= min_font_size:
                     try:
                         text_w, text_h = font.getsize(text)
@@ -93,7 +110,13 @@ def bulk_candidate_action(request):
                     if text_w <= max_width:
                         break
                     font_size -= 2
-                    font = ImageFont.truetype(font_path, size=font_size)
+                    if hasattr(font, 'path'):
+                        try:
+                            font = ImageFont.truetype(font.path, size=font_size)
+                        except Exception:
+                            font = ImageFont.load_default()
+                            break
+                # If still too wide, truncate
                 if text_w > max_width:
                     ellipsis = '...'
                     for i in range(len(text)-1, 0, -1):
@@ -106,31 +129,20 @@ def bulk_candidate_action(request):
                         if text_w <= max_width:
                             text = truncated
                             break
-                padding_v = max(10, font_size // 4)
+                padding_v = max(10, text_h // 4)
                 strip_h = text_h + 2 * padding_v
                 strip_y = height - strip_h
-                overlay = PILImage.new('RGBA', (width, strip_h), (0, 0, 0, 180))
+                overlay = PILImage.new('RGBA', (width, strip_h), (255, 255, 255, 255))  # Solid white
                 img = img.convert('RGBA')
                 img.alpha_composite(overlay, (0, strip_y))
                 draw = ImageDraw.Draw(img)
                 x = (width - text_w) // 2
                 y = strip_y + (strip_h - text_h) // 2
-                outline_range = 2
-                for dx in range(-outline_range, outline_range+1):
-                    for dy in range(-outline_range, outline_range+1):
-                        if dx != 0 or dy != 0:
-                            draw.text((x+dx, y+dy), text, font=font, fill=(0,0,0,255))
-                draw.text((x, y), text, font=font, fill=(255,255,255,255))
-                new_filename = f"{os.path.splitext(image_path)[0]}_regno.png"
+                draw.text((x, y), text, font=font, fill=(0,0,0,255))
+                new_filename = os.path.join(base_dir, f"{base_name}_regno.png")
                 img.save(new_filename)
-                old_photo_path = image_path
-                if os.path.exists(old_photo_path) and os.path.basename(old_photo_path) != os.path.basename(new_filename):
-                    try:
-                        os.remove(old_photo_path)
-                    except Exception:
-                        pass
                 with open(new_filename, 'rb') as f:
-                    c.passport_photo.save(os.path.basename(new_filename), File(f), save=True)
+                    c.passport_photo_with_regno.save(os.path.basename(new_filename), File(f), save=True)
                 results.append({'id': c.id, 'success': True})
             except Exception as e:
                 results.append({'id': c.id, 'success': False, 'error': str(e)})
@@ -1345,17 +1357,43 @@ def add_regno_to_photo(request, id):
     text = candidate.reg_number
     width, height = img.size
     max_width = width - 32
-    font_size = 14  # Fixed size for default font
+    font = None
+    truetype_paths = [
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+        '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
+        '/usr/local/share/fonts/DejaVuSans-Bold.ttf',
+        '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+    ]
+    font_size = 40
     min_font_size = 10
-    orig_text = text
-    font = ImageFont.load_default()
-    # The default font is fixed-size, so just measure once
-    try:
-        text_w, text_h = font.getsize(text)
-    except AttributeError:
-        bbox = font.getbbox(text)
-        text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    # Truncate if needed
+    for path in truetype_paths:
+        if os.path.exists(path):
+            try:
+                font = ImageFont.truetype(path, size=font_size)
+                break
+            except Exception:
+                font = None
+    if font is None:
+        font = ImageFont.load_default()
+        font_size = 12
+        min_font_size = 8
+    # Dynamically shrink font size if needed
+    while font_size >= min_font_size:
+        try:
+            text_w, text_h = font.getsize(text)
+        except AttributeError:
+            bbox = font.getbbox(text)
+            text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        if text_w <= max_width:
+            break
+        font_size -= 2
+        if hasattr(font, 'path'):
+            try:
+                font = ImageFont.truetype(font.path, size=font_size)
+            except Exception:
+                font = ImageFont.load_default()
+                break
+    # If still too wide, truncate
     if text_w > max_width:
         ellipsis = '...'
         for i in range(len(text)-1, 0, -1):
@@ -1368,8 +1406,6 @@ def add_regno_to_photo(request, id):
             if text_w <= max_width:
                 text = truncated
                 break
-
-    # Draw a full-width solid white strip at the bottom
     padding_v = max(10, text_h // 4)
     strip_h = text_h + 2 * padding_v
     strip_y = height - strip_h
@@ -1377,10 +1413,8 @@ def add_regno_to_photo(request, id):
     img = img.convert('RGBA')
     img.alpha_composite(overlay, (0, strip_y))
     draw = ImageDraw.Draw(img)
-    # Center text horizontally and vertically
     x = (width - text_w) // 2
     y = strip_y + (strip_h - text_h) // 2
-    # Draw text in solid black, no outline
     draw.text((x, y), text, font=font, fill=(0,0,0,255))
     # Save with a new filename
     base_dir = os.path.dirname(image_path)
