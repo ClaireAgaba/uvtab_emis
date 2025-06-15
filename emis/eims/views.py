@@ -883,6 +883,14 @@ def candidate_create(request):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' and reg_cat:
         occupation_field_html = render_to_string('partials/occupation_field.html', {'form': form})
         return JsonResponse({'occupation_field_html': occupation_field_html})
+    # --- Handle form submission ---
+    if request.method == 'POST':
+        if form.is_valid():
+            candidate = form.save(commit=False)
+            candidate.created_by = request.user
+            candidate.updated_by = request.user
+            candidate.save()
+            return redirect('candidate_view', id=candidate.id)
     return render(request, 'candidates/create.html', {'form': form})
 
 def candidate_view(request, id):
