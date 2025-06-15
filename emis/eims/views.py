@@ -1341,28 +1341,21 @@ def add_regno_to_photo(request, id):
 
     # Overlay text (regno)
     draw = ImageDraw.Draw(img)
-    font_path = os.path.join(settings.BASE_DIR, "emis", "eims", "static", "fonts", "DejaVuSansMono-BoldOblique.ttf")
-    import glob
-    # No longer remove or overwrite the original photo; stamped images are saved to a separate field.
-
+    # Use default PIL font for portability
     text = candidate.reg_number
     width, height = img.size
-    # Dynamically find max font size to fit text
     max_width = width - 32
-    font_size = 40
-    min_font_size = 12
+    font_size = 14  # Fixed size for default font
+    min_font_size = 10
     orig_text = text
-    while font_size >= min_font_size:
-        font = ImageFont.truetype(font_path, size=font_size)
-        try:
-            text_w, text_h = font.getsize(text)
-        except AttributeError:
-            bbox = font.getbbox(text)
-            text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        if text_w <= max_width:
-            break
-        font_size -= 2
-    # If text still doesn't fit at min font size, truncate and add ellipsis
+    font = ImageFont.load_default()
+    # The default font is fixed-size, so just measure once
+    try:
+        text_w, text_h = font.getsize(text)
+    except AttributeError:
+        bbox = font.getbbox(text)
+        text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    # Truncate if needed
     if text_w > max_width:
         ellipsis = '...'
         for i in range(len(text)-1, 0, -1):
@@ -1376,25 +1369,19 @@ def add_regno_to_photo(request, id):
                 text = truncated
                 break
 
-    # Draw a full-width semi-transparent black strip at the bottom
-    padding_v = max(10, font_size // 4)
+    # Draw a full-width solid white strip at the bottom
+    padding_v = max(10, text_h // 4)
     strip_h = text_h + 2 * padding_v
     strip_y = height - strip_h
-    # Use PILImage.new to avoid ReportLab Image shadowing
-    overlay = PILImage.new('RGBA', (width, strip_h), (0, 0, 0, 180))
+    overlay = PILImage.new('RGBA', (width, strip_h), (255, 255, 255, 255))  # Solid white
     img = img.convert('RGBA')
     img.alpha_composite(overlay, (0, strip_y))
     draw = ImageDraw.Draw(img)
     # Center text horizontally and vertically
     x = (width - text_w) // 2
     y = strip_y + (strip_h - text_h) // 2
-    # Draw outlined text for contrast
-    outline_range = 2
-    for dx in range(-outline_range, outline_range+1):
-        for dy in range(-outline_range, outline_range+1):
-            if dx != 0 or dy != 0:
-                draw.text((x+dx, y+dy), text, font=font, fill=(0,0,0,255))
-    draw.text((x, y), text, font=font, fill=(255,255,255,255))
+    # Draw text in solid black, no outline
+    draw.text((x, y), text, font=font, fill=(0,0,0,255))
     # Save with a new filename
     base_dir = os.path.dirname(image_path)
     base_name = os.path.splitext(os.path.basename(image_path))[0]
