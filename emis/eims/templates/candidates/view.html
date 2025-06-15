@@ -152,19 +152,21 @@
     </div>
     <!-- Image + Badge -->
     <div class="flex flex-col items-center justify-center relative">
-      {% if candidate.passport_photo %}
-    <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" style="max-width: 160px; max-height: 160px; border-radius: 8px; border: 2px solid #e0e7ef;">
-    {% comment %} <p class="text-center text-sm font-semibold mt-2"> <span data-field="reg_number">{{ candidate.reg_number }}</span></p> {% endcomment %}
-    {% if candidate.is_enrolled %}
-      <div class="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold px-3 py-1 rounded shadow">
-        Registered
-      </div>
-    {% endif %}
-{% else %}
-    <div class="w-56 h-56 bg-gray-100 flex items-center justify-center rounded-lg shadow-lg border-2 border-gray-200">
-      <span class="text-gray-400 text-lg">No photo</span>
-    </div>
-{% endif %}
+      {# Show regno-stamped photo if available, else fallback to original, else show No photo #}
+      {% if candidate.passport_photo_with_regno %}
+        <img src="{{ candidate.passport_photo_with_regno.url }}" alt="Candidate Photo with Regno" style="max-width: 160px; max-height: 160px; border-radius: 8px; border: 2px solid #e0e7ef;">
+      {% elif candidate.passport_photo %}
+        <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" style="max-width: 160px; max-height: 160px; border-radius: 8px; border: 2px solid #e0e7ef;">
+      {% else %}
+        <div class="w-56 h-56 bg-gray-100 flex items-center justify-center rounded-lg shadow-lg border-2 border-gray-200">
+          <span class="text-gray-400 text-lg">No photo</span>
+        </div>
+      {% endif %}
+      {% if candidate.is_enrolled %}
+        <div class="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold px-3 py-1 rounded shadow">
+          Registered
+        </div>
+      {% endif %}
     </div>
   </div>
 

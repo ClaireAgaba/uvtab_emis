@@ -198,6 +198,8 @@ class Candidate(models.Model):
     # Section 1 - Personal Information
     full_name = models.CharField(max_length=255)
     passport_photo = models.ImageField(upload_to='candidate_photos/', blank=True, null=True)
+    # Stores the regno-stamped version of the passport photo (do not overwrite the original)
+    passport_photo_with_regno = models.ImageField(upload_to='candidate_photos/regno/', blank=True, null=True)
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
     nationality = models.CharField(max_length=1, choices=NATIONALITY_CHOICES)

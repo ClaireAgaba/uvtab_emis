@@ -528,24 +528,25 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
         leading=6
     )
 
-    if hasattr(candidate, 'passport_photo') and candidate.passport_photo and hasattr(candidate.passport_photo, 'path') and os.path.exists(candidate.passport_photo.path):
+    # Prefer regno-stamped photo if available
+    photo_path = None
+    if hasattr(candidate, 'passport_photo_with_regno') and candidate.passport_photo_with_regno and hasattr(candidate.passport_photo_with_regno, 'path') and os.path.exists(candidate.passport_photo_with_regno.path):
+        photo_path = candidate.passport_photo_with_regno.path
+    elif hasattr(candidate, 'passport_photo') and candidate.passport_photo and hasattr(candidate.passport_photo, 'path') and os.path.exists(candidate.passport_photo.path):
+        photo_path = candidate.passport_photo.path
+    if photo_path:
         try:
-            img = PILImage.open(candidate.passport_photo.path)
+            img = PILImage.open(photo_path)
             scale_factor = min(photo_width / img.width, photo_height / img.height)
             scaled_width = img.width * scale_factor
             scaled_height = img.height * scale_factor
-
             if img.mode != 'RGB':
                 img = img.convert('RGB')
                 temp_path = os.path.join(settings.MEDIA_ROOT, f'temp_photo_cell_{candidate.id}.jpg')
                 img.save(temp_path, 'JPEG')
                 photo_image = Image(temp_path, width=scaled_width, height=scaled_height)
             else:
-                photo_image = Image(candidate.passport_photo.path, width=scaled_width, height=scaled_height)
-            # Attempt to clean up temp file if created, though might be too soon if ReportLab needs it longer
-            # Consider cleanup after PDF generation if issues arise.
-            # if img.mode != 'RGB' and os.path.exists(temp_path):
-            #     os.remove(temp_path)
+                photo_image = Image(photo_path, width=scaled_width, height=scaled_height)
         except Exception as e:
             print(f"Error processing photo for cell (ID: {candidate.id}): {e}")
             photo_image = Paragraph("[No Photo]", photo_detail_style)
@@ -1335,21 +1336,14 @@ def add_regno_to_photo(request, id):
         return HttpResponse("Candidate must have both a photo and regno.", status=400)
 
     image_path = candidate.passport_photo.path
-    img = Image.open(image_path).convert("RGBA")
+    # Use PILImage to avoid import shadowing with ReportLab's Image
+    img = PILImage.open(image_path).convert("RGBA")
 
     # Overlay text (regno)
     draw = ImageDraw.Draw(img)
     font_path = os.path.join(settings.BASE_DIR, "emis", "eims", "static", "fonts", "DejaVuSansMono-BoldOblique.ttf")
     import glob
-    # Remove any old regno-stamped images
-    base_dir = os.path.dirname(image_path)
-    base_name = os.path.splitext(os.path.basename(image_path))[0]
-    regno_img_pattern = os.path.join(base_dir, f"{base_name}_regno*.png")
-    for old in glob.glob(regno_img_pattern):
-        try:
-            os.remove(old)
-        except Exception:
-            pass
+    # No longer remove or overwrite the original photo; stamped images are saved to a separate field.
 
     text = candidate.reg_number
     width, height = img.size
@@ -1386,7 +1380,8 @@ def add_regno_to_photo(request, id):
     padding_v = max(10, font_size // 4)
     strip_h = text_h + 2 * padding_v
     strip_y = height - strip_h
-    overlay = Image.new('RGBA', (width, strip_h), (0, 0, 0, 180))
+    # Use PILImage.new to avoid ReportLab Image shadowing
+    overlay = PILImage.new('RGBA', (width, strip_h), (0, 0, 0, 180))
     img = img.convert('RGBA')
     img.alpha_composite(overlay, (0, strip_y))
     draw = ImageDraw.Draw(img)
@@ -1401,21 +1396,17 @@ def add_regno_to_photo(request, id):
                 draw.text((x+dx, y+dy), text, font=font, fill=(0,0,0,255))
     draw.text((x, y), text, font=font, fill=(255,255,255,255))
     # Save with a new filename
-    new_filename = f"{os.path.splitext(image_path)[0]}_regno.png"
+    base_dir = os.path.dirname(image_path)
+    base_name = os.path.splitext(os.path.basename(image_path))[0]
+    new_filename = os.path.join(base_dir, f"{base_name}_regno.png")
     img.save(new_filename)
-    # Delete old photo if different from new
-    old_photo_path = image_path
-    if os.path.exists(old_photo_path) and os.path.basename(old_photo_path) != os.path.basename(new_filename):
-        try:
-            os.remove(old_photo_path)
-        except Exception:
-            pass
-    # Update candidate's passport_photo to new stamped image
+    # Save the stamped image to a separate field (passport_photo_with_regno)
     from django.core.files import File
     from django.http import JsonResponse
     with open(new_filename, 'rb') as f:
-        candidate.passport_photo.save(os.path.basename(new_filename), File(f), save=True)
-    url = candidate.passport_photo.url
+        candidate.passport_photo_with_regno.save(os.path.basename(new_filename), File(f), save=True)
+    url = candidate.passport_photo_with_regno.url
     return JsonResponse({'success': True, 'url': url})
+
 
 

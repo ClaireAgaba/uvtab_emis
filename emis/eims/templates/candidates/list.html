@@ -121,14 +121,14 @@
           </td>
           <td class="px-4 py-2 whitespace-nowrap">
             <div class="flex flex-col items-center w-32 mx-auto">
-              {% if candidate.passport_photo %}
+              {# Show regno-stamped photo if available, else fallback to original, else show No photo #}
+              {% if candidate.passport_photo_with_regno %}
+                <img src="{{ candidate.passport_photo_with_regno.url }}" alt="Candidate Photo with Regno" class="h-32 w-32 object-cover rounded" onclick="event.stopPropagation();" />
+              {% elif candidate.passport_photo %}
                 <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-32 w-32 object-cover rounded" onclick="event.stopPropagation();" />
               {% else %}
-                <div class="h-32 w-32 bg-gray-200 rounded flex items-center justify-center text-gray-400" onclick="event.stopPropagation();">
-                  <span class="text-lg">No photo</span>
-                </div>
+                <div class="h-32 w-32 flex items-center justify-center bg-gray-100 text-gray-400 rounded border">No photo</div>
               {% endif %}
-              {% comment %} <p class="text-center text-[10px] font-semibold mt-1 w-full break-words">{{ candidate.reg_number }}</p> {% endcomment %}
             </div>
           </td>
           <td class="px-4 py-2 whitespace-nowrap">{{ candidate.reg_number }}</td>

@@ -184,7 +184,10 @@
           <tr>
             <td>{{ forloop.parentloop.counter0|add:forloop.counter }}</td>
             <td>
-              {% if cand.passport_photo %}
+              {# Show regno-stamped photo if available, else fallback to original, else N/A #}
+              {% if cand.passport_photo_with_regno %}
+                <img src="{{ cand.passport_photo_with_regno.url }}" style="height:60px;" alt="">
+              {% elif cand.passport_photo %}
                 <img src="{{ cand.passport_photo.url }}" style="height:60px;" alt="">
               {% else %} N/A {% endif %}
             </td>
