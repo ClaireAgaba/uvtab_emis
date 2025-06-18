@@ -501,6 +501,38 @@ def paper_edit(request, pk):
         form = PaperForm(instance=paper)
     return render(request, 'papers/edit.html', {'form': form, 'paper': paper})
 
+# --- Fees Type Views ---
+from .models import FeesType
+from .forms import FeesTypeForm
+from django.contrib import messages
+
+def fees_type_list(request):
+    fees_types = FeesType.objects.all()
+    return render(request, 'fees_type/list.html', {'fees_types': fees_types})
+
+def fees_type_create(request):
+    if request.method == 'POST':
+        form = FeesTypeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Fees Type created successfully.')
+            return redirect('fees_type_list')
+    else:
+        form = FeesTypeForm()
+    return render(request, 'fees_type/create.html', {'form': form})
+
+def fees_type_edit(request, pk):
+    fees_type = get_object_or_404(FeesType, pk=pk)
+    if request.method == 'POST':
+        form = FeesTypeForm(request.POST, instance=fees_type)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Fees Type updated successfully.')
+            return redirect('fees_type_list')
+    else:
+        form = FeesTypeForm(instance=fees_type)
+    return render(request, 'fees_type/edit.html', {'form': form, 'fees_type': fees_type})
+
 def report_list(request):
     """Main reports dashboard showing available reports"""
     group_names = list(request.user.groups.values_list('name', flat=True))
@@ -907,11 +939,339 @@ def candidate_create(request):
     return render(request, 'candidates/create.html', {'form': form})
 
 def candidate_view(request, id):
-    from .models import AssessmentCenter, Occupation
+    from .models import AssessmentCenter, Occupation, Result, CandidateLevel
     candidate = get_object_or_404(Candidate, id=id)
     centers = AssessmentCenter.objects.all()
     occupations = Occupation.objects.all()
-    return render(request, 'candidates/view.html', {'candidate': candidate, 'centers': centers, 'occupations': occupations})
+    results = Result.objects.filter(candidate=candidate).order_by('assessment_date', 'level', 'module', 'paper')
+    module_enrollments = CandidateModule.objects.filter(candidate=candidate)
+    level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
+    return render(request, 'candidates/view.html', {
+        'candidate': candidate,
+        'centers': centers,
+        'occupations': occupations,
+        'results': results,
+        'module_enrollments': module_enrollments,
+        'level_enrollment': level_enrollment,
+    })
+
+from django.contrib.auth.decorators import user_passes_test
+
+def edit_result(request, id):
+    from .models import Candidate, Result, Module, CandidateLevel, OccupationLevel, Paper
+    from .forms import ModularResultsForm, ResultForm, PaperResultsForm
+    candidate = get_object_or_404(Candidate, id=id)
+    if not request.user.is_superuser:
+        return redirect('candidate_view', id=candidate.id)
+    reg_cat = getattr(candidate, 'registration_category', '').lower()
+    context = {'candidate': candidate, 'edit_mode': True}
+
+    # --- Paper-based FORMAL edit logic ---
+    level = getattr(candidate, 'level', None)
+    if not level:
+        cl = CandidateLevel.objects.filter(candidate=candidate).first()
+        if cl:
+            level = cl.level
+    is_paper_based = False
+    if level:
+        occ_level = OccupationLevel.objects.filter(occupation=candidate.occupation, level=level, structure_type='papers').first()
+        if occ_level:
+            is_paper_based = True
+    if is_paper_based:
+        # Fetch existing paper results
+        papers = Paper.objects.filter(occupation=candidate.occupation, level=level)
+        initial = {}
+        for paper in papers:
+            result = Result.objects.filter(candidate=candidate, paper=paper, result_type='formal').order_by('-assessment_date').first()
+            if result:
+                initial[f'mark_{paper.id}'] = result.mark
+        # Prepopulate month/year from latest result
+        latest_result = Result.objects.filter(candidate=candidate, paper__in=papers, result_type='formal').order_by('-assessment_date').first()
+        if latest_result and latest_result.assessment_date:
+            initial['month'] = latest_result.assessment_date.month
+            initial['year'] = latest_result.assessment_date.year
+        if request.method == 'POST':
+            form = PaperResultsForm(request.POST, candidate=candidate, initial=initial)
+            if form.is_valid():
+                assessment_date = form.cleaned_data['assessment_date']
+                for paper in form.papers:
+                    mark = form.cleaned_data.get(f'mark_{paper.id}')
+                    # Only create a new result if the mark has changed
+                    existing_result = Result.objects.filter(candidate=candidate, paper=paper, result_type='formal').order_by('-assessment_date').first()
+                    if mark is not None and (not existing_result or existing_result.mark != mark):
+                        Result.objects.create(
+                            candidate=candidate,
+                            level=level,
+                            paper=paper,
+                            assessment_type=paper.grade_type,
+                            assessment_date=assessment_date,
+                            result_type='formal',
+                            mark=mark,
+                            user=request.user,
+                            status='Updated'
+                        )
+                return redirect('candidate_view', id=candidate.id)
+        else:
+            form = PaperResultsForm(candidate=candidate, initial=initial)
+        context['form'] = form
+        context['is_paper_based'] = True
+        context['paper_mark_fields'] = [(paper, form[f'mark_{paper.id}']) for paper in getattr(form, 'papers', [])]
+        return render(request, 'candidates/add_result.html', context)
+    # --- END paper-based FORMAL edit logic ---
+    if reg_cat == 'modular':
+        existing_results = Result.objects.filter(candidate=candidate, result_type='modular')
+        if request.method == 'POST':
+            form = ModularResultsForm(request.POST, candidate=candidate)
+            if form.is_valid():
+                month = int(form.cleaned_data['month'])
+                year = int(form.cleaned_data['year'])
+                assessment_date = f"{year}-{month:02d}-01"
+                for module in form.modules:
+                    mark = form.cleaned_data.get(f'mark_{module.id}')
+                    # Only create a new result if the mark has changed
+                    existing_result = Result.objects.filter(
+                        candidate=candidate,
+                        module=module,
+                        assessment_date=assessment_date,
+                        result_type='modular',
+                    ).first()
+                    if mark is not None and (not existing_result or existing_result.mark != mark):
+                        Result.objects.create(
+                            candidate=candidate,
+                            module=module,
+                            assessment_date=assessment_date,
+                            result_type='modular',
+                            assessment_type='practical',
+                            mark=mark,
+                            user=request.user,
+                            status='Updated' if existing_result else ''
+                        )
+                return redirect('candidate_view', id=candidate.id)
+        else:
+            # Prepopulate with existing marks if present
+            initial = {}
+            results_by_module = {r.module_id: r for r in existing_results}
+            for module in Module.objects.filter(candidatemodule__candidate=candidate):
+                result = results_by_module.get(module.id)
+                if result:
+                    initial[f'mark_{module.id}'] = result.mark
+            form = ModularResultsForm(candidate=candidate, initial=initial)
+        context['form'] = form
+        context['is_modular'] = True
+        context['module_mark_fields'] = [(module, form[f'mark_{module.id}']) for module in form.modules]
+    elif reg_cat == 'formal':
+        from .forms import FormalResultsForm
+        from .models import Level, CandidateLevel
+        # Find the candidate's enrolled level
+        level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
+        level = level_enrollment.level if level_enrollment else None
+        existing_theory = None
+        existing_practical = None
+        # Fetch latest theory/practical results for this candidate (not filtered by level)
+        theory_result = Result.objects.filter(candidate=candidate, assessment_type='theory', result_type='formal').order_by('-assessment_date').first()
+        practical_result = Result.objects.filter(candidate=candidate, assessment_type='practical', result_type='formal').order_by('-assessment_date').first()
+        if theory_result:
+            existing_theory = theory_result.mark
+        if practical_result:
+            existing_practical = practical_result.mark
+        initial = {}
+        # Prepopulate marks
+        if existing_theory is not None:
+            initial['theory_mark'] = existing_theory
+        if existing_practical is not None:
+            initial['practical_mark'] = existing_practical
+        # Prepopulate month/year from the latest result (theory or practical)
+        assessment_date = None
+        if theory_result and getattr(theory_result, 'assessment_date', None):
+            assessment_date = theory_result.assessment_date
+        elif practical_result and getattr(practical_result, 'assessment_date', None):
+            assessment_date = practical_result.assessment_date
+        if assessment_date:
+            initial['month'] = assessment_date.month
+            initial['year'] = assessment_date.year
+        if request.method == 'POST':
+            form = FormalResultsForm(request.POST, candidate=candidate, initial=initial)
+            if form.is_valid() and level:
+                theory_mark = form.cleaned_data.get('theory_mark')
+                practical_mark = form.cleaned_data.get('practical_mark')
+                month = int(form.cleaned_data.get('month')) if 'month' in form.cleaned_data else None
+                year = int(form.cleaned_data.get('year')) if 'year' in form.cleaned_data else None
+                if month and year:
+                    assessment_date_str = f"{year}-{month:02d}-01"
+                else:
+                    assessment_date_str = None
+                # Only create a new Result if the mark has changed
+                if theory_result and theory_result.mark != theory_mark:
+                    Result.objects.create(
+                        candidate=candidate,
+                        level=level,
+                        assessment_type='theory',
+                        result_type='formal',
+                        mark=theory_mark,
+                        assessment_date=assessment_date_str,
+                        status='Updated',
+                        user=request.user
+                    )
+                elif not theory_result and theory_mark is not None:
+                    Result.objects.create(
+                        candidate=candidate,
+                        level=level,
+                        assessment_type='theory',
+                        result_type='formal',
+                        mark=theory_mark,
+                        assessment_date=assessment_date_str,
+                        status='',
+                        user=request.user
+                    )
+                if practical_result and practical_result.mark != practical_mark:
+                    Result.objects.create(
+                        candidate=candidate,
+                        level=level,
+                        assessment_type='practical',
+                        result_type='formal',
+                        mark=practical_mark,
+                        assessment_date=assessment_date_str,
+                        status='Updated',
+                        user=request.user
+                    )
+                elif not practical_result:
+                    Result.objects.create(
+                        candidate=candidate,
+                        level=level,
+                        assessment_type='practical',
+                        result_type='formal',
+                        mark=practical_mark,
+                        assessment_date=assessment_date_str,
+                        status='',
+                        user=request.user
+                    )
+                return redirect('candidate_view', id=candidate.id)
+        else:
+            form = FormalResultsForm(candidate=candidate, initial=initial)
+        context['form'] = form
+        context['is_modular'] = False
+        context['formal_mark_fields'] = [form['theory_mark'], form['practical_mark']]
+    else:
+        return redirect('candidate_view', id=candidate.id)
+    return render(request, 'candidates/add_result.html', context)
+
+def add_result(request, id):
+    from .models import Candidate, Result, Module, Paper, Level, OccupationLevel
+    from .forms import ResultForm, ModularResultsForm
+    candidate = get_object_or_404(Candidate, id=id)
+    reg_cat = getattr(candidate, 'registration_category', '').lower()
+    context = {'candidate': candidate}
+
+    if reg_cat == 'modular':
+        if request.method == 'POST':
+            form = ModularResultsForm(request.POST, candidate=candidate)
+            if form.is_valid():
+                month = int(form.cleaned_data['month'])
+                year = int(form.cleaned_data['year'])
+                assessment_date = f"{year}-{month:02d}-01"
+                for module in form.modules:
+                    mark = form.cleaned_data.get(f'mark_{module.id}')
+                    if mark is not None:
+
+                        result, created = Result.objects.update_or_create(
+                            candidate=candidate,
+                            module=module,
+                            assessment_date=assessment_date,
+                            result_type='modular',
+                            defaults={
+                                'assessment_type': 'practical',
+                                'mark': mark,
+                                'user': request.user,
+                                'status': ''
+                            }
+                        )     
+                    return redirect('candidate_view', id=candidate.id)
+        else:
+            form = ModularResultsForm(candidate=candidate)
+        context['form'] = form
+        context['is_modular'] = True
+        # Pass (module, field) pairs for template rendering
+        context['module_mark_fields'] = [(module, form[f'mark_{module.id}']) for module in form.modules]
+    else:
+        from .forms import FormalResultsForm, PaperResultsForm
+        from .models import OccupationLevel
+        # Determine if candidate's level is paper-based
+        from .models import CandidateLevel
+        level = getattr(candidate, 'level', None)
+        if not level:
+            cl = CandidateLevel.objects.filter(candidate=candidate).first()
+            if cl:
+                level = cl.level
+        is_paper_based = False
+        if level:
+            occ_level = OccupationLevel.objects.filter(occupation=candidate.occupation, level=level, structure_type='papers').first()
+            if occ_level:
+                is_paper_based = True
+        if is_paper_based:
+            if request.method == 'POST':
+                form = PaperResultsForm(request.POST, candidate=candidate)
+                if form.is_valid():
+                    assessment_date = form.cleaned_data['assessment_date']
+                    for paper in form.papers:
+                        mark = form.cleaned_data.get(f'mark_{paper.id}')
+                        if mark is not None:
+                            from .models import Result
+                            Result.objects.create(
+                                candidate=candidate,
+                                level=level,
+                                paper=paper,
+                                assessment_type=paper.grade_type,
+                                assessment_date=assessment_date,
+                                result_type='formal',
+                                mark=mark,
+                                user=request.user,
+                                status=''
+                            )
+                    return redirect('candidate_view', id=candidate.id)
+            else:
+                form = PaperResultsForm(candidate=candidate)
+            context['form'] = form
+            context['is_paper_based'] = True
+            context['paper_mark_fields'] = [(paper, form[f'mark_{paper.id}']) for paper in getattr(form, 'papers', [])]
+        else:
+            if request.method == 'POST':
+                form = FormalResultsForm(request.POST, candidate=candidate)
+                if form.is_valid():
+                    from datetime import date
+                    today = date.today()
+                    assessment_date = today.strftime("%Y-%m-01")
+                    theory_mark = form.cleaned_data.get('theory_mark')
+                    practical_mark = form.cleaned_data.get('practical_mark')
+                    # Save theory result (combined for the level)
+                    if theory_mark is not None:
+                        Result.objects.update_or_create(
+                            candidate=candidate,
+                            level=level,
+                            assessment_date=assessment_date,
+                            assessment_type='theory',
+                            result_type='formal',
+                            defaults={'mark': theory_mark}
+                        )
+                    # Save practical result (combined for the level)
+                    if practical_mark is not None:
+                        Result.objects.update_or_create(
+                            candidate=candidate,
+                            level=level,
+                            assessment_date=assessment_date,
+                            assessment_type='practical',
+                            result_type='formal',
+                            defaults={'mark': practical_mark}
+                        )
+                    return redirect('candidate_view', id=candidate.id)
+            else:
+                form = FormalResultsForm(candidate=candidate)
+            context['form'] = form
+            context['is_modular'] = False
+            # Pass just the two fields for the template
+            context['formal_mark_fields'] = [form['theory_mark'], form['practical_mark']]
+    return render(request, 'candidates/add_result.html', context)
+
+
 
 def edit_candidate(request, id):
     candidate = get_object_or_404(Candidate, id=id)
@@ -1105,16 +1465,18 @@ def change_registration_category(request, id):
     })
 
 def candidate_view(request, id):
+    from .models import Result
     candidate = get_object_or_404(Candidate, id=id)
 
     level_enrollment   = CandidateLevel.objects.filter(candidate=candidate).first()
     module_enrollments = CandidateModule.objects.filter(candidate=candidate)
 
+    results = Result.objects.filter(candidate=candidate).order_by('assessment_date', 'level', 'module', 'paper')
     context = {
         "candidate":          candidate,
         "level_enrollment":   level_enrollment,
         "module_enrollments": module_enrollments,
-
+        "results":            results,
         "occupations": Occupation.objects.exclude(pk=candidate.occupation_id),
         "centers":     AssessmentCenter.objects.exclude(pk=candidate.assessment_center_id),
     }

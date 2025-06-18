@@ -65,6 +65,17 @@ class RegistrationCategory(models.Model):
         verbose_name = "Registration Category"
         verbose_name_plural = "Registration Categories"
 
+class FeesType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    fee = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.name} ({self.fee})"
+
+    class Meta:
+        verbose_name = "Fees Type"
+        verbose_name_plural = "Fees Types"
+
 
 
 class Grade(models.Model):
@@ -185,7 +196,64 @@ class Paper(models.Model):
     grade_type = models.CharField(max_length=10, choices=PAPER_TYPE_CHOICES)
 
     def __str__(self):
-        return f"{self.code} - {self.name} ({self.type})"
+        return f"{self.code} - {self.name} ({self.grade_type})"
+
+
+class Result(models.Model):
+    RESULT_TYPE_CHOICES = [
+        ('modular', 'Modular'),
+        ('formal', 'Formal'),
+    ]
+    ASSESSMENT_TYPE_CHOICES = [
+        ('practical', 'Practical'),
+        ('theory', 'Theory'),
+    ]
+    candidate = models.ForeignKey('Candidate', on_delete=models.CASCADE)
+    level = models.ForeignKey('Level', on_delete=models.CASCADE, null=True, blank=True)
+    module = models.ForeignKey('Module', on_delete=models.CASCADE, null=True, blank=True)
+    paper = models.ForeignKey('Paper', on_delete=models.CASCADE, null=True, blank=True)
+    assessment_date = models.DateField()
+    result_type = models.CharField(max_length=10, choices=RESULT_TYPE_CHOICES)
+    assessment_type = models.CharField(max_length=10, choices=ASSESSMENT_TYPE_CHOICES)
+    mark = models.DecimalField(max_digits=5, decimal_places=2)
+    grade = models.CharField(max_length=5)
+    comment = models.CharField(max_length=32)
+    status = models.CharField(max_length=16, blank=True, default='')
+    date = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey('auth.User', null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        verbose_name = 'Result'
+        verbose_name_plural = 'Results'
+        ordering = ['assessment_date', 'candidate', 'level', 'module', 'paper']
+
+    def __str__(self):
+        return f"{self.candidate} - {self.level} - {self.module or self.paper} - {self.mark}"
+
+    def save(self, *args, **kwargs):
+        # Auto-calculate grade and comment based on mark
+        from .models import Grade
+        grade_type = self.assessment_type
+        grade_obj = Grade.objects.filter(type=grade_type, min_score__lte=self.mark, max_score__gte=self.mark).first()
+        if grade_obj:
+            self.grade = grade_obj.grade
+            # Set passmark per type
+            if grade_type == 'practical':
+                passmark = 65
+            else:
+                passmark = 50
+            if self.mark >= passmark:
+                self.comment = 'Successful'
+            else:
+                self.comment = 'CTR'
+        else:
+            self.grade = ''
+            self.comment = ''
+        # For modular results, ensure level is blank/null
+        if self.result_type == 'modular':
+            self.level = None
+        super().save(*args, **kwargs)
+
 
 
 # models.py

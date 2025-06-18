@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel
+from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, FeesType, Result
 from datetime import datetime   
 
 CURRENT_YEAR = datetime.now().year
@@ -92,6 +92,23 @@ class PaperForm(forms.ModelForm):
             'grade_type': forms.Select(attrs={
                 'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
             })
+        }
+
+class FeesTypeForm(forms.ModelForm):
+    class Meta:
+        model = FeesType
+        fields = ['name', 'fee']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                'placeholder': 'Enter fee type name'
+            }),
+            'fee': forms.NumberInput(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                'placeholder': '0.00',
+                'step': '0.01',
+                'min': '0',
+            }),
         }
 
 
@@ -432,7 +449,160 @@ class SupportStaffForm(forms.ModelForm):
         return profile
 
 
+import calendar
+
+class FormalResultsForm(forms.Form):
+    MONTH_CHOICES = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    YEAR_CHOICES = [(y, y) for y in range(2020, 2031)]
+    month = forms.ChoiceField(choices=MONTH_CHOICES, label="Assessment Month", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+    year = forms.ChoiceField(choices=YEAR_CHOICES, label="Assessment Year", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+    theory_mark = forms.DecimalField(
+        label="Theory Mark",
+        min_value=0, max_value=100, decimal_places=2, required=True,
+        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+    )
+    practical_mark = forms.DecimalField(
+        label="Practical Mark",
+        min_value=0, max_value=100, decimal_places=2, required=True,
+        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        candidate = kwargs.pop('candidate', None)
+        super().__init__(*args, **kwargs)
+        # Optionally, set initial values or validation based on candidate/level if needed
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Add cross-field validation if needed
+        return cleaned_data
+
+
+class ModularResultsForm(forms.Form):
+    MONTH_CHOICES = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    YEAR_CHOICES = [(y, y) for y in range(2020, 2031)]
+    month = forms.ChoiceField(choices=MONTH_CHOICES, label="Assessment Month", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+    year = forms.ChoiceField(choices=YEAR_CHOICES, label="Assessment Year", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+
+    def __init__(self, *args, **kwargs):
+        candidate = kwargs.pop('candidate', None)
+        super().__init__(*args, **kwargs)
+        self.modules = []
+        if candidate:
+            from .models import Module
+            # Get registered modules (max 2)
+            modules = Module.objects.filter(candidatemodule__candidate=candidate)[:2]
+            self.modules = modules
+            for module in modules:
+                self.fields[f'mark_{module.id}'] = forms.DecimalField(
+                    label=f"{module.code} - {module.name} Mark",
+                    min_value=0,
+                    max_value=100,
+                    decimal_places=2,
+                    required=True,
+                    widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+                )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # You can add cross-field validation here if needed
+        return cleaned_data
+
+class ResultForm(forms.ModelForm):
+    MONTH_CHOICES = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    YEAR_CHOICES = [(y, y) for y in range(2020, 2031)]
+    month = forms.ChoiceField(choices=MONTH_CHOICES, label="Assessment Month", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+    year = forms.ChoiceField(choices=YEAR_CHOICES, label="Assessment Year", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+
+    class Meta:
+        model = Result
+        fields = ['level', 'module', 'paper', 'assessment_type', 'mark']
+        widgets = {
+            'level': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'module': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'paper': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'assessment_type': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'mark': forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01', 'min': '0', 'max': '100'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        candidate = kwargs.pop('candidate', None)
+        super().__init__(*args, **kwargs)
+        if candidate:
+            # Filter level/module/paper fields based on candidate registration
+            self.fields['level'].queryset = Level.objects.filter(candidatelevel__candidate=candidate)
+            self.fields['module'].queryset = Module.objects.filter(candidatemodule__candidate=candidate)
+            self.fields['paper'].queryset = Paper.objects.none()  # Set dynamically if needed
+            reg_cat = getattr(candidate, 'registration_category', '').lower()
+            if reg_cat == 'modular':
+                self.fields['paper'].widget = forms.HiddenInput()
+                self.fields['assessment_type'].initial = 'practical'
+                self.fields['assessment_type'].widget.attrs['readonly'] = True
+            elif reg_cat == 'formal':
+                # For formal, decide based on level structure (modules or papers)
+                levels = Level.objects.filter(candidatelevel__candidate=candidate)
+                if levels.exists():
+                    occ_levels = OccupationLevel.objects.filter(occupation=candidate.occupation, level__in=levels)
+                    if occ_levels.filter(structure_type='modules').exists():
+                        self.fields['module'].queryset = Module.objects.filter(candidatemodule__candidate=candidate)
+                        self.fields['paper'].widget = forms.HiddenInput()
+                    elif occ_levels.filter(structure_type='papers').exists():
+                        self.fields['paper'].queryset = Paper.objects.filter(occupation=candidate.occupation, level__in=levels)
+                        self.fields['module'].widget = forms.HiddenInput()
+            else:
+                self.fields['module'].widget = forms.HiddenInput()
+                self.fields['paper'].widget = forms.HiddenInput()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        month = int(cleaned_data.get('month'))
+        year = int(cleaned_data.get('year'))
+        # Set assessment_date to first of the month (for storage)
+        cleaned_data['assessment_date'] = f"{year}-{month:02d}-01"
+        return cleaned_data
+
 # --------------------------------------------------
+
+class PaperResultsForm(forms.Form):
+    MONTH_CHOICES = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    YEAR_CHOICES = [(y, y) for y in range(2020, 2031)]
+    month = forms.ChoiceField(choices=MONTH_CHOICES, label="Assessment Month", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+    year = forms.ChoiceField(choices=YEAR_CHOICES, label="Assessment Year", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+
+    def __init__(self, *args, **kwargs):
+        candidate = kwargs.pop('candidate', None)
+        super().__init__(*args, **kwargs)
+        self.papers = []
+        if candidate:
+            from .models import Paper, Level, CandidateLevel
+            # Get candidate's enrolled level
+            level = getattr(candidate, 'level', None)
+            if not level:
+                cl = CandidateLevel.objects.filter(candidate=candidate).first()
+                if cl:
+                    level = cl.level
+            # Find all papers for this occupation and level
+            if level:
+                papers = Paper.objects.filter(occupation=candidate.occupation, level=level)
+                self.papers = papers
+                for paper in papers:
+                    field_name = f'mark_{paper.id}'
+                    self.fields[field_name] = forms.DecimalField(
+                        label=f"{paper.code} - {paper.name} ({paper.get_grade_type_display()}) Mark",
+                        min_value=0,
+                        max_value=100,
+                        decimal_places=2,
+                        required=True,
+                        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+                    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        month = int(cleaned_data.get('month'))
+        year = int(cleaned_data.get('year'))
+        cleaned_data['assessment_date'] = f"{year}-{month:02d}-01"
+        return cleaned_data
+
 class ChangeOccupationForm(forms.ModelForm):
     class Meta:
         model  = Candidate
