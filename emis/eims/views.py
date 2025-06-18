@@ -968,10 +968,13 @@ def edit_result(request, id):
 
     # --- Paper-based FORMAL edit logic ---
     level = getattr(candidate, 'level', None)
-    if not level:
-        cl = CandidateLevel.objects.filter(candidate=candidate).first()
-        if cl:
-            level = cl.level
+    from django.contrib import messages
+    cl = CandidateLevel.objects.filter(candidate=candidate).first()
+    if not level and cl:
+        level = cl.level
+    if not cl:
+        messages.error(request, f'Candidate "{candidate}" is not enrolled. Please enroll candidate to add marks.')
+        return redirect('candidate_view', id=candidate.id)
     is_paper_based = False
     if level:
         occ_level = OccupationLevel.objects.filter(occupation=candidate.occupation, level=level, structure_type='papers').first()

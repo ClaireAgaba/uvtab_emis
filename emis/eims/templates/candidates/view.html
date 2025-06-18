@@ -221,7 +221,22 @@
           <button class="bg-blue-300 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled>Add Marks</button>
         {% endif %}
       {% else %}
-        <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
+
+        {% if candidate.registration_category == 'Modular' %}
+          {% if module_enrollments.count > 0 %}
+            <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
+          {% else %}
+            <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
+            <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
+          {% endif %}
+        {% else %}
+          {% if level_enrollment %}
+            <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
+          {% else %}
+            <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
+            <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
+          {% endif %}
+        {% endif %}
       {% endif %}
     </div>
     {% if results and results.count %}
