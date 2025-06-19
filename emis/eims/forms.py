@@ -177,6 +177,20 @@ class CandidateForm(forms.ModelForm):
             ]:
                 if fname in self.fields:
                     self.fields[fname].disabled = True
+
+        # Dependent dropdown for village based on district
+        self.fields['village'].queryset = Village.objects.none() # Start with an empty queryset
+
+        if 'district' in self.data: # If form is submitted with data
+            try:
+                district_id = int(self.data.get('district'))
+                self.fields['village'].queryset = Village.objects.filter(district_id=district_id).order_by('name')
+            except (ValueError, TypeError):
+                pass  # invalid input from browser; ignore and fallback to an empty queryset
+        elif self.instance.pk and self.instance.district: # If form is for an existing instance
+            self.fields['village'].queryset = Village.objects.filter(district=self.instance.district).order_by('name')
+        # If it's a new form or no district selected, village queryset remains Village.objects.none()
+        # JavaScript will populate it on district change.
     class Meta:
         model = Candidate
         fields = '__all__'

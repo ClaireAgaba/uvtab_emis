@@ -139,7 +139,7 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 # Session Timeout Settings
-SESSION_COOKIE_AGE = 30 * 60  # 1 minute in seconds (1 * 60 = 60)
+SESSION_COOKIE_AGE = 30 * 60  # 30 minutes in seconds (30 * 60 = 1800)
 SESSION_SAVE_EVERY_REQUEST = True # Reset timer on each request for inactivity timeout
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True # Expire session when browser is closed
 

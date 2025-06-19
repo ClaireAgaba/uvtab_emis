@@ -10,4 +10,101 @@
   </div>
 </form>
 
+<script>
+// --- Dynamic Village Filtering ---
+document.addEventListener('DOMContentLoaded', function() {
+    const districtSelect = document.getElementById('id_district');
+    const villageSelect = document.getElementById('id_village');
+    const villageLoadingText = "Loading villages...";
+    const villageSelectText = "Select a village";
+    const villageNoneText = "No villages available";
+    const villagePleaseSelectDistrictText = "Select a district first";
+
+    function updateVillageOptions(villages) {
+        villageSelect.innerHTML = ''; // Clear existing options
+
+        if (villages === null || villages.length === 0) {
+            const option = new Option(villageNoneText, '');
+            villageSelect.add(option);
+            villageSelect.disabled = true;
+            return;
+        }
+
+        villageSelect.disabled = false;
+        let firstOption = new Option(`--- ${villageSelectText} ---`, '');
+        villageSelect.add(firstOption);
+
+        villages.forEach(function(village) {
+            const option = new Option(village.name, village.id);
+            villageSelect.add(option);
+        });
+    }
+
+    if (districtSelect && villageSelect) {
+        // Set initial state for village dropdown
+        // For edit form, the initial district (and thus village) might be pre-selected by Django.
+        // The form's __init__ method already populates villages if a district instance exists.
+        // This JS will handle dynamic changes if the user alters the district.
+        if (!districtSelect.value) {
+            villageSelect.innerHTML = '';
+            const option = new Option(`--- ${villagePleaseSelectDistrictText} ---`, '');
+            villageSelect.add(option);
+            villageSelect.disabled = true;
+        } else {
+            // If a district is pre-selected, ensure villages are loaded or correctly shown.
+            // The backend form already populates this, but we can re-trigger if needed or rely on backend.
+            // For simplicity, we'll let the backend handle initial population on edit, 
+            // and this script handles user-driven changes.
+            // If the village select is empty despite a district being selected, it implies an issue or it's a new selection.
+            if (villageSelect.options.length <= 1 && districtSelect.value) { // <=1 because of potential placeholder
+                 districtSelect.dispatchEvent(new Event('change')); // Trigger if empty to load
+            }
+        }
+
+        districtSelect.addEventListener('change', function() {
+            const districtId = this.value;
+            villageSelect.innerHTML = ''; // Clear existing options
+
+            if (districtId) {
+                villageSelect.disabled = true;
+                const loadingOption = new Option(villageLoadingText, '');
+                villageSelect.add(loadingOption);
+
+                const urlTemplate = "{% url 'api_district_villages' district_id=0 %}";
+                const fetchUrl = urlTemplate.replace('/0/', `/${districtId}/`);
+                fetch(fetchUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        updateVillageOptions(data);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching villages:', error);
+                        villageSelect.innerHTML = '';
+                        const errorOption = new Option('Error loading villages', '');
+                        villageSelect.add(errorOption);
+                        villageSelect.disabled = true;
+                    });
+            } else {
+                const option = new Option(`--- ${villagePleaseSelectDistrictText} ---`, '');
+                villageSelect.add(option);
+                villageSelect.disabled = true;
+            }
+        });
+        // Initial check for edit form: if district is selected and villages are not populated by backend (e.g. if JS runs before backend list is fully rendered or if it's empty for some reason)
+        // The CandidateForm __init__ should handle populating villages if self.instance.district exists.
+        // This JS primarily handles changes after initial load.
+        // However, to be robust, if a district is selected and village field is empty/placeholder, trigger a load.
+        if (districtSelect.value && villageSelect.options.length <=1 && villageSelect.value === '') {
+             districtSelect.dispatchEvent(new Event('change'));
+        }
+
+    }
+});
+// --- End Dynamic Village Filtering ---
+</script>
 {% endblock %}
