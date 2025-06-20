@@ -3,6 +3,290 @@ from .forms import SupportStaffForm, CenterRepForm, ChangeOccupationForm, Change
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 import copy
+import openpyxl
+from openpyxl import Workbook
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.contrib import messages
+from django.urls import reverse
+from django.core.files.storage import FileSystemStorage
+from .models import Candidate, Occupation, AssessmentCenter, District, Village
+from .forms import CandidateForm
+from datetime import datetime
+import tempfile
+import os
+import zipfile
+from django.core.files import File
+
+@login_required
+def candidate_import_dual(request):
+    """
+    Handle GET (show dual import page) and POST (process Excel + photo zip upload).
+    """
+    if request.method == 'GET':
+        return render(request, 'candidates/import_dual.html')
+
+    excel_file = request.FILES.get('excel_file')
+    photo_zip = request.FILES.get('photo_zip')
+    errors = []
+    created = 0
+    if not excel_file or not photo_zip:
+        errors.append('Both Excel and photo ZIP files must be uploaded.')
+        return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
+    # Load Excel
+    try:
+        wb = openpyxl.load_workbook(excel_file)
+        ws = wb.active
+    except Exception:
+        errors.append('Invalid Excel file.')
+        return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
+    headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+    expected_headers = [
+        'full_name', 'gender', 'nationality', 'date_of_birth', 'occupation', 'registration_category',
+        'assessment_center', 'entry_year', 'intake', 'start_date', 'finish_date', 'assessment_date'
+    ]
+    if headers != expected_headers:
+        errors.append('Excel headers do not match template. Please download the latest template.')
+        return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
+    # Unzip images to temp dir
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        try:
+            with zipfile.ZipFile(photo_zip) as zf:
+                image_names = sorted([n for n in zf.namelist() if n.lower().endswith(('.jpg', '.jpeg', '.png'))])
+                zf.extractall(tmp_dir)
+        except Exception:
+            errors.append('Invalid ZIP file or unable to extract images.')
+            return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
+        # Read Excel rows
+        rows = [row for row in ws.iter_rows(min_row=2, values_only=True) if not all(cell is None for cell in row)]
+        if len(rows) != len(image_names):
+            errors.append(f"Number of images ({len(image_names)}) does not match number of candidates ({len(rows)}).")
+            return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
+        for idx, (row, img_name) in enumerate(zip(rows, image_names), start=2):
+            data = dict(zip(headers, row))
+            # --- (reuse import logic from candidate_import) ---
+            form_data = data.copy()
+            # Dates: convert DD/MM/YYYY to date objects
+            for date_field in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']:
+                val = form_data.get(date_field)
+                if val:
+                    try:
+                        # Accept both D/M/YYYY and DD/MM/YYYY
+                        form_data[date_field] = datetime.strptime(str(val), '%d/%m/%Y').date()
+                    except Exception:
+                        try:
+                            form_data[date_field] = datetime.strptime(str(val), '%-d/%-m/%Y').date()
+                        except Exception:
+                            errors.append(f"Row {idx}: Invalid date format in '{date_field}'. Use D/M/YYYY or DD/MM/YYYY.")
+                            continue
+            # Nationality: accept both code and label
+            nat_val = form_data.get('nationality', '').strip().lower()
+            if nat_val in ['u', 'ugandan']:
+                form_data['nationality'] = 'U'
+            elif nat_val in ['x', 'foreigner']:
+                form_data['nationality'] = 'X'
+            else:
+                errors.append(f"Row {idx}: Nationality '{form_data.get('nationality')}' is not one of the available choices (use 'Ugandan' or 'Foreigner').")
+                continue
+            # Occupation and assessment center: lookup by code
+            occ_code = str(form_data.get('occupation')) if form_data.get('occupation') is not None else ''
+            center_code = str(form_data.get('assessment_center')) if form_data.get('assessment_center') is not None else ''
+            try:
+                form_data['occupation'] = Occupation.objects.get(code=occ_code).id
+            except Exception:
+                errors.append(f"Row {idx}: Invalid occupation code '{occ_code}'.")
+                continue
+            try:
+                form_data['assessment_center'] = AssessmentCenter.objects.get(center_number=center_code).id
+            except Exception:
+                errors.append(f"Row {idx}: Invalid assessment center code '{center_code}'.")
+                continue
+            # District and village: optional for import
+            for loc_field, model_cls in [('district', District), ('village', Village)]:
+                val = form_data.get(loc_field)
+                if val:
+                    obj = model_cls.objects.filter(name__iexact=str(val).strip()).first()
+                    form_data[loc_field] = obj.id if obj else None
+                else:
+                    form_data[loc_field] = None
+            # Coerce all other values to string except dates and foreign keys
+            for k in form_data:
+                if k not in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date', 'occupation', 'assessment_center', 'district', 'village']:
+                    v = form_data[k]
+                    if v is not None:
+                        form_data[k] = str(v)
+            # Remove reg_number if present
+            form_data.pop('reg_number', None)
+            # Use CandidateForm for validation, but patch required fields for import
+            form = CandidateForm(form_data)
+            for f in ['district', 'village']:
+                if f in form.fields:
+                    form.fields[f].required = False
+            if not form.is_valid():
+                error_list = '; '.join([f"{k}: {v[0]}" for k, v in form.errors.items()])
+                errors.append(f"Row {idx}: {error_list}")
+                continue
+            # Duplicate check: skip if candidate with same name, dob, gender, and assessment_center exists
+            exists = Candidate.objects.filter(
+                full_name=form_data['full_name'],
+                date_of_birth=form_data['date_of_birth'],
+                gender=form_data['gender'],
+                assessment_center=form_data['assessment_center']
+            ).exists()
+            if exists:
+                errors.append(f"Row {idx}: Candidate '{form_data['full_name']}' with same DOB, gender, and center already exists. Skipped.")
+                continue
+            candidate = form.save(commit=False)
+            candidate.reg_number = None  # Regenerate
+            # Attach image
+            img_path = os.path.join(tmp_dir, img_name)
+            if os.path.exists(img_path):
+                with open(img_path, 'rb') as img_file:
+                    candidate.passport_photo.save(img_name, File(img_file), save=False)
+            else:
+                errors.append(f"Row {idx}: Image file '{img_name}' not found after extraction.")
+                continue
+            candidate.save()
+            created += 1
+    return render(request, 'candidates/import_dual.html', {
+        'errors': errors,
+        'imported_count': created
+    })
+
+@login_required
+def candidate_import_template(request):
+    """
+    Serve an Excel template for candidate import including all required fields and a sample row.
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Candidates"
+    # Define headers (excluding RegNo and images)
+    headers = [
+        'full_name', 'gender', 'nationality', 'date_of_birth', 'occupation', 'registration_category',
+        'assessment_center', 'entry_year', 'intake', 'start_date', 'finish_date', 'assessment_date'
+    ]
+    ws.append(headers)
+    # Add a sample row
+    sample_row = [
+        'Jane Doe', 'F', 'Ugandan', '20/06/2000', 'OCC001', 'modular', 'CTR001', '2025', 'Jan', '01/01/2025', '31/12/2025', '15/06/2025'
+    ]
+    ws.append(sample_row)
+    # Add notes row (for user guidance)
+    ws.append([
+        'Sample: Use DD/MM/YYYY for all dates. Use occupation code and center code as in system. RegNo will be generated.'
+    ] + [''] * (len(headers)-1))
+    # Save to temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+        wb.save(tmp.name)
+        tmp.seek(0)
+        data = tmp.read()
+    response = HttpResponse(data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="candidate_import_template.xlsx"'
+    os.unlink(tmp.name)
+    return response
+
+@login_required
+def candidate_import(request):
+    """
+    Handle GET (show import page) and POST (process Excel upload) for candidate import.
+    """
+    if request.method == 'GET':
+        return render(request, 'candidates/import.html')
+
+    # POST: process uploaded Excel
+    file = request.FILES.get('excel_file')
+    errors = []
+    created = 0
+    if not file:
+        errors.append('No file uploaded.')
+        return render(request, 'candidates/import.html', {'errors': errors, 'imported_count': 0})
+    try:
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+    except Exception:
+        errors.append('Invalid Excel file.')
+        return render(request, 'candidates/import.html', {'errors': errors, 'imported_count': 0})
+
+    headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+    expected_headers = [
+        'full_name', 'gender', 'nationality', 'date_of_birth', 'occupation', 'registration_category',
+        'assessment_center', 'entry_year', 'intake', 'start_date', 'finish_date', 'assessment_date'
+    ]
+    if headers != expected_headers:
+        errors.append('Excel headers do not match template. Please download the latest template.')
+        return render(request, 'candidates/import.html', {'errors': errors, 'imported_count': 0})
+
+    for idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if all(cell is None for cell in row):
+            continue  # skip empty rows
+        data = dict(zip(headers, row))
+        # Convert and clean data for import
+        form_data = data.copy()
+        # Dates: convert DD/MM/YYYY to date objects
+        for date_field in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']:
+            val = form_data.get(date_field)
+            if val:
+                try:
+                    form_data[date_field] = datetime.strptime(str(val), '%d/%m/%Y').date()
+                except Exception:
+                    errors.append(f"Row {idx}: Invalid date format in '{date_field}'. Use DD/MM/YYYY.")
+                    continue
+        # Nationality: accept both code and label
+        nat_val = form_data.get('nationality', '').strip().lower()
+        if nat_val in ['u', 'ugandan']:
+            form_data['nationality'] = 'U'
+        elif nat_val in ['x', 'foreigner']:
+            form_data['nationality'] = 'X'
+        else:
+            errors.append(f"Row {idx}: Nationality '{form_data.get('nationality')}' is not one of the available choices (use 'Ugandan' or 'Foreigner').")
+            continue
+        # Occupation and assessment center: lookup by code
+        occ_code = str(form_data.get('occupation')) if form_data.get('occupation') is not None else ''
+        center_code = str(form_data.get('assessment_center')) if form_data.get('assessment_center') is not None else ''
+        try:
+            form_data['occupation'] = Occupation.objects.get(code=occ_code).id
+        except Exception:
+            errors.append(f"Row {idx}: Invalid occupation code '{occ_code}'.")
+            continue
+        try:
+            form_data['assessment_center'] = AssessmentCenter.objects.get(center_number=center_code).id
+        except Exception:
+            errors.append(f"Row {idx}: Invalid assessment center code '{center_code}'.")
+            continue
+        # District and village: optional for import
+        for loc_field, model_cls in [('district', District), ('village', Village)]:
+            val = form_data.get(loc_field)
+            if val:
+                obj = model_cls.objects.filter(name__iexact=str(val).strip()).first()
+                form_data[loc_field] = obj.id if obj else None
+            else:
+                form_data[loc_field] = None
+        # Coerce all other values to string except dates and foreign keys
+        for k in form_data:
+            if k not in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date', 'occupation', 'assessment_center', 'district', 'village']:
+                v = form_data[k]
+                if v is not None:
+                    form_data[k] = str(v)
+        # Remove reg_number if present
+        form_data.pop('reg_number', None)
+        # Use CandidateForm for validation, but patch required fields for import
+        form = CandidateForm(form_data)
+        for f in ['district', 'village']:
+            if f in form.fields:
+                form.fields[f].required = False
+        if not form.is_valid():
+            error_list = '; '.join([f"{k}: {v[0]}" for k, v in form.errors.items()])
+            errors.append(f"Row {idx}: {error_list}")
+            continue
+        candidate = form.save(commit=False)
+        candidate.reg_number = None  # Regenerate
+        candidate.save()
+        created += 1
+    return render(request, 'candidates/import.html', {
+        'errors': errors,
+        'imported_count': created
+    })
 
 from django.views.decorators.http import require_POST
 

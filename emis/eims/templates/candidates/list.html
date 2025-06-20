@@ -4,7 +4,10 @@
 <div class="w-full px-2 md:px-8 mt-8">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold">Candidates</h1>
-    <a href="{% url 'candidate_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Candidate</a>
+    <div class="flex gap-2">
+  <a href="{% url 'candidate_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Candidate</a>
+  <a href="{% url 'candidate_import_dual' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ml-2">Import Candidates & Photos</a>
+</div>
   </div>
 
   <!-- Bulk Action Bar (hidden by default) -->
