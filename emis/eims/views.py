@@ -6,6 +6,211 @@ from django.contrib.auth.decorators import login_required
 def results_home(request):
     return render(request, 'results/home.html')
 
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+from openpyxl import Workbook
+from io import BytesIO
+
+@login_required
+@require_POST
+def generate_marksheet(request):
+    """
+    Accepts POST with params, returns JSON with download URL for marksheet.
+    """
+    # Extract params
+    month = request.POST.get('assessment_month')
+    year = request.POST.get('assessment_year')
+    regcat = request.POST.get('registration_category')
+    occupation = request.POST.get('occupation')
+    level = request.POST.get('level')
+    center = request.POST.get('assessment_center')
+    # Build download URL with params (simple for now, can use token if needed)
+    from django.urls import reverse
+    import urllib.parse
+    params = {
+        'assessment_month': month,
+        'assessment_year': year,
+        'registration_category': regcat,
+        'occupation': occupation,
+        'level': level,
+        'assessment_center': center,
+    }
+    # Remove empty params
+    params = {k: v for k, v in params.items() if v}
+
+    # Validate required params for occupation and level
+    from .models import Occupation, Level, OccupationLevel, Candidate
+    occ = None
+    lvl = None
+    if occupation:
+        try:
+            occ = Occupation.objects.get(pk=occupation)
+        except Occupation.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Selected occupation not found.'})
+    if level:
+        try:
+            lvl = Level.objects.get(pk=level)
+        except Level.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Selected level not found.'})
+
+    # Check for enrolled candidates
+    candidates = Candidate.objects.all()
+    if regcat and regcat.lower() == 'modular':
+        candidates = candidates.filter(occupation__has_modular=True)
+    elif regcat:
+        candidates = candidates.filter(occupation__has_modular=False)
+    if regcat:
+        candidates = candidates.filter(registration_category__iexact=regcat)
+    if occupation:
+        candidates = candidates.filter(occupation_id=occupation)
+    if level:
+        candidates = candidates.filter(level=level)
+    if center:
+        candidates = candidates.filter(assessment_center=center)
+    if not occ:
+        return JsonResponse({'success': False, 'error': 'Please select an occupation.'})
+    if lvl is None and regcat and regcat.lower() != 'modular':
+        return JsonResponse({'success': False, 'error': 'Please select a level.'})
+    if not candidates.exists():
+        return JsonResponse({'success': False, 'error': 'No enrolled candidates found for the selected parameters.'})
+
+    url = reverse('download_marksheet') + '?' + urllib.parse.urlencode(params)
+    return JsonResponse({'success': True, 'download_url': url})
+
+@login_required
+def download_marksheet(request):
+    """
+    Generates and streams the Excel marksheet in memory based on GET params.
+    Supports both modular (modules) and paper-based (papers) structures.
+    """
+    from .models import Candidate, OccupationLevel, Module, Paper, Result, AssessmentCenter, Occupation, Level, CandidateModule, CandidateLevel
+    from openpyxl import Workbook
+    from io import BytesIO
+    from django.http import HttpResponse
+
+    # Extract params
+    month = request.GET.get('assessment_month')
+    year = request.GET.get('assessment_year')
+    regcat = request.GET.get('registration_category')
+    occupation_id = request.GET.get('occupation')
+    level_id = request.GET.get('level')
+    center_id = request.GET.get('assessment_center')
+
+    # Apply has_modular flag logic to occupation selection
+    occupation_qs = Occupation.objects.all()
+    if regcat and regcat.lower() == 'modular':
+        occupation_qs = occupation_qs.filter(has_modular=True)
+    elif regcat:
+        occupation_qs = occupation_qs.filter(has_modular=False)
+    occupation = occupation_qs.filter(pk=occupation_id).first() if occupation_id else None
+    level = Level.objects.filter(pk=level_id).first() if level_id else None
+    center = AssessmentCenter.objects.filter(pk=center_id).first() if center_id else None
+
+    # Determine structure type
+    occ_level = None
+    structure_type = None
+    if occupation and level:
+        occ_level = OccupationLevel.objects.filter(occupation=occupation, level=level).first()
+        if occ_level:
+            structure_type = occ_level.structure_type
+
+    # Filter candidates
+    candidates = Candidate.objects.all()
+    # Apply has_modular logic to candidate occupation
+    if regcat and regcat.lower() == 'modular':
+        candidates = candidates.filter(occupation__has_modular=True)
+    elif regcat:
+        candidates = candidates.filter(occupation__has_modular=False)
+    if regcat:
+        candidates = candidates.filter(registration_category__iexact=regcat)
+    if occupation_id:
+        candidates = candidates.filter(occupation_id=occupation_id)
+    if level:
+        candidates = candidates.filter(level=level)
+    if center:
+        candidates = candidates.filter(assessment_center=center)
+
+    # Only include ENROLLED candidates:
+    if structure_type == 'modules':
+        enrolled_ids = set(CandidateModule.objects.filter(module__in=modules).values_list('candidate_id', flat=True))
+        candidates = candidates.filter(id__in=enrolled_ids)
+    elif structure_type == 'papers':
+        enrolled_ids = set(CandidateLevel.objects.filter(level=level).values_list('candidate_id', flat=True))
+        candidates = candidates.filter(id__in=enrolled_ids)
+    # Filter by assessment year/month (on results)
+    # We'll need to filter results per candidate by assessment_date
+
+    # Get modules or papers
+    modules = []
+    papers = []
+    if structure_type == 'modules':
+        modules = list(Module.objects.filter(occupation=occupation, level=level))
+    elif structure_type == 'papers':
+        papers = list(Paper.objects.filter(occupation=occupation, level=level))
+
+    # Build Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Marksheet'
+
+    # Build headers
+    base_headers = ['RegNo', 'Full Name', 'Category', 'Occupation', 'Level', 'Assessment Center', 'Month', 'Year']
+    dynamic_headers = []
+    if structure_type == 'modules':
+        for module in modules:
+            dynamic_headers.append(f"{module.code} - {module.name}")
+    elif structure_type == 'papers':
+        for paper in papers:
+            label = f"{paper.code} - {paper.name} ({paper.get_grade_type_display() if hasattr(paper, 'get_grade_type_display') else paper.grade_type.capitalize()})"
+            dynamic_headers.append(label)
+    else:
+        dynamic_headers.append('Marks')
+    ws.append(base_headers + dynamic_headers)
+
+    # Populate rows
+    for candidate in candidates:
+        row = [
+            candidate.reg_number,
+            candidate.full_name,
+            getattr(candidate, 'registration_category', ''),
+            str(candidate.occupation) if candidate.occupation else '',
+            str(candidate.level) if hasattr(candidate, 'level') and candidate.level else '',
+            str(candidate.assessment_center) if candidate.assessment_center else '',
+            month or '',
+            year or ''
+        ]
+        # Fetch results for this candidate in the given month/year
+        candidate_results = Result.objects.filter(candidate=candidate)
+        # Filter by assessment_date month/year if provided
+        if month and year:
+            candidate_results = candidate_results.filter(
+                assessment_date__month=int(month),
+                assessment_date__year=int(year)
+            )
+        elif year:
+            candidate_results = candidate_results.filter(assessment_date__year=int(year))
+        # Build marks columns (all empty, as this is a template for uploading marks)
+        marks = []
+        if structure_type == 'modules':
+            for module in modules:
+                marks.append('')
+        elif structure_type == 'papers':
+            for paper in papers:
+                marks.append('')
+        else:
+            marks.append('')
+        ws.append(row + marks)
+
+    # Stream to memory
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f"marksheet_{regcat or 'all'}_{month or ''}_{year or ''}.xlsx"
+    response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
 from .forms import SupportStaffForm, CenterRepForm, ChangeOccupationForm, ChangeCenterForm
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
@@ -709,6 +914,53 @@ def occupation_detail(request, pk):
 
 
 #Add Module View
+
+from django.http import JsonResponse
+from .models import Occupation, Level, OccupationLevel
+
+@login_required
+def api_occupations(request):
+    # Returns all occupations as JSON (id, name, has_modular, category)
+    occupations = Occupation.objects.select_related('category').all()
+    def map_category(cat):
+        if not cat:
+            return ''
+        name = cat.name.lower()
+        if name in ['informal', "worker's pas", "workers' pas", "workers pas", "worker pas"]:
+            return 'informal'
+        if name in ['formal', 'modular']:
+            return 'formal'
+        return name
+    occ_list = [
+        {
+            'id': o.id,
+            'name': o.name,
+            'has_modular': o.has_modular,
+            'category': map_category(o.category) if o.category else ''
+        }
+        for o in occupations
+    ]
+    return JsonResponse(occ_list, safe=False)
+
+@login_required
+def api_levels(request):
+    # Returns all levels as JSON (id, name, occupation_id)
+    occ_levels = OccupationLevel.objects.select_related('level', 'occupation').all()
+    levels = [
+        {'id': ol.level.id, 'name': ol.level.name, 'occupation_id': ol.occupation.id}
+        for ol in occ_levels
+    ]
+    return JsonResponse(levels, safe=False)
+
+@login_required
+def api_centers(request):
+    # Returns all assessment centers as JSON (id, name)
+    from .models import AssessmentCenter
+    centers = AssessmentCenter.objects.all().order_by('center_name')
+    data = [
+        {'id': c.id, 'name': str(c)} for c in centers
+    ]
+    return JsonResponse(data, safe=False)
 
 def module_list(request):
     modules = Module.objects.all()
