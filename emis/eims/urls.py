@@ -24,6 +24,7 @@ urlpatterns = [
     path('modules/add/<int:level_id>/', views.add_module, name='add_module'),
     path('papers/add/<int:level_id>/', views.add_paper, name='add_paper'),
     path('candidates/', views.candidate_list, name='candidate_list'),
+    path('results/', views.results_home, name='results_home'),
     path('candidates/create/', views.candidate_create, name='candidate_create'),
     path('candidates/<int:id>/', views.candidate_view, name='candidate_view'),
     path('candidates/<int:id>/add-result/', views.add_result, name='add_result'),

@@ -1,4 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
+
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def results_home(request):
+    return render(request, 'results/home.html')
+
 from .forms import SupportStaffForm, CenterRepForm, ChangeOccupationForm, ChangeCenterForm
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
