@@ -12,6 +12,33 @@
       {% csrf_token %}
       
       <div class="grid grid-cols-1 gap-6">
+        <!-- Occupation Field -->
+        <div>
+          <label for="{{ form.occupation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
+          {{ form.occupation }}
+          {% if form.occupation.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.occupation.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Level Field -->
+        <div>
+          <label for="{{ form.level.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+          {{ form.level }}
+          {% if form.level.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.level.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Module Field (dynamic) -->
+        <div id="module-field-wrapper" style="display: none;">
+          <label for="{{ form.module.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Module</label>
+          {{ form.module }}
+          {% if form.module.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.module.errors.0 }}</p>
+          {% endif %}
+        </div>
+
         <!-- Code Field -->
         <div>
           <label for="{{ form.code.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Paper Code</label>
@@ -30,24 +57,6 @@
           {% endif %}
         </div>
 
-        <!-- Level Field -->
-        <div>
-          <label for="{{ form.level.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Level</label>
-          {{ form.level }}
-          {% if form.level.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.level.errors.0 }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Occupation Field -->
-        <div>
-          <label for="{{ form.occupation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
-          {{ form.occupation }}
-          {% if form.occupation.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.occupation.errors.0 }}</p>
-          {% endif %}
-        </div>
-
         <!-- Grade Type Field -->
         <div>
           <label for="{{ form.grade_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Paper Type</label>
@@ -57,6 +66,67 @@
           {% endif %}
         </div>
       </div>
+
+      <script>
+        // Helper: get structure type for occupation/level
+        async function fetchStructureType(occupationId, levelId) {
+          if (!occupationId || !levelId) return null;
+          // You may need to adjust this endpoint to match your API for occupation-level
+          const resp = await fetch(`/eims/api/occupation-level-structure/?occupation_id=${occupationId}&level_id=${levelId}`);
+          if (!resp.ok) return null;
+          const data = await resp.json();
+          return data.structure_type;
+        }
+        // Helper: get modules for occupation/level
+        async function fetchModules(occupationId, levelId) {
+          if (!occupationId || !levelId) return [];
+          // You may need to adjust this endpoint to match your API for modules
+          const resp = await fetch(`/eims/api/modules/?occupation_id=${occupationId}&level_id=${levelId}`);
+          if (!resp.ok) return [];
+          const data = await resp.json();
+          return data.modules || [];
+        }
+        const occupationField = document.getElementById('id_occupation');
+        const levelField = document.getElementById('id_level');
+        const moduleFieldWrapper = document.getElementById('module-field-wrapper');
+        const moduleField = document.getElementById('id_module');
+        const gradeTypeField = document.getElementById('id_grade_type');
+        async function updateModuleField() {
+          const occupationId = occupationField.value;
+          const levelId = levelField.value;
+          const structureType = await fetchStructureType(occupationId, levelId);
+          if (structureType === 'modules') {
+            // Show module field and fetch modules
+            moduleFieldWrapper.style.display = '';
+            const modules = await fetchModules(occupationId, levelId);
+            moduleField.innerHTML = '<option value="">---------</option>';
+            for (const mod of modules) {
+              const opt = document.createElement('option');
+              opt.value = mod.id;
+              opt.textContent = `${mod.code} - ${mod.name}`;
+              moduleField.appendChild(opt);
+            }
+            // Force grade_type to practical
+            if (gradeTypeField) {
+              gradeTypeField.value = 'practical';
+              gradeTypeField.setAttribute('readonly', 'readonly');
+            }
+          } else {
+            // Hide module field
+            moduleFieldWrapper.style.display = 'none';
+            moduleField.innerHTML = '<option value="">---------</option>';
+            // Allow both grade types
+            if (gradeTypeField) {
+              gradeTypeField.removeAttribute('readonly');
+            }
+          }
+        }
+        if (occupationField && levelField) {
+          occupationField.addEventListener('change', updateModuleField);
+          levelField.addEventListener('change', updateModuleField);
+          document.addEventListener('DOMContentLoaded', updateModuleField);
+        }
+      </script>
 
       <div class="flex justify-end space-x-4 pt-6 border-t">
         <a href="{% url 'paper_list' %}" class="px-4 py-2 text-gray-700 hover:text-gray-900">

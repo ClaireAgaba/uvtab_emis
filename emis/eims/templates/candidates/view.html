@@ -1,4 +1,16 @@
 {% extends 'base.html' %}
+{% load enrollment_extras %}
+
+{% if request.user.is_superuser %}
+  <pre>
+    DEBUG: level_has_results = {{ level_has_results|pprint }}
+    DEBUG: enrollment_summary = {{ enrollment_summary|pprint }}
+  </pre>
+{% endif %}
+<pre>
+DEBUG: level_has_results in context? {{ level_has_results }}
+DEBUG: enrollment_summary in context? {{ enrollment_summary }}
+</pre>
 {% block content %}
 
 
@@ -142,7 +154,7 @@
         <p><span class="font-semibold text-gray-700">Assessment Center:</span> <span data-field="assessment_center">{{ candidate.assessment_center.center_name }}</span></p>
         <p><span class="font-semibold text-gray-700">Occupation:</span> <span data-field="occupation">{{ candidate.occupation.name }}</span></p>
         <p><span class="font-semibold text-gray-700">Registration Category:</span> <span data-field="registration_category">{{ candidate.registration_category }}</span></p>
-        {% if candidate.registration_category == 'Formal' or candidate.registration_category == 'Informal' %}
+        {% if candidate.registration_category == 'Formal' %}
           <p><span class="font-semibold text-gray-700">Level:</span> {% if level_enrollment %}{{ level_enrollment.level.name }}{% else %}<span class="text-gray-400">-</span>{% endif %}</p>
         {% endif %}
         <p><span class="font-semibold text-gray-700">Entry Year:</span> {{ candidate.entry_year }}</p>
@@ -170,26 +182,62 @@
     </div>
   </div>
 
- <!-- Enrollment Summary -->
+  <!-- Bio Data (always visible, now after header/summary) -->
+  <div class="bg-white p-4 rounded shadow mt-4">
+    <h2 class="text-lg font-semibold mb-2"> General Information </h2>
+    <p><strong>Village:</strong> {{ candidate.village.name }}</p>
+    <p><strong>District:</strong> {{ candidate.district.name }}</p>
+    <p><strong>Start Date:</strong> {{ candidate.start_date }}</p>
+    <p><strong>Finish Date:</strong> {{ candidate.finish_date }}</p>
+    <p><strong>Assessment Date:</strong> {{ candidate.assessment_date }}</p>
+  </div>
+
+  <!-- Enrollment Summary -->
 <div class="bg-white p-4 rounded shadow mt-4">
-    <h2 class="text-lg font-semibold mb-2">Enrollment</h2>
+    <div class="flex items-center justify-between mb-2">
+  <h2 class="text-lg font-semibold">Enrollment</h2>
+  {% if request.user.is_superuser %}
+    <form method="post" action="{% url 'clear_enrollment' candidate.id %}" style="margin:0;">
+      {% csrf_token %}
+      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm" onclick="return confirm('Are you sure you want to clear all enrollment for this candidate? This cannot be undone.')">
+        Clear Enrollment
+      </button>
+    </form>
+  {% endif %}
+</div>
   
     {% if candidate.registration_category == 'Formal' and level_enrollment %}
       <p>Enrolled in:  {{ level_enrollment.level.name }}</p>
   
-    {% elif candidate.registration_category == 'Informal' %}
-      {% if level_enrollment %}
-        <p>Level: {{ level_enrollment.level.name }}</p>
-      {% endif %}
-      {% if module_enrollments %}
-        <p>Enrolled in {{ module_enrollments.count }} Module{{ module_enrollments.count|pluralize }}</p>
-        <ul class="list-disc ml-6">
-          {% for enrollment in module_enrollments %}
-            <li>{{ enrollment.module.name }}</li>
-          {% endfor %}
-        </ul>
+    {% elif candidate.registration_category == 'Informal' or candidate.registration_category == "Worker's PAS" or candidate.registration_category == 'Workers PAS' %}
+      {% if enrollment_summary and enrollment_summary|length > 0 %}
+        {% for lvl in enrollment_summary %}
+          <div class="mb-2">
+            <span class="font-semibold">Level: {{ lvl.level.name }}</span>
+            {% if lvl.modules and lvl.modules|length > 0 %}
+              <ul class="list-disc ml-6">
+                {% for mod in lvl.modules %}
+                  <li>
+                    <span class="font-semibold">{{ mod.module.name }}</span>
+                    {% if mod.papers and mod.papers|length > 0 %}
+                      <ul class="list-disc ml-6">
+                        {% for paper in mod.papers %}
+                          <li>{{ paper.name }} <span class="text-xs text-gray-500">({{ paper.code }})</span></li>
+                        {% endfor %}
+                      </ul>
+                    {% else %}
+                      <span class="text-gray-400 text-xs">No paper selected</span>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <span class="text-gray-400 text-xs">No modules selected.</span>
+            {% endif %}
+          </div>
+        {% endfor %}
       {% else %}
-        <p>No modules selected.</p>
+        <span class="text-gray-400 text-xs">No enrollment for this candidate.</span>
       {% endif %}
     {% elif candidate.registration_category == 'Modular' %}
       {% if module_enrollments %}
@@ -208,20 +256,86 @@
     {% endif %}
   </div>
   
-
   <!-- Results Section -->
-  <div class="bg-white p-4 rounded shadow mt-4">
-    <div class="flex items-center justify-between mb-2">
-      <h2 class="text-lg font-semibold">Results</h2>
-      <!-- Add Marks button (to be implemented) -->
-      {% if results and results.count %}
-        {% if request.user.is_superuser %}
-          <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
-        {% else %}
+  {% if candidate.registration_category == 'Informal' or candidate.registration_category == "Worker's PAS" or candidate.registration_category == 'Workers PAS' %}
+    {% if enrollment_summary and enrollment_summary|length > 0 %}
+      {% for lvl in enrollment_summary %}
+        <div class="bg-white p-4 rounded shadow mt-4">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-lg font-semibold">Results for {{ lvl.level.name }}</h2>
+            {% if request.user.is_superuser %}
+  {% if level_has_results|get_item:lvl.level.id|stringformat:"s" %}
+    <a href="{% url 'edit_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+  {% else %}
+    {% if lvl.modules and lvl.modules|length > 0 %}
+      <a href="{% url 'add_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
+    {% else %}
+      <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
+      <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
+    {% endif %}
+  {% endif %}
+{% endif %}
+          </div>
+          <table class="min-w-full mb-4 border border-gray-300">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="py-2 px-4 text-left">Date</th>
+                <th class="py-2 px-4 text-left">Level</th>
+                <th class="py-2 px-4 text-left">Module</th>
+                <th class="py-2 px-4 text-left">Paper</th>
+                <th class="py-2 px-4 text-left">Type</th>
+                <th class="py-2 px-4 text-left">Assessment</th>
+                <th class="py-2 px-4 text-left">Mark</th>
+                <th class="py-2 px-4 text-left">Grade</th>
+                <th class="py-2 px-4 text-left">Comment</th>
+                <th class="py-2 px-4 text-left">Status</th>
+                <th class="py-2 px-4 text-left">Date</th>
+                <th class="py-2 px-4 text-left">User</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for result in results %}
+                {% if result.level_id == lvl.level.id %}
+                  <tr>
+                    <td class="py-2 px-4">{{ result.assessment_date|date:"F, Y" }}</td>
+                    <td class="py-2 px-4">{{ result.level.name }}</td>
+                    <td class="py-2 px-4">{{ result.module.name }}</td>
+                    <td class="py-2 px-4">{{ result.paper.name }}</td>
+                    <td class="py-2 px-4">{{ result.paper.type|capfirst }}</td>
+                    <td class="py-2 px-4">{{ result.assessment_type }}</td>
+                    <td class="py-2 px-4">{{ result.mark }}</td>
+                    <td class="py-2 px-4">{{ result.grade }}</td>
+                    <td class="py-2 px-4">{{ result.comment }}</td>
+                    <td class="py-2 px-4">{{ result.status }}</td>
+                    <td class="py-2 px-4">{{ result.created|date:"Y-m-d H:i" }}</td>
+                    <td class="py-2 px-4">{{ result.user.username }}</td>
+                  </tr>
+                {% endif %}
+              {% empty %}
+                <tr><td colspan="12" class="text-center text-gray-400">No results for this level.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="bg-white p-4 rounded shadow mt-4 text-gray-400">No results for this candidate.</div>
+    {% endif %}
+  {% else %}
+    <div class="bg-white p-4 rounded shadow mt-4">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-semibold">Results</h2>
+        {% if results and results.count %}
+          {% if request.user.is_superuser %}
+            {% if candidate.registration_category == 'Modular' %}
+              <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+            {% else %}
+              <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+            {% endif %}
+          {% else %}
           <button class="bg-blue-300 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled>Add Marks</button>
         {% endif %}
       {% else %}
-
         {% if candidate.registration_category == 'Modular' %}
           {% if module_enrollments.count > 0 %}
             <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
@@ -316,15 +430,6 @@
     </div>
   {% endif %}
 
-  <!-- Biodata -->
-  <div class="bg-white p-4 rounded shadow">
-    <h2 class="text-lg font-semibold mb-2">Bio Data</h2>
-    <p><strong>Village:</strong> {{ candidate.village.name }}</p>
-    <p><strong>District:</strong> {{ candidate.district.name }}</p>
-    <p><strong>Start Date:</strong> {{ candidate.start_date }}</p>
-    <p><strong>Finish Date:</strong> {{ candidate.finish_date }}</p>
-    <p><strong>Assessment Date:</strong> {{ candidate.assessment_date }}</p>
-  </div>
 
   <!-- Audit Trail -->
   <div class="text-xs text-gray-500 mt-4 text-right">
@@ -576,5 +681,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{% endblock %}
+{% endif %}
 
+{% endblock %}

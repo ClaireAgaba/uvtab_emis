@@ -19,7 +19,31 @@
         <div class="text-red-600 text-xs">{{ error }}</div>
       {% endfor %}
     </div>
-    {% if is_modular %}
+    {% if is_worker_pas %}
+      <table class="min-w-full mb-6 border border-gray-300">
+        <thead>
+          <tr class="bg-gray-100">
+            <th class="py-2 px-4 text-left">Paper</th>
+            <th class="py-2 px-4 text-left">Module</th>
+            <th class="py-2 px-4 text-left">Mark (Practical)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for paper, mark_field in paper_mark_fields %}
+            <tr>
+              <td class="py-2 px-4">{{ paper.code }} - {{ paper.name }}</td>
+              <td class="py-2 px-4">{{ paper.module.name }}</td>
+              <td class="py-2 px-4">
+                {{ mark_field }}
+                {% for error in mark_field.errors %}
+                  <div class="text-red-600 text-xs">{{ error }}</div>
+                {% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% elif is_modular %}
       <table class="min-w-full mb-6 border border-gray-300">
         <thead>
           <tr class="bg-gray-100">

@@ -193,6 +193,7 @@ class Paper(models.Model):
     code = models.CharField(max_length=50, unique=True)
     occupation = models.ForeignKey('Occupation', on_delete=models.CASCADE)
     level = models.ForeignKey(Level, on_delete=models.CASCADE)
+    module = models.ForeignKey('Module', on_delete=models.SET_NULL, null=True, blank=True, help_text="(Optional) Link this paper to a module for informal/worker's pas occupations.")
     grade_type = models.CharField(max_length=10, choices=PAPER_TYPE_CHOICES)
 
     def __str__(self):
@@ -353,39 +354,6 @@ class Candidate(models.Model):
             self.build_reg_number()
         super().save(*args, **kwargs)
 
-
-
-
-    """ def save(self, *args, **kwargs):
-        # --- Start of Reg Number Generation (with fix for nullable center) ---
-        if not self.reg_number:
-            occ_code = self.occupation.code if self.occupation else "XXX"
-            reg_type = self.registration_category[0].upper()
-            intake_str = self.intake.upper()
-            year_suffix = str(self.entry_year)[-2:]
-            center_code = self.assessment_center.center_number if self.assessment_center else "NOCNTR"
-
-            with transaction.atomic():
-                qs = Candidate.objects.filter(
-                    assessment_center=self.assessment_center, 
-                    intake=self.intake,
-                    entry_year=self.entry_year
-                )
-                max_serial = 0
-                for c in qs.only('reg_number'):
-                    try:
-                        last_part = c.reg_number.split('/')[-1]
-                        serial_part = last_part.split('-')[0]
-                        serial_int = int(serial_part)
-                        if serial_int > max_serial:
-                            max_serial = serial_int
-                    except (ValueError, IndexError, AttributeError):
-                        continue
-                next_serial = max_serial + 1
-                serial_str = str(next_serial).zfill(3)
-                self.reg_number = f"{self.nationality}/{year_suffix}/{intake_str}/{occ_code}/{reg_type}/{serial_str}-{center_code}"
-        # --- End of Reg Number Generation --- """
-
         # --- Start of Image Resizing Logic ---
     def resize_passport_photo(self):
         if self.passport_photo and hasattr(self.passport_photo, 'file') and self.passport_photo.file and hasattr(self.passport_photo.file, 'size'):
@@ -472,6 +440,15 @@ class CandidateModule(models.Model):
     def __str__(self):
         return f"{self.candidate.full_name} - {self.module.name}"
 
+class CandidatePaper(models.Model):
+    candidate = models.ForeignKey('Candidate', on_delete=models.CASCADE)
+    module = models.ForeignKey('Module', on_delete=models.CASCADE)
+    paper = models.ForeignKey('Paper', on_delete=models.CASCADE)
+    level = models.ForeignKey('Level', on_delete=models.CASCADE)
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.candidate.full_name} | {self.module.name} | {self.paper.name} | {self.level.name}"
 
 class CenterRepresentative(models.Model):
     from django.contrib.auth import get_user_model

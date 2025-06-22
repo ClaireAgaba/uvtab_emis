@@ -15,7 +15,7 @@ class PaperAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['occupation'].queryset = Occupation.objects.filter(structure_type='papers')
+        self.fields['occupation'].queryset = Occupation.objects.filter(occupation_levels__structure_type='papers').distinct()
 
 class PaperAdmin(admin.ModelAdmin):
     form = PaperAdminForm
@@ -30,7 +30,7 @@ class ModuleAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['occupation'].queryset = Occupation.objects.filter(structure_type='modules')
+        self.fields['occupation'].queryset = Occupation.objects.filter(occupation_levels__structure_type='modules').distinct()
 
 class ModuleAdmin(admin.ModelAdmin):
     form = ModuleAdminForm

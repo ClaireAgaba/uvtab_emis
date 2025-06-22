@@ -73,8 +73,17 @@ class ModuleForm(forms.ModelForm):
 class PaperForm(forms.ModelForm):
     class Meta:
         model = Paper
-        fields = ['code', 'name', 'occupation', 'level', 'grade_type']
+        fields = ['occupation', 'level', 'module', 'code', 'name', 'grade_type']
         widgets = {
+            'occupation': forms.Select(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            }),
+            'level': forms.Select(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            }),
+            'module': forms.Select(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            }),
             'code': forms.TextInput(attrs={
                 'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
                 'placeholder': 'Enter paper code'
@@ -83,16 +92,53 @@ class PaperForm(forms.ModelForm):
                 'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
                 'placeholder': 'Enter paper name'
             }),
-            'occupation': forms.Select(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-            }),
-            'level': forms.Select(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-            }),
             'grade_type': forms.Select(attrs={
                 'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
             })
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['module'].queryset = Module.objects.none()
+        if 'occupation' in self.data:
+            try:
+                occupation_id = int(self.data.get('occupation'))
+                occupation = Occupation.objects.get(pk=occupation_id)
+                # Find structure type for this occupation/level
+                level_id = self.data.get('level')
+                if level_id:
+                    occ_level = OccupationLevel.objects.filter(occupation=occupation, level_id=level_id).first()
+                    if occ_level and occ_level.structure_type == 'modules':
+                        self.fields['module'].queryset = Module.objects.filter(occupation=occupation, level_id=level_id)
+                        self.fields['module'].required = True
+                        self.fields['module'].widget.attrs.pop('hidden', None)
+                        # For informal/worker's pas, force grade_type to practical
+                        self.fields['grade_type'].initial = 'practical'
+                    else:
+                        self.fields['module'].required = False
+                else:
+                    # If no level, show no modules
+                    self.fields['module'].required = False
+            except (ValueError, Occupation.DoesNotExist):
+                self.fields['module'].required = False
+        else:
+            self.fields['module'].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        occupation = cleaned_data.get('occupation')
+        level = cleaned_data.get('level')
+        module = cleaned_data.get('module')
+        grade_type = cleaned_data.get('grade_type')
+        # Enforce: If occupation/level structure is modules, module is required and grade_type must be practical
+        if occupation and level:
+            occ_level = OccupationLevel.objects.filter(occupation=occupation, level=level).first()
+            if occ_level and occ_level.structure_type == 'modules':
+                if not module:
+                    self.add_error('module', 'Module is required for this occupation/level.')
+                if grade_type != 'practical':
+                    self.add_error('grade_type', 'Only practical papers are allowed for this occupation/level.')
+        return cleaned_data
 
 class FeesTypeForm(forms.ModelForm):
     class Meta:
@@ -255,78 +301,88 @@ class CandidateForm(forms.ModelForm):
 # … top of forms.py (imports and other forms unchanged) …
 
 class EnrollmentForm(forms.Form):
-    level = forms.ModelChoiceField(
-        queryset=Level.objects.none(),
-        required=False,
-        label='Level'
-    )
-    modules = forms.ModelMultipleChoiceField(
-        queryset=Module.objects.none(),
-        required=False,
-        widget=forms.CheckboxSelectMultiple,
-        label='Select Modules'
-    )
+    """
+    Refactored: For worker's PAS/informal, after level selection, dynamically generate a radio group per module (listing that module's papers).
+    """
+    level = forms.ModelChoiceField(queryset=Level.objects.all(), required=True, widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+    # modules field for modular/formal; for informal, we'll dynamically add paper fields per module in __init__
+    modules = forms.ModelMultipleChoiceField(queryset=Module.objects.none(), required=False, widget=forms.CheckboxSelectMultiple)
 
-    def __init__(self, *args, **kwargs):
-        candidate = kwargs.pop('candidate', None)
+    def __init__(self, *args, candidate=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.candidate = candidate
+        occupation = getattr(candidate, 'occupation', None)
+        reg_cat = getattr(candidate, 'registration_category', '').strip().lower() if candidate else None
+        self.is_informal = reg_cat in ["worker's pas", 'workers pas', 'informal']
 
-        if not candidate:
-            return  # Defensive
-
-        occupation = candidate.occupation
-        reg_cat = candidate.registration_category
-
-        if reg_cat == "Modular":
-            # Show placeholder level note instead of dropdown
-            self.fields["level"] = forms.CharField(
-                label="Level",
-                initial="Not applicable for Modular candidates",
-                required=False,
-                widget=forms.TextInput(attrs={
-                    'readonly': True,
-                    'class': 'border-0 bg-transparent italic text-gray-500'
-                })
-            )
-
-            # Set only Level 1 modules for Modular candidates, fallback to all occupation modules if not found
-            occ_level1 = occupation.occupation_levels.select_related('level').filter(level__name__icontains="1").first()
-            if occ_level1:
-                modules_qs = Module.objects.filter(occupation=occupation, level=occ_level1.level)
-                if not modules_qs.exists():
-                    # Fallback: show all modules for occupation
-                    modules_qs = Module.objects.filter(occupation=occupation)
-                self.fields["modules"].queryset = modules_qs
-            else:
-                # Fallback: show all modules for occupation
-                self.fields["modules"].queryset = Module.objects.filter(occupation=occupation)
-
-        elif reg_cat == "Informal" or reg_cat == "Workers PAS":
-            # Use OccupationLevel join model to get levels for this occupation
+        # Dynamically filter levels by occupation
+        if occupation:
             occ_levels = occupation.occupation_levels.select_related('level').all()
             levels_qs = Level.objects.filter(id__in=[ol.level.id for ol in occ_levels])
-            self.fields["level"].queryset = levels_qs
-            # Dynamically filter modules by selected level (if present)
-            level = None
-            data = self.data
-            if data is not None:
-                level_id = data.get("level")
-                if level_id:
-                    try:
-                        level = Level.objects.get(pk=level_id)
-                    except Level.DoesNotExist:
-                        level = None
-            if level:
-                self.fields["modules"].queryset = Module.objects.filter(occupation=occupation, level=level)
-            else:
-                self.fields["modules"].queryset = Module.objects.none()
+            self.fields['level'].queryset = levels_qs
 
-        else:  # Formal
-            # Use OccupationLevel join model to get levels for this occupation
-            occ_levels = occupation.occupation_levels.select_related('level').all()
-            levels_qs = Level.objects.filter(id__in=[ol.level.id for ol in occ_levels])
-            self.fields["level"].queryset = levels_qs
-            self.fields.pop("modules", None)
+        # On GET, level may come from initial or data
+        level_id = self.data.get('level') or self.initial.get('level')
+        level = None
+        if level_id:
+            try:
+                level = Level.objects.get(pk=level_id)
+            except Level.DoesNotExist:
+                pass
+
+        # For informal/worker's PAS: dynamically add paper fields per module
+        if self.is_informal and occupation and level:
+            print("[DEBUG] EnrollmentForm: occupation=", occupation)
+            print("[DEBUG] EnrollmentForm: level=", level)
+            # Remove modules field (not used for informal)
+            if 'modules' in self.fields:
+                self.fields.pop('modules')
+            # Get all modules for this occupation/level
+            modules = Module.objects.filter(occupation=occupation, level=level)
+            print(f"[DEBUG] EnrollmentForm: Found {modules.count()} modules for occupation={occupation}, level={level}")
+            for module in modules:
+                papers = Paper.objects.filter(module=module, occupation=occupation, level=level)
+                print(f"[DEBUG] Module: {module} (ID={module.id}) - Papers found: {papers.count()}")
+                for paper in papers:
+                    print(f"    [DEBUG] Paper: {paper} (ID={paper.id}) - occupation={paper.occupation_id}, level={paper.level_id}, module={paper.module_id}")
+                field_name = f"paper_module_{module.id}"
+                self.fields[field_name] = forms.ModelChoiceField(
+                    queryset=papers,
+                    required=False,  # Make paper selection per module optional
+                    widget=forms.RadioSelect,
+                    label=f"{module.name} ({module.code})"
+                )
+                self.fields[field_name].module = module
+            self.module_field_names = [f"paper_module_{m.id}" for m in modules]
+            self.module_fields = [self[name] for name in self.module_field_names]
+        else:
+            self.module_fields = []
+            # Modular: modules field as checkboxes
+            if reg_cat == 'modular' and occupation and level:
+                self.fields['modules'].queryset = Module.objects.filter(occupation=occupation, level=level)
+                self.fields['modules'].required = True
+            # Formal: no modules field
+            elif reg_cat == 'formal':
+                if 'modules' in self.fields:
+                    self.fields.pop('modules')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        occupation = getattr(self.candidate, 'occupation', None)
+        reg_cat = getattr(self.candidate, 'registration_category', '').strip().lower() if self.candidate else None
+        level = cleaned_data.get('level')
+        # Informal/worker's PAS: allow zero or more module paper selections, but only one per module
+        if self.is_informal and occupation and level:
+            selected_papers = {}
+            for fname in getattr(self, 'module_field_names', []):
+                paper = cleaned_data.get(fname)
+                if paper:
+                    mod_id = int(fname.split('_')[-1])
+                    selected_papers[mod_id] = paper
+            # No longer require at least one paper per module; allow user to skip modules
+            cleaned_data['selected_papers'] = selected_papers
+        return cleaned_data
+
 
 
 class DistrictForm(forms.ModelForm):
@@ -504,17 +560,21 @@ class ModularResultsForm(forms.Form):
         self.modules = []
         if candidate:
             from .models import Module
-            # Get registered modules (max 2)
-            modules = Module.objects.filter(candidatemodule__candidate=candidate)[:2]
+            # Get all registered modules for the candidate
+            modules = Module.objects.filter(candidatemodule__candidate=candidate).distinct()
             self.modules = modules
             for module in modules:
-                self.fields[f'mark_{module.id}'] = forms.DecimalField(
+                field_name = f'mark_{module.id}'
+                # Check if initial value is provided in self.initial
+                value = self.initial.get(field_name)
+                self.fields[field_name] = forms.DecimalField(
                     label=f"{module.code} - {module.name} Mark",
                     min_value=0,
                     max_value=100,
                     decimal_places=2,
                     required=True,
-                    widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+                    widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'}),
+                    initial=value
                 )
 
     def clean(self):
@@ -603,6 +663,51 @@ class PaperResultsForm(forms.Form):
                     field_name = f'mark_{paper.id}'
                     self.fields[field_name] = forms.DecimalField(
                         label=f"{paper.code} - {paper.name} ({paper.get_grade_type_display()}) Mark",
+                        min_value=0,
+                        max_value=100,
+                        decimal_places=2,
+                        required=True,
+                        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+                    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        month = int(cleaned_data.get('month'))
+        year = int(cleaned_data.get('year'))
+        cleaned_data['assessment_date'] = f"{year}-{month:02d}-01"
+        return cleaned_data
+
+
+class WorkerPASPaperResultsForm(forms.Form):
+    MONTH_CHOICES = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    YEAR_CHOICES = [(y, y) for y in range(2020, 2031)]
+    month = forms.ChoiceField(choices=MONTH_CHOICES, label="Assessment Month", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+    year = forms.ChoiceField(choices=YEAR_CHOICES, label="Assessment Year", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+
+    def __init__(self, *args, **kwargs):
+        candidate = kwargs.pop('candidate', None)
+        level = kwargs.pop('level', None)
+        super().__init__(*args, **kwargs)
+        self.papers = []
+        if candidate:
+            from .models import CandidateLevel, CandidatePaper, Level
+            # Use explicit level if provided
+            if not level:
+                # Try to get from candidate.level, else first CandidateLevel
+                level = getattr(candidate, 'level', None)
+                if not level:
+                    cl = CandidateLevel.objects.filter(candidate=candidate).first()
+                    if cl:
+                        level = cl.level
+            if level:
+                # Get only the enrolled papers for this candidate and level
+                enrolled_papers = CandidatePaper.objects.filter(candidate=candidate, level=level).select_related('paper', 'module')
+                self.papers = [cp.paper for cp in enrolled_papers]
+                for cp in enrolled_papers:
+                    paper = cp.paper
+                    field_name = f'mark_{paper.id}'
+                    self.fields[field_name] = forms.DecimalField(
+                        label=f"{paper.code} - {paper.name} (Module: {cp.module.name}) Mark",
                         min_value=0,
                         max_value=100,
                         decimal_places=2,

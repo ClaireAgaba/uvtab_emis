@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load enrollment_extras %}
 {% block content %}
 <div class="max-w-3xl mx-auto mt-12">
   <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:underline mb-4 inline-block">&larr; Back to Candidate</a>
@@ -45,8 +46,23 @@
       {% endif %}
     </div>
 
-    <!-- MODULES: Only show if present -->
-    {% if form.modules %}
+    <!-- MODULES & PAPERS: For worker's PAS/informal, render radio groups for each module's papers -->
+    {% if form.module_field_names %}
+      <div class="mb-8">
+        <label class="font-semibold text-lg block mb-2">Select One Paper Per Module:</label>
+        <div class="space-y-6">
+          {% for field in form.module_fields %}
+            <div class="border border-gray-300 rounded p-4">
+              <div class="block font-semibold mb-2">{{ field.label }}</div>
+<div>{{ field }}</div>
+              {% if field.errors %}
+                <div class="text-red-600 text-sm mt-2">{{ field.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% elif form.modules %}
       <div class="mb-8">
         <label class="font-semibold text-lg block mb-2">Select Modules:</label>
         <table class="min-w-full border border-gray-400 rounded">

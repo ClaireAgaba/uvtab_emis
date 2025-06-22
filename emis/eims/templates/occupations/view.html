@@ -62,32 +62,41 @@
       {% endif %}
     </div> -->
 
-    <div class="bg-gray-50 rounded-lg p-6">
-      {% if occupation.structure_type == 'modules' %}
+    
+<div class="bg-gray-50 rounded-lg p-6">
+      {% if row.structure_type == 'modules' %}
         {% if row.content %}
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for module in row.content %}
               <div class="bg-white p-4 rounded-md shadow-sm">
                 <p class="font-medium">{{ module.name }}</p>
+                
+                {% if module.papers|length %}
+                  <ul class="list-disc list-inside mt-2 text-gray-700">
+                    {% for paper in module.papers %}
+                      <li><span class="font-mono">{{ paper.code }}</span>: {{ paper.name }}</li>
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  {% if occupation.category.name == "Worker's PAS" %}
+                    <p class="text-gray-400 text-sm mt-2">No papers added yet.</p>
+                  {% endif %}
+                {% endif %}
               </div>
             {% endfor %}
           </div>
         {% else %}
-          <p class="text-gray-500 text-center py-8">No modules added yet.</p>
+          <p class="text-gray-400 text-sm mt-2">No modules added yet.</p>
         {% endif %}
       {% else %}
         {% if row.content %}
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ul class="list-disc ml-6">
             {% for paper in row.content %}
-              <div class="bg-white p-4 rounded-md shadow-sm">
-                <p class="font-medium">{{ paper.code }}</p>
-                <p class="text-gray-600">{{ paper.name }}</p>
-                <p class="text-sm text-gray-500 mt-1">{{ paper.get_type_display }}</p>
-              </div>
+              <li>{{ paper.code }} - {{ paper.name }}</li>
             {% endfor %}
-          </div>
+          </ul>
         {% else %}
-          <p class="text-gray-500 text-center py-8">No papers added yet.</p>
+          <p class="text-gray-400 text-sm mt-2">No papers added yet.</p>
         {% endif %}
       {% endif %}
     </div>

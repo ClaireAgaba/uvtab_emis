@@ -901,7 +901,13 @@ def occupation_detail(request, pk):
     level_data = []
     for ol in occupation_levels:
         if ol.structure_type == 'modules':
-            content = Module.objects.filter(occupation=occupation, level=ol.level)
+            modules = Module.objects.filter(occupation=occupation, level=ol.level)
+            # Attach papers to each module
+            for module in modules:
+                module_papers = list(Paper.objects.filter(module=module))
+                print(f"Module: {module.id} {module.name} has papers: {[p.code for p in module_papers]}")
+                module.papers = module_papers
+            content = modules
         else:
             content = Paper.objects.filter(occupation=occupation, level=ol.level)
         level_data.append({'level': ol.level, 'structure_type': ol.structure_type, 'content': content})
@@ -961,6 +967,31 @@ def api_centers(request):
         {'id': c.id, 'name': str(c)} for c in centers
     ]
     return JsonResponse(data, safe=False)
+
+# --- AJAX API for dynamic paper creation form ---
+from .models import OccupationLevel, Module
+from django.views.decorators.http import require_GET
+
+@require_GET
+def api_occupation_level_structure(request):
+    occupation_id = request.GET.get('occupation_id')
+    level_id = request.GET.get('level_id')
+    if not occupation_id or not level_id:
+        return JsonResponse({'error': 'Missing occupation_id or level_id'}, status=400)
+    occ_level = OccupationLevel.objects.filter(occupation_id=occupation_id, level_id=level_id).first()
+    if not occ_level:
+        return JsonResponse({'error': 'Not found'}, status=404)
+    return JsonResponse({'structure_type': occ_level.structure_type})
+
+@require_GET
+def api_modules(request):
+    occupation_id = request.GET.get('occupation_id')
+    level_id = request.GET.get('level_id')
+    if not occupation_id or not level_id:
+        return JsonResponse({'modules': []})
+    modules = Module.objects.filter(occupation_id=occupation_id, level_id=level_id)
+    data = [{'id': m.id, 'code': m.code, 'name': m.name} for m in modules]
+    return JsonResponse({'modules': data})
 
 def module_list(request):
     modules = Module.objects.all()
@@ -1481,33 +1512,74 @@ def candidate_create(request):
             return redirect('candidate_view', id=candidate.id)
     return render(request, 'candidates/create.html', {'form': form})
 
-def candidate_view(request, id):
-    from .models import AssessmentCenter, Occupation, Result, CandidateLevel
-    candidate = get_object_or_404(Candidate, id=id)
-    centers = AssessmentCenter.objects.all()
-    occupations = Occupation.objects.all()
-    results = Result.objects.filter(candidate=candidate).order_by('assessment_date', 'level', 'module', 'paper')
-    module_enrollments = CandidateModule.objects.filter(candidate=candidate)
-    level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
-    return render(request, 'candidates/view.html', {
-        'candidate': candidate,
-        'centers': centers,
-        'occupations': occupations,
-        'results': results,
-        'module_enrollments': module_enrollments,
-        'level_enrollment': level_enrollment,
-    })
+
 
 from django.contrib.auth.decorators import user_passes_test
 
 def edit_result(request, id):
     from .models import Candidate, Result, Module, CandidateLevel, OccupationLevel, Paper
-    from .forms import ModularResultsForm, ResultForm, PaperResultsForm
+    from .forms import ModularResultsForm, ResultForm, PaperResultsForm, WorkerPASPaperResultsForm
     candidate = get_object_or_404(Candidate, id=id)
     if not request.user.is_superuser:
         return redirect('candidate_view', id=candidate.id)
-    reg_cat = getattr(candidate, 'registration_category', '').lower()
+    reg_cat = getattr(candidate, 'registration_category', '').lower().strip()
+    print('DEBUG edit_result: candidate', candidate, 'reg_cat', reg_cat)
     context = {'candidate': candidate, 'edit_mode': True}
+
+    # --- Modular candidate edit logic ---
+    if reg_cat == 'modular':
+        from .models import Module
+        enrolled_modules = Module.objects.filter(candidatemodule__candidate=candidate)
+        if not enrolled_modules.exists():
+            context['form'] = None
+            context['error'] = 'Candidate is not enrolled in any modules.'
+            return render(request, 'candidates/add_result.html', context)
+        existing_results = Result.objects.filter(candidate=candidate, result_type='modular')
+        if request.method == 'POST':
+            form = ModularResultsForm(request.POST, candidate=candidate)
+            if form.is_valid():
+                month = int(form.cleaned_data['month'])
+                year = int(form.cleaned_data['year'])
+                assessment_date = f"{year}-{month:02d}-01"
+                for module in form.modules:
+                    mark = form.cleaned_data.get(f'mark_{module.id}')
+                    # Only create a new result if the mark has changed
+                    existing_result = Result.objects.filter(
+                        candidate=candidate,
+                        module=module,
+                        assessment_date=assessment_date,
+                        result_type='modular',
+                    ).first()
+                    if mark is not None and (not existing_result or existing_result.mark != mark):
+                        Result.objects.create(
+                            candidate=candidate,
+                            module=module,
+                            assessment_date=assessment_date,
+                            result_type='modular',
+                            assessment_type='practical',
+                            mark=mark,
+                            user=request.user,
+                            status='Updated' if existing_result else ''
+                        )
+                return redirect('candidate_view', id=candidate.id)
+        else:
+            # Prepopulate with existing marks if present
+            initial = {}
+            results_by_module = {r.module_id: r for r in existing_results}
+            for module in enrolled_modules:
+                result = results_by_module.get(module.id)
+                if result:
+                    initial[f'mark_{module.id}'] = result.mark
+            # Prepopulate month/year from latest modular result
+            latest_result = existing_results.order_by('-assessment_date').first()
+            if latest_result and latest_result.assessment_date:
+                initial['month'] = str(latest_result.assessment_date.month)
+                initial['year'] = str(latest_result.assessment_date.year)
+            form = ModularResultsForm(candidate=candidate, initial=initial)
+        context['form'] = form
+        context['is_modular'] = True
+        context['module_mark_fields'] = [(module, form[f'mark_{module.id}']) for module in form.modules]
+        return render(request, 'candidates/add_result.html', context)
 
     # --- Paper-based FORMAL edit logic ---
     level = getattr(candidate, 'level', None)
@@ -1564,7 +1636,83 @@ def edit_result(request, id):
         context['paper_mark_fields'] = [(paper, form[f'mark_{paper.id}']) for paper in getattr(form, 'papers', [])]
         return render(request, 'candidates/add_result.html', context)
     # --- END paper-based FORMAL edit logic ---
+
+    # --- Informal/Worker's PAS edit logic ---
+    if reg_cat == 'informal':
+        from .forms import WorkerPASPaperResultsForm
+        from .models import CandidatePaper, Level
+        # Get level from GET param if present, else use first enrolled level
+        level_id = request.GET.get('level')
+        level = None
+        if level_id:
+            try:
+                level = Level.objects.get(id=level_id)
+            except Level.DoesNotExist:
+                level = None
+        if not level:
+            cl = CandidateLevel.objects.filter(candidate=candidate).first()
+            if cl:
+                level = cl.level
+        if not level:
+            context['form'] = None
+            context['error'] = 'Candidate is not enrolled in any level.'
+            return render(request, 'candidates/add_result.html', context)
+        # Get enrolled papers for this candidate/level
+        enrolled_papers = CandidatePaper.objects.filter(candidate=candidate, level=level).select_related('paper', 'module')
+        if not enrolled_papers.exists():
+            context['form'] = None
+            context['error'] = 'Candidate has no enrolled papers.'
+            return render(request, 'candidates/add_result.html', context)
+        # Prepopulate marks for each enrolled paper
+        initial = {}
+        for cp in enrolled_papers:
+            result = Result.objects.filter(candidate=candidate, paper=cp.paper, level=level, result_type='informal').order_by('-assessment_date').first()
+            if result:
+                initial[f'mark_{cp.paper.id}'] = result.mark
+        # Prepopulate month/year from latest result
+        latest_result = Result.objects.filter(candidate=candidate, paper__in=[cp.paper for cp in enrolled_papers], level=level, result_type='informal').order_by('-assessment_date').first()
+        if latest_result and latest_result.assessment_date:
+            initial['month'] = latest_result.assessment_date.month
+            initial['year'] = latest_result.assessment_date.year
+        if request.method == 'POST':
+            form = WorkerPASPaperResultsForm(request.POST, candidate=candidate, level=level, initial=initial)
+            if form.is_valid():
+                assessment_date = form.cleaned_data['assessment_date']
+                for cp in enrolled_papers:
+                    paper = cp.paper
+                    mark = form.cleaned_data.get(f'mark_{paper.id}')
+                    # Only update/create if mark is changed
+                    existing_result = Result.objects.filter(candidate=candidate, paper=paper, level=level, result_type='informal').order_by('-assessment_date').first()
+                    if mark is not None and (not existing_result or existing_result.mark != mark):
+                        Result.objects.create(
+                            candidate=candidate,
+                            level=level,
+                            module=cp.module,
+                            paper=paper,
+                            assessment_type='practical',
+                            assessment_date=assessment_date,
+                            result_type='informal',
+                            mark=mark,
+                            user=request.user,
+                            status='Updated'
+                        )
+                return redirect('candidate_view', id=candidate.id)
+        else:
+            form = WorkerPASPaperResultsForm(candidate=candidate, level=level, initial=initial)
+        context['form'] = form
+        context['is_worker_pas'] = True
+        context['paper_mark_fields'] = [(cp.paper, form[f'mark_{cp.paper.id}']) for cp in enrolled_papers]
+        return render(request, 'candidates/add_result.html', context)
+    # --- END Informal/Worker's PAS edit logic ---
+
     if reg_cat == 'modular':
+        from .models import Module, CandidateModule
+        # Get all enrolled modules for this candidate
+        enrolled_modules = Module.objects.filter(candidatemodule__candidate=candidate)
+        if not enrolled_modules.exists():
+            context['form'] = None
+            context['error'] = 'Candidate is not enrolled in any modules.'
+            return render(request, 'candidates/add_result.html', context)
         existing_results = Result.objects.filter(candidate=candidate, result_type='modular')
         if request.method == 'POST':
             form = ModularResultsForm(request.POST, candidate=candidate)
@@ -1597,7 +1745,7 @@ def edit_result(request, id):
             # Prepopulate with existing marks if present
             initial = {}
             results_by_module = {r.module_id: r for r in existing_results}
-            for module in Module.objects.filter(candidatemodule__candidate=candidate):
+            for module in enrolled_modules:
                 result = results_by_module.get(module.id)
                 if result:
                     initial[f'mark_{module.id}'] = result.mark
@@ -1698,15 +1846,78 @@ def edit_result(request, id):
         context['is_modular'] = False
         context['formal_mark_fields'] = [form['theory_mark'], form['practical_mark']]
     else:
-        return redirect('candidate_view', id=candidate.id)
+        return render(request, 'candidates/add_result.html', context)
+
+    # Fallback for unknown categories
+    context['form'] = None
+    context['error'] = f'Unknown or unsupported registration category: {reg_cat!r} for candidate {candidate}'
+    print('DEBUG edit_result: unknown registration_category', reg_cat, 'for candidate', candidate)
     return render(request, 'candidates/add_result.html', context)
 
+
 def add_result(request, id):
-    from .models import Candidate, Result, Module, Paper, Level, OccupationLevel
-    from .forms import ResultForm, ModularResultsForm
+    from .models import Candidate, Result, Module, Paper, Level, OccupationLevel, CandidateLevel, CandidatePaper
+    from .forms import ResultForm, ModularResultsForm, WorkerPASPaperResultsForm
     candidate = get_object_or_404(Candidate, id=id)
-    reg_cat = getattr(candidate, 'registration_category', '').lower()
+    reg_cat = candidate.registration_category
     context = {'candidate': candidate}
+
+    # Worker PAS/informal: mark per enrolled paper
+    if reg_cat == "Informal":
+        # Get level from GET param if present, else use first enrolled level
+        level_id = request.GET.get('level')
+        level = None
+        if level_id:
+            try:
+                from .models import Level
+                level = Level.objects.get(id=level_id)
+            except Level.DoesNotExist:
+                level = None
+        if not level:
+            cl = CandidateLevel.objects.filter(candidate=candidate).first()
+            if cl:
+                level = cl.level
+        if not level:
+            context['form'] = None
+            context['error'] = 'Candidate is not enrolled in any level.'
+            return render(request, 'candidates/add_result.html', context)
+        # Get enrolled papers for this candidate/level
+        enrolled_papers = CandidatePaper.objects.filter(candidate=candidate, level=level).select_related('paper', 'module')
+        if not enrolled_papers.exists():
+            context['form'] = None
+            context['error'] = 'Candidate has no enrolled papers.'
+            return render(request, 'candidates/add_result.html', context)
+        if request.method == 'POST':
+            form = WorkerPASPaperResultsForm(request.POST, candidate=candidate, level=level)
+            if form.is_valid():
+                assessment_date = form.cleaned_data['assessment_date']
+                for cp in enrolled_papers:
+                    paper = cp.paper
+                    mark = form.cleaned_data.get(f'mark_{paper.id}')
+                    if mark is not None:
+                        Result.objects.update_or_create(
+                            candidate=candidate,
+                            level=level,
+                            module=cp.module,
+                            paper=paper,
+                            assessment_type='practical',
+                            assessment_date=assessment_date,
+                            result_type='informal',
+                            defaults={
+                                'mark': mark,
+                                'user': request.user,
+                                'status': ''
+                            }
+                        )
+                return redirect('candidate_view', id=candidate.id)
+        else:
+            form = WorkerPASPaperResultsForm(candidate=candidate, level=level)
+        context['form'] = form
+        context['is_worker_pas'] = True
+        context['paper_mark_fields'] = [(cp.paper, form[f'mark_{cp.paper.id}']) for cp in enrolled_papers]
+        return render(request, 'candidates/add_result.html', context)
+
+
 
     if reg_cat == 'modular':
         if request.method == 'POST':
@@ -1876,14 +2087,23 @@ def enroll_candidate_view(request, id):
                         CandidateModule.objects.create(candidate=candidate, module=module)
                     messages.success(request, f"{candidate.full_name} enrolled for {len(modules)} module(s)")
 
-            # Handle informal registration (level + any number of modules)
-            elif registration_category == 'Informal' or registration_category == 'Workers PAS':
+            # Handle worker's PAS/informal registration (level + one paper per module)
+            elif registration_category in ['Informal', "Worker's PAS", 'Workers PAS', 'informal', "worker's pas"]:
+                from .models import CandidatePaper
                 level = form.cleaned_data['level']
-                modules = form.cleaned_data['modules']
+                selected_papers = form.cleaned_data.get('selected_papers', {})
+                # Remove previous enrollments for this candidate/level
+                CandidateLevel.objects.filter(candidate=candidate, level=level).delete()
+                CandidateModule.objects.filter(candidate=candidate, module__level=level).delete()
+                CandidatePaper.objects.filter(candidate=candidate, level=level).delete()
+                # Enroll in level
                 CandidateLevel.objects.create(candidate=candidate, level=level)
-                for module in modules:
+                # Enroll in modules and papers
+                for mod_id, paper in selected_papers.items():
+                    module = paper.module
                     CandidateModule.objects.create(candidate=candidate, module=module)
-                messages.success(request, f"{candidate.full_name} enrolled in {level.name} and selected {len(modules)} module(s)")
+                    CandidatePaper.objects.create(candidate=candidate, module=module, paper=paper, level=level)
+                messages.success(request, f"{candidate.full_name} enrolled in {level.name} and selected {len(selected_papers)} paper(s)")
 
             messages.success(request, "Candidate enrolled successfully.")
     else:
@@ -1895,10 +2115,29 @@ def enroll_candidate_view(request, id):
     })
 
 
-from .models import Candidate, CandidateLevel, CandidateModule, Occupation
+from .models import Candidate, CandidateLevel, CandidateModule, Occupation, CandidatePaper
 
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.contrib import messages
+from django.views.decorators.http import require_POST
+
+@login_required
+@require_POST
+def clear_enrollment(request, id):
+    if not request.user.is_superuser:
+        return redirect('candidate_view', id=id)
+    candidate = get_object_or_404(Candidate, id=id)
+    from .models import Result
+    from django.contrib import messages
+    if Result.objects.filter(candidate=candidate).exists():
+        messages.error(request, 'Candidate has marks/results and cannot be de-enrolled.')
+        return redirect('candidate_view', id=id)
+    CandidateLevel.objects.filter(candidate=candidate).delete()
+    CandidateModule.objects.filter(candidate=candidate).delete()
+    CandidatePaper.objects.filter(candidate=candidate).delete()
+    messages.success(request, 'All enrollment records for this candidate have been cleared.')
+    return redirect('candidate_view', id=id)
 
 
 # Helper
@@ -2011,13 +2250,64 @@ def change_registration_category(request, id):
     })
 
 def candidate_view(request, id):
-    from .models import Result
+    print('DEBUG: candidate_view (ACTIVE) called for candidate', id)
+    from .models import AssessmentCenter, Occupation, Result, CandidateLevel, CandidateModule, Paper, Module, CandidatePaper
     candidate = get_object_or_404(Candidate, id=id)
 
-    level_enrollment   = CandidateLevel.objects.filter(candidate=candidate).first()
-    module_enrollments = CandidateModule.objects.filter(candidate=candidate)
+    reg_cat = candidate.registration_category
+    level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
+
+    # Multi-level enrollment summary for worker's PAS/informal
+    enrollment_summary = []
+    if reg_cat == "Informal":
+        level_enrollments = CandidateLevel.objects.filter(candidate=candidate)
+        for lvl_enroll in level_enrollments:
+            modules = CandidateModule.objects.filter(candidate=candidate, module__level=lvl_enroll.level)
+            module_list = []
+            for mod_enroll in modules:
+                papers = [cp.paper for cp in CandidatePaper.objects.filter(candidate=candidate, module=mod_enroll.module, level=lvl_enroll.level).select_related('paper')]
+                module_list.append({
+                    'module': mod_enroll.module,
+                    'papers': papers
+                })
+            enrollment_summary.append({
+                'level': lvl_enroll.level,
+                'modules': module_list
+            })
+        # For backward compatibility, keep module_enrollments and level_enrollment as before
+        module_enrollments = CandidateModule.objects.filter(candidate=candidate, module__level=level_enrollment.level) if level_enrollment else []
+    else:
+        # For formal/modular, keep old logic
+        module_enrollments = CandidateModule.objects.filter(candidate=candidate)
+        for mod_enroll in module_enrollments:
+            mod_enroll.papers = list(Paper.objects.filter(module=mod_enroll.module))
+
+    # Attach papers for each module_enrollment (for backward compatibility)
+    if reg_cat in ["worker's pas", 'workers pas', 'informal'] and level_enrollment:
+        for mod_enroll in module_enrollments:
+            candidate_paper = CandidatePaper.objects.filter(
+                candidate_id=candidate.id,
+                module_id=mod_enroll.module.id,
+                level_id=level_enrollment.level.id
+            ).select_related('paper').first()
+            mod_enroll.papers = [candidate_paper.paper] if candidate_paper else []
+    else:
+        for mod_enroll in module_enrollments:
+            mod_enroll.papers = list(Paper.objects.filter(module=mod_enroll.module))
 
     results = Result.objects.filter(candidate=candidate).order_by('assessment_date', 'level', 'module', 'paper')
+    level_has_results = {}
+    for row in enrollment_summary:
+        lvl = row['level']
+        enrolled_paper_ids = set()
+        for mod in row['modules']:
+            for paper in mod['papers']:
+                enrolled_paper_ids.add(paper.id)
+        result_paper_ids = set(results.filter(level_id=lvl.id).values_list('paper_id', flat=True))
+        level_has_results[str(lvl.id)] = bool(enrolled_paper_ids) and enrolled_paper_ids.issubset(result_paper_ids)
+    # Convert all keys to string for template consistency
+    # (already done above for lvl.id)
+
     context = {
         "candidate":          candidate,
         "level_enrollment":   level_enrollment,
@@ -2025,8 +2315,15 @@ def candidate_view(request, id):
         "results":            results,
         "occupations": Occupation.objects.exclude(pk=candidate.occupation_id),
         "centers":     AssessmentCenter.objects.exclude(pk=candidate.assessment_center_id),
+        "enrollment_summary": enrollment_summary,
+        "level_has_results": level_has_results,
     }
+    print('DEBUG reg_cat:', reg_cat)
+    print('DEBUG enrollment_summary:', enrollment_summary)
+    print('DEBUG module_enrollments:', module_enrollments)
+    print('DEBUG results:', list(results))
     return render(request, "candidates/view.html", context)
+
 
 @login_required
 def regenerate_candidate_reg_number(request, id):
