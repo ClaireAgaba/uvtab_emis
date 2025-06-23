@@ -207,12 +207,18 @@ class CandidateForm(forms.ModelForm):
                     self.fields['occupation'].queryset = Occupation.objects.filter(category=cat)
                 except OccupationCategory.DoesNotExist:
                     self.fields['occupation'].queryset = Occupation.objects.none()
-            # Informal/Worker's PAS: occupation category 'Worker\'s PAS'
+            # Informal/Worker's PAS: occupation category 'Worker's PAS'
             elif reg_cat_val in ["worker's pas", 'workers pas', 'informal']:
-                try:
-                    cat = OccupationCategory.objects.get(name__iexact="Worker's PAS")
+                from django.db.models import Q
+                cat = OccupationCategory.objects.filter(
+                    Q(name__iexact="Worker's PAS") | Q(name__iexact="Worker PAS")
+                ).first()
+                if not cat:
+                    # Try regex for even more flexibility
+                    cat = OccupationCategory.objects.filter(name__iregex=r"worker('?s)? pas").first()
+                if cat:
                     self.fields['occupation'].queryset = Occupation.objects.filter(category=cat)
-                except OccupationCategory.DoesNotExist:
+                else:
                     self.fields['occupation'].queryset = Occupation.objects.none()
         # Disable occupation, assessment dates, and center fields in edit mode
         if edit:
