@@ -292,7 +292,11 @@ def candidate_import_dual(request):
                             errors.append(f"Row {idx}: Invalid date format in '{date_field}'. Use D/M/YYYY or DD/MM/YYYY.")
                             continue
             # Nationality: accept both code and label
-            nat_val = form_data.get('nationality', '').strip().lower()
+            # Ensure nationality is string before strip/lower
+            nat_val = form_data.get('nationality', '')
+            if not isinstance(nat_val, str):
+                nat_val = str(nat_val)
+            nat_val = nat_val.strip().lower()
             if nat_val in ['u', 'ugandan']:
                 form_data['nationality'] = 'U'
             elif nat_val in ['x', 'foreigner']:
@@ -316,17 +320,45 @@ def candidate_import_dual(request):
             # District and village: optional for import
             for loc_field, model_cls in [('district', District), ('village', Village)]:
                 val = form_data.get(loc_field)
-                if val:
-                    obj = model_cls.objects.filter(name__iexact=str(val).strip()).first()
+                if val is not None:
+                    val_str = str(val).strip()
+                    obj = model_cls.objects.filter(name__iexact=val_str).first()
                     form_data[loc_field] = obj.id if obj else None
                 else:
                     form_data[loc_field] = None
-            # Coerce all other values to string except dates and foreign keys
+            # Parse and normalize date fields to zero-padded DD/MM/YYYY
+            date_fields = ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']
+            fk_fields = ['occupation', 'assessment_center', 'district', 'village']
+            from datetime import date, datetime
+            try:
+                from dateutil import parser as dateparser
+            except ImportError:
+                import dateutil.parser as dateparser
+            for k in date_fields:
+                v = form_data.get(k)
+                if v is not None and v != '':
+                    dt_obj = None
+                    # Try parsing as date/datetime/int/float/string
+                    if isinstance(v, (date, datetime)):
+                        dt_obj = v
+                    else:
+                        try:
+                            dt_obj = dateparser.parse(str(v), dayfirst=True, yearfirst=False)
+                        except Exception:
+                            dt_obj = None
+                    if dt_obj:
+                        form_data[k] = dt_obj.strftime('%d/%m/%Y')
+                    else:
+                        form_data[k] = ''  # Invalid date, let form validation handle
+
+            # Coerce every other field except dates and foreign keys to string
             for k in form_data:
-                if k not in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date', 'occupation', 'assessment_center', 'district', 'village']:
+                if k not in date_fields + fk_fields:
                     v = form_data[k]
-                    if v is not None:
+                    if v is not None and not isinstance(v, str):
                         form_data[k] = str(v)
+            # Debug: print types of all fields before form creation
+            print(f"[IMPORT DEBUG] Row {idx} form_data types: " + ", ".join(f"{k}: {type(v).__name__}" for k,v in form_data.items()))
             # Remove reg_number if present
             form_data.pop('reg_number', None)
             # Use CandidateForm for validation, but patch required fields for import
@@ -338,12 +370,21 @@ def candidate_import_dual(request):
                 error_list = '; '.join([f"{k}: {v[0]}" for k, v in form.errors.items()])
                 errors.append(f"Row {idx}: {error_list}")
                 continue
+            # Convert date fields in form.cleaned_data from DD/MM/YYYY string to date objects
+            from datetime import datetime
+            for date_field in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']:
+                val = form.cleaned_data.get(date_field)
+                if isinstance(val, str) and val:
+                    try:
+                        form.cleaned_data[date_field] = datetime.strptime(val, '%d/%m/%Y').date()
+                    except Exception:
+                        pass  # Let model validation handle invalid dates
             # Duplicate check: skip if candidate with same name, dob, gender, and assessment_center exists
             exists = Candidate.objects.filter(
-                full_name=form_data['full_name'],
-                date_of_birth=form_data['date_of_birth'],
-                gender=form_data['gender'],
-                assessment_center=form_data['assessment_center']
+                full_name=form.cleaned_data['full_name'],
+                date_of_birth=form.cleaned_data['date_of_birth'],
+                gender=form.cleaned_data['gender'],
+                assessment_center=form.cleaned_data['assessment_center']
             ).exists()
             if exists:
                 errors.append(f"Row {idx}: Candidate '{form_data['full_name']}' with same DOB, gender, and center already exists. Skipped.")
@@ -353,8 +394,25 @@ def candidate_import_dual(request):
             # Attach image
             img_path = os.path.join(tmp_dir, img_name)
             if os.path.exists(img_path):
+                from PIL import Image
+                import io
+                # Open and process the image
                 with open(img_path, 'rb') as img_file:
-                    candidate.passport_photo.save(img_name, File(img_file), save=False)
+                    img = Image.open(img_file)
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    from PIL import Image
+                    resample_method = getattr(Image, 'Resampling', Image).LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
+                    img = img.resize((300, 400), resample=resample_method)
+                    buffer = io.BytesIO()
+                    img.save(buffer, format='JPEG', quality=80, optimize=True)
+                    buffer.seek(0)
+                    # Save processed image as JPEG
+                    candidate.passport_photo.save(
+                        os.path.splitext(img_name)[0] + '.jpg',
+                        File(buffer),
+                        save=False
+                    )
             else:
                 errors.append(f"Row {idx}: Image file '{img_name}' not found after extraction.")
                 continue
