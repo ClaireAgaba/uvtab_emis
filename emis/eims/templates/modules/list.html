@@ -73,6 +73,7 @@
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ module.occupation.name }}</td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <a href="{% url 'module_edit' module.pk %}" class="text-blue-600 hover:text-blue-900">Edit</a>
+                <a href="{% url 'module_delete' module.pk %}" class="text-red-600 hover:text-red-900 ml-4">Delete</a>
               </td>
             </tr>
           {% endfor %}

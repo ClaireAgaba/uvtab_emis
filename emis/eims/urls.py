@@ -54,6 +54,7 @@ urlpatterns = [
     path('modules/create/', views.module_create, name='module_create'),
     path('modules/<int:pk>/', views.module_detail, name='module_detail'),
     path('modules/edit/<int:pk>/', views.module_edit, name='module_edit'),
+    path('modules/<int:pk>/delete/', views.module_delete, name='module_delete'),
     path('fees-types/', views.fees_type_list, name='fees_type_list'),
     path('fees-types/create/', views.fees_type_create, name='fees_type_create'),
     path('fees-types/<int:pk>/edit/', views.fees_type_edit, name='fees_type_edit'),

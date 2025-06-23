@@ -1051,6 +1051,19 @@ def module_edit(request, pk):
             return redirect('module_list')
     else:
         form = ModuleForm(instance=module)
+    return render(request, 'modules/edit.html', {
+        'form': form,
+        'module': module
+    })
+
+@login_required
+def module_delete(request, pk):
+    module = get_object_or_404(Module, pk=pk)
+    if request.method == 'POST':
+        module.delete()
+        messages.success(request, 'Module deleted successfully.')
+        return redirect('module_list')
+    return render(request, 'modules/delete.html', {'module': module})
     return render(request, 'modules/edit.html', {'form': form, 'module': module})
 
 
