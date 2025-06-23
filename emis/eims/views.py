@@ -1042,28 +1042,31 @@ def module_edit(request, pk):
 
 
 def paper_list(request):
-    papers = Paper.objects.all()
+    papers = Paper.objects.select_related('level', 'occupation').all()
     occupations = Occupation.objects.all()
     levels = Level.objects.all()
-    
-    # Filter by occupation if specified
-    occupation_id = request.GET.get('occupation')
-    if occupation_id:
-        papers = papers.filter(occupation_id=occupation_id)
-    
-    # Filter by level if specified
-    level_id = request.GET.get('level')
-    if level_id:
-        papers = papers.filter(level_id=level_id)
-    
+
+    occupation_id_str = request.GET.get('occupation')
+    level_id_str = request.GET.get('level')
+
+    selected_occupation = None
+    if occupation_id_str and occupation_id_str.isdigit():
+        selected_occupation = int(occupation_id_str)
+        papers = papers.filter(occupation_id=selected_occupation)
+
+    selected_level = None
+    if level_id_str and level_id_str.isdigit():
+        selected_level = int(level_id_str)
+        papers = papers.filter(level_id=selected_level)
+
     context = {
         'papers': papers,
         'occupations': occupations,
         'levels': levels,
-        'selected_occupation': occupation_id,
-        'selected_level': level_id
+        'selected_occupation': selected_occupation,
+        'selected_level': selected_level,
     }
-    
+
     return render(request, 'papers/list.html', context)
 
 def paper_create(request):
