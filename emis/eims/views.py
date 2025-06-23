@@ -1029,6 +1029,18 @@ def module_create(request):
     return render(request, 'modules/create.html', {'form': form})
 
 
+def module_edit(request, pk):
+    module = get_object_or_404(Module, pk=pk)
+    if request.method == 'POST':
+        form = ModuleForm(request.POST, instance=module)
+        if form.is_valid():
+            module = form.save()
+            return redirect('module_list')
+    else:
+        form = ModuleForm(instance=module)
+    return render(request, 'modules/edit.html', {'form': form, 'module': module})
+
+
 def paper_list(request):
     papers = Paper.objects.all()
     occupations = Occupation.objects.all()

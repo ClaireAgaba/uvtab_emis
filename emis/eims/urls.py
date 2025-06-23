@@ -51,6 +51,7 @@ urlpatterns = [
     path('papers/create/', views.paper_create, name='paper_create'),
     path('papers/<int:pk>/edit/', views.paper_edit, name='paper_edit'),
     path('modules/create/', views.module_create, name='module_create'),
+    path('module/edit/<int:pk>',views.module_edit, name='module_edit'),
     path('fees-types/', views.fees_type_list, name='fees_type_list'),
     path('fees-types/create/', views.fees_type_create, name='fees_type_create'),
     path('fees-types/<int:pk>/edit/', views.fees_type_edit, name='fees_type_edit'),
