@@ -220,6 +220,7 @@ from openpyxl import Workbook
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.contrib import messages
+from django.utils.html import format_html
 from django.urls import reverse
 from django.core.files.storage import FileSystemStorage
 from .models import Candidate, Occupation, AssessmentCenter, District, Village
@@ -1029,12 +1030,24 @@ def module_create(request):
     return render(request, 'modules/create.html', {'form': form})
 
 
+def module_detail(request, pk):
+    module = get_object_or_404(Module, pk=pk)
+    return render(request, 'modules/detail.html', {'module': module})
+
+
 def module_edit(request, pk):
     module = get_object_or_404(Module, pk=pk)
     if request.method == 'POST':
         form = ModuleForm(request.POST, instance=module)
         if form.is_valid():
             module = form.save()
+            module_url = reverse('module_detail', args=[module.pk])
+            success_message = format_html(
+                'Module "{}" was updated successfully. <a href="{}">View Details</a>',
+                module.name,
+                module_url
+            )
+            messages.success(request, success_message)
             return redirect('module_list')
     else:
         form = ModuleForm(instance=module)
@@ -1079,12 +1092,24 @@ def paper_create(request):
         form = PaperForm()
     return render(request, 'papers/create.html', {'form': form})
 
+def paper_detail(request, pk):
+    paper = get_object_or_404(Paper, pk=pk)
+    return render(request, 'papers/detail.html', {'paper': paper})
+
+
 def paper_edit(request, pk):
     paper = get_object_or_404(Paper, pk=pk)
     if request.method == 'POST':
         form = PaperForm(request.POST, instance=paper)
         if form.is_valid():
             paper = form.save()
+            paper_url = reverse('paper_detail', args=[paper.pk])
+            success_message = format_html(
+                'Paper "{}" was updated successfully. <a href="{}">View Details</a>',
+                paper.name,
+                paper_url
+            )
+            messages.success(request, success_message)
             return redirect('paper_list')
     else:
         form = PaperForm(instance=paper)

@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-4">Module Details: {{ module.name }}</h1>
+
+    <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+        <div class="mb-4">
+            <strong class="text-gray-700">Code:</strong> {{ module.code }}
+        </div>
+        <div class="mb-4">
+            <strong class="text-gray-700">Name:</strong> {{ module.name }}
+        </div>
+        <div class="mb-4">
+            <strong class="text-gray-700">Occupation:</strong> {{ module.occupation.name }}
+        </div>
+        <div class="mb-4">
+            <strong class="text-gray-700">Level:</strong> {{ module.level.name }}
+        </div>
+    </div>
+
+    <a href="{% url 'module_list' %}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+        Back to List
+    </a>
+    <a href="{% url 'module_edit' module.pk %}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Edit
+    </a>
+</div>
+{% endblock %}

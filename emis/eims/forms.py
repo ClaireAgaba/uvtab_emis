@@ -100,12 +100,23 @@ class PaperForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['module'].queryset = Module.objects.none()
+        occupation_id = None
+        level_id = None
+
         if 'occupation' in self.data:
+            occupation_id = self.data.get('occupation')
+        elif self.instance and self.instance.pk and self.instance.occupation:
+            occupation_id = self.instance.occupation.pk
+
+        if 'level' in self.data:
+            level_id = self.data.get('level')
+        elif self.instance and self.instance.pk and self.instance.level:
+            level_id = self.instance.level.pk
+
+        if occupation_id:
             try:
-                occupation_id = int(self.data.get('occupation'))
                 occupation = Occupation.objects.get(pk=occupation_id)
                 # Find structure type for this occupation/level
-                level_id = self.data.get('level')
                 if level_id:
                     occ_level = OccupationLevel.objects.filter(occupation=occupation, level_id=level_id).first()
                     if occ_level and occ_level.structure_type == 'modules':
