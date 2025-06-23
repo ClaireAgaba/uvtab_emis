@@ -38,7 +38,7 @@
           <option value="">All Occupations</option>
           {% for occupation in occupations %}
             <option value="{{ occupation.id }}" {% if selected_occupation == occupation.id %}selected{% endif %}>
-              {{ occupation.name }}
+              {{ occupation.code }} - {{ occupation.name }}
             </option>
           {% endfor %}
         </select>
@@ -53,7 +53,7 @@
 
   <!-- Papers Table -->
   {% if papers %}
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+    <div class="bg-white rounded-lg shadow-sm">
       <table class="min-w-full divide-y divide-gray-200">
         <thead>
           <tr class="bg-gray-50">

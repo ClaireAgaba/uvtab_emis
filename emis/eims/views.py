@@ -220,6 +220,7 @@ from openpyxl import Workbook
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.contrib import messages
+from django.utils.html import format_html
 from django.urls import reverse
 from django.core.files.storage import FileSystemStorage
 from .models import Candidate, Occupation, AssessmentCenter, District, Village
@@ -1087,29 +1088,69 @@ def module_create(request):
     return render(request, 'modules/create.html', {'form': form})
 
 
+def module_detail(request, pk):
+    module = get_object_or_404(Module, pk=pk)
+    return render(request, 'modules/detail.html', {'module': module})
+
+
+def module_edit(request, pk):
+    module = get_object_or_404(Module, pk=pk)
+    if request.method == 'POST':
+        form = ModuleForm(request.POST, instance=module)
+        if form.is_valid():
+            module = form.save()
+            module_url = reverse('module_detail', args=[module.pk])
+            success_message = format_html(
+                'Module "{}" was updated successfully. <a href="{}">View Details</a>',
+                module.name,
+                module_url
+            )
+            messages.success(request, success_message)
+            return redirect('module_list')
+    else:
+        form = ModuleForm(instance=module)
+    return render(request, 'modules/edit.html', {
+        'form': form,
+        'module': module
+    })
+
+@login_required
+def module_delete(request, pk):
+    module = get_object_or_404(Module, pk=pk)
+    if request.method == 'POST':
+        module.delete()
+        messages.success(request, 'Module deleted successfully.')
+        return redirect('module_list')
+    return render(request, 'modules/delete.html', {'module': module})
+    return render(request, 'modules/edit.html', {'form': form, 'module': module})
+
+
 def paper_list(request):
-    papers = Paper.objects.all()
+    papers = Paper.objects.select_related('level', 'occupation').all()
     occupations = Occupation.objects.all()
     levels = Level.objects.all()
-    
-    # Filter by occupation if specified
-    occupation_id = request.GET.get('occupation')
-    if occupation_id:
-        papers = papers.filter(occupation_id=occupation_id)
-    
-    # Filter by level if specified
-    level_id = request.GET.get('level')
-    if level_id:
-        papers = papers.filter(level_id=level_id)
-    
+
+    occupation_id_str = request.GET.get('occupation')
+    level_id_str = request.GET.get('level')
+
+    selected_occupation = None
+    if occupation_id_str and occupation_id_str.isdigit():
+        selected_occupation = int(occupation_id_str)
+        papers = papers.filter(occupation_id=selected_occupation)
+
+    selected_level = None
+    if level_id_str and level_id_str.isdigit():
+        selected_level = int(level_id_str)
+        papers = papers.filter(level_id=selected_level)
+
     context = {
         'papers': papers,
         'occupations': occupations,
         'levels': levels,
-        'selected_occupation': occupation_id,
-        'selected_level': level_id
+        'selected_occupation': selected_occupation,
+        'selected_level': selected_level,
     }
-    
+
     return render(request, 'papers/list.html', context)
 
 def paper_create(request):
@@ -1122,12 +1163,24 @@ def paper_create(request):
         form = PaperForm()
     return render(request, 'papers/create.html', {'form': form})
 
+def paper_detail(request, pk):
+    paper = get_object_or_404(Paper, pk=pk)
+    return render(request, 'papers/detail.html', {'paper': paper})
+
+
 def paper_edit(request, pk):
     paper = get_object_or_404(Paper, pk=pk)
     if request.method == 'POST':
         form = PaperForm(request.POST, instance=paper)
         if form.is_valid():
             paper = form.save()
+            paper_url = reverse('paper_detail', args=[paper.pk])
+            success_message = format_html(
+                'Paper "{}" was updated successfully. <a href="{}">View Details</a>',
+                paper.name,
+                paper_url
+            )
+            messages.success(request, success_message)
             return redirect('paper_list')
     else:
         form = PaperForm(instance=paper)

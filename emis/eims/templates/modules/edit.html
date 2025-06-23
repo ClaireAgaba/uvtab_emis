@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto mt-10 px-4">
+  <!-- Header Section -->
+  <div class="mb-8">
+    <a href="{% url 'module_list' %}" class="text-blue-600 hover:underline mb-4 inline-block">
+      ← Back to Modules
+    </a>
+    <h1 class="text-3xl font-bold mt-4">Edit Module</h1>
+    <p class="text-gray-600 mt-2">Edit a training module</p>
+  </div>
+
+  <!-- Form Card -->
+  <div class="bg-white rounded-lg shadow-sm p-6">
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      <!-- Module Details -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block font-medium mb-1">Module Code</label>
+          {{ form.code }}
+        </div>
+        <div>
+          <label class="block font-medium mb-1">Module Name</label>
+          {{ form.name }}
+        </div>
+      </div>
+
+      <!-- Level & Occupation Selection -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block font-medium mb-1">Level</label>
+          {{ form.level }}
+        </div>
+        <div>
+          <label class="block font-medium mb-1">Occupation</label>
+          {{ form.occupation }}
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="flex items-center justify-end space-x-4 pt-6 border-t">
+        <a href="{% url 'module_list' %}" class="text-gray-600 hover:text-gray-800">
+          Cancel
+        </a>
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md">
+          Update Module
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
