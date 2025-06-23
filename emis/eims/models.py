@@ -137,7 +137,7 @@ class Occupation(models.Model):
     updated_by = models.ForeignKey(get_user_model(), related_name='updated_occupations', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
-        return self.name
+        return f"{self.code} - {self.name}"
 
 
 
