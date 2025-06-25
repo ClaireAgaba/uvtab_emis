@@ -77,6 +77,7 @@ urlpatterns = [
     path('users/support-staff/<int:pk>/', views.view_support_staff_detail, name='view_support_staff_detail'),
     path('users/support-staff/<int:pk>/edit/', views.edit_support_staff, name='edit_support_staff'),
     path('candidates/<int:id>/add-regno-to-photo/', views.add_regno_to_photo, name='add_regno_to_photo'),
+    path('candidates/<int:id>/transcript/', views.generate_transcript, name='generate_transcript'),
 
     
 

@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
-
 from django.contrib.auth.decorators import login_required
+from reportlab.platypus import Image as RLImage
+
 
 @login_required
 def results_home(request):
@@ -86,7 +87,6 @@ def download_marksheet(request):
     from .models import Candidate, OccupationLevel, Module, Paper, Result, AssessmentCenter, Occupation, Level, CandidateModule, CandidateLevel
     from openpyxl import Workbook
     from io import BytesIO
-    from django.http import HttpResponse
 
     # Extract params
     month = request.GET.get('assessment_month')
@@ -1184,6 +1184,9 @@ def paper_edit(request, pk):
             return redirect('paper_list')
     else:
         form = PaperForm(instance=paper)
+    # Add current module id as data-initial for JS selection
+    if paper.module:
+        form.fields['module'].widget.attrs['data-initial'] = str(paper.module.id)
     return render(request, 'papers/edit.html', {'form': form, 'paper': paper})
 
 # --- Fees Type Views ---
@@ -1594,6 +1597,466 @@ def candidate_list(request):
 
 
 from django.template.loader import render_to_string
+
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from .models import Candidate, Result, Module, CandidateLevel, CandidateModule, OccupationLevel
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from io import BytesIO
+import os
+from django.conf import settings
+
+import qrcode
+
+@login_required
+def generate_transcript(request, id):
+    """
+    Generate a PDF transcript for a level-module-based candidate, following strict eligibility logic. Adds transcript serial and QR code.
+    """
+    candidate = Candidate.objects.select_related('occupation', 'assessment_center').get(id=id)
+    reg_cat = getattr(candidate, 'registration_category', '').lower()
+
+    # --- Transcript Serial Number ---
+    org_code = candidate.assessment_center.center_number if candidate.assessment_center and hasattr(candidate.assessment_center, 'center_number') else "ORG"
+    occ_code = candidate.occupation.code if candidate.occupation and hasattr(candidate.occupation, 'code') else "XX"
+    serial_number = f"{org_code}/TR {occ_code}{str(candidate.id).zfill(6)}"
+
+    # --- QR Code Data ---
+    level_name = getattr(getattr(candidate, 'level', None), 'name', '')
+    if not level_name:
+        cl = CandidateLevel.objects.filter(candidate=candidate).first()
+        if cl and cl.level:
+            level_name = cl.level.name
+    qr_data = {
+        "name": candidate.full_name,
+        "regno": candidate.reg_number,
+        "occupation": candidate.occupation.name if candidate.occupation else '',
+        "level": level_name,
+        "serial": serial_number
+    }
+    import json
+    qr_str = json.dumps(qr_data, ensure_ascii=False)
+    qr_img = qrcode.make(qr_str)
+    qr_buffer = BytesIO()
+    qr_img.save(qr_buffer, format='PNG')
+    qr_buffer.seek(0)
+    qr_rl_img = RLImage(qr_buffer, width=1.0*inch, height=1.0*inch)
+    qr_rl_img.hAlign = 'LEFT'
+
+    # Only allow for module-based levels
+    occ_level = None
+    level = getattr(candidate, 'level', None)
+    if not level:
+        cl = CandidateLevel.objects.filter(candidate=candidate).first()
+        if cl:
+            level = cl.level
+    # Only allow for module-based levels
+    occ_level = None
+    level = getattr(candidate, 'level', None)
+    if not level:
+        cl = CandidateLevel.objects.filter(candidate=candidate).first()
+        if cl:
+            level = cl.level
+    if candidate.occupation and level:
+        occ_level = OccupationLevel.objects.filter(occupation=candidate.occupation, level=level).first()
+    # PDF generation (image2 style)
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            title="Transcript",
+                            rightMargin=0.4*inch, leftMargin=0.4*inch,
+                            topMargin=0.3*inch, bottomMargin=0.3*inch)
+    elements = []
+    styles = getSampleStyleSheet()
+    normal = styles['Normal']
+    normal.fontSize = 10
+    normal.leading = 12
+    normal.spaceAfter = 0
+    normal.spaceBefore = 0
+    bold = ParagraphStyle('Bold', parent=normal, fontName='Helvetica-Bold')
+    center = ParagraphStyle('Center', parent=normal, alignment=TA_CENTER)
+    red_center = ParagraphStyle('RedCenter', parent=center, textColor=colors.red, fontSize=12, spaceAfter=6)
+    # PDF generation (image2 style)
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            title="Transcript",
+                            rightMargin=0.4*inch, leftMargin=0.4*inch,
+                            topMargin=0.3*inch, bottomMargin=0.3*inch)
+    elements = []
+    styles = getSampleStyleSheet()
+    normal = styles['Normal']
+    normal.fontSize = 10
+    normal.leading = 12
+    normal.spaceAfter = 0
+    normal.spaceBefore = 0
+    bold = ParagraphStyle('Bold', parent=normal, fontName='Helvetica-Bold')
+    center = ParagraphStyle('Center', parent=normal, alignment=TA_CENTER)
+    red_center = ParagraphStyle('RedCenter', parent=center, textColor=colors.red, fontSize=12, spaceAfter=6)
+
+    # 0. Leave space for pre-printed header (about 1.5 inches)
+    elements.append(Spacer(1, 1.5*inch))
+
+    # 1. Top Heading (now lower, logic fixed)
+    # Always define level_name safely
+    level_name = getattr(level, 'name', None)
+    if not level_name:
+        level_name = str(level) if level else ''
+    transcript_heading = ""
+    if reg_cat == 'modular':
+        transcript_heading = "Modular Transcript"
+    elif level_name and level_name.lower() != 'none':
+        # Avoid double 'Level' in heading
+        if level_name.lower().startswith('level'):
+            transcript_heading = f"{level_name} Transcript"
+        else:
+            transcript_heading = f"Level {level_name} Transcript"
+    else:
+        transcript_heading = "Transcript"
+
+    # --- Top Row: Transcript Heading (left), QR code, Serial, and Photo (right, stacked) ---
+    heading_para = Paragraph(transcript_heading, red_center)
+    # Prepare QR code and serial number
+    serial_style = ParagraphStyle('SerialSmall', parent=bold, fontSize=8, textColor=colors.blue, alignment=TA_RIGHT)
+    serial_para = Paragraph(serial_number, serial_style)
+    qr_rl_img.drawWidth = 0.65*inch
+    qr_rl_img.drawHeight = 0.65*inch
+    qr_rl_img.hAlign = 'RIGHT'
+
+    # Prepare photo
+    photo = None
+    if getattr(candidate, 'passport_photo', None) and candidate.passport_photo.name:
+        try:
+            photo_path = candidate.passport_photo.path
+            photo = RLImage(photo_path, width=1.0*inch, height=1.2*inch)
+            photo.hAlign = 'RIGHT'
+        except Exception:
+            photo = Spacer(1, 1.2*inch)
+    else:
+        photo = Spacer(1, 1.2*inch)
+    # Stack QR, serial, photo vertically in right col
+    right_col = [qr_rl_img, Spacer(1, 0.02*inch), serial_para, Spacer(1, 0.06*inch), photo]
+    top_row = Table([
+        [heading_para, right_col]
+    ], colWidths=[4.5*inch, 1.5*inch], hAlign='RIGHT')
+    top_row.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (0,0), 'LEFT'),
+        ('ALIGN', (1,0), (1,0), 'RIGHT'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+    elements.append(Spacer(1, 0.18*inch))
+    elements.append(top_row)
+    elements.append(Spacer(1, 0.035*inch))
+
+    period = candidate.assessment_date.strftime('%d %B %Y') if getattr(candidate, 'assessment_date', None) else ""
+    center_name = candidate.assessment_center.center_name if candidate.assessment_center else ""
+    center_number = candidate.assessment_center.center_number if candidate.assessment_center else ""
+    occupation = candidate.occupation.name if candidate.occupation else ""
+    elements.append(Paragraph(f"<b>Occupation :</b> {occupation}", normal))
+    elements.append(Paragraph(f"<b>Assessment Period:</b> {period}", normal))
+    elements.append(Paragraph(f"<b>Assessment Centre:</b> {center_name}", normal))
+    elements.append(Paragraph(f"<b>Centre Number:</b> {center_number}", normal))
+    elements.append(Spacer(1, 0.08*inch))
+
+    # 3. Personal data table
+    dob = candidate.date_of_birth.strftime('%d %B %Y') if getattr(candidate, 'date_of_birth', None) else ""
+    district = candidate.district.name if getattr(candidate, 'district', None) else ""
+    nationality = dict(candidate.NATIONALITY_CHOICES).get(candidate.nationality, candidate.nationality) if getattr(candidate, 'nationality', None) else ""
+    sex = candidate.get_gender_display() if hasattr(candidate, 'get_gender_display') else candidate.gender
+    regno = candidate.reg_number
+    name = candidate.full_name
+    # --- Personal Data Table (image2 style) ---
+    personal_table_data = [
+        [Paragraph("<b>Name:</b>", normal), name, Paragraph("<b>District of Birth:</b>", normal), district],
+        [Paragraph("<b>Date of Birth:</b>", normal), dob, Paragraph("<b>Nationality:</b>", normal), nationality],
+        [Paragraph("<b>Sex:</b>", normal), sex, Paragraph("<b>Registration No:</b>", normal), regno],
+    ]
+    personal_table = Table(personal_table_data, colWidths=[1.1*inch, 1.7*inch, 1.3*inch, 2.0*inch], hAlign='LEFT')
+    personal_table.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
+        ('FONTNAME', (2,0), (2,-1), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('BOX', (0,0), (-1,-1), 0.7, colors.black),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0.5),
+        ('TOPPADDING', (0,0), (-1,-1), 0.5),
+        ('LEFTPADDING', (0,0), (-1,-1), 3),
+        ('RIGHTPADDING', (0,0), (-1,-1), 3),
+    ]))
+    elements.append(personal_table)
+    elements.append(Spacer(1, 0.08*inch))
+
+
+    # 4. Assessment Result
+    elements.append(Paragraph("<b>ASSESSMENT RESULT</b>", center))
+    elements.append(Spacer(1, 0.025*inch))
+
+    reg_cat = getattr(candidate, 'registration_category', '').lower()
+    transcript_heading = None
+    if reg_cat == 'modular':
+        from .models import CandidateModule, Result
+        candidate_modules = CandidateModule.objects.filter(candidate=candidate)
+        result_headers = [Paragraph("Module", bold), Paragraph("Grade", bold)]
+        result_table_data = [result_headers]
+        all_passed = True
+        for candidate_module in candidate_modules:
+            module = candidate_module.module
+            result = Result.objects.filter(candidate=candidate, module=module).order_by('-assessment_date').first()
+            grade = result.grade if result else ''
+            if not result or result.comment != 'Successful':
+                all_passed = False
+            result_table_data.append([module.name, grade])
+        result_table = Table(result_table_data, hAlign='CENTER', colWidths=[3.5*inch, 1.5*inch])
+        result_table.setStyle(TableStyle([
+            ('BOX', (0,0), (-1,-1), 1, colors.black),
+            ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('FONTSIZE', (0,0), (-1,-1), 10),
+            ('LEFTPADDING', (0,0), (-1,-1), 3),
+            ('RIGHTPADDING', (0,0), (-1,-1), 3),
+            ('TOPPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ]))
+        elements.append(result_table)
+        elements.append(Spacer(1, 0.04*inch))
+        overall_comp = "Successful" if all_passed else "Unsuccessful"
+        elements.append(Paragraph(f"Overall Competence: {overall_comp}", bold))
+        elements.append(Spacer(1, 0.03*inch))
+        elements.append(Spacer(1, 0.015*inch))
+
+
+
+
+    else:
+        # Level-based: use the Level name (e.g., 'Level 1 Transcript')
+        level_name = ''
+        if level:
+            level_name = str(level)
+        elif occ_level and occ_level.level:
+            level_name = str(occ_level.level)
+        if level_name:
+            transcript_heading = f'{level_name} Transcript'
+        else:
+            transcript_heading = 'Level Transcript'
+        from .models import Paper, Result
+        papers = Paper.objects.filter(level=level, occupation=candidate.occupation)
+        is_module_based = occ_level and occ_level.structure_type == 'modules'
+        is_paper_based = occ_level and occ_level.structure_type == 'papers'
+        level_number = None
+        if hasattr(level, 'name') and level.name:
+            try:
+                level_number = int(''.join(filter(str.isdigit, str(level.name))))
+            except Exception:
+                level_number = None
+        if is_module_based:
+            result_headers = [Paragraph("Paper", bold), Paragraph("Grade", bold)]
+            result_table_data = [result_headers]
+            theory_paper = papers.filter(grade_type='theory').first()
+            practical_paper = papers.filter(grade_type='practical').first()
+            theory_result = Result.objects.filter(candidate=candidate, paper=theory_paper).order_by('-assessment_date').first() if theory_paper else None
+            practical_result = Result.objects.filter(candidate=candidate, paper=practical_paper).order_by('-assessment_date').first() if practical_paper else None
+            eligible = False
+            overall_comp = ''
+            if level_number and level_number >= 3:
+                if practical_result and practical_result.comment == 'Successful' and theory_result and theory_result.comment == 'Successful':
+                    eligible = True
+                    overall_comp = "Successful"
+            else:
+                if practical_result and practical_result.comment == 'Successful':
+                    eligible = True
+                    if not theory_result or theory_result.comment != 'Successful':
+                        overall_comp = "Successful in Practical Only"
+                    else:
+                        overall_comp = "Successful"
+            # Improved eligibility and display logic for level module-based candidates
+            # Level 1/2: transcript issued if Practical is 'Successful' (Theory can be failed/CTR)
+            # Level 3/4: both must be 'Successful'
+            # If Practical is 'CTR', block transcript
+            # Always show a row for each passed component as appropriate
+            practical_status = practical_result.comment if practical_result else None
+            theory_status = theory_result.comment if theory_result else None
+
+            eligible = False
+            overall_comp = ''
+            show_theory = False
+            show_practical = False
+
+            if level_number and level_number >= 3:
+                # Level 3/4: both must be 'Successful'
+                if practical_status == 'Successful' and theory_status == 'Successful':
+                    eligible = True
+                    show_theory = True
+                    show_practical = True
+                    overall_comp = 'Successful'
+            else:
+                # Level 1/2: Practical must be 'Successful', Theory can be anything
+                if practical_status == 'Successful':
+                    eligible = True
+                    show_practical = True
+                    if theory_status == 'Successful':
+                        show_theory = True
+                        overall_comp = 'Successful'
+                    else:
+                        overall_comp = 'Successful in Practical Only'
+                elif practical_status == 'CTR':
+                    eligible = False
+                else:
+                    eligible = False
+
+            if not eligible:
+                return HttpResponse("Candidate doesn't qualify.")
+
+            if show_theory:
+                result_table_data.append([
+                    Paragraph(theory_paper.code + " - " + theory_paper.name, normal),
+                    Paragraph(theory_result.grade, normal)
+                ])
+            if show_practical:
+                result_table_data.append([
+                    Paragraph(practical_paper.code + " - " + practical_paper.name, normal),
+                    Paragraph(practical_result.grade, normal)
+                ])
+
+            col_widths = [3.5*inch, 1.0*inch]
+            result_table = Table(result_table_data, colWidths=col_widths, hAlign='LEFT')
+            result_table.setStyle(TableStyle([
+                ('BOX', (0,0), (-1,-1), 1, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ('FONTSIZE', (0,0), (-1,-1), 10),
+                ('LEFTPADDING', (0,0), (-1,-1), 3),
+                ('RIGHTPADDING', (0,0), (-1,-1), 3),
+                ('TOPPADDING', (0,0), (-1,-1), 2),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+            ]))
+            elements.append(result_table)
+            elements.append(Spacer(1, 0.1*inch))
+            elements.append(Paragraph(f"Overall Competence: {overall_comp}", bold))
+            elements.append(Spacer(1, 0.18*inch))  # Add extra space before grading table
+        elif is_paper_based:
+            result_headers = [Paragraph("Paper", bold), Paragraph("Grade", bold)]
+            result_table_data = [result_headers]
+            candidate_results = Result.objects.filter(candidate=candidate, paper__level=level, paper__occupation=candidate.occupation).order_by('assessment_date', 'paper__module', 'paper__code')
+            practical_results = [r for r in candidate_results if r.paper and r.paper.grade_type == 'practical']
+            theory_results = [r for r in candidate_results if r.paper and r.paper.grade_type == 'theory']
+            all_practical_successful = all(r.comment == 'Successful' for r in practical_results) and practical_results
+            all_theory_successful = all(r.comment == 'Successful' for r in theory_results) and theory_results
+            eligible = False
+            overall_comp = ''
+            if level_number and level_number >= 3:
+                if all_practical_successful and all_theory_successful:
+                    eligible = True
+                    overall_comp = "Successful"
+            else:
+                if all_practical_successful:
+                    eligible = True
+                    if not all_theory_successful:
+                        overall_comp = "Successful in Practical Only"
+                    else:
+                        overall_comp = "Successful"
+            if not eligible:
+                return HttpResponse("Candidate doesn't qualify.")
+            for result in candidate_results:
+                paper = result.paper
+                if not paper:
+                    continue
+                result_table_data.append([
+                    Paragraph(f"{paper.code} - {paper.name}", normal),
+                    Paragraph(result.grade, normal)
+                ])
+            col_widths = [3.5*inch, 1.0*inch]
+            result_table = Table(result_table_data, colWidths=col_widths, hAlign='LEFT')
+            result_table.setStyle(TableStyle([
+                ('BOX', (0,0), (-1,-1), 1, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ('FONTSIZE', (0,0), (-1,-1), 10),
+                ('LEFTPADDING', (0,0), (-1,-1), 3),
+                ('RIGHTPADDING', (0,0), (-1,-1), 3),
+                ('TOPPADDING', (0,0), (-1,-1), 2),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+            ]))
+            elements.append(result_table)
+            elements.append(Spacer(1, 0.1*inch))
+            elements.append(Paragraph(f"Overall Competence: {overall_comp}", bold))
+            elements.append(Spacer(1, 0.18*inch))  # Add extra space before grading table
+
+# Only one grading key table and pass mark note, based on candidate type
+    theory_bands = [
+        ('85-100', 'A+'),
+        ('80-84', 'A'),
+        ('70-79', 'B'),
+        ('60-69', 'B-'),
+        ('50-59', 'C'),
+        ('40-49', 'C-'),
+        ('30-39', 'D'),
+        ('0-29', 'E'),
+    ]
+    practical_bands = [
+        ('90-100', 'A+'),
+        ('85-89', 'A'),
+        ('75-84', 'B+'),
+        ('65-74', 'B'),
+        ('60-64', 'B-'),
+        ('55-59', 'C'),
+        ('50-54', 'C-'),
+        ('40-49', 'D'),
+        ('30-39', 'D-'),
+        ('0-29', 'E'),
+    ]
+    grading_key_data = [
+        [Paragraph('<b>KEY : GRADING</b>', normal), '', '', ''],
+        [Paragraph('<b>THEORY SCORES</b>', normal), Paragraph('Score %', normal), Paragraph('<b>PRACTICAL SCORES</b>', normal), Paragraph('Score %', normal)],
+        [Paragraph('Grade', normal), Paragraph('Scores%', normal), Paragraph('Grade', normal), Paragraph('Scores%', normal)],
+    ]
+    # Render the bands row by row, filling empty cells if needed
+    max_rows = max(len(theory_bands), len(practical_bands))
+    for i in range(max_rows):
+        t_score, t_grade = theory_bands[i] if i < len(theory_bands) else ('', '')
+        p_score, p_grade = practical_bands[i] if i < len(practical_bands) else ('', '')
+        grading_key_data.append([
+            Paragraph(f"{t_score}", normal), Paragraph(f"{t_grade}", normal),
+            Paragraph(f"{p_score}", normal), Paragraph(f"{p_grade}", normal)
+        ])
+
+    grading_key_table = Table(grading_key_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch], hAlign='LEFT')
+    grading_key_table.setStyle(TableStyle([
+        ('SPAN', (0,0), (3,0)),  # Span the first row across all columns
+        ('SPAN', (0,1), (1,1)),  # Span the second row across first two columns
+        ('TOPPADDING', (0,0), (-1,-1), 0.5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0.5),
+        ('SPAN', (2,1), (3,1)),  # Span the second row across last two columns
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('LEFTPADDING', (0,0), (-1,-1), 3),
+        ('RIGHTPADDING', (0,0), (-1,-1), 3),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        # No BOX or INNERGRID: no visible borders
+    ]))
+    elements.append(grading_key_table)
+    elements.append(Spacer(1, 0.08*inch))
+    elements.append(Paragraph('Pass mark is 50% in theory and 65% in practical assessment', normal))
+    # No trailing spacers after this point to prevent a blank second page
+    doc.build(elements)
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="transcript_{candidate.reg_number}.pdf"'
+    return response
+
 
 def candidate_create(request):
     reg_cat = request.GET.get('registration_category')
