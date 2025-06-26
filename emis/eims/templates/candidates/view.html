@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load enrollment_extras %}
+{% load country_extras %}
 
 {% if request.user.is_superuser %}
   <pre>
@@ -149,7 +150,8 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       <div class="grid grid-cols-2 gap-x-8 gap-y-2">
         <p><span class="font-semibold text-gray-700">Gender:</span> {{ candidate.gender }}</p>
         <p><span class="font-semibold text-gray-700">Date of Birth:</span> {{ candidate.date_of_birth }}</p>
-        <p><span class="font-semibold text-gray-700">Nationality:</span> {{ candidate.nationality }}</p>
+        <p><span class="font-semibold text-gray-700">Nationality:</span> {{ candidate.nationality|country_name }}</p>
+        <p><span class="font-semibold text-gray-700">Nationality:</span> {{ candidate.nationality|country_name }}</p>
         <p><span class="font-semibold text-gray-700">Contact:</span> {{ candidate.contact }}</p>
         <p><span class="font-semibold text-gray-700">Assessment Center:</span> <span data-field="assessment_center">{{ candidate.assessment_center.center_name }}</span></p>
         <p><span class="font-semibold text-gray-700">Occupation:</span> <span data-field="occupation">{{ candidate.occupation.name }}</span></p>
@@ -264,17 +266,15 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
           <div class="flex items-center justify-between mb-2">
             <h2 class="text-lg font-semibold">Results for {{ lvl.level.name }}</h2>
             {% if request.user.is_superuser %}
-  {% if level_has_results|get_item:lvl.level.id|stringformat:"s" %}
-    <a href="{% url 'edit_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
-  {% else %}
-    {% if lvl.modules and lvl.modules|length > 0 %}
-      <a href="{% url 'add_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
-    {% else %}
-      <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
-      <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
-    {% endif %}
-  {% endif %}
-{% endif %}
+              {% if level_has_results|get_item:lvl.level.id|stringformat:"s" %}
+                <a href="{% url 'edit_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+              {% elif lvl.modules and lvl.modules|length > 0 %}
+                <a href="{% url 'add_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
+              {% else %}
+                <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
+                <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
+              {% endif %}
+            {% endif %}
           </div>
           <table class="min-w-full mb-4 border border-gray-300">
             <thead>
@@ -290,6 +290,8 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
                 <th class="py-2 px-4 text-left">Comment</th>
                 <th class="py-2 px-4 text-left">Status</th>
                 <th class="py-2 px-4 text-left">Date</th>
+
+                
                 <th class="py-2 px-4 text-left">User</th>
               </tr>
             </thead>
@@ -325,33 +327,35 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     <div class="bg-white p-4 rounded shadow mt-4">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-lg font-semibold">Results</h2>
-        {% if results and results.count %}
-          {% if request.user.is_superuser %}
-            {% if candidate.registration_category == 'Modular' %}
+        {% if request.user.is_superuser %}
+          {% if candidate.registration_category == 'Informal' or candidate.registration_category == "Worker's PAS" or candidate.registration_category == 'Workers PAS' %}
+            {% if results and results.count %}
               <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
             {% else %}
+              <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
+            {% endif %}
+          {% elif candidate.registration_category == 'Modular' %}
+            {% if results and results.count %}
               <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+            {% elif module_enrollments.count > 0 %}
+              <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
+            {% else %}
+              <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
+              <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
             {% endif %}
           {% else %}
-          <button class="bg-blue-300 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled>Add Marks</button>
-        {% endif %}
-      {% else %}
-        {% if candidate.registration_category == 'Modular' %}
-          {% if module_enrollments.count > 0 %}
-            <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
-          {% else %}
-            <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
-            <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
+            {% if results and results.count %}
+              <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+            {% elif level_enrollment %}
+              <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
+            {% else %}
+              <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
+              <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
+            {% endif %}
           {% endif %}
         {% else %}
-          {% if level_enrollment %}
-            <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
-          {% else %}
-            <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
-            <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
-          {% endif %}
+          <button class="bg-blue-300 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled>Add Marks</button>
         {% endif %}
-      {% endif %}
     </div>
     {% if results and results.count %}
       <div class="overflow-x-auto">

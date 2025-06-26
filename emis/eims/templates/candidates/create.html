@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load country_extras %}
 
 {% block content %}
 
@@ -58,6 +59,7 @@
     <div>
       <label class="block font-semibold mb-1">Nationality</label>
       {{ form.nationality }}
+      <small class="text-gray-500">Please select the candidate's country of nationality.</small>
     </div>
 
     <!-- Contact & Location -->

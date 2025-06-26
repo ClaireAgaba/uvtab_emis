@@ -292,19 +292,21 @@ def candidate_import_dual(request):
                         except Exception:
                             errors.append(f"Row {idx}: Invalid date format in '{date_field}'. Use D/M/YYYY or DD/MM/YYYY.")
                             continue
-            # Nationality: accept both code and label
-            # Ensure nationality is string before strip/lower
+            # Nationality: must be a valid country name (case-insensitive)
+            from django_countries import countries
             nat_val = form_data.get('nationality', '')
             if not isinstance(nat_val, str):
                 nat_val = str(nat_val)
-            nat_val = nat_val.strip().lower()
-            if nat_val in ['u', 'ugandan']:
-                form_data['nationality'] = 'U'
-            elif nat_val in ['x', 'foreigner']:
-                form_data['nationality'] = 'X'
-            else:
-                errors.append(f"Row {idx}: Nationality '{form_data.get('nationality')}' is not one of the available choices (use 'Ugandan' or 'Foreigner').")
+            nat_val = nat_val.strip()
+            valid_countries = [c[0].lower() for c in countries] + [c[1].lower() for c in countries]
+            if nat_val.lower() not in valid_countries:
+                errors.append(f"Row {idx}: Nationality '{form_data.get('nationality')}' is not a valid country. Please use a country name from the dropdown.")
                 continue
+            # Store as country name (display value)
+            for code, name in countries:
+                if nat_val.lower() in (code.lower(), name.lower()):
+                    form_data['nationality'] = name
+                    break
             # Occupation and assessment center: lookup by code
             occ_code = str(form_data.get('occupation')) if form_data.get('occupation') is not None else ''
             center_code = str(form_data.get('assessment_center')) if form_data.get('assessment_center') is not None else ''
@@ -503,15 +505,21 @@ def candidate_import(request):
                 except Exception:
                     errors.append(f"Row {idx}: Invalid date format in '{date_field}'. Use DD/MM/YYYY.")
                     continue
-        # Nationality: accept both code and label
-        nat_val = form_data.get('nationality', '').strip().lower()
-        if nat_val in ['u', 'ugandan']:
-            form_data['nationality'] = 'U'
-        elif nat_val in ['x', 'foreigner']:
-            form_data['nationality'] = 'X'
-        else:
-            errors.append(f"Row {idx}: Nationality '{form_data.get('nationality')}' is not one of the available choices (use 'Ugandan' or 'Foreigner').")
+        # Nationality: must be a valid country name (case-insensitive)
+        from django_countries import countries
+        nat_val = form_data.get('nationality', '')
+        if not isinstance(nat_val, str):
+            nat_val = str(nat_val)
+        nat_val = nat_val.strip()
+        valid_countries = [c[0].lower() for c in countries] + [c[1].lower() for c in countries]
+        if nat_val.lower() not in valid_countries:
+            errors.append(f"Row {idx}: Nationality '{form_data.get('nationality')}' is not a valid country. Please use a country name from the dropdown.")
             continue
+        # Store as country name (display value)
+        for code, name in countries:
+            if nat_val.lower() in (code.lower(), name.lower()):
+                form_data['nationality'] = name
+                break
         # Occupation and assessment center: lookup by code
         occ_code = str(form_data.get('occupation')) if form_data.get('occupation') is not None else ''
         center_code = str(form_data.get('assessment_center')) if form_data.get('assessment_center') is not None else ''
@@ -1768,7 +1776,13 @@ def generate_transcript(request, id):
     # 3. Personal data table
     dob = candidate.date_of_birth.strftime('%d %B %Y') if getattr(candidate, 'date_of_birth', None) else ""
     district = candidate.district.name if getattr(candidate, 'district', None) else ""
-    nationality = dict(candidate.NATIONALITY_CHOICES).get(candidate.nationality, candidate.nationality) if getattr(candidate, 'nationality', None) else ""
+    # Always display full country name for nationality
+    from django_countries import countries
+    nationality = candidate.nationality if getattr(candidate, 'nationality', None) else ""
+    # If nationality is a 2-letter code, convert to country name
+    if nationality and len(nationality) == 2 and nationality.isupper():
+        code_to_name = dict(countries)
+        nationality = code_to_name.get(nationality, nationality)
     sex = candidate.get_gender_display() if hasattr(candidate, 'get_gender_display') else candidate.gender
     regno = candidate.reg_number
     name = candidate.full_name
@@ -1810,7 +1824,12 @@ def generate_transcript(request, id):
         all_passed = True
         for candidate_module in candidate_modules:
             module = candidate_module.module
-            result = Result.objects.filter(candidate=candidate, module=module).order_by('-assessment_date').first()
+            # Fetch all results for this candidate and module, newest first
+            results = Result.objects.filter(candidate=candidate, module=module).order_by('-assessment_date')
+            # Find the latest successful result, else fallback to latest result
+            result = next((r for r in results if r.comment == 'Successful'), None)
+            if not result:
+                result = results.first() if results else None
             grade = result.grade if result else ''
             if not result or result.comment != 'Successful':
                 all_passed = False
@@ -1947,9 +1966,22 @@ def generate_transcript(request, id):
         elif is_paper_based:
             result_headers = [Paragraph("Paper", bold), Paragraph("Grade", bold)]
             result_table_data = [result_headers]
-            candidate_results = Result.objects.filter(candidate=candidate, paper__level=level, paper__occupation=candidate.occupation).order_by('assessment_date', 'paper__module', 'paper__code')
-            practical_results = [r for r in candidate_results if r.paper and r.paper.grade_type == 'practical']
-            theory_results = [r for r in candidate_results if r.paper and r.paper.grade_type == 'theory']
+            # For each paper, find the latest successful result (if any), else latest result
+            from collections import defaultdict
+            paper_results = defaultdict(list)
+            for r in Result.objects.filter(candidate=candidate, paper__level=level, paper__occupation=candidate.occupation).order_by('-assessment_date'):
+                if r.paper:
+                    paper_results[r.paper.id].append(r)
+            practical_results = []
+            theory_results = []
+            for paper_id, results in paper_results.items():
+                paper = results[0].paper
+                latest_success = next((r for r in results if r.comment == 'Successful'), None)
+                result = latest_success if latest_success else results[0]
+                if paper.grade_type == 'practical':
+                    practical_results.append(result)
+                elif paper.grade_type == 'theory':
+                    theory_results.append(result)
             all_practical_successful = all(r.comment == 'Successful' for r in practical_results) and practical_results
             all_theory_successful = all(r.comment == 'Successful' for r in theory_results) and theory_results
             eligible = False
@@ -1967,10 +1999,10 @@ def generate_transcript(request, id):
                         overall_comp = "Successful"
             if not eligible:
                 return HttpResponse("Candidate doesn't qualify.")
-            for result in candidate_results:
-                paper = result.paper
-                if not paper:
-                    continue
+            for paper_id, results in paper_results.items():
+                paper = results[0].paper
+                latest_success = next((r for r in results if r.comment == 'Successful'), None)
+                result = latest_success if latest_success else results[0]
                 result_table_data.append([
                     Paragraph(f"{paper.code} - {paper.name}", normal),
                     Paragraph(result.grade, normal)
@@ -2433,7 +2465,7 @@ def add_result(request, id):
     from .models import Candidate, Result, Module, Paper, Level, OccupationLevel, CandidateLevel, CandidatePaper
     from .forms import ResultForm, ModularResultsForm, WorkerPASPaperResultsForm
     candidate = get_object_or_404(Candidate, id=id)
-    reg_cat = candidate.registration_category
+    reg_cat = getattr(candidate, 'registration_category', '').strip().lower()
     context = {'candidate': candidate}
 
     # Worker PAS/informal: mark per enrolled paper
@@ -2485,7 +2517,13 @@ def add_result(request, id):
                         )
                 return redirect('candidate_view', id=candidate.id)
         else:
-            form = WorkerPASPaperResultsForm(candidate=candidate, level=level)
+            # Default assessment month/year to candidate's enrolled period for this level
+            initial = {}
+            cl = CandidateLevel.objects.filter(candidate=candidate, level=level).first()
+            if cl and cl.start_date:
+                initial['month'] = str(cl.start_date.month)
+                initial['year'] = str(cl.start_date.year)
+            form = WorkerPASPaperResultsForm(candidate=candidate, level=level, initial=initial)
         context['form'] = form
         context['is_worker_pas'] = True
         context['paper_mark_fields'] = [(cp.paper, form[f'mark_{cp.paper.id}']) for cp in enrolled_papers]
@@ -2661,7 +2699,7 @@ def enroll_candidate_view(request, id):
                         CandidateModule.objects.create(candidate=candidate, module=module)
                     messages.success(request, f"{candidate.full_name} enrolled for {len(modules)} module(s)")
 
-            # Handle worker's PAS/informal registration (level + one paper per module)
+            # Handle informal registration (level + one paper per module)
             elif registration_category in ['Informal', "Worker's PAS", 'Workers PAS', 'informal', "worker's pas"]:
                 from .models import CandidatePaper
                 level = form.cleaned_data['level']
@@ -2829,11 +2867,12 @@ def candidate_view(request, id):
     candidate = get_object_or_404(Candidate, id=id)
 
     reg_cat = candidate.registration_category
+    reg_cat_normalized = reg_cat.strip().lower() if reg_cat else ''
     level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
 
     # Multi-level enrollment summary for worker's PAS/informal
     enrollment_summary = []
-    if reg_cat == "Informal":
+    if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
         level_enrollments = CandidateLevel.objects.filter(candidate=candidate)
         for lvl_enroll in level_enrollments:
             modules = CandidateModule.objects.filter(candidate=candidate, module__level=lvl_enroll.level)
@@ -2857,7 +2896,7 @@ def candidate_view(request, id):
             mod_enroll.papers = list(Paper.objects.filter(module=mod_enroll.module))
 
     # Attach papers for each module_enrollment (for backward compatibility)
-    if reg_cat in ["worker's pas", 'workers pas', 'informal'] and level_enrollment:
+    if reg_cat_normalized in ["worker's pas", "workers pas", "informal"] and level_enrollment:
         for mod_enroll in module_enrollments:
             candidate_paper = CandidatePaper.objects.filter(
                 candidate_id=candidate.id,
@@ -2869,7 +2908,17 @@ def candidate_view(request, id):
         for mod_enroll in module_enrollments:
             mod_enroll.papers = list(Paper.objects.filter(module=mod_enroll.module))
 
-    results = Result.objects.filter(candidate=candidate).order_by('assessment_date', 'level', 'module', 'paper')
+    # Only show results for currently enrolled levels/papers for Informal/Worker PAS
+    if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
+        enrolled_level_ids = [row['level'].id for row in enrollment_summary]
+        enrolled_paper_ids = set()
+        for row in enrollment_summary:
+            for mod in row['modules']:
+                for paper in mod['papers']:
+                    enrolled_paper_ids.add(paper.id)
+        results = Result.objects.filter(candidate=candidate, level_id__in=enrolled_level_ids, paper_id__in=enrolled_paper_ids)
+    else:
+        results = Result.objects.filter(candidate=candidate).order_by('assessment_date', 'level', 'module', 'paper')
     level_has_results = {}
     for row in enrollment_summary:
         lvl = row['level']
@@ -2878,7 +2927,8 @@ def candidate_view(request, id):
             for paper in mod['papers']:
                 enrolled_paper_ids.add(paper.id)
         result_paper_ids = set(results.filter(level_id=lvl.id).values_list('paper_id', flat=True))
-        level_has_results[str(lvl.id)] = bool(enrolled_paper_ids) and enrolled_paper_ids.issubset(result_paper_ids)
+        # Only True if ALL enrolled papers have results for this level
+        level_has_results[str(lvl.id)] = bool(enrolled_paper_ids) and enrolled_paper_ids == result_paper_ids and len(result_paper_ids) > 0
     # Convert all keys to string for template consistency
     # (already done above for lvl.id)
 

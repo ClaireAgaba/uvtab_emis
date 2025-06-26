@@ -3,6 +3,9 @@ from django.contrib.auth.models import User, Group
 from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, FeesType, Result
 from datetime import datetime   
 
+from django_countries.fields import CountryField
+from django_countries.widgets import CountrySelectWidget
+
 CURRENT_YEAR = datetime.now().year
 YEAR_CHOICES = [(year, year) for year in range(CURRENT_YEAR, CURRENT_YEAR - 30, -1)]
 
@@ -173,6 +176,10 @@ class CandidateForm(forms.ModelForm):
     entry_year = forms.ChoiceField(
         choices=YEAR_CHOICES,
         widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'})
+    )
+    # Use a country list for nationality
+    nationality = CountryField(blank_label='(Select country)').formfield(
+        widget=CountrySelectWidget(attrs={'class': 'border rounded px-3 py-2 w-full'})
     )
 
     def __init__(self, *args, **kwargs):
@@ -572,7 +579,19 @@ class ModularResultsForm(forms.Form):
     year = forms.ChoiceField(choices=YEAR_CHOICES, label="Assessment Year", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
 
     def __init__(self, *args, **kwargs):
+        import datetime
         candidate = kwargs.pop('candidate', None)
+        # Set initial month/year from candidate.assessment_date if available
+        initial = kwargs.get('initial', {}) or {}
+        if candidate and getattr(candidate, 'assessment_date', None):
+            adate = candidate.assessment_date
+            initial.setdefault('month', adate.month)
+            initial.setdefault('year', adate.year)
+        else:
+            today = datetime.date.today()
+            initial.setdefault('month', today.month)
+            initial.setdefault('year', today.year)
+        kwargs['initial'] = initial
         super().__init__(*args, **kwargs)
         self.modules = []
         if candidate:

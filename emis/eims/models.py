@@ -262,8 +262,6 @@ class Result(models.Model):
 class Candidate(models.Model):
     from django.contrib.auth import get_user_model
     GENDER_CHOICES = [('M', 'Male'), ('F', 'Female')]
-    NATIONALITY_CHOICES = [('U', 'Ugandan'), ('X', 'Foreigner')]
-
     # Section 1 - Personal Information
     full_name = models.CharField(max_length=255)
     passport_photo = models.ImageField(upload_to='candidate_photos/', blank=True, null=True)
@@ -271,7 +269,7 @@ class Candidate(models.Model):
     passport_photo_with_regno = models.ImageField(upload_to='candidate_photos/regno/', blank=True, null=True)
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
-    nationality = models.CharField(max_length=1, choices=NATIONALITY_CHOICES)
+    nationality = models.CharField(max_length=64, help_text="Specify country of nationality (e.g. Ugandan, Kenyan, Rwandan, etc.)")
 
     # Section 2 - Contact and Location
     contact = models.CharField(max_length=20, blank=True)
@@ -317,7 +315,8 @@ class Candidate(models.Model):
         Serial is always unique for (center, intake, year, occupation, reg cat).
         """
         from django.db import transaction
-        nat      = self.nationality            # “U”, “X”, …
+        # Use 'U' for Ugandan, 'X' for any other country
+        nat = 'U' if str(self.nationality).strip().lower() == 'ugandan' else 'X'
         year     = str(self.entry_year)[-2:]    # last 2 digits
         intake   = self.intake.upper()          # “M” or “A”
         occ_code = self.occupation.code if self.occupation else "XXX"
