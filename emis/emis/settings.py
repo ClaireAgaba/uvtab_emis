@@ -144,3 +144,14 @@ SESSION_SAVE_EVERY_REQUEST = True # Reset timer on each request for inactivity t
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True # Expire session when browser is closed
 
 
+COUNTRIES_FIRST = [
+    'UG',  # Uganda
+    'KE',  # Kenya
+    'SS',  # South Sudan
+    'CD',  # Democratic Republic of the Congo
+    'TZ',  # Tanzania
+]
+
+# Optional: Add a separator if you like
+from django.utils.translation import gettext_lazy as _
+COUNTRIES_FIRST_BREAK = _("--- Other Countries ---")
