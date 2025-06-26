@@ -27,6 +27,7 @@ jobs:
         script: |
           cd /home/deploy/uvtab_emis/uvtab_emis/
           source venv/bin/activate
+          pip install -r requirements.txt
           cd /home/deploy/uvtab_emis/uvtab_emis/emis
           git pull origin main
           python manage.py migrate --noinput

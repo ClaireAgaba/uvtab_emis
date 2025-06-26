@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from django.utils.translation import gettext_lazy as _
+from datetime import timedelta
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_auto_logout',
     'eims',
     'widget_tweaks',
 
@@ -50,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_auto_logout.middleware.auto_logout',
 ]
 
 ROOT_URLCONF = 'emis.urls'
@@ -152,6 +157,11 @@ COUNTRIES_FIRST = [
     'TZ',  # Tanzania
 ]
 
-# Optional: Add a separator if you like
-from django.utils.translation import gettext_lazy as _
+
 COUNTRIES_FIRST_BREAK = _("--- Other Countries ---")
+
+AUTO_LOGOUT = {
+        'IDLE_TIME': timedelta(minutes=30),  # Logout after 10 minutes of inactivity
+        # 'SESSION_TIME': timedelta(minutes=), # Logout after 1 hour from last login (optional)
+        'MESSAGE': 'Your session has expired due to inactivity. Please log in again.', # Optional message
+    }
