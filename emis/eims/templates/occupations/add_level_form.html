@@ -1,0 +1,6 @@
+<form method="post" action="{% url 'add_level' occupation.id %}" style="margin-bottom: 1em;">
+  {% csrf_token %}
+  <input type="text" name="level_name" placeholder="Level Name (e.g. Level 1)" required>
+  <button type="submit">Add Level</button>
+  {% if error %}<span style="color:red">{{ error }}</span>{% endif %}
+</form>

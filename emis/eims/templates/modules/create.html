@@ -28,17 +28,46 @@
         </div>
       </div>
 
-      <!-- Level & Occupation Selection -->
+      <!-- Occupation & Level Selection (Occupation first) -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label class="block font-medium mb-1">Level</label>
-          {{ form.level }}
+          <label class="block font-medium mb-1">Occupation</label>
+          <select id="occupation-select" name="occupation" required class="border rounded px-2 py-1 w-full">
+            <option value="">---------</option>
+            {% for occ in form.fields.occupation.queryset %}
+              <option value="{{ occ.id }}">{{ occ.code }} - {{ occ.name }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div>
-          <label class="block font-medium mb-1">Occupation</label>
-          {{ form.occupation }}
+          <label class="block font-medium mb-1">Level</label>
+          <select id="level-select" name="level" required class="border rounded px-2 py-1 w-full" disabled>
+            <option value="">Select occupation first</option>
+          </select>
         </div>
       </div>
+      <script>
+      document.getElementById('occupation-select').addEventListener('change', function() {
+        var occId = this.value;
+        var levelSelect = document.getElementById('level-select');
+        levelSelect.innerHTML = '<option value="">Loading...</option>';
+        levelSelect.disabled = true;
+        if (occId) {
+          fetch('/eims/api/levels-for-occupation/?occupation_id=' + occId)
+            .then(response => response.json())
+            .then(data => {
+              levelSelect.innerHTML = '<option value="">Select level</option>';
+              data.levels.forEach(function(level) {
+                levelSelect.innerHTML += `<option value="${level.id}">${level.name}</option>`;
+              });
+              levelSelect.disabled = false;
+            });
+        } else {
+          levelSelect.innerHTML = '<option value="">Select occupation first</option>';
+          levelSelect.disabled = true;
+        }
+      });
+      </script>
 
       <!-- Form Actions -->
       <div class="flex items-center justify-end space-x-4 pt-6 border-t">

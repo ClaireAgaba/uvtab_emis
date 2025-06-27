@@ -30,6 +30,9 @@
       </div>
       {% endfor %}
 
+      <!-- Add Level Inline Form -->
+      {% include 'occupations/add_level_form.html' with occupation=occupation error=add_level_error %}
+
       <!-- Levels & Structure Type Section -->
       <div class="mt-6">
         <label class="block font-medium mb-2">Levels & Structure Type</label>

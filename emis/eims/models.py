@@ -140,13 +140,12 @@ class Occupation(models.Model):
         return f"{self.code} - {self.name}"
 
 
-
 class Level(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    # occupation = models.ForeignKey(Occupation, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    occupation = models.ForeignKey('Occupation', on_delete=models.CASCADE, related_name='levels')
 
-    def __str__(self):
-        return self.name
+    class Meta:
+        unique_together = ('name', 'occupation')
 
 class OccupationLevel(models.Model):
     STRUCTURE_CHOICES = [

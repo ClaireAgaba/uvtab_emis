@@ -47,17 +47,34 @@
     <!-- Levels Section (Full Width) -->
     <div class="mt-6">
       <label class="block font-medium mb-2">Levels & Structure Type</label>
-      <div class="bg-gray-50 p-4 rounded space-y-3">
-        {% for level in levels %}
-          <div class="flex items-center space-x-4">
-            <input type="checkbox" id="level_{{ level.id }}" name="levels" value="{{ level.id }}">
-            <label for="level_{{ level.id }}" class="mr-4">{{ level.name }}</label>
-            <select name="structure_type_{{ level.id }}" class="border rounded px-2 py-1">
-              <option value="modules">Modules</option>
-              <option value="papers">Papers</option>
-            </select>
-          </div>
-        {% endfor %}
+      <div id="levels-list" class="bg-gray-50 p-4 rounded space-y-3">
+        <!-- JS will add rows here -->
+      </div>
+      <button type="button" onclick="addLevelRow()" class="mt-2 px-3 py-1 bg-blue-600 text-white rounded">Add Level</button>
+      <input type="hidden" id="num_levels" name="num_levels" value="0">
+    </div>
+    <script>
+      let levelCount = 0;
+      function addLevelRow(name='', structure='modules') {
+        levelCount++;
+        document.getElementById('num_levels').value = levelCount;
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-4 level-row';
+        row.innerHTML = `
+          <input type="text" name="level_name_${levelCount}" placeholder="Level Name" value="${name}" required class="border rounded px-2 py-1">
+          <select name="structure_type_${levelCount}" class="border rounded px-2 py-1">
+            <option value="modules" ${structure==='modules'?'selected':''}>Modules</option>
+            <option value="papers" ${structure==='papers'?'selected':''}>Papers</option>
+          </select>
+          <button type="button" onclick="this.parentElement.remove(); updateNumLevels();" class="px-2 py-1 bg-red-500 text-white rounded">Remove</button>
+        `;
+        document.getElementById('levels-list').appendChild(row);
+      }
+      function updateNumLevels() {
+        levelCount = document.querySelectorAll('.level-row').length;
+        document.getElementById('num_levels').value = levelCount;
+      }
+    </script>
       </div>
     </div>
 

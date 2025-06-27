@@ -78,6 +78,7 @@ def generate_marksheet(request):
     if regcat:
         candidates = candidates.filter(registration_category__iexact=regcat)
         print(f'[DEBUG] After regcat ({regcat}) filter:', candidates.count())
+    print('[DEBUG] Candidate IDs and occupation IDs:', list(candidates.values_list('id', 'occupation_id')))
     if occupation:
         candidates = candidates.filter(occupation_id=occupation)
         print(f'[DEBUG] After occupation ({occupation}) filter:', candidates.count())
@@ -1053,7 +1054,45 @@ def occupation_list(request):
 
 def occupation_create(request):
     from .models import Level, OccupationLevel
-    levels = Level.objects.all()
+    error = None
+    if request.method == 'POST':
+        form = OccupationForm(request.POST)
+        if form.is_valid():
+            occupation = form.save(commit=False)
+            occupation.created_by = request.user
+            occupation.updated_by = request.user
+            occupation.save()
+            # Handle dynamic levels
+            num_levels = int(request.POST.get('num_levels', 0))
+            level_names = set()
+            for i in range(1, num_levels + 1):
+                lname = request.POST.get(f'level_name_{i}', '').strip()
+                stype = request.POST.get(f'structure_type_{i}', 'modules')
+                if not lname:
+                    error = 'All level names are required.'
+                    break
+                if lname in level_names:
+                    error = f"Duplicate level name: {lname}"
+                    break
+                level_names.add(lname)
+                # Enforce: If has_modular is checked, Level 1 must be modules
+                if occupation.has_modular and lname.lower() == 'level 1' and stype == 'papers':
+                    error = "If 'Has Modular' is checked, Level 1 must be set to Modules."
+                    break
+            if not error:
+                for i in range(1, num_levels + 1):
+                    lname = request.POST.get(f'level_name_{i}', '').strip()
+                    stype = request.POST.get(f'structure_type_{i}', 'modules')
+                    if lname:
+                        # Compose level name as 'Level X OCC' for clarity
+                        occ_code = occupation.code.upper() if occupation.code else ''
+                        display_name = f"{lname} {occ_code}" if occ_code and occ_code not in lname else lname
+                        level = Level.objects.create(name=display_name, occupation=occupation)
+                        OccupationLevel.objects.create(occupation=occupation, level=level, structure_type=stype)
+                return redirect('occupation_list')
+    else:
+        form = OccupationForm()
+    return render(request, 'occupations/create.html', {'form': form, 'error': error})
     if request.method == 'POST':
         form = OccupationForm(request.POST)
         if form.is_valid():
@@ -1153,6 +1192,13 @@ def api_occupations(request):
     return JsonResponse(occ_list, safe=False)
 
 @login_required
+def api_levels_for_occupation(request):
+    occ_id = request.GET.get('occupation_id')
+    levels = []
+    if occ_id:
+        levels = list(Level.objects.filter(occupation_id=occ_id).values('id', 'name'))
+    return JsonResponse({'levels': levels})
+
 def api_levels(request):
     # Returns all levels as JSON (id, name, occupation_id)
     occ_levels = OccupationLevel.objects.select_related('level', 'occupation').all()
@@ -3184,7 +3230,8 @@ def config_home(request):
 def occupation_edit(request, pk):
     from .models import Level, OccupationLevel
     occupation = get_object_or_404(Occupation, pk=pk)
-    levels = Level.objects.all()
+    levels = Level.objects.filter(occupation=occupation)
+    add_level_error = request.GET.get('add_level_error')
     if request.method == 'POST':
         form = OccupationForm(request.POST, instance=occupation)
         if form.is_valid():
@@ -3333,6 +3380,26 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect
 from django.http import HttpResponse
 import os
+
+from django.views.decorators.http import require_POST
+from .models import Occupation, Level
+
+@require_POST
+def add_level(request, occupation_id):
+    occupation = get_object_or_404(Occupation, pk=occupation_id)
+    name = request.POST.get('level_name')
+    error = None
+    if name:
+        if Level.objects.filter(name=name, occupation=occupation).exists():
+            error = f"Level '{name}' already exists for this occupation."
+        else:
+            Level.objects.create(name=name, occupation=occupation)
+    else:
+        error = "Level name is required."
+    if error:
+        from django.urls import reverse
+        return redirect(f"{reverse('occupation_edit', kwargs={'pk': occupation_id})}?add_level_error={error}")
+    return redirect('occupation_edit', pk=occupation_id)
 
 def add_regno_to_photo(request, id):
     candidate = get_object_or_404(Candidate, id=id)
