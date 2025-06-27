@@ -1697,7 +1697,32 @@ def add_paper(request, level_id):
 from django.core.paginator import Paginator
 
 def candidate_list(request):
-    candidates = Candidate.objects.select_related('occupation', 'assessment_center')
+    # Get current filters from session or initialize
+    current_filters = request.session.get('candidate_filters', {})
+
+    # If form is submitted, update filters in session
+    if 'apply_filters' in request.GET:
+        current_filters = {
+            'reg_number': request.GET.get('reg_number', '').strip(),
+            'search': request.GET.get('search', '').strip(),
+            'occupation': request.GET.get('occupation', '').strip(),
+            'registration_category': request.GET.get('registration_category', '').strip(),
+            'assessment_center': request.GET.get('assessment_center', '').strip(),
+        }
+        # Remove empty values so they don't clutter the URL
+        current_filters = {k: v for k, v in current_filters.items() if v}
+        request.session['candidate_filters'] = current_filters
+        # Redirect to a clean URL. The view will then use session filters.
+        return redirect('candidate_list')
+
+    # If reset is requested, clear filters and redirect
+    if 'reset_filters' in request.GET:
+        if 'candidate_filters' in request.session:
+            del request.session['candidate_filters']
+        return redirect('candidate_list')
+
+    candidates = Candidate.objects.select_related('occupation', 'assessment_center').order_by('-created_at')
+    
     # Restrict for Center Representatives
     if request.user.groups.filter(name='CenterRep').exists():
         from .models import CenterRepresentative
@@ -1707,32 +1732,29 @@ def candidate_list(request):
         except CenterRepresentative.DoesNotExist:
             candidates = candidates.none()
 
-    # Filtering logic
-    reg_number = request.GET.get('reg_number', '').strip()
-    search = request.GET.get('search', '').strip()
-    occupation = request.GET.get('occupation', '').strip()
-    registration_category = request.GET.get('registration_category', '').strip()
-    assessment_center = request.GET.get('assessment_center', '').strip()
-
-    if reg_number:
-        candidates = candidates.filter(reg_number__icontains=reg_number)
-    if search:
-        candidates = candidates.filter(full_name__icontains=search)
-    if occupation:
-        candidates = candidates.filter(occupation_id=occupation)
-    if registration_category:
-        candidates = candidates.filter(registration_category=registration_category)
-    if assessment_center:
-        candidates = candidates.filter(assessment_center_id=assessment_center)
+    # Filtering logic from session filters
+    if current_filters.get('reg_number'):
+        candidates = candidates.filter(reg_number__icontains=current_filters.get('reg_number'))
+    if current_filters.get('search'):
+        candidates = candidates.filter(full_name__icontains=current_filters.get('search'))
+    if current_filters.get('occupation'):
+        candidates = candidates.filter(occupation_id=current_filters.get('occupation'))
+    if current_filters.get('registration_category'):
+        candidates = candidates.filter(registration_category=current_filters.get('registration_category'))
+    if current_filters.get('assessment_center'):
+        candidates = candidates.filter(assessment_center_id=current_filters.get('assessment_center'))
 
     from .models import Occupation, AssessmentCenter
     occupations = Occupation.objects.all()
     centers = AssessmentCenter.objects.all()
 
-    # Pagination: 20 per page
+    # Pagination: 100 per page
     paginator = Paginator(candidates, 100)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    import urllib
+    filter_params = urllib.parse.urlencode(current_filters)
 
     return render(request, 'candidates/list.html', {
         'candidates': page_obj.object_list,
@@ -1741,6 +1763,8 @@ def candidate_list(request):
         'total_candidates': paginator.count,
         'occupations': occupations,
         'centers': centers,
+        'filters': current_filters,
+        'filter_params': filter_params,
     })
 
 

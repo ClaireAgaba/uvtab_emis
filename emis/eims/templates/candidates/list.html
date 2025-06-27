@@ -53,10 +53,10 @@
   </span>
   <span>
     {% if page_obj.has_previous %}
-      <a href="?{% if request.GET %}{{ request.GET.urlencode|safe }}&{% endif %}page={{ page_obj.previous_page_number }}" class="inline-block px-2">&#60;</a>
+      <a href="?{% if filter_params %}{{ filter_params }}&{% endif %}page={{ page_obj.previous_page_number }}" class="inline-block px-2">&#60;</a>
     {% endif %}
     {% if page_obj.has_next %}
-      <a href="?{% if request.GET %}{{ request.GET.urlencode|safe }}&{% endif %}page={{ page_obj.next_page_number }}" class="inline-block px-2">&#62;</a>
+      <a href="?{% if filter_params %}{{ filter_params }}&{% endif %}page={{ page_obj.next_page_number }}" class="inline-block px-2">&#62;</a>
     {% endif %}
   </span>
 </div>
@@ -81,37 +81,40 @@
             <th></th> <!-- Checkbox column, no filter -->
             <th></th> <!-- Image column, no filter -->
             <th class="px-4 py-1 whitespace-nowrap">
-              <input type="text" name="reg_number" value="{{ request.GET.reg_number }}" placeholder="Search Reg No" class="border px-2 py-1 w-full" />
+              <input type="text" name="reg_number" value="{{ filters.reg_number }}" placeholder="Search Reg No" class="border px-2 py-1 w-full" />
             </th>
             <th class="px-4 py-1 whitespace-nowrap">
-              <input type="text" name="search" value="{{ request.GET.search }}" placeholder="Search Name" class="border px-2 py-1 w-full" />
+              <input type="text" name="search" value="{{ filters.search }}" placeholder="Search Name" class="border px-2 py-1 w-full" />
             </th>
             <th class="px-4 py-1 whitespace-nowrap">
               <select name="occupation" class="border px-2 py-1 w-full">
                 <option value="">All Occupations</option>
                 {% for occupation in occupations %}
-                  <option value="{{ occupation.id }}" {% if request.GET.occupation == occupation.id|stringformat:"s" %}selected{% endif %}>{{ occupation.name }}</option>
+                  <option value="{{ occupation.id }}" {% if filters.occupation == occupation.id|stringformat:"s" %}selected{% endif %}>{{ occupation.name }}</option>
                 {% endfor %}
               </select>
             </th>
             <th class="px-4 py-1 whitespace-nowrap">
               <select name="registration_category" class="border px-2 py-1 w-full">
                 <option value="">All Categories</option>
-                <option value="formal" {% if request.GET.registration_category == 'formal' %}selected{% endif %}>Formal</option>
-                <option value="modular" {% if request.GET.registration_category == 'modular' %}selected{% endif %}>Modular</option>
-                <option value="informal" {% if request.GET.registration_category == 'informal' %}selected{% endif %}>Informal</option>
+                <option value="formal" {% if filters.registration_category == 'formal' %}selected{% endif %}>Formal</option>
+                <option value="modular" {% if filters.registration_category == 'modular' %}selected{% endif %}>Modular</option>
+                <option value="informal" {% if filters.registration_category == 'informal' %}selected{% endif %}>Informal</option>
               </select>
             </th>
             <th class="px-4 py-1 whitespace-nowrap text-center">
               <select name="assessment_center" class="border px-2 py-1 w-full">
                 <option value="">All Centers</option>
                 {% for center in centers %}
-                  <option value="{{ center.id }}" {% if request.GET.assessment_center == center.id|stringformat:"s" %}selected{% endif %}>{{ center.center_name }}</option>
+                  <option value="{{ center.id }}" {% if filters.assessment_center == center.id|stringformat:"s" %}selected{% endif %}>{{center.center_number}} - {{ center.center_name }}</option>
                 {% endfor %}
               </select>
             </th>
             <th class="px-4 py-1 whitespace-nowrap text-center">
-              <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Filter</button>
+                <div class="flex gap-2">
+                    <button type="submit" name="apply_filters" value="1" class="bg-blue-600 text-white px-4 py-1 rounded">Apply Filters</button>
+                    <a href="?reset_filters=1" class="bg-gray-400 text-white px-4 py-1 rounded">Reset</a>
+                </div>
             </th>
           </form>
         </tr>
