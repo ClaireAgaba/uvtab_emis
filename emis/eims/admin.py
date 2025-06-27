@@ -98,8 +98,13 @@ class OccupationLevelInline(admin.TabularInline):
 
 class LevelAdmin(admin.ModelAdmin):
     form = LevelForm
-    list_display = ('name',)
-    search_fields = ('name',)
+    list_display = ('name_with_occupation', 'occupation')
+    search_fields = ('name', 'occupation__code')
+
+    def name_with_occupation(self, obj):
+        return f"{obj.name} ({obj.occupation.code})"
+    name_with_occupation.short_description = 'Level Name (Occupation)'
+
 
 class OccupationAdmin(admin.ModelAdmin):
     inlines = [OccupationLevelInline]

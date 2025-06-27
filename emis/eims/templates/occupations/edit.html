@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load dict_extras %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto mt-10 px-4">
@@ -36,14 +37,17 @@
       <!-- Levels & Structure Type Section -->
       <div class="mt-6">
         <label class="block font-medium mb-2">Levels & Structure Type</label>
+        {% if error %}
+          <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-3">{{ error }}</div>
+        {% endif %}
         <div class="bg-gray-50 p-4 rounded space-y-3">
           {% for level in levels %}
             <div class="flex items-center space-x-4">
-              <input type="checkbox" id="level_{{ level.id }}" name="levels" value="{{ level.id }}" {% if level.id in selected_levels %}checked{% endif %}>
+              <input type="checkbox" id="level_{{ level.id }}" name="levels" value="{{ level.id }}" {% if selected_levels|get_item:level.id %}checked{% endif %}>
               <label for="level_{{ level.id }}" class="mr-4">{{ level.name }}</label>
               <select name="structure_type_{{ level.id }}" class="border rounded px-2 py-1">
-                <option value="modules" {% if level.stype == 'modules' %}selected{% endif %}>Modules</option>
-                <option value="papers" {% if level.stype == 'papers' %}selected{% endif %}>Papers</option>
+                <option value="modules" {% if level.stype == 'modules' or selected_levels|get_item:level.id == 'modules' %}selected{% endif %}>Modules</option>
+                <option value="papers" {% if level.stype == 'papers' or selected_levels|get_item:level.id == 'papers' %}selected{% endif %}>Papers</option>
               </select>
             </div>
           {% endfor %}

@@ -3240,6 +3240,8 @@ def occupation_edit(request, pk):
             occupation.save()
             # Update OccupationLevel assignments
             selected_level_ids = request.POST.getlist('levels')
+            # Track selected_levels for error restoration
+            selected_levels = {}
             # Remove old OccupationLevel objects for this occupation
             OccupationLevel.objects.filter(occupation=occupation).delete()
             # Enforce restriction: If has_modular is checked, Level 1 must be modules
@@ -3252,10 +3254,12 @@ def occupation_edit(request, pk):
                         # If user tries to set Level 1 to papers, error
                         if request.POST.get(f'structure_type_{level.id}') == 'papers':
                             error = "If 'Has Modular' is checked, Level 1 must be set to Modules."
+                            selected_levels[str(level.id)] = 'papers'
                             break
                         structure_type = 'modules'
                     else:
                         structure_type = request.POST.get(f'structure_type_{level.id}', 'modules')
+                    selected_levels[str(level.id)] = structure_type
                     OccupationLevel.objects.create(
                         occupation=occupation,
                         level=level,
@@ -3287,10 +3291,13 @@ def occupation_edit(request, pk):
     for level in levels:
         level.stype = level_stype_map.get(level.id, '')
         levels_with_stype.append(level)
+    # Always provide selected_levels for template
+    selected_levels = {str(level.id): level.stype for level in levels_with_stype if level.stype}
     return render(request, 'occupations/edit.html', {
         'form': form,
         'occupation': occupation,
-        'levels': levels_with_stype
+        'levels': levels_with_stype,
+        'selected_levels': selected_levels
     })
 
 def create_center_rep(request):
