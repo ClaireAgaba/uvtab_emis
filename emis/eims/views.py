@@ -17,6 +17,7 @@ from io import BytesIO
 def generate_marksheet(request):
     """
     Accepts POST with params, returns JSON with download URL for marksheet.
+    Now supports 'modules' param for Modular marksheet generation.
     """
     # Extract params
     month = request.POST.get('assessment_month')
@@ -25,7 +26,7 @@ def generate_marksheet(request):
     occupation = request.POST.get('occupation')
     level = request.POST.get('level')
     center = request.POST.get('assessment_center')
-    # Build download URL with params (simple for now, can use token if needed)
+    modules = request.POST.getlist('modules')  # Accept multiple module IDs
     from django.urls import reverse
     import urllib.parse
     params = {
@@ -36,11 +37,14 @@ def generate_marksheet(request):
         'level': level,
         'assessment_center': center,
     }
+    # Add modules to params for Modular
+    if regcat and regcat.lower() == 'modular' and modules:
+        params['modules'] = ','.join(modules)
     # Remove empty params
     params = {k: v for k, v in params.items() if v}
 
     # Validate required params for occupation and level
-    from .models import Occupation, Level, OccupationLevel, Candidate
+    from .models import Occupation, Level, Module, Candidate
     occ = None
     lvl = None
     if occupation:
@@ -56,22 +60,43 @@ def generate_marksheet(request):
 
     # Check for enrolled candidates
     candidates = Candidate.objects.all()
+    print('[DEBUG] Initial candidates:', candidates.count())
     if regcat and regcat.lower() == 'modular':
         candidates = candidates.filter(occupation__has_modular=True)
+        print('[DEBUG] After has_modular filter:', candidates.count())
+        # Filter by selected modules if provided
+        if modules:
+            module_objs = Module.objects.filter(id__in=modules)
+            from .models import CandidateModule
+            enrolled_ids = set(CandidateModule.objects.filter(module__in=module_objs).values_list('candidate_id', flat=True))
+            print('[DEBUG] Modular enrolled_ids:', enrolled_ids)
+            candidates = candidates.filter(id__in=enrolled_ids)
+            print('[DEBUG] After module enrollment filter:', candidates.count())
     elif regcat:
         candidates = candidates.filter(occupation__has_modular=False)
+        print('[DEBUG] After NOT has_modular filter:', candidates.count())
     if regcat:
         candidates = candidates.filter(registration_category__iexact=regcat)
+        print(f'[DEBUG] After regcat ({regcat}) filter:', candidates.count())
     if occupation:
         candidates = candidates.filter(occupation_id=occupation)
-    if level:
-        candidates = candidates.filter(level=level)
+        print(f'[DEBUG] After occupation ({occupation}) filter:', candidates.count())
+    # For formal (module-based), filter by CandidateLevel
+    if regcat and regcat.lower() == 'formal' and level:
+        from .models import CandidateLevel
+        enrolled_ids = set(CandidateLevel.objects.filter(level=level).values_list('candidate_id', flat=True))
+        print(f'[DEBUG] CandidateLevel enrolled_ids for level {level}:', enrolled_ids)
+        candidates = candidates.filter(id__in=enrolled_ids)
+        print('[DEBUG] After CandidateLevel filter:', candidates.count())
     if center:
         candidates = candidates.filter(assessment_center=center)
+        print(f'[DEBUG] After center ({center}) filter:', candidates.count())
     if not occ:
         return JsonResponse({'success': False, 'error': 'Please select an occupation.'})
     if lvl is None and regcat and regcat.lower() != 'modular':
         return JsonResponse({'success': False, 'error': 'Please select a level.'})
+    if regcat and regcat.lower() == 'modular' and (not modules or not Module.objects.filter(id__in=modules).exists()):
+        return JsonResponse({'success': False, 'error': 'Please select at least one module for Modular marksheet generation.'})
     if not candidates.exists():
         return JsonResponse({'success': False, 'error': 'No enrolled candidates found for the selected parameters.'})
 
@@ -82,9 +107,9 @@ def generate_marksheet(request):
 def download_marksheet(request):
     """
     Generates and streams the Excel marksheet in memory based on GET params.
-    Supports both modular (modules) and paper-based (papers) structures.
+    Supports all registration categories and structures (modular, formal module-based, formal paper-based, informal/worker's PAS).
     """
-    from .models import Candidate, OccupationLevel, Module, Paper, Result, AssessmentCenter, Occupation, Level, CandidateModule, CandidateLevel
+    from .models import Candidate, OccupationLevel, Module, Paper, Result, AssessmentCenter, Occupation, Level, CandidateModule, CandidateLevel, CandidatePaper
     from openpyxl import Workbook
     from io import BytesIO
 
@@ -95,125 +120,237 @@ def download_marksheet(request):
     occupation_id = request.GET.get('occupation')
     level_id = request.GET.get('level')
     center_id = request.GET.get('assessment_center')
+    modules_param = request.GET.get('modules')  # comma-separated module IDs
 
-    # Apply has_modular flag logic to occupation selection
-    occupation_qs = Occupation.objects.all()
-    if regcat and regcat.lower() == 'modular':
-        occupation_qs = occupation_qs.filter(has_modular=True)
-    elif regcat:
-        occupation_qs = occupation_qs.filter(has_modular=False)
-    occupation = occupation_qs.filter(pk=occupation_id).first() if occupation_id else None
+    # Get occupation, level, center
+    occupation = Occupation.objects.filter(pk=occupation_id).first() if occupation_id else None
     level = Level.objects.filter(pk=level_id).first() if level_id else None
     center = AssessmentCenter.objects.filter(pk=center_id).first() if center_id else None
 
-    # Determine structure type
-    occ_level = None
+    regcat_normalized = regcat.strip().lower() if regcat else ''
+    modules = []
+    papers = []
+    enrolled_ids = set()
+    enrolled_paper_ids = set()
     structure_type = None
+    informal = False
+
+    # --- Fetch modules/papers FIRST ---
+    occ_level = None
     if occupation and level:
         occ_level = OccupationLevel.objects.filter(occupation=occupation, level=level).first()
         if occ_level:
-            structure_type = occ_level.structure_type
+            structure_type = occ_level.structure_type  # 'modules' or 'papers'
 
-    # Filter candidates
+    # Modular: Only PR per selected module(s)
+    if regcat_normalized == 'modular':
+        # Use only selected modules if provided (filter by occupation only, not level)
+        if modules_param:
+            module_ids = [int(mid) for mid in modules_param.split(',') if mid.isdigit()]
+            modules = list(Module.objects.filter(id__in=module_ids, occupation=occupation))
+        else:
+            modules = list(Module.objects.filter(occupation=occupation))
+        module_ids = [m.id for m in modules]
+        # Candidates enrolled in at least one of these modules
+        enrolled_modules = CandidateModule.objects.filter(module__in=modules)
+        enrolled_ids = set(enrolled_modules.values_list('candidate_id', flat=True))
+        print(f"[DEBUG] Modular: modules={module_ids}, enrolled_ids={enrolled_ids}")
+
+    # --- Candidate Query ---
     candidates = Candidate.objects.all()
-    # Apply has_modular logic to candidate occupation
-    if regcat and regcat.lower() == 'modular':
-        candidates = candidates.filter(occupation__has_modular=True)
-    elif regcat:
-        candidates = candidates.filter(occupation__has_modular=False)
     if regcat:
         candidates = candidates.filter(registration_category__iexact=regcat)
     if occupation_id:
         candidates = candidates.filter(occupation_id=occupation_id)
-    if level:
+    # Only filter by level for non-modular, and only if Candidate has level field
+    # For formal (module-based), filter by CandidateLevel
+    if regcat_normalized == 'formal' and structure_type == 'modules' and level:
+        from .models import CandidateLevel
+        enrolled_ids = set(CandidateLevel.objects.filter(level=level).values_list('candidate_id', flat=True))
+        candidates = candidates.filter(id__in=enrolled_ids)
+    elif regcat_normalized != 'modular' and hasattr(Candidate, 'level') and level:
         candidates = candidates.filter(level=level)
     if center:
         candidates = candidates.filter(assessment_center=center)
 
-    # Only include ENROLLED candidates:
-    if structure_type == 'modules':
+    # --- Enrollment Filtering ---
+    enrolled_ids = set()
+    informal = False
+    regcat_normalized = regcat.strip().lower() if regcat else ''
+    # Modular: Only PR per module
+    if regcat_normalized == 'modular':
         enrolled_ids = set(CandidateModule.objects.filter(module__in=modules).values_list('candidate_id', flat=True))
         candidates = candidates.filter(id__in=enrolled_ids)
-    elif structure_type == 'papers':
+        structure_type = 'modules'
+    # Formal: Module-based (theory/practical per module)
+    elif regcat_normalized == 'formal' and structure_type == 'modules':
+        # For formal (level module-based): candidates enroll for a level, not modules
+        enrolled_level_ids = set(CandidateLevel.objects.filter(level=level).values_list('candidate_id', flat=True))
+        candidates = candidates.filter(id__in=enrolled_level_ids)
+        modules = list(Module.objects.filter(occupation=occupation, level=level))
+    # Formal: Paper-based (dynamic paper codes per occupation/level)
+    elif regcat_normalized == 'formal' and structure_type == 'papers':
         enrolled_ids = set(CandidateLevel.objects.filter(level=level).values_list('candidate_id', flat=True))
         candidates = candidates.filter(id__in=enrolled_ids)
-    # Filter by assessment year/month (on results)
-    # We'll need to filter results per candidate by assessment_date
+    # Informal/Worker's PAS: Only papers, not modules
+    elif regcat_normalized in ['informal', "worker's pas"]:
+        informal = True
+        # Only include enrolled papers (CandidatePaper)
+        enrolled_papers = CandidatePaper.objects.filter(candidate__in=candidates, level=level)
+        paper_ids = enrolled_papers.values_list('paper_id', flat=True).distinct()
+        papers = list(Paper.objects.filter(id__in=paper_ids))
+        enrolled_ids = set(enrolled_papers.values_list('candidate_id', flat=True))
+        candidates = candidates.filter(id__in=enrolled_ids)
+    else:
+        # fallback: no structure or unknown regcat
+        modules = []
+        papers = []
 
-    # Get modules or papers
-    modules = []
-    papers = []
-    if structure_type == 'modules':
-        modules = list(Module.objects.filter(occupation=occupation, level=level))
-    elif structure_type == 'papers':
-        papers = list(Paper.objects.filter(occupation=occupation, level=level))
+    print(f"Enrolled candidate IDs: {enrolled_ids}")
+    print(f"Modules: {modules}")
+    print(f"Papers: {papers}")
 
-    # Build Excel
+    if regcat_normalized == 'modular' and modules:
+        # --- Build Modular Marksheet ---
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Marksheet'
+        # Header
+        ws.append(['SN', 'REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'CATEGORY', 'MODULE CODE', 'PRACTICAL'])
+        sn = 1
+        for module in modules:
+            # Candidates enrolled in this module
+            enrolled_cands = candidates.filter(id__in=CandidateModule.objects.filter(module=module).values_list('candidate_id', flat=True))
+            for cand in enrolled_cands:
+                ws.append([
+                    sn,
+                    cand.reg_number,
+                    cand.full_name,
+                    cand.occupation.code if cand.occupation else '',
+                    'Modular',
+                    module.code,
+                    ''  # PR mark cell (to be filled)
+                ])
+                sn += 1
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="marksheet_{regcat}_{occupation.code if occupation else ""}_{year}_{month}.xlsx"'
+        return response
+
+    # --- Formal (module-based): SN, REGISTRATION NO., FULL NAME, OCCUPATION CODE, CATEGORY, LEVEL, THEORY, PRACTICAL ---
+    if regcat_normalized == 'formal' and structure_type == 'modules':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Marksheet'
+        ws.append(['SN', 'REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'CATEGORY', 'LEVEL', 'THEORY', 'PRACTICAL'])
+        sn = 1
+        for cand in candidates:
+            ws.append([
+                sn,
+                cand.reg_number,
+                cand.full_name,
+                cand.occupation.code if cand.occupation else '',
+                'Formal',
+                level.name if level else '',
+                '',  # Theory mark
+                '',  # Practical mark
+            ])
+            sn += 1
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="marksheet_{regcat}_{occupation.code if occupation else ""}_{year}_{month}.xlsx"'
+        return response
+
+    if not modules and not papers:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Marksheet'
+        ws.append(['No modules or papers found for the selected occupation and level.'])
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+        response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    if not candidates.exists():
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Marksheet'
+        ws.append(['No enrolled candidates found for the selected parameters.'])
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+        response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    # --- Build Excel ---
     wb = Workbook()
     ws = wb.active
     ws.title = 'Marksheet'
 
-    # Build headers
-    base_headers = ['RegNo', 'Full Name', 'Category', 'Occupation', 'Level', 'Assessment Center', 'Month', 'Year']
+    # --- Build Headers ---
+    base_headers = ['REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'LEVEL', 'CATEGORY', 'ASSESSMENT CENTER', 'MONTH', 'YEAR']
     dynamic_headers = []
-    if structure_type == 'modules':
+    if regcat_normalized == 'modular':
         for module in modules:
-            dynamic_headers.append(f"{module.code} - {module.name}")
-    elif structure_type == 'papers':
+            dynamic_headers.append(f"{module.code} (PR)")
+    elif regcat_normalized == 'formal' and structure_type == 'modules':
+        for module in modules:
+            dynamic_headers.append(f"{module.code} (TH)")
+            dynamic_headers.append(f"{module.code} (PR)")
+    elif (regcat_normalized == 'formal' and structure_type == 'papers') or informal:
         for paper in papers:
-            label = f"{paper.code} - {paper.name} ({paper.get_grade_type_display() if hasattr(paper, 'get_grade_type_display') else paper.grade_type.capitalize()})"
-            dynamic_headers.append(label)
+            dynamic_headers.append(f"{paper.code}")
     else:
-        dynamic_headers.append('Marks')
+        dynamic_headers.append('MARK')
     ws.append(base_headers + dynamic_headers)
 
-    # Populate rows
+    # --- Populate Rows ---
     for candidate in candidates:
         row = [
             candidate.reg_number,
             candidate.full_name,
-            getattr(candidate, 'registration_category', ''),
-            str(candidate.occupation) if candidate.occupation else '',
+            getattr(candidate.occupation, 'code', '') if candidate.occupation else '',
             str(candidate.level) if hasattr(candidate, 'level') and candidate.level else '',
+            getattr(candidate, 'registration_category', ''),
             str(candidate.assessment_center) if candidate.assessment_center else '',
             month or '',
             year or ''
         ]
-        # Fetch results for this candidate in the given month/year
-        candidate_results = Result.objects.filter(candidate=candidate)
-        # Filter by assessment_date month/year if provided
-        if month and year:
-            candidate_results = candidate_results.filter(
-                assessment_date__month=int(month),
-                assessment_date__year=int(year)
-            )
-        elif year:
-            candidate_results = candidate_results.filter(assessment_date__year=int(year))
-        # Build marks columns (all empty, as this is a template for uploading marks)
         marks = []
-        if structure_type == 'modules':
+        if regcat_normalized == 'modular':
             for module in modules:
                 marks.append('')
-        elif structure_type == 'papers':
+        elif regcat_normalized == 'formal' and structure_type == 'modules':
+            for module in modules:
+                marks.append('')  # Theory
+                marks.append('')  # Practical
+        elif (regcat_normalized == 'formal' and structure_type == 'papers') or informal:
             for paper in papers:
                 marks.append('')
         else:
             marks.append('')
         ws.append(row + marks)
 
-    # Stream to memory
+    # --- Stream to memory ---
     output = BytesIO()
     wb.save(output)
     output.seek(0)
-    filename = f"marksheet_{regcat or 'all'}_{month or ''}_{year or ''}.xlsx"
+    filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
     response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
-
-
-from .forms import SupportStaffForm, CenterRepForm, ChangeOccupationForm, ChangeCenterForm
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
+
 import copy
 import openpyxl
 from openpyxl import Workbook
@@ -1054,9 +1191,12 @@ def api_occupation_level_structure(request):
 def api_modules(request):
     occupation_id = request.GET.get('occupation_id')
     level_id = request.GET.get('level_id')
-    if not occupation_id or not level_id:
+    if not occupation_id:
         return JsonResponse({'modules': []})
-    modules = Module.objects.filter(occupation_id=occupation_id, level_id=level_id)
+    if level_id:
+        modules = Module.objects.filter(occupation_id=occupation_id, level_id=level_id)
+    else:
+        modules = Module.objects.filter(occupation_id=occupation_id)
     data = [{'id': m.id, 'code': m.code, 'name': m.name} for m in modules]
     return JsonResponse({'modules': data})
 

@@ -71,6 +71,12 @@
               <!-- Options will be populated dynamically -->
             </select>
           </div>
+          <div id="modules-field" class="hidden">
+            <label class="block font-medium mb-1">Select Module(s) <span class="text-red-500">*</span></label>
+            <select name="modules" id="modules-select" multiple class="border px-3 py-2 rounded w-full">
+              <!-- Options will be populated dynamically -->
+            </select>
+          </div>
           <div>
             <label class="block font-medium mb-1">Assessment Center (optional)</label>
             <select name="assessment_center" id="center-select" class="border px-3 py-2 rounded w-full">
@@ -225,4 +231,5 @@ document.getElementById('marksheet-form').onsubmit = async function(e) {
   }
 };
 </script>
+<script src="/static/js/results_marksheet_modules.js"></script>
 {% endblock %}
