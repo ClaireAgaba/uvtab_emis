@@ -98,6 +98,10 @@ def generate_marksheet(request):
         return JsonResponse({'success': False, 'error': 'Please select a level.'})
     if regcat and regcat.lower() == 'modular' and (not modules or not Module.objects.filter(id__in=modules).exists()):
         return JsonResponse({'success': False, 'error': 'Please select at least one module for Modular marksheet generation.'})
+    print("DEBUG: Candidate IDs after all filters:", list(candidates.values_list('id', flat=True)))
+    print("DEBUG: Level param:", level)
+    print("DEBUG: Registration category param:", regcat)
+    print("DEBUG: Occupation param:", occupation)
     if not candidates.exists():
         return JsonResponse({'success': False, 'error': 'No enrolled candidates found for the selected parameters.'})
 
@@ -191,8 +195,15 @@ def download_marksheet(request):
         modules = list(Module.objects.filter(occupation=occupation, level=level))
     # Formal: Paper-based (dynamic paper codes per occupation/level)
     elif regcat_normalized == 'formal' and structure_type == 'papers':
-        enrolled_ids = set(CandidateLevel.objects.filter(level=level).values_list('candidate_id', flat=True))
+        enrolled_ids = set(
+            CandidateLevel.objects.filter(level=level, candidate__occupation=occupation)
+            .values_list('candidate_id', flat=True)
+        )
+        print(f"[DEBUG] Paper-based: enrolled_ids for occupation {occupation.id if occupation else None}, level {level.id if level else None}: {enrolled_ids}")
         candidates = candidates.filter(id__in=enrolled_ids)
+        # Fetch all papers for this occupation/level
+        papers = list(Paper.objects.filter(occupation=occupation, level=level))
+        print(f"[DEBUG] Paper-based: papers for occupation {occupation.id if occupation else None}, level {level.id if level else None}: {[p.code for p in papers]}")
     # Informal/Worker's PAS: Only papers, not modules
     elif regcat_normalized in ['informal', "worker's pas"]:
         informal = True
@@ -298,7 +309,11 @@ def download_marksheet(request):
     ws.title = 'Marksheet'
 
     # --- Build Headers ---
-    base_headers = ['REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'LEVEL', 'CATEGORY', 'ASSESSMENT CENTER', 'MONTH', 'YEAR']
+    # For paper-based marksheets, use a minimal set of columns and always include LEVEL
+    if regcat_normalized == 'formal' and structure_type == 'papers':
+        base_headers = ['SN', 'REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'LEVEL', 'CATEGORY']
+    else:
+        base_headers = ['REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'LEVEL', 'CATEGORY', 'ASSESSMENT CENTER', 'MONTH', 'YEAR']
     dynamic_headers = []
     if regcat_normalized == 'modular':
         for module in modules:
@@ -315,17 +330,29 @@ def download_marksheet(request):
     ws.append(base_headers + dynamic_headers)
 
     # --- Populate Rows ---
+    sn = 1
     for candidate in candidates:
-        row = [
-            candidate.reg_number,
-            candidate.full_name,
-            getattr(candidate.occupation, 'code', '') if candidate.occupation else '',
-            str(candidate.level) if hasattr(candidate, 'level') and candidate.level else '',
-            getattr(candidate, 'registration_category', ''),
-            str(candidate.assessment_center) if candidate.assessment_center else '',
-            month or '',
-            year or ''
-        ]
+        # For paper-based marksheets, always include level name and only required columns
+        if regcat_normalized == 'formal' and structure_type == 'papers':
+            row = [
+                sn,
+                candidate.reg_number,
+                candidate.full_name,
+                getattr(candidate.occupation, 'code', '') if candidate.occupation else '',
+                level.name if level else '',
+                getattr(candidate, 'registration_category', ''),
+            ]
+        else:
+            row = [
+                candidate.reg_number,
+                candidate.full_name,
+                getattr(candidate.occupation, 'code', '') if candidate.occupation else '',
+                str(candidate.level) if hasattr(candidate, 'level') and candidate.level else '',
+                getattr(candidate, 'registration_category', ''),
+                str(candidate.assessment_center) if candidate.assessment_center else '',
+                month or '',
+                year or ''
+            ]
         marks = []
         if regcat_normalized == 'modular':
             for module in modules:
@@ -340,6 +367,8 @@ def download_marksheet(request):
         else:
             marks.append('')
         ws.append(row + marks)
+        if regcat_normalized == 'formal' and structure_type == 'papers':
+            sn += 1
 
     # --- Stream to memory ---
     output = BytesIO()

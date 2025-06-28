@@ -5,7 +5,10 @@
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
     <!-- Generate Marksheets Card -->
-    <button id="generate-marksheet-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
+    <button id="generate-marksheet-btn"
+        data-occupation-id="{{ filters.occupation|default:'' }}"
+        data-level-id="{{ filters.level|default:'' }}"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
       <span class="text-3xl mb-2">📄</span>
       Generate Marksheets
     </button>
@@ -124,6 +127,16 @@ openBtn.onclick = async () => {
     allLevels = await lvlResp.json();
   }
   updateOccupationOptions();
+  // --- Pre-select occupation and level if provided ---
+  const preOccId = openBtn.getAttribute('data-occupation-id');
+  const preLvlId = openBtn.getAttribute('data-level-id');
+  if (preOccId) {
+    document.getElementById('occupation-select').value = String(parseInt(preOccId, 10));
+    updateLevelOptions();
+    if (preLvlId) {
+      document.getElementById('level-select').value = String(parseInt(preLvlId, 10));
+    }
+  }
 };
 
 function updateOccupationOptions() {
