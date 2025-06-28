@@ -27,6 +27,15 @@ def generate_marksheet(request):
     level = request.POST.get('level')
     center = request.POST.get('assessment_center')
     modules = request.POST.getlist('modules')  # Accept multiple module IDs
+
+    # Determine structure_type for occupation/level
+    structure_type = None
+    if occupation and level:
+        from .models import OccupationLevel
+        occ_level = OccupationLevel.objects.filter(occupation_id=occupation, level_id=level).first()
+        if occ_level:
+            structure_type = occ_level.structure_type
+    print(f'[DEBUG] structure_type for occupation {occupation}, level {level}:', structure_type)
     from django.urls import reverse
     import urllib.parse
     params = {
@@ -61,9 +70,11 @@ def generate_marksheet(request):
     # Check for enrolled candidates
     candidates = Candidate.objects.all()
     print('[DEBUG] Initial candidates:', candidates.count())
+    print('[DEBUG] Initial candidate IDs and regcat:', list(candidates.values_list('id', 'registration_category')))
     if regcat and regcat.lower() == 'modular':
         candidates = candidates.filter(occupation__has_modular=True)
         print('[DEBUG] After has_modular filter:', candidates.count())
+        print('[DEBUG] After has_modular IDs and regcat:', list(candidates.values_list('id', 'registration_category')))
         # Filter by selected modules if provided
         if modules:
             module_objs = Module.objects.filter(id__in=modules)
@@ -72,23 +83,30 @@ def generate_marksheet(request):
             print('[DEBUG] Modular enrolled_ids:', enrolled_ids)
             candidates = candidates.filter(id__in=enrolled_ids)
             print('[DEBUG] After module enrollment filter:', candidates.count())
-    elif regcat:
+            print('[DEBUG] After module enrollment IDs and regcat:', list(candidates.values_list('id', 'registration_category')))
+    elif regcat and regcat.lower() == 'formal' and structure_type == 'papers':
         candidates = candidates.filter(occupation__has_modular=False)
-        print('[DEBUG] After NOT has_modular filter:', candidates.count())
+        print('[DEBUG] After NOT has_modular filter (paper-based):', candidates.count())
+        print('[DEBUG] After NOT has_modular IDs and regcat (paper-based):', list(candidates.values_list('id', 'registration_category')))
+    else:
+        print('[DEBUG] Skipping occupation__has_modular filter for formal module-based marksheet.')
     if regcat:
         candidates = candidates.filter(registration_category__iexact=regcat)
         print(f'[DEBUG] After regcat ({regcat}) filter:', candidates.count())
+        print(f'[DEBUG] After regcat IDs and regcat:', list(candidates.values_list('id', 'registration_category')))
     print('[DEBUG] Candidate IDs and occupation IDs:', list(candidates.values_list('id', 'occupation_id')))
-    if occupation:
-        candidates = candidates.filter(occupation_id=occupation)
-        print(f'[DEBUG] After occupation ({occupation}) filter:', candidates.count())
-    # For formal (module-based), filter by CandidateLevel
-    if regcat and regcat.lower() == 'formal' and level:
+    # For formal (module-based), filter by CandidateLevel FIRST, do NOT apply occupation filter before this!
+    if regcat and regcat.lower() == 'formal' and level and occupation:
         from .models import CandidateLevel
-        enrolled_ids = set(CandidateLevel.objects.filter(level=level).values_list('candidate_id', flat=True))
-        print(f'[DEBUG] CandidateLevel enrolled_ids for level {level}:', enrolled_ids)
+        candidate_levels_qs = CandidateLevel.objects.filter(level=level, candidate__occupation=occupation)
+        print(f"[DEBUG] CandidateLevel entries for occupation {occupation}, level {level}: {[{'candidate_id': cl.candidate.id, 'candidate_occupation_id': cl.candidate.occupation_id} for cl in candidate_levels_qs]}")
+        enrolled_ids = set(candidate_levels_qs.values_list('candidate_id', flat=True))
+        print(f"[DEBUG] Enrolled candidate IDs for occupation {occupation}, level {level}: {enrolled_ids}")
         candidates = candidates.filter(id__in=enrolled_ids)
         print('[DEBUG] After CandidateLevel filter:', candidates.count())
+    elif occupation:
+        candidates = candidates.filter(occupation_id=occupation)
+        print(f'[DEBUG] After occupation ({occupation}) filter:', candidates.count())
     if center:
         candidates = candidates.filter(assessment_center=center)
         print(f'[DEBUG] After center ({center}) filter:', candidates.count())
@@ -165,14 +183,16 @@ def download_marksheet(request):
     candidates = Candidate.objects.all()
     if regcat:
         candidates = candidates.filter(registration_category__iexact=regcat)
-    if occupation_id:
-        candidates = candidates.filter(occupation_id=occupation_id)
-    # Only filter by level for non-modular, and only if Candidate has level field
-    # For formal (module-based), filter by CandidateLevel
-    if regcat_normalized == 'formal' and structure_type == 'modules' and level:
+    # For formal (module-based), filter by CandidateLevel FIRST, do not apply occupation filter before this!
+    if regcat_normalized == 'formal' and structure_type == 'modules' and level and occupation:
         from .models import CandidateLevel
-        enrolled_ids = set(CandidateLevel.objects.filter(level=level).values_list('candidate_id', flat=True))
+        enrolled_ids = set(
+            CandidateLevel.objects.filter(level=level, candidate__occupation=occupation)
+            .values_list('candidate_id', flat=True)
+        )
         candidates = candidates.filter(id__in=enrolled_ids)
+    elif occupation_id:
+        candidates = candidates.filter(occupation_id=occupation_id)
     elif regcat_normalized != 'modular' and hasattr(Candidate, 'level') and level:
         candidates = candidates.filter(level=level)
     if center:
@@ -190,7 +210,10 @@ def download_marksheet(request):
     # Formal: Module-based (theory/practical per module)
     elif regcat_normalized == 'formal' and structure_type == 'modules':
         # For formal (level module-based): candidates enroll for a level, not modules
-        enrolled_level_ids = set(CandidateLevel.objects.filter(level=level).values_list('candidate_id', flat=True))
+        candidate_levels_qs = CandidateLevel.objects.filter(level=level, candidate__occupation=occupation)
+        print(f"[DEBUG] CandidateLevel entries for occupation {occupation.id if occupation else None}, level {level.id if level else None}: {[{'candidate_id': cl.candidate.id, 'candidate_occupation_id': cl.candidate.occupation_id} for cl in candidate_levels_qs]}")
+        enrolled_level_ids = set(candidate_levels_qs.values_list('candidate_id', flat=True))
+        print(f"[DEBUG] Enrolled candidate IDs for occupation {occupation.id if occupation else None}, level {level.id if level else None}: {enrolled_level_ids}")
         candidates = candidates.filter(id__in=enrolled_level_ids)
         modules = list(Module.objects.filter(occupation=occupation, level=level))
     # Formal: Paper-based (dynamic paper codes per occupation/level)
