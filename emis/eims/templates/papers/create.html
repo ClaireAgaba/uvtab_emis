@@ -15,12 +15,12 @@
         <!-- Occupation Field -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
-          <select id="occupation-select" name="occupation" required class="border rounded px-2 py-1 w-full">
-            <option value="">---------</option>
-            {% for occ in form.fields.occupation.queryset %}
-              <option value="{{ occ.id }}">{{ occ.code }} - {{ occ.name }}</option>
-            {% endfor %}
-          </select>
+          <select id="id_occupation" name="occupation" required class="border rounded px-2 py-1 w-full">
+  <option value="">---------</option>
+  {% for occ in form.fields.occupation.queryset %}
+    <option value="{{ occ.id }}">{{ occ.code }} - {{ occ.name }}</option>
+  {% endfor %}
+</select>
           {% if form.occupation.errors %}
             <p class="mt-1 text-sm text-red-600">{{ form.occupation.errors.0 }}</p>
           {% endif %}
@@ -29,40 +29,45 @@
         <!-- Level Field -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
-          <select id="level-select" name="level" required class="border rounded px-2 py-1 w-full" disabled>
-            <option value="">Select occupation first</option>
-          </select>
+          <select id="id_level" name="level" required class="border rounded px-2 py-1 w-full">
+  <option value="">Select occupation first</option>
+</select>
           {% if form.level.errors %}
             <p class="mt-1 text-sm text-red-600">{{ form.level.errors.0 }}</p>
           {% endif %}
         </div>
         <script>
-        document.getElementById('occupation-select').addEventListener('change', function() {
-          var occId = this.value;
-          var levelSelect = document.getElementById('level-select');
-          levelSelect.innerHTML = '<option value="">Loading...</option>';
-          levelSelect.disabled = true;
-          if (occId) {
-            fetch('/eims/api/levels-for-occupation/?occupation_id=' + occId)
-              .then(response => response.json())
-              .then(data => {
-                levelSelect.innerHTML = '<option value="">Select level</option>';
-                data.levels.forEach(function(level) {
-                  levelSelect.innerHTML += `<option value="${level.id}">${level.name}</option>`;
-                });
-                levelSelect.disabled = false;
-              });
-          } else {
-            levelSelect.innerHTML = '<option value="">Select occupation first</option>';
-            levelSelect.disabled = true;
-          }
+  document.getElementById('id_occupation').addEventListener('change', function() {
+    var occId = this.value;
+    var levelSelect = document.getElementById('id_level');
+    levelSelect.innerHTML = '<option value="">Loading...</option>';
+    levelSelect.disabled = true;
+    if (occId) {
+      fetch('/eims/api/levels-for-occupation/?occupation_id=' + occId)
+        .then(response => response.json())
+        .then(data => {
+          levelSelect.innerHTML = '<option value="">Select level</option>';
+          data.levels.forEach(function(level) {
+            levelSelect.innerHTML += `<option value="${level.id}">${level.name}</option>`;
+          });
+          levelSelect.disabled = false;
         });
-        </script>
+    } else {
+      levelSelect.innerHTML = '<option value="">Select occupation first</option>';
+      levelSelect.disabled = true;
+    }
+  });
+</script>
 
         <!-- Module Field (dynamic) -->
-        <div id="module-field-wrapper" style="display: none;">
-          <label for="{{ form.module.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Module</label>
-          {{ form.module }}
+        <div id="module-field-wrapper" style="display: block;">
+          <label for="id_module" class="block text-sm font-medium text-gray-700 mb-1">Module</label>
+          <select id="id_module" name="module" class="border rounded px-2 py-1 w-full">
+            <option value="">---------</option>
+            {% for mod in form.fields.module.queryset %}
+              <option value="{{ mod.id }}">{{ mod.code }} - {{ mod.name }}</option>
+            {% endfor %}
+          </select>
           {% if form.module.errors %}
             <p class="mt-1 text-sm text-red-600">{{ form.module.errors.0 }}</p>
           {% endif %}
@@ -124,8 +129,11 @@
           const occupationId = occupationField.value;
           const levelId = levelField.value;
           const structureType = await fetchStructureType(occupationId, levelId);
-          if (structureType === 'modules') {
-            // Show module field and fetch modules
+          // Always show module field for worker's PAS/informal occupations
+          const selectedOcc = occupationField.options[occupationField.selectedIndex];
+          const occText = selectedOcc ? selectedOcc.textContent.toLowerCase() : '';
+          const isInformal = occText.includes("worker's pas") || occText.includes('informal');
+          if (structureType === 'modules' || isInformal) {
             moduleFieldWrapper.style.display = '';
             const modules = await fetchModules(occupationId, levelId);
             moduleField.innerHTML = '<option value="">---------</option>';
@@ -135,16 +143,16 @@
               opt.textContent = `${mod.code} - ${mod.name}`;
               moduleField.appendChild(opt);
             }
-            // Force grade_type to practical
-            if (gradeTypeField) {
+            // For informal/worker's PAS, force grade_type to practical
+            if (isInformal && gradeTypeField) {
               gradeTypeField.value = 'practical';
               gradeTypeField.setAttribute('readonly', 'readonly');
+            } else if (gradeTypeField) {
+              gradeTypeField.removeAttribute('readonly');
             }
           } else {
-            // Hide module field
             moduleFieldWrapper.style.display = 'none';
             moduleField.innerHTML = '<option value="">---------</option>';
-            // Allow both grade types
             if (gradeTypeField) {
               gradeTypeField.removeAttribute('readonly');
             }

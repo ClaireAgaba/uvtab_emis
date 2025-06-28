@@ -1191,7 +1191,6 @@ def api_occupations(request):
     ]
     return JsonResponse(occ_list, safe=False)
 
-@login_required
 def api_levels_for_occupation(request):
     occ_id = request.GET.get('occupation_id')
     levels = []

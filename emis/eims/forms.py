@@ -126,13 +126,20 @@ class PaperForm(forms.ModelForm):
                         self.fields['module'].queryset = Module.objects.filter(occupation=occupation, level_id=level_id)
                         self.fields['module'].required = True
                         self.fields['module'].widget.attrs.pop('hidden', None)
+                        self.fields['module'].widget.attrs.pop('style', None)
                         # For informal/worker's pas, force grade_type to practical
+                        self.fields['grade_type'].initial = 'practical'
+                    elif (occupation.category and occupation.category.name.strip().lower() in ["worker's pas", "informal", "workers pas"]):
+                        # Always show module field for informal/worker's PAS
+                        self.fields['module'].queryset = Module.objects.filter(occupation=occupation, level_id=level_id)
+                        self.fields['module'].required = True
+                        self.fields['module'].widget.attrs.pop('hidden', None)
+                        self.fields['module'].widget.attrs.pop('style', None)
                         self.fields['grade_type'].initial = 'practical'
                     else:
                         self.fields['module'].required = False
-                else:
-                    # If no level, show no modules
-                    self.fields['module'].required = False
+                        self.fields['module'].widget.attrs['style'] = 'display:none;'
+                        self.fields['module'].widget.attrs['tabindex'] = '-1'
             except (ValueError, Occupation.DoesNotExist):
                 self.fields['module'].required = False
         else:
