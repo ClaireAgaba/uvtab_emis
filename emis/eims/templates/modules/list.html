@@ -20,33 +20,36 @@
 
   <!-- Filters Section -->
   <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
-        <select name="level" class="w-full border rounded-md px-3 py-2">
+        <label for="level-filter" class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+        <select id="level-filter" name="level" class="w-full border rounded-md px-3 py-2">
           <option value="">All Levels</option>
           {% for level in levels %}
-            <option value="{{ level.id }}" {% if selected_level == level.id %}selected{% endif %}>
+            <option value="{{ level.id }}" {% if filters.level == level.id|stringformat:"s" %}selected{% endif %}>
               {{ level.name }}
             </option>
           {% endfor %}
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
-        <select name="occupation" class="w-full border rounded-md px-3 py-2">
+        <label for="occupation-filter" class="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
+        <select id="occupation-filter" name="occupation" class="w-full border rounded-md px-3 py-2">
           <option value="">All Occupations</option>
           {% for occupation in occupations %}
-            <option value="{{ occupation.id }}" {% if selected_occupation == occupation.id %}selected{% endif %}>
+            <option value="{{ occupation.id }}" {% if filters.occupation == occupation.id|stringformat:"s" %}selected{% endif %}>
               {{ occupation.code }} - {{ occupation.name }}
             </option>
           {% endfor %}
         </select>
       </div>
-      <div class="flex items-end">
-        <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-md">
+      <div class="flex items-center space-x-2">
+        <button type="submit" name="apply_filters" value="1" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
           Apply Filters
         </button>
+        <a href="?clear_filters=1" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md">
+          Clear
+        </a>
       </div>
     </form>
   </div>
