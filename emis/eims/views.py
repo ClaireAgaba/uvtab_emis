@@ -1275,28 +1275,35 @@ def api_modules(request):
     return JsonResponse({'modules': data})
 
 def module_list(request):
+    current_filters = request.session.get('module_filters', {})
+
+    if 'apply_filters' in request.GET:
+        current_filters = {
+            'occupation': request.GET.get('occupation', '').strip(),
+            'level': request.GET.get('level', '').strip(),
+        }
+        request.session['module_filters'] = current_filters
+    elif 'clear_filters' in request.GET:
+        current_filters = {}
+        request.session['module_filters'] = {}
+
     modules = Module.objects.all()
     occupations = Occupation.objects.all()
     levels = Level.objects.all()
-    
-    # Filter by occupation if specified
-    occupation_id = request.GET.get('occupation')
-    if occupation_id:
-        modules = modules.filter(occupation_id=occupation_id)
-    
-    # Filter by level if specified
-    level_id = request.GET.get('level')
-    if level_id:
-        modules = modules.filter(level_id=level_id)
-    
+
+    if current_filters.get('occupation'):
+        modules = modules.filter(occupation_id=current_filters['occupation'])
+
+    if current_filters.get('level'):
+        modules = modules.filter(level_id=current_filters['level'])
+
     context = {
         'modules': modules,
         'occupations': occupations,
         'levels': levels,
-        'selected_occupation': occupation_id,
-        'selected_level': level_id
+        'filters': current_filters,
     }
-    
+
     return render(request, 'modules/list.html', context)
 
 def module_create(request):
@@ -1348,29 +1355,37 @@ def module_delete(request, pk):
 
 
 def paper_list(request):
+    current_filters = request.session.get('paper_filters', {})
+
+    if 'apply_filters' in request.GET:
+        current_filters = {
+            'search': request.GET.get('search', '').strip(),
+            'occupation': request.GET.get('occupation', '').strip(),
+            'level': request.GET.get('level', '').strip(),
+        }
+        request.session['paper_filters'] = current_filters
+    elif 'clear_filters' in request.GET:
+        current_filters = {}
+        request.session['paper_filters'] = {}
+
     papers = Paper.objects.select_related('level', 'occupation').all()
     occupations = Occupation.objects.all()
     levels = Level.objects.all()
 
-    occupation_id_str = request.GET.get('occupation')
-    level_id_str = request.GET.get('level')
+    if current_filters.get('search'):
+        papers = papers.filter(name__icontains=current_filters['search'])
 
-    selected_occupation = None
-    if occupation_id_str and occupation_id_str.isdigit():
-        selected_occupation = int(occupation_id_str)
-        papers = papers.filter(occupation_id=selected_occupation)
+    if current_filters.get('occupation'):
+        papers = papers.filter(occupation_id=current_filters['occupation'])
 
-    selected_level = None
-    if level_id_str and level_id_str.isdigit():
-        selected_level = int(level_id_str)
-        papers = papers.filter(level_id=selected_level)
+    if current_filters.get('level'):
+        papers = papers.filter(level_id=current_filters['level'])
 
     context = {
         'papers': papers,
         'occupations': occupations,
         'levels': levels,
-        'selected_occupation': selected_occupation,
-        'selected_level': selected_level,
+        'filters': current_filters,
     }
 
     return render(request, 'papers/list.html', context)
