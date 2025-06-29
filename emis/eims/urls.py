@@ -28,6 +28,7 @@ urlpatterns = [
     path('results/', views.results_home, name='results_home'),
     path('results/generate-marksheet/', views.generate_marksheet, name='generate_marksheet'),
     path('results/download-marksheet/', views.download_marksheet, name='download_marksheet'),
+    path('results/upload-marks/', views.upload_marks, name='upload_marks'),
     path('api/occupations/', views.api_occupations, name='api_occupations'),
     path('api/levels/', views.api_levels, name='api_levels'),
     path('api/levels-for-occupation/', views.api_levels_for_occupation, name='api_levels_for_occupation'),

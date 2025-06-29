@@ -13,7 +13,7 @@
       Generate Marksheets
     </button>
     <!-- Upload Marks Card -->
-    <a href="#" class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
+    <a href="#" id="upload-marks-btn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
       <span class="text-3xl mb-2">⬆️</span>
       Upload Marks
     </a>
@@ -91,6 +91,87 @@
         <div class="flex justify-end gap-4 mt-8">
           <button type="button" id="cancel-marksheet-modal" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded">Cancel</button>
           <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">Generate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal for Upload Marks -->
+  <div id="upload-marks-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-xl p-8 relative">
+      <button id="close-upload-marks-modal" class="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+      <h2 class="text-xl font-bold mb-4">Upload Marks (Bulk)</h2>
+      <form id="upload-marks-form" method="post" enctype="multipart/form-data" action="/eims/results/upload-marks/">
+        {% csrf_token %}
+        <div id="upload-marks-msg" class="mb-2 text-sm text-red-600"></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-medium mb-1">Assessment Series <span class="text-red-500">*</span></label>
+            <div class="flex gap-2">
+              <select name="assessment_month" id="upload-assessment-month" required class="border px-3 py-2 rounded w-full">
+                <option value="">Month</option>
+                <option value="01">January</option>
+                <option value="02">February</option>
+                <option value="03">March</option>
+                <option value="04">April</option>
+                <option value="05">May</option>
+                <option value="06">June</option>
+                <option value="07">July</option>
+                <option value="08">August</option>
+                <option value="09">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+              <select name="assessment_year" id="upload-assessment-year" required class="border px-3 py-2 rounded w-full">
+                <!-- Years will be populated by JS -->
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Registration Category <span class="text-red-500">*</span></label>
+            <select name="registration_category" id="upload-reg-category-select" required class="border px-3 py-2 rounded w-full">
+              <option value="">-- Select --</option>
+              <option value="modular">Modular</option>
+              <option value="formal">Formal</option>
+              <option value="workers_pas">Worker's PAS</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Occupation <span class="text-red-500">*</span></label>
+            <select name="occupation" id="upload-occupation-select" required class="border px-3 py-2 rounded w-full">
+              <option value="">-- Select --</option>
+              <!-- Options will be populated dynamically -->
+            </select>
+          </div>
+          <div id="upload-level-field" class="hidden">
+            <label class="block font-medium mb-1">Level <span class="text-red-500">*</span></label>
+            <select name="level" id="upload-level-select" class="border px-3 py-2 rounded w-full">
+              <option value="">-- Select --</option>
+              <!-- Options will be populated dynamically -->
+            </select>
+          </div>
+          <div id="upload-modules-field" class="hidden">
+            <label class="block font-medium mb-1">Select Module(s) <span class="text-red-500">*</span></label>
+            <select name="modules" id="upload-modules-select" multiple class="border px-3 py-2 rounded w-full">
+              <!-- Options will be populated dynamically -->
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Assessment Center (optional)</label>
+            <select name="assessment_center" id="upload-center-select" class="border px-3 py-2 rounded w-full">
+              <option value="">-- All Centers --</option>
+              <!-- Options will be populated dynamically -->
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="block font-medium mb-1">Excel File <span class="text-red-500">*</span></label>
+            <input type="file" name="marks_file" id="marks-file-input" accept=".xlsx,.xls" required class="border px-3 py-2 rounded w-full" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-4 mt-8">
+          <button type="button" id="cancel-upload-marks-modal" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded">Cancel</button>
+          <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded">Upload</button>
         </div>
       </form>
     </div>
@@ -244,6 +325,125 @@ document.getElementById('marksheet-form').onsubmit = async function(e) {
     msgDiv.textContent = err.message || 'An error occurred.';
   }
 };
+// --- Upload Marks Modal Logic ---
+const uploadBtn = document.getElementById('upload-marks-btn');
+const uploadModal = document.getElementById('upload-marks-modal');
+const closeUploadBtn = document.getElementById('close-upload-marks-modal');
+const cancelUploadBtn = document.getElementById('cancel-upload-marks-modal');
+uploadBtn.onclick = (e) => { e.preventDefault(); uploadModal.classList.remove('hidden'); uploadPopulateYearDropdown(); uploadPopulateCentersDropdown(); uploadFetchOccupationsLevels(); };
+closeUploadBtn.onclick = cancelUploadBtn.onclick = () => uploadModal.classList.add('hidden');
+window.onclick = function(e) { if (e.target === uploadModal) uploadModal.classList.add('hidden'); };
+
+// --- Dynamic Dropdowns for Upload Marks Modal ---
+let uploadAllOccupations = [];
+let uploadAllLevels = [];
+
+async function uploadFetchOccupationsLevels() {
+  // Fetch occupations
+  const occResp = await fetch('/eims/api/occupations/');
+  if (occResp.ok) {
+    uploadAllOccupations = await occResp.json();
+  }
+  // Fetch levels
+  const lvlResp = await fetch('/eims/api/levels/');
+  if (lvlResp.ok) {
+    uploadAllLevels = await lvlResp.json();
+  }
+  uploadUpdateOccupationOptions();
+}
+
+function uploadUpdateOccupationOptions() {
+  const regcat = document.getElementById('upload-reg-category-select').value;
+  const occSelect = document.getElementById('upload-occupation-select');
+  occSelect.innerHTML = '<option value="">-- Select --</option>';
+  let filtered = uploadAllOccupations;
+  if (regcat === 'formal') {
+    filtered = uploadAllOccupations.filter(o => o.category === 'formal');
+  } else if (regcat === "workers_pas") {
+    filtered = uploadAllOccupations.filter(o => o.category === 'informal');
+  } else if (regcat === 'modular') {
+    filtered = uploadAllOccupations.filter(o => o.category === 'formal' && o.has_modular);
+  }
+  filtered.forEach(o => {
+    occSelect.innerHTML += `<option value="${o.id}">${o.name}</option>`;
+  });
+  uploadUpdateLevelOptions();
+}
+
+function uploadUpdateLevelOptions() {
+  const regcat = document.getElementById('upload-reg-category-select').value;
+  const occId = parseInt(document.getElementById('upload-occupation-select').value);
+  const levelField = document.getElementById('upload-level-field');
+  const levelSelect = document.getElementById('upload-level-select');
+  levelSelect.innerHTML = '<option value="">-- Select --</option>';
+  // Show level for formal, informal, and workers_pas
+  if ((regcat === 'formal' || regcat === 'informal' || regcat === 'workers_pas') && occId) {
+    levelField.classList.remove('hidden');
+    // Filter levels by occupation
+    const occLevels = uploadAllLevels.filter(lvl => lvl.occupation_id === occId);
+    occLevels.forEach(lvl => {
+      levelSelect.innerHTML += `<option value="${lvl.id}">${lvl.name}</option>`;
+    });
+  } else {
+    levelField.classList.add('hidden');
+  }
+  uploadUpdateModulesOptions();
+}
+
+function uploadUpdateModulesOptions() {
+  const regcat = document.getElementById('upload-reg-category-select').value;
+  const occId = parseInt(document.getElementById('upload-occupation-select').value);
+  const levelId = parseInt(document.getElementById('upload-level-select').value);
+  const modulesField = document.getElementById('upload-modules-field');
+  const modulesSelect = document.getElementById('upload-modules-select');
+  modulesSelect.innerHTML = '';
+  if (regcat === 'modular' && occId) {
+    modulesField.classList.remove('hidden');
+    // Fetch modules for occupation (and optionally level)
+    let url = `/eims/api/modules/?occupation_id=${occId}`;
+    if (levelId) url += `&level_id=${levelId}`;
+    fetch(url).then(resp => resp.json()).then(data => {
+      (data.modules || []).forEach(m => {
+        modulesSelect.innerHTML += `<option value="${m.id}">${m.name} (${m.code})</option>`;
+      });
+    });
+  } else {
+    modulesField.classList.add('hidden');
+  }
+}
+
+document.getElementById('upload-reg-category-select').onchange = uploadUpdateOccupationOptions;
+document.getElementById('upload-occupation-select').onchange = uploadUpdateLevelOptions;
+document.getElementById('upload-level-select').onchange = uploadUpdateModulesOptions;
+
+// Populate centers dynamically from API for upload modal
+async function uploadPopulateCentersDropdown() {
+  const centerSelect = document.getElementById('upload-center-select');
+  centerSelect.innerHTML = '<option value="">-- All Centers --</option>';
+  try {
+    const resp = await fetch('/eims/api/centers/');
+    if (resp.ok) {
+      const centers = await resp.json();
+      centers.forEach(c => {
+        centerSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+      });
+    }
+  } catch (err) {}
+}
+
+function uploadPopulateYearDropdown() {
+  const yearSelect = document.getElementById('upload-assessment-year');
+  yearSelect.innerHTML = '';
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.text = y;
+    if (y === currentYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+}
 </script>
 <script src="/static/js/results_marksheet_modules.js"></script>
 {% endblock %}
