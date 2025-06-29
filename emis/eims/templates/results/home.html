@@ -101,9 +101,10 @@
     <div class="bg-white rounded-lg shadow-lg w-full max-w-xl p-8 relative">
       <button id="close-upload-marks-modal" class="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
       <h2 class="text-xl font-bold mb-4">Upload Marks (Bulk)</h2>
-      <form id="upload-marks-form" method="post" enctype="multipart/form-data" action="/eims/results/upload-marks/">
+      <form id="upload-marks-form" method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <div id="upload-marks-msg" class="mb-2 text-sm text-red-600"></div>
+        <div id="upload-marks-success" class="mb-2 text-sm text-green-600"></div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block font-medium mb-1">Assessment Series <span class="text-red-500">*</span></label>
@@ -333,6 +334,48 @@ const cancelUploadBtn = document.getElementById('cancel-upload-marks-modal');
 uploadBtn.onclick = (e) => { e.preventDefault(); uploadModal.classList.remove('hidden'); uploadPopulateYearDropdown(); uploadPopulateCentersDropdown(); uploadFetchOccupationsLevels(); };
 closeUploadBtn.onclick = cancelUploadBtn.onclick = () => uploadModal.classList.add('hidden');
 window.onclick = function(e) { if (e.target === uploadModal) uploadModal.classList.add('hidden'); };
+
+// --- AJAX for Upload Marks ---
+document.addEventListener('DOMContentLoaded', function() {
+  const uploadForm = document.getElementById('upload-marks-form');
+  if (!uploadForm) return;
+  uploadForm.addEventListener('submit', async function(e) {
+    console.log('Intercepted upload-marks-form submit');
+    e.preventDefault();
+    const form = e.target;
+    const msgDiv = document.getElementById('upload-marks-msg');
+    const successDiv = document.getElementById('upload-marks-success');
+    msgDiv.textContent = '';
+    successDiv.textContent = '';
+    const data = new FormData(form);
+    try {
+      const resp = await fetch('/eims/results/upload-marks/', {
+        method: "POST",
+        headers: {
+          'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: data
+      });
+      const json = await resp.json();
+      if (json.success) {
+        successDiv.textContent = `Success: ${json.updated} record${json.updated === 1 ? '' : 's'} updated.`;
+        msgDiv.textContent = '';
+        form.reset();
+        // Optionally, close modal after short delay
+        setTimeout(() => {
+          uploadModal.classList.add('hidden');
+          successDiv.textContent = '';
+        }, 2000);
+      } else {
+        msgDiv.textContent = json.errors ? json.errors.join('\n') : (json.error || 'An error occurred.');
+        successDiv.textContent = '';
+      }
+    } catch (err) {
+      msgDiv.textContent = err.message || 'An error occurred.';
+      successDiv.textContent = '';
+    }
+  });
+});
 
 // --- Dynamic Dropdowns for Upload Marks Modal ---
 let uploadAllOccupations = [];
