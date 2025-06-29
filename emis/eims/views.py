@@ -1341,7 +1341,6 @@ from django.contrib.auth.decorators import login_required
 from .forms import ChangeOccupationForm, ChangeCenterForm
 
 
-
 @login_required
 def dashboard(request):
     group_names = list(request.user.groups.values_list('name', flat=True))
@@ -1417,7 +1416,6 @@ def edit_assessment_center(request, id):
         'form': form,
         'center': center,
     })
-
 
 def occupation_list(request):
     occupations = Occupation.objects.all()
