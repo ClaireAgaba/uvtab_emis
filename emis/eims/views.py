@@ -90,9 +90,13 @@ def generate_marksheet(request):
         print('[DEBUG] After NOT has_modular IDs and regcat (paper-based):', list(candidates.values_list('id', 'registration_category')))
     else:
         print('[DEBUG] Skipping occupation__has_modular filter for formal module-based marksheet.')
-    if regcat:
-        candidates = candidates.filter(registration_category__iexact=regcat)
-        print(f'[DEBUG] After regcat ({regcat}) filter:', candidates.count())
+    # Normalize 'workers_pas' to 'Informal' for DB filtering
+    regcat_db = regcat
+    if regcat and regcat.lower() in ['workers_pas', "worker's pas"]:
+        regcat_db = 'Informal'
+    if regcat_db:
+        candidates = candidates.filter(registration_category__iexact=regcat_db)
+        print(f'[DEBUG] After regcat ({regcat_db}) filter:', candidates.count())
         print(f'[DEBUG] After regcat IDs and regcat:', list(candidates.values_list('id', 'registration_category')))
     print('[DEBUG] Candidate IDs and occupation IDs:', list(candidates.values_list('id', 'occupation_id')))
     # For formal (module-based), filter by CandidateLevel FIRST, do NOT apply occupation filter before this!
@@ -140,6 +144,9 @@ def download_marksheet(request):
     month = request.GET.get('assessment_month')
     year = request.GET.get('assessment_year')
     regcat = request.GET.get('registration_category')
+    # Normalize workers_pas and worker's pas to Informal for both filtering and logic
+    if regcat and regcat.strip().lower() in ["workers_pas", "worker's pas"]:
+        regcat = "Informal"
     occupation_id = request.GET.get('occupation')
     level_id = request.GET.get('level')
     center_id = request.GET.get('assessment_center')
@@ -227,14 +234,23 @@ def download_marksheet(request):
         # Fetch all papers for this occupation/level
         papers = list(Paper.objects.filter(occupation=occupation, level=level))
         print(f"[DEBUG] Paper-based: papers for occupation {occupation.id if occupation else None}, level {level.id if level else None}: {[p.code for p in papers]}")
-    # Informal/Worker's PAS: Only papers, not modules
+    # Informal/Worker's PAS: All papers for occupation/level (flatten, ignore module grouping)
     elif regcat_normalized in ['informal', "worker's pas"]:
         informal = True
-        # Only include enrolled papers (CandidatePaper)
-        enrolled_papers = CandidatePaper.objects.filter(candidate__in=candidates, level=level)
-        paper_ids = enrolled_papers.values_list('paper_id', flat=True).distinct()
-        papers = list(Paper.objects.filter(id__in=paper_ids))
-        enrolled_ids = set(enrolled_papers.values_list('candidate_id', flat=True))
+        # Fetch modules for this occupation and level
+        modules = list(Module.objects.filter(occupation_id=occupation.id, level_id=level.id))
+        # Fetch papers both ways: directly by occupation/level, and by modules
+        papers_direct = list(Paper.objects.filter(occupation_id=occupation.id, level_id=level.id))
+        papers_via_modules = list(Paper.objects.filter(module__in=modules))
+        # Combine and deduplicate by paper ID
+        papers_dict = {p.id: p for p in papers_direct + papers_via_modules}
+        papers = list(papers_dict.values())
+        print(f"[DEBUG] Informal: papers_direct for occupation {occupation.id}, level {level.id}: {[{'id': p.id, 'code': p.code} for p in papers_direct]}")
+        print(f"[DEBUG] Informal: papers_via_modules for modules {[m.id for m in modules]}: {[{'id': p.id, 'code': p.code} for p in papers_via_modules]}")
+        print(f"[DEBUG] Informal: final papers for occupation {occupation.id}, level {level.id}: {[{'id': p.id, 'code': p.code} for p in papers]}")
+        # All candidates enrolled for this level in this occupation
+        enrolled_ids = set(CandidateLevel.objects.filter(level_id=level.id, candidate__occupation_id=occupation.id).values_list('candidate_id', flat=True))
+        print(f"[DEBUG] Informal: enrolled_ids for occupation {occupation.id if occupation else None}, level {level.id if level else None}: {enrolled_ids}")
         candidates = candidates.filter(id__in=enrolled_ids)
     else:
         # fallback: no structure or unknown regcat
@@ -270,8 +286,9 @@ def download_marksheet(request):
         output = BytesIO()
         wb.save(output)
         output.seek(0)
+        filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
         response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="marksheet_{regcat}_{occupation.code if occupation else ""}_{year}_{month}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 
     # --- Formal (module-based): SN, REGISTRATION NO., FULL NAME, OCCUPATION CODE, CATEGORY, LEVEL, THEORY, PRACTICAL ---
@@ -296,8 +313,9 @@ def download_marksheet(request):
         output = BytesIO()
         wb.save(output)
         output.seek(0)
+        filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
         response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="marksheet_{regcat}_{occupation.code if occupation else ""}_{year}_{month}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 
     if not modules and not papers:
@@ -336,7 +354,11 @@ def download_marksheet(request):
     if regcat_normalized == 'formal' and structure_type == 'papers':
         base_headers = ['SN', 'REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'LEVEL', 'CATEGORY']
     else:
-        base_headers = ['REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'LEVEL', 'CATEGORY', 'ASSESSMENT CENTER', 'MONTH', 'YEAR']
+        # For informal/worker's PAS, match the Excel sample: include LEVEL after CATEGORY
+        if informal:
+            base_headers = ['SN', 'REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'CATEGORY', 'LEVEL']
+        else:
+            base_headers = ['REGISTRATION NO.', 'FULL NAME', 'OCCUPATION CODE', 'LEVEL', 'CATEGORY', 'ASSESSMENT CENTER', 'MONTH', 'YEAR']
     dynamic_headers = []
     if regcat_normalized == 'modular':
         for module in modules:
@@ -365,6 +387,15 @@ def download_marksheet(request):
                 level.name if level else '',
                 getattr(candidate, 'registration_category', ''),
             ]
+        elif informal:
+            row = [
+                sn,
+                candidate.reg_number,
+                candidate.full_name,
+                getattr(candidate.occupation, 'code', '') if candidate.occupation else '',
+                getattr(candidate, 'registration_category', ''),
+                level.name if level else '',
+            ]
         else:
             row = [
                 candidate.reg_number,
@@ -389,8 +420,29 @@ def download_marksheet(request):
                 marks.append('')
         else:
             marks.append('')
+
+        # Append the row and get the row number for formatting
         ws.append(row + marks)
+        current_row = ws.max_row
+
+        # --- Highlight enrolled papers for informal/worker's PAS ---
+        if informal:
+            from openpyxl.styles import PatternFill
+            # Get enrolled paper IDs for this candidate (for this level)
+            enrolled_paper_ids = set()
+            for cp in CandidatePaper.objects.filter(candidate=candidate, level=level):
+                enrolled_paper_ids.add(cp.paper_id)
+            yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+            # The paper columns start after the base headers
+            paper_col_offset = len(row)
+            for idx, paper in enumerate(papers):
+                if paper.id in enrolled_paper_ids:
+                    col_letter = ws.cell(row=current_row, column=paper_col_offset + idx + 1).column_letter
+                    ws[f"{col_letter}{current_row}"].fill = yellow_fill
+
         if regcat_normalized == 'formal' and structure_type == 'papers':
+            sn += 1
+        elif informal:
             sn += 1
 
     # --- Stream to memory ---

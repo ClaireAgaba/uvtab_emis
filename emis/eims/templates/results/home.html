@@ -163,7 +163,8 @@ function updateLevelOptions() {
   const levelField = document.getElementById('level-field');
   const levelSelect = document.getElementById('level-select');
   levelSelect.innerHTML = '<option value="">-- Select --</option>';
-  if ((regcat === 'formal' || regcat === 'informal') && occId) {
+  // Show level for formal, informal, and workers_pas
+  if ((regcat === 'formal' || regcat === 'informal' || regcat === 'workers_pas') && occId) {
     levelField.classList.remove('hidden');
     // Filter levels by occupation
     const occLevels = allLevels.filter(lvl => lvl.occupation_id === occId);
