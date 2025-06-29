@@ -20,6 +20,13 @@
       <option value="add_regno_photo">Add Regno on Photo</option>
       <option value="change_reg_cat">Change Reg Category</option>
     </select>
+    <!-- Level selector for Formal/Informal bulk enroll -->
+    <div id="bulk-level-select-wrapper" class="hidden" style="min-width:180px; margin-right:12px;">
+      <label for="bulk-level-select" class="block text-xs font-semibold text-gray-700 mb-1">Select Level:</label>
+      <select id="bulk-level-select" class="border px-2 py-1 rounded w-full"></select>
+    </div>
+    <!-- Module/Paper selector for Informal bulk enroll -->
+    <div id="bulk-informal-modules-papers" class="hidden" style="min-width:240px; max-width:480px; max-height:320px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
     <!-- Module selector for Modular bulk enroll -->
     <div id="bulk-module-checkboxes" class="hidden" style="min-width:240px; min-height:120px; max-height:240px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
     <button id="bulk-action-apply" class="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Apply</button>
@@ -193,6 +200,114 @@ checkboxes.forEach(cb => {
 
 // --- Bulk Modular Module Selection Logic (with checkboxes) ---
 const bulkModuleBox = document.getElementById('bulk-module-checkboxes');
+const bulkLevelWrapper = document.getElementById('bulk-level-select-wrapper');
+const bulkLevelSelect = document.getElementById('bulk-level-select');
+const bulkInformalBox = document.getElementById('bulk-informal-modules-papers');
+
+// Helper: get regcat and occupation of selected candidates (assumes all same)
+function getBulkRegcatAndOcc() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  if (!checked.length) return {};
+  let row = checked[0].closest('tr');
+  if (!row) return {};
+  // Find columns by index: Reg. Category and Occupation
+  const tds = row.querySelectorAll('td');
+  let regcat = tds[5]?.textContent.trim();
+  let occ = tds[4]?.textContent.trim();
+  return {regcat, occ};
+}
+
+function fetchLevelsForOccupation(occupationName, cb) {
+  // Find occupation id from filter dropdown
+  const occSel = document.querySelector('select[name="occupation"]');
+  let occId = occSel ? occSel.value : null;
+  if (!occId) return cb([]);
+  fetch(`/eims/api/levels-for-occupation/?occupation_id=${occId}`)
+    .then(res => res.json())
+    .then(data => cb(data.levels || []))
+    .catch(() => cb([]));
+}
+
+function fetchModulesPapersForInformal(occupationId, levelId, cb) {
+  // You will need to implement this endpoint on the backend
+  fetch(`/eims/api/informal-modules-papers/?occupation_id=${occupationId}&level_id=${levelId}`)
+    .then(res => res.json())
+    .then(data => cb(data))
+    .catch(() => cb({modules: []}));
+}
+
+function updateBulkSelectors() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  if (bulkSelect.value !== 'enroll' || checked.length === 0) {
+    bulkLevelWrapper.classList.add('hidden');
+    bulkLevelSelect.innerHTML = '';
+    bulkInformalBox.classList.add('hidden');
+    bulkInformalBox.innerHTML = '';
+    return;
+  }
+  // Determine regcat and occupation
+  const {regcat, occ} = getBulkRegcatAndOcc();
+  const occSel = document.querySelector('select[name="occupation"]');
+  let occId = occSel ? occSel.value : null;
+  if (!regcat || !occId) {
+    bulkLevelWrapper.classList.add('hidden');
+    bulkLevelSelect.innerHTML = '';
+    bulkInformalBox.classList.add('hidden');
+    bulkInformalBox.innerHTML = '';
+    return;
+  }
+  if (regcat === 'Formal' || regcat === 'Informal' || regcat === "Worker's PAS") {
+    // Show level dropdown
+    bulkLevelWrapper.classList.remove('hidden');
+    fetchLevelsForOccupation(occ, function(levels) {
+      bulkLevelSelect.innerHTML = '<option value="">Select Level</option>';
+      levels.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = l.name;
+        bulkLevelSelect.appendChild(opt);
+      });
+      // For informal: after level is chosen, fetch modules/papers
+      if (regcat === 'Informal' || regcat === "Worker's PAS") {
+        bulkLevelSelect.onchange = function() {
+          const levelId = bulkLevelSelect.value;
+          if (!levelId) {
+            bulkInformalBox.classList.add('hidden');
+            bulkInformalBox.innerHTML = '';
+            return;
+          }
+          fetchModulesPapersForInformal(occId, levelId, function(data) {
+            // Render module/paper selectors (one radio group per module)
+            let html = '';
+            (data.modules || []).forEach(mod => {
+              html += `<div class='mb-2'><div class='font-semibold mb-1'>${mod.name}</div>`;
+              (mod.papers || []).forEach(paper => {
+                html += `<label class='mr-4'><input type='radio' name='bulk-paper-module-${mod.id}' value='${paper.id}'> ${paper.name}</label>`;
+              });
+              html += '</div>';
+            });
+            bulkInformalBox.innerHTML = html;
+            bulkInformalBox.classList.remove('hidden');
+          });
+        };
+      } else {
+        bulkLevelSelect.onchange = null;
+        bulkInformalBox.classList.add('hidden');
+        bulkInformalBox.innerHTML = '';
+      }
+    });
+  } else {
+    bulkLevelWrapper.classList.add('hidden');
+    bulkLevelSelect.innerHTML = '';
+    bulkInformalBox.classList.add('hidden');
+    bulkInformalBox.innerHTML = '';
+  }
+}
+
+bulkSelect.addEventListener('change', updateBulkSelectors);
+document.querySelectorAll('.candidate-checkbox').forEach(cb => cb.addEventListener('change', updateBulkSelectors));
+// Also update on page load if any are checked
+updateBulkSelectors();
 
 function fetchModulesForCandidates(candidateIds, callback) {
   fetch('/eims/candidates/bulk-modules/', {
@@ -334,6 +449,27 @@ bulkApply && bulkApply.addEventListener('click', function() {
   }
   // For Modular enroll, require module selection via checkboxes
   let moduleIds = [];
+  let levelId = null;
+  let paperIds = [];
+  // Check if level selector is visible
+  if (!bulkLevelWrapper.classList.contains('hidden')) {
+    levelId = bulkLevelSelect.value;
+    if (!levelId) {
+      bulkError.textContent = 'Please select a level.';
+      return;
+    }
+  }
+  // For informal, require at least one paper per module
+  if (!bulkInformalBox.classList.contains('hidden')) {
+    // Collect all selected paper ids
+    const radios = bulkInformalBox.querySelectorAll('input[type=radio]:checked');
+    paperIds = Array.from(radios).map(r => r.value);
+    const expectedGroups = (bulkInformalBox.querySelectorAll('div.font-semibold.mb-1') || []).length;
+    if (paperIds.length < expectedGroups) {
+      bulkError.textContent = 'Select one paper for each module.';
+      return;
+    }
+  }
   if (!bulkModuleBox.classList.contains('hidden') && bulkSelect.value === 'enroll') {
     moduleIds = Array.from(bulkModuleBox.querySelectorAll('.bulk-module-checkbox:checked')).map(cb => cb.value);
     if (moduleIds.length < 1 || moduleIds.length > 2) {
@@ -387,17 +523,26 @@ bulkApply && bulkApply.addEventListener('click', function() {
     body: JSON.stringify({
       action: bulkSelect.value,
       candidate_ids: checked.map(cb => cb.value),
-      module_ids: moduleIds
+      module_ids: moduleIds,
+      level_id: levelId,
+      paper_ids: paperIds
     })
   })
   .then(res => res.json())
   .then(data => {
     if (data.success) {
       bulkError.textContent = '';
-      // Custom message: "Successfully enrolled X candidates in Y module(s)"
-      let modCount = moduleIds.length;
       let candCount = checked.length;
-      alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in ${modCount} module${modCount > 1 ? 's' : ''}.`);
+      if (paperIds.length > 0) {
+        alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in selected papers.`);
+      } else if (moduleIds.length > 0) {
+        let modCount = moduleIds.length;
+        alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in ${modCount} module${modCount > 1 ? 's' : ''}.`);
+      } else if (levelId) {
+        alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in selected level.`);
+      } else {
+        alert('Bulk enrollment successful.');
+      }
       window.location.reload();
     } else {
       bulkError.textContent = data.error || 'An error occurred.';

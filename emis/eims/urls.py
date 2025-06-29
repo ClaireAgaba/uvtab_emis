@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_api
 from django.contrib.auth import views as auth_views
 
 
@@ -32,6 +33,7 @@ urlpatterns = [
     path('api/occupations/', views.api_occupations, name='api_occupations'),
     path('api/levels/', views.api_levels, name='api_levels'),
     path('api/levels-for-occupation/', views.api_levels_for_occupation, name='api_levels_for_occupation'),
+    path('api/informal-modules-papers/', views_api.api_informal_modules_papers, name='api_informal_modules_papers'),
     path('api/centers/', views.api_centers, name='api_centers'),
     path('api/occupation-level-structure/', views.api_occupation_level_structure, name='api_occupation_level_structure'),
     path('api/modules/', views.api_modules, name='api_modules'),

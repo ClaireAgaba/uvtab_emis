@@ -1105,6 +1105,40 @@ def bulk_candidate_action(request):
     if not candidates.exists():
         return JsonResponse({'success': False, 'error': 'No candidates found.'}, status=400)
 
+    if action == 'enroll':
+        # Bulk enrollment for formal/informal
+        level_id = data.get('level_id')
+        paper_ids = data.get('paper_ids', [])
+        module_ids = data.get('module_ids', [])
+        # Get registration category from first candidate (assume all same)
+        regcat = candidates.first().registration_category.strip().lower() if candidates.exists() else ''
+        from .models import Level, Module, Paper, CandidateLevel, CandidateModule, CandidatePaper
+        # Validate level for formal/informal
+        if regcat in ['formal', 'informal', "worker's pas", "workers pas"]:
+            if not level_id:
+                return JsonResponse({'success': False, 'error': 'Level is required.'})
+            level = Level.objects.filter(id=level_id).first()
+            if not level:
+                return JsonResponse({'success': False, 'error': 'Invalid level.'})
+            # Enroll all candidates in level
+            for cand in candidates:
+                CandidateLevel.objects.get_or_create(candidate=cand, level=level)
+        # For informal: assign selected papers
+        if regcat in ['informal', "worker's pas", "workers pas"] and paper_ids:
+            papers = Paper.objects.filter(id__in=paper_ids).select_related('module')
+            for cand in candidates:
+                for paper in papers:
+                    # Ensure CandidateModule exists for this candidate/module
+                    CandidateModule.objects.get_or_create(candidate=cand, module=paper.module)
+                    CandidatePaper.objects.get_or_create(candidate=cand, module=paper.module, paper=paper, level=level)
+        # For modular: assign modules
+        if regcat == 'modular' and module_ids:
+            modules = Module.objects.filter(id__in=module_ids)
+            for cand in candidates:
+                for mod in modules:
+                    CandidateModule.objects.get_or_create(candidate=cand, module=mod)
+        return JsonResponse({'success': True})
+
     if action == 'add_regno_photo':
         results = []
         from PIL import Image as PILImage, ImageDraw, ImageFont
@@ -1290,6 +1324,7 @@ def bulk_candidate_action(request):
 
 from django.urls import reverse
 from .models import AssessmentCenter, Candidate, Occupation, AssessmentCenterCategory, Level, Module, Paper, CandidateLevel, CandidateModule, Village, District
+from . import views_api
 from .forms import AssessmentCenterForm, OccupationForm, ModuleForm, PaperForm, CandidateForm, EnrollmentForm, DistrictForm, VillageForm
 from django.contrib import messages 
 from reportlab.lib import colors    
@@ -3452,10 +3487,13 @@ def candidate_view(request, id):
             modules = CandidateModule.objects.filter(candidate=candidate, module__level=lvl_enroll.level)
             module_list = []
             for mod_enroll in modules:
-                papers = [cp.paper for cp in CandidatePaper.objects.filter(candidate=candidate, module=mod_enroll.module, level=lvl_enroll.level).select_related('paper')]
+                # Attach all papers for this candidate/module/level (may be >1 after bulk)
+                papers = list(
+                    CandidatePaper.objects.filter(candidate=candidate, module=mod_enroll.module, level=lvl_enroll.level).select_related('paper')
+                )
                 module_list.append({
                     'module': mod_enroll.module,
-                    'papers': papers
+                    'papers': [cp.paper for cp in papers]
                 })
             enrollment_summary.append({
                 'level': lvl_enroll.level,
