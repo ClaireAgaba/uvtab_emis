@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from reportlab.platypus import Image as RLImage
+import calendar
 
 
 @login_required
@@ -510,7 +511,12 @@ def download_marksheet(request):
         output = BytesIO()
         wb.save(output)
         output.seek(0)
-        filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+        #filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+        occupation_name = occupation.name if occupation else 'Occupation'
+        regcat_title = regcat_normalized.title() if regcat_normalized else 'All'
+        month_str = calendar.month_name[int(month)] if month and month.isdigit() and int(month) in range(1, 13) else (month if month else '')
+        year_str = year if year else ''
+        filename = f"{occupation_name} Marksheet {month_str} {year_str} {regcat_title}.xlsx"
         response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -537,7 +543,12 @@ def download_marksheet(request):
         output = BytesIO()
         wb.save(output)
         output.seek(0)
-        filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+        #filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+        occupation_name = occupation.name if occupation else 'Occupation'
+        regcat_title = regcat_normalized.title() if regcat_normalized else 'All'
+        month_str = calendar.month_name[int(month)] if month and month.isdigit() and int(month) in range(1, 13) else (month if month else '')
+        year_str = year if year else ''
+        filename = f"{occupation_name} Marksheet {month_str} {year_str} {regcat_title}.xlsx"    
         response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -550,7 +561,12 @@ def download_marksheet(request):
         output = BytesIO()
         wb.save(output)
         output.seek(0)
-        filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+        #filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+        occupation_name = occupation.name if occupation else 'Occupation'
+        regcat_title = regcat_normalized.title() if regcat_normalized else 'All'
+        month_str = calendar.month_name[int(month)] if month and month.isdigit() and int(month) in range(1, 13) else (month if month else '')
+        year_str = year if year else ''
+        filename = f"{occupation_name} Marksheet {month_str} {year_str} {regcat_title}.xlsx"
         response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -673,7 +689,13 @@ def download_marksheet(request):
     output = BytesIO()
     wb.save(output)
     output.seek(0)
-    filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+    #filename = f"marksheet_{regcat_normalized or 'all'}_{month or ''}_{year or ''}.xlsx"
+    occupation_name = occupation.name if occupation else 'Occupation'
+    regcat_title = regcat_normalized.title() if regcat_normalized else 'All'
+    month_str = calendar.month_name[int(month)] if month and month.isdigit() and int(month) in range(1, 13) else (month if month else '')
+    year_str = year if year else ''
+    filename = f"{occupation_name} Marksheet {month_str} {year_str} {regcat_title}.xlsx"    
+    
     response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
