@@ -11,7 +11,7 @@
   </div>
 
   <div class="bg-white rounded-lg shadow-sm p-6">
-    <form method="post" class="space-y-6">
+    <form method="post" class="space-y-6" id="occupation-edit-form">
       {% csrf_token %}
       
       {% for field in form %}
@@ -31,28 +31,140 @@
       </div>
       {% endfor %}
 
-      <!-- Add Level Inline Form -->
-      {% include 'occupations/add_level_form.html' with occupation=occupation error=add_level_error %}
-
+      <!-- Add Level Inline Form (AJAX) -->
+      <div class="mb-4" id="add-level-form" class="flex items-center space-x-2">
+        <input type="text" id="level-name-input" class="border rounded px-2 py-1" placeholder="Level Name (e.g. Level 1)">
+        <button type="button" id="add-level-btn" class="bg-blue-600 text-white px-3 py-1 rounded">Add Level</button>
+        <span id="add-level-error" class="text-red-600 text-sm"></span>
+      </div>
       <!-- Levels & Structure Type Section -->
       <div class="mt-6">
         <label class="block font-medium mb-2">Levels & Structure Type</label>
-        {% if error %}
-          <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-3">{{ error }}</div>
-        {% endif %}
-        <div class="bg-gray-50 p-4 rounded space-y-3">
+        <div id="levels-list" class="bg-gray-50 p-4 rounded space-y-3">
           {% for level in levels %}
-            <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-4 level-row" data-level-id="{{ level.id }}">
               <input type="checkbox" id="level_{{ level.id }}" name="levels" value="{{ level.id }}" {% if selected_levels|get_item:level.id %}checked{% endif %}>
               <label for="level_{{ level.id }}" class="mr-4">{{ level.name }}</label>
               <select name="structure_type_{{ level.id }}" class="border rounded px-2 py-1">
                 <option value="modules" {% if level.stype == 'modules' or selected_levels|get_item:level.id == 'modules' %}selected{% endif %}>Modules</option>
                 <option value="papers" {% if level.stype == 'papers' or selected_levels|get_item:level.id == 'papers' %}selected{% endif %}>Papers</option>
               </select>
+              <button type="button" class="remove-level-btn px-2 py-1 bg-red-500 text-white rounded" data-level-id="{{ level.id }}">Remove</button>
             </div>
           {% endfor %}
         </div>
       </div>
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          const occupationEditForm = document.getElementById('occupation-edit-form');
+          const addLevelForm = document.getElementById('add-level-form');
+          const addLevelBtn = document.getElementById('add-level-btn');
+          const levelNameInput = document.getElementById('level-name-input');
+          const addLevelError = document.getElementById('add-level-error');
+          const levelsList = document.getElementById('levels-list');
+          const occupationId = {{ occupation.id }};
+
+          addLevelBtn.addEventListener('click', function(e) {
+  e.preventDefault();
+  addLevelError.textContent = '';
+  if (!levelNameInput.value.trim()) {
+    addLevelError.textContent = 'Please enter a level name.';
+    return;
+  }
+  fetch(`/eims/api/occupations/${occupationId}/add-level/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    },
+    body: `level_name=${encodeURIComponent(levelNameInput.value)}`
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      levelNameInput.value = '';
+      // Expect backend to return selected_levels as well as levels
+      renderLevels(data.levels, data.selected_levels || {});
+    } else {
+      addLevelError.textContent = data.error || 'Could not add level.';
+    }
+  });
+});
+
+          levelsList.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-level-btn')) {
+              const levelId = e.target.getAttribute('data-level-id');
+              if (!confirm('Are you sure you want to remove this level?')) return;
+              fetch(`/eims/api/occupations/${occupationId}/remove-level/`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: `level_id=${encodeURIComponent(levelId)}`
+              })
+              .then(res => res.json())
+              .then(data => {
+                if (data.success) {
+                  renderLevels(data.levels, data.selected_levels || {});
+                } else {
+                  alert(data.error || 'Could not remove level.');
+                }
+              });
+            }
+          });
+
+          // Accepts levels (array) and selectedLevels (object mapping level.id to structure_type)
+function renderLevels(levels, selectedLevels = {}) {
+  levelsList.innerHTML = '';
+  levels.forEach(level => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center space-x-4 level-row';
+    row.setAttribute('data-level-id', level.id);
+    // Determine checked and structure_type from selectedLevels or default
+    const checked = selectedLevels && selectedLevels[level.id] ? 'checked' : '';
+    const structureType = selectedLevels && selectedLevels[level.id] ? selectedLevels[level.id] : (level.stype || 'modules');
+    row.innerHTML = `
+      <input type="checkbox" id="level_${level.id}" name="levels" value="${level.id}" ${checked}>
+      <label for="level_${level.id}" class="mr-4">${level.name}</label>
+      <select name="structure_type_${level.id}" class="border rounded px-2 py-1">
+        <option value="modules" ${structureType === 'modules' ? 'selected' : ''}>Modules</option>
+        <option value="papers" ${structureType === 'papers' ? 'selected' : ''}>Papers</option>
+      </select>
+      <button type="button" class="remove-level-btn px-2 py-1 bg-red-500 text-white rounded" data-level-id="${level.id}">Remove</button>
+    `;
+    levelsList.appendChild(row);
+  });
+}
+          // Before submitting, collect all level checkboxes and structure type selects and append as hidden inputs
+          occupationEditForm.addEventListener('submit', function(e) {
+            // Remove any previously added hidden fields
+            const prevHiddens = occupationEditForm.querySelectorAll('.js-dynamic-hidden');
+            prevHiddens.forEach(el => el.remove());
+            // For each level row, if checked, add hidden 'levels' and 'structure_type_<id>' fields
+            document.querySelectorAll('.level-row').forEach(row => {
+              const checkbox = row.querySelector('input[type="checkbox"]');
+              const select = row.querySelector('select');
+              if (checkbox && checkbox.checked) {
+                // Hidden for levels
+                const hiddenLevel = document.createElement('input');
+                hiddenLevel.type = 'hidden';
+                hiddenLevel.name = 'levels';
+                hiddenLevel.value = checkbox.value;
+                hiddenLevel.className = 'js-dynamic-hidden';
+                occupationEditForm.appendChild(hiddenLevel);
+                // Hidden for structure_type
+                const hiddenStype = document.createElement('input');
+                hiddenStype.type = 'hidden';
+                hiddenStype.name = `structure_type_${checkbox.value}`;
+                hiddenStype.value = select.value;
+                hiddenStype.className = 'js-dynamic-hidden';
+                occupationEditForm.appendChild(hiddenStype);
+              }
+            });
+          });
+        });
+      </script>
 
       <div class="flex justify-end space-x-4 mt-8">
         <a href="{% url 'occupation_view' pk=occupation.pk %}" 

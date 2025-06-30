@@ -3627,6 +3627,9 @@ def config_home(request):
     """Configuration home page showing available settings"""
     return render(request, 'configurations/config_home.html')
 
+from django.contrib.auth.decorators import login_required
+
+@login_required
 def occupation_edit(request, pk):
     from .models import Level, OccupationLevel
     occupation = get_object_or_404(Occupation, pk=pk)
