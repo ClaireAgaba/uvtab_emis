@@ -110,6 +110,7 @@ class AssessmentCenter(models.Model):
         return f"{self.center_number} - {self.center_name}"
 
     class Meta:
+        ordering = ['center_number']
         verbose_name = "Assessment Center"
         verbose_name_plural = "Assessment Centers"
 
