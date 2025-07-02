@@ -532,16 +532,22 @@ bulkApply && bulkApply.addEventListener('click', function() {
   .then(data => {
     if (data.success) {
       bulkError.textContent = '';
-      let candCount = checked.length;
-      if (paperIds.length > 0) {
-        alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in selected papers.`);
-      } else if (moduleIds.length > 0) {
-        let modCount = moduleIds.length;
-        alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in ${modCount} module${modCount > 1 ? 's' : ''}.`);
-      } else if (levelId) {
-        alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in selected level.`);
+      // Prefer backend message if present
+      if (data.message) {
+        alert(data.message);
       } else {
-        alert('Bulk enrollment successful.');
+        // Fallbacks for legacy/edge cases
+        let candCount = checked.length;
+        if (paperIds.length > 0) {
+          alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in selected papers.`);
+        } else if (moduleIds.length > 0) {
+          let modCount = moduleIds.length;
+          alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in ${modCount} module${modCount > 1 ? 's' : ''}.`);
+        } else if (levelId) {
+          alert(`Successfully enrolled ${candCount} candidate${candCount > 1 ? 's' : ''} in selected level.`);
+        } else {
+          alert('Bulk enrollment successful.');
+        }
       }
       window.location.reload();
     } else {
