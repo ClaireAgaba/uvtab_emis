@@ -3716,6 +3716,8 @@ def create_center_rep(request):
         form = CenterRepForm()
     return render(request, 'users/center_representatives/create_center_rep.html', {'form': form})
 
+from .forms import SupportStaffForm
+
 def create_support_staff(request):
     if request.method == 'POST':
         form = SupportStaffForm(request.POST)
