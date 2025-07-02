@@ -56,3 +56,6 @@ ENV/
 # System files
 .DS_Store
 Thumbs.db
+
+# Static files
+**/static/**
