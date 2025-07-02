@@ -1106,38 +1106,67 @@ def bulk_candidate_action(request):
         return JsonResponse({'success': False, 'error': 'No candidates found.'}, status=400)
 
     if action == 'enroll':
-        # Bulk enrollment for formal/informal
+        # Bulk enrollment for formal/informal/worker's pas/modular
         level_id = data.get('level_id')
         paper_ids = data.get('paper_ids', [])
         module_ids = data.get('module_ids', [])
-        # Get registration category from first candidate (assume all same)
-        regcat = candidates.first().registration_category.strip().lower() if candidates.exists() else ''
+        # Enforce same occupation and regcat for all candidates
+        occupations = set(c.occupation_id for c in candidates)
+        regcats = set((c.registration_category or '').strip().lower() for c in candidates)
+        if len(occupations) != 1 or len(regcats) != 1:
+            return JsonResponse({'success': False, 'error': 'All candidates must have the same occupation and registration category to enroll together.'}, status=400)
+        regcat = regcats.pop()
         from .models import Level, Module, Paper, CandidateLevel, CandidateModule, CandidatePaper
-        # Validate level for formal/informal
-        if regcat in ['formal', 'informal', "worker's pas", "workers pas"]:
+        enrolled = 0
+        # --- FORMAL ---
+        if regcat == 'formal':
             if not level_id:
                 return JsonResponse({'success': False, 'error': 'Level is required.'})
             level = Level.objects.filter(id=level_id).first()
             if not level:
                 return JsonResponse({'success': False, 'error': 'Invalid level.'})
-            # Enroll all candidates in level
-            for cand in candidates:
-                CandidateLevel.objects.get_or_create(candidate=cand, level=level)
-        # For informal: assign selected papers
-        if regcat in ['informal', "worker's pas", "workers pas"] and paper_ids:
-            papers = Paper.objects.filter(id__in=paper_ids).select_related('module')
-            for cand in candidates:
-                for paper in papers:
-                    # Ensure CandidateModule exists for this candidate/module
-                    CandidateModule.objects.get_or_create(candidate=cand, module=paper.module)
-                    CandidatePaper.objects.get_or_create(candidate=cand, module=paper.module, paper=paper, level=level)
-        # For modular: assign modules
-        if regcat == 'modular' and module_ids:
-            modules = Module.objects.filter(id__in=module_ids)
-            for cand in candidates:
-                for mod in modules:
-                    CandidateModule.objects.get_or_create(candidate=cand, module=mod)
-        return JsonResponse({'success': True})
+            for c in candidates:
+                CandidateLevel.objects.get_or_create(candidate=c, level=level)
+                enrolled += 1
+            return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in {level.name}.'})
+        # --- WORKER'S PAS / INFORMAL ---
+        elif regcat in ['informal', "worker's pas", "workers pas"]:
+            if not level_id:
+                return JsonResponse({'success': False, 'error': 'Level is required.'})
+            level = Level.objects.filter(id=level_id).first()
+            if not level:
+                return JsonResponse({'success': False, 'error': 'Invalid level.'})
+            for c in candidates:
+                CandidateLevel.objects.get_or_create(candidate=c, level=level)
+                enrolled += 1
+            # Assign selected papers (one per module)
+            if paper_ids:
+                papers = Paper.objects.filter(id__in=paper_ids).select_related('module')
+                for c in candidates:
+                    for paper in papers:
+                        CandidateModule.objects.get_or_create(candidate=c, module=paper.module)
+                        CandidatePaper.objects.get_or_create(candidate=c, module=paper.module, paper=paper, level=level)
+                return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in {level.name} and assigned selected papers.'})
+            return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in {level.name}.'})
+        # --- MODULAR ---
+        elif regcat == 'modular':
+            if not (1 <= len(module_ids) <= 2):
+                return JsonResponse({'success': False, 'error': 'Select 1 or 2 modules.'}, status=400)
+            occupation_id = occupations.pop()
+            level = Level.objects.filter(id=level_id).first() if level_id else Level.objects.filter(name__icontains='1').first()
+            if not level:
+                return JsonResponse({'success': False, 'error': 'Level not found.'}, status=400)
+            modules = Module.objects.filter(id__in=module_ids, occupation_id=occupation_id, level=level)
+            if modules.count() != len(module_ids):
+                return JsonResponse({'success': False, 'error': 'Invalid module selection.'}, status=400)
+            for c in candidates:
+                CandidateModule.objects.filter(candidate=c).delete()
+                for m in modules:
+                    CandidateModule.objects.create(candidate=c, module=m)
+                enrolled += 1
+            return JsonResponse({'success': True, 'message': f'Successfully enrolled {enrolled} candidates in {modules.count()} module(s).'})
+        else:
+            return JsonResponse({'success': False, 'error': 'Bulk enroll only supported for Formal, Modular, or Worker\'s PAS/Informal registration categories.'}, status=400)
 
     if action == 'add_regno_photo':
         results = []
@@ -1233,55 +1262,6 @@ def bulk_candidate_action(request):
                 results.append({'id': c.id, 'success': False, 'error': str(e)})
         return JsonResponse({'success': True, 'results': results})
 
-    if action == 'enroll':
-        # Enforce same occupation and reg category
-        occupations = set(c.occupation_id for c in candidates)
-        regcats = set(c.registration_category for c in candidates)
-        if len(occupations) != 1 or len(regcats) != 1:
-            return JsonResponse({'success': False, 'error': 'All candidates must have the same occupation and registration category to enroll together.'}, status=400)
-        regcat = regcats.pop()
-        from .models import Level, CandidateLevel, CandidateModule, Module
-        if regcat == 'Formal':
-            # Enroll each candidate in Level 1 (or add TODO for level selection)
-            level = Level.objects.filter(name__icontains='1').first()
-            if not level:
-                return JsonResponse({'success': False, 'error': 'Level 1 not found.'}, status=400)
-            enrolled = 0
-            for c in candidates:
-                # Remove previous
-                CandidateLevel.objects.filter(candidate=c).delete()
-                CandidateLevel.objects.create(candidate=c, level=level)
-                enrolled += 1
-            return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in Level 1.'})
-        elif regcat == 'Modular':
-            # Modular: use provided module_ids
-            occupation_id = occupations.pop()
-            level = Level.objects.filter(name__icontains='1').first()
-            if not level:
-                return JsonResponse({'success': False, 'error': 'Level 1 not found.'}, status=400)
-            try:
-                data = json.loads(request.body.decode()) if request.body else request.POST
-                module_ids = data.get('module_ids', [])
-                if isinstance(module_ids, str):
-                    module_ids = module_ids.split(',')
-                module_ids = [int(mid) for mid in module_ids if str(mid).isdigit()]
-            except Exception:
-                return JsonResponse({'success': False, 'error': 'Could not read selected modules.'}, status=400)
-            if not (1 <= len(module_ids) <= 2):
-                return JsonResponse({'success': False, 'error': 'Select 1 or 2 modules.'}, status=400)
-            modules = Module.objects.filter(id__in=module_ids, occupation_id=occupation_id, level=level)
-            if modules.count() != len(module_ids):
-                return JsonResponse({'success': False, 'error': 'Invalid module selection.'}, status=400)
-            enrolled = 0
-            for c in candidates:
-                # Remove previous
-                CandidateModule.objects.filter(candidate=c).delete()
-                for m in modules:
-                    CandidateModule.objects.create(candidate=c, module=m)
-                enrolled += 1
-            return JsonResponse({'success': True, 'message': f'Successfully enrolled {enrolled} candidates in {modules.count()} module(s).'})
-        else:
-            return JsonResponse({'success': False, 'error': 'Bulk enroll only supported for Formal or Modular registration categories.'}, status=400)
 
     elif action == 'regenerate':
         updated = 0
