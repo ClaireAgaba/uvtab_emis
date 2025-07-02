@@ -317,8 +317,10 @@ class Candidate(models.Model):
         Serial is always unique for (center, intake, year, occupation, reg cat).
         """
         from django.db import transaction
-        # Use 'U' for Ugandan, 'X' for any other country
-        nat = 'U' if str(self.nationality).strip().lower() == 'ugandan' else 'X'
+        # Use 'U' for Uganda (robust), 'X' for any other country
+        UGANDA_VALUES = {"uganda", "ugandan", "ug", "256"}
+        nat_val = str(self.nationality).strip().lower()
+        nat = 'U' if nat_val in UGANDA_VALUES else 'X'
         year     = str(self.entry_year)[-2:]    # last 2 digits
         intake   = self.intake.upper()          # “M” or “A”
         occ_code = self.occupation.code if self.occupation else "XXX"
