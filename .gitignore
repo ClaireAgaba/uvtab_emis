@@ -57,5 +57,3 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Static files
-**/static/**
