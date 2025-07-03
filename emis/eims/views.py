@@ -85,7 +85,9 @@ def upload_marks(request):
     # For each row, update results
     for idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
         row_data = dict(zip(headers, row))
+        print(f"[DEBUG] Row {idx} raw data: {row_data}")
         regno = str(row_data.get(regno_header, '')).strip()
+        print(f"[DEBUG] Row {idx} regno: '{regno}'")
         if not regno:
             errors.append(f"Row {idx}: Missing reg_number.")
             continue
@@ -196,6 +198,9 @@ def upload_marks(request):
                     mark_val = float(mark)
                 except Exception:
                     errors.append(f"Row {idx}: Invalid mark for {code} (candidate '{regno}').")
+                    continue
+                if not (0 <= mark_val <= 100):
+                    errors.append(f"Row {idx}: Mark for {code} (candidate '{regno}') must be between 0 and 100. Got {mark_val}.")
                     continue
                 # Paper-based formal
                 if regcat_normalized == 'formal' and structure_type == 'papers':
@@ -780,20 +785,24 @@ def candidate_import_dual(request):
                         except Exception:
                             errors.append(f"Row {idx}: Invalid date format in '{date_field}'. Use D/M/YYYY or DD/MM/YYYY.")
                             continue
-            # Nationality: must be a valid country name (case-insensitive)
+            # DEBUG: Print nationality value before validation
+            print(f"[DEBUG] Row {idx} nationality value: '{form_data.get('nationality', '')}'")
             from django_countries import countries
             nat_val = form_data.get('nationality', '')
             if not isinstance(nat_val, str):
                 nat_val = str(nat_val)
             nat_val = nat_val.strip()
+            # DEBUG: Print all allowed country codes and names
+            print(f"[DEBUG] Allowed countries: {[c for c in countries]}")
             valid_countries = [c[0].lower() for c in countries] + [c[1].lower() for c in countries]
             if nat_val.lower() not in valid_countries:
+                print(f"[DEBUG] Row {idx} nationality '{nat_val}' NOT in valid_countries")
                 errors.append(f"Row {idx}: Nationality '{form_data.get('nationality')}' is not a valid country. Please use a country name from the dropdown.")
                 continue
-            # Store as country name (display value)
+            # Store as country code (what the form expects)
             for code, name in countries:
                 if nat_val.lower() in (code.lower(), name.lower()):
-                    form_data['nationality'] = name
+                    form_data['nationality'] = code
                     break
             # Occupation and assessment center: lookup by code
             occ_code = str(form_data.get('occupation')) if form_data.get('occupation') is not None else ''
@@ -807,6 +816,17 @@ def candidate_import_dual(request):
                 form_data['assessment_center'] = AssessmentCenter.objects.get(center_number=center_code).id
             except Exception:
                 errors.append(f"Row {idx}: Invalid assessment center code '{center_code}'.")
+                continue
+            # DEBUG: Print final form_data nationality value before form submission
+            print(f"[DEBUG] Row {idx} final form_data['nationality']: '{form_data['nationality']}'")
+            # Validate using CandidateForm
+            form = CandidateForm(form_data)
+            # Make district and village optional for bulk import
+            for f in ['district', 'village']:
+                if f in form.fields:
+                    form.fields[f].required = False
+            if not form.is_valid():
+                print(f"[DEBUG] Row {idx} CandidateForm errors: {form.errors}")
                 continue
             # District and village: optional for import
             for loc_field, model_cls in [('district', District), ('village', Village)]:
