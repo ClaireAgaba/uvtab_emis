@@ -772,38 +772,60 @@ def candidate_import_dual(request):
             data = dict(zip(headers, row))
             # --- (reuse import logic from candidate_import) ---
             form_data = data.copy()
-            # Dates: convert DD/MM/YYYY to date objects
+            # Normalize registration_category for modular candidates
+            regcat = str(form_data.get('registration_category', '')).strip().capitalize()
+            if regcat == 'Modular':
+                form_data['registration_category'] = 'Modular'
+            # Robust date parsing: handle string, datetime, and Excel serial (float/int)
+            from openpyxl.utils.datetime import from_excel
+            import datetime as dt
             for date_field in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']:
                 val = form_data.get(date_field)
-                if val:
+                if not val:
+                    continue
+                if isinstance(val, (dt.date, dt.datetime)):
+                    form_data[date_field] = val.date() if isinstance(val, dt.datetime) else val
+                elif isinstance(val, (float, int)):
                     try:
-                        # Accept both D/M/YYYY and DD/MM/YYYY
-                        form_data[date_field] = datetime.strptime(str(val), '%d/%m/%Y').date()
+                        form_data[date_field] = from_excel(val).date()
                     except Exception:
+                        errors.append(f"Row {idx}: Invalid Excel serial date in '{date_field}'.")
+                        continue
+                elif isinstance(val, str):
+                    for fmt in ('%d/%m/%Y', '%-d/%-m/%Y', '%Y-%m-%d'):
                         try:
-                            form_data[date_field] = datetime.strptime(str(val), '%-d/%-m/%Y').date()
+                            form_data[date_field] = dt.datetime.strptime(val, fmt).date()
+                            break
                         except Exception:
-                            errors.append(f"Row {idx}: Invalid date format in '{date_field}'. Use D/M/YYYY or DD/MM/YYYY.")
                             continue
+                    else:
+                        errors.append(f"Row {idx}: Invalid date format in '{date_field}'. Use D/M/YYYY, DD/MM/YYYY, or YYYY-MM-DD.")
+                        continue
             # DEBUG: Print nationality value before validation
             print(f"[DEBUG] Row {idx} nationality value: '{form_data.get('nationality', '')}'")
             from django_countries import countries
+            import re
+            def normalize_country(val):
+                val = val.lower().replace('&', 'and')
+                val = re.sub(r'[^a-z0-9 ]', '', val)
+                val = re.sub(r'\s+', ' ', val).strip()
+                return val
             nat_val = form_data.get('nationality', '')
             if not isinstance(nat_val, str):
                 nat_val = str(nat_val)
-            nat_val = nat_val.strip()
+            nat_val_norm = normalize_country(nat_val)
             # DEBUG: Print all allowed country codes and names
             print(f"[DEBUG] Allowed countries: {[c for c in countries]}")
-            valid_countries = [c[0].lower() for c in countries] + [c[1].lower() for c in countries]
-            if nat_val.lower() not in valid_countries:
-                print(f"[DEBUG] Row {idx} nationality '{nat_val}' NOT in valid_countries")
-                errors.append(f"Row {idx}: Nationality '{form_data.get('nationality')}' is not a valid country. Please use a country name from the dropdown.")
-                continue
-            # Store as country code (what the form expects)
+            country_map = {}
             for code, name in countries:
-                if nat_val.lower() in (code.lower(), name.lower()):
-                    form_data['nationality'] = code
-                    break
+                country_map[normalize_country(code)] = code
+                country_map[normalize_country(name)] = code
+            if nat_val_norm not in country_map:
+                print(f"[DEBUG] Row {idx} nationality '{nat_val}' (normalized: '{nat_val_norm}') NOT in country_map")
+                errors.append(f"Row {idx}: Nationality '{form_data.get('nationality')}' is not a valid country. Please use a country name or code from the dropdown.")
+                continue
+            form_data['nationality'] = country_map[nat_val_norm]
+
             # Occupation and assessment center: lookup by code
             occ_code = str(form_data.get('occupation')) if form_data.get('occupation') is not None else ''
             center_code = str(form_data.get('assessment_center')) if form_data.get('assessment_center') is not None else ''
@@ -826,42 +848,24 @@ def candidate_import_dual(request):
                 if f in form.fields:
                     form.fields[f].required = False
             if not form.is_valid():
-                print(f"[DEBUG] Row {idx} CandidateForm errors: {form.errors}")
+                print(f"[DEBUG] Row {idx} SKIPPED: CandidateForm errors: {form.errors}")
+                errors.append(f"Row {idx}: Form errors: {form.errors}")
                 continue
-            # District and village: optional for import
+            # District and village: truly optional for import (skip if missing or blank)
             for loc_field, model_cls in [('district', District), ('village', Village)]:
                 val = form_data.get(loc_field)
-                if val is not None:
+                if val is None or str(val).strip() == '':
+                    form_data[loc_field] = None
+                else:
                     val_str = str(val).strip()
                     obj = model_cls.objects.filter(name__iexact=val_str).first()
                     form_data[loc_field] = obj.id if obj else None
-                else:
-                    form_data[loc_field] = None
-            # Parse and normalize date fields to zero-padded DD/MM/YYYY
+            # Debug: print after district/village assignment
+            print(f"[DEBUG] Row {idx} after district/village assignment: district={form_data.get('district')}, village={form_data.get('village')}")
+
+            # Define date and foreign key fields for use below
             date_fields = ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']
             fk_fields = ['occupation', 'assessment_center', 'district', 'village']
-            from datetime import date, datetime
-            try:
-                from dateutil import parser as dateparser
-            except ImportError:
-                import dateutil.parser as dateparser
-            for k in date_fields:
-                v = form_data.get(k)
-                if v is not None and v != '':
-                    dt_obj = None
-                    # Try parsing as date/datetime/int/float/string
-                    if isinstance(v, (date, datetime)):
-                        dt_obj = v
-                    else:
-                        try:
-                            dt_obj = dateparser.parse(str(v), dayfirst=True, yearfirst=False)
-                        except Exception:
-                            dt_obj = None
-                    if dt_obj:
-                        form_data[k] = dt_obj.strftime('%d/%m/%Y')
-                    else:
-                        form_data[k] = ''  # Invalid date, let form validation handle
-
             # Coerce every other field except dates and foreign keys to string
             for k in form_data:
                 if k not in date_fields + fk_fields:
@@ -898,40 +902,45 @@ def candidate_import_dual(request):
                 assessment_center=form.cleaned_data['assessment_center']
             ).exists()
             if exists:
+                print(f"[DEBUG] Row {idx} SKIPPED: Duplicate candidate '{form.cleaned_data['full_name']}' with same DOB, gender, and center.")
                 errors.append(f"Row {idx}: Candidate '{form_data['full_name']}' with same DOB, gender, and center already exists. Skipped.")
                 continue
             candidate = form.save(commit=False)
             candidate.reg_number = None  # Regenerate
             # Attach image
             img_path = os.path.join(tmp_dir, img_name)
-            if os.path.exists(img_path):
-                from PIL import Image
-                import io
-                # Open and process the image
-                with open(img_path, 'rb') as img_file:
-                    img = Image.open(img_file)
-                    if img.mode != 'RGB':
-                        img = img.convert('RGB')
-                    from PIL import Image
-                    resample_method = getattr(Image, 'Resampling', Image).LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
-                    img = img.resize((300, 400), resample=resample_method)
-                    buffer = io.BytesIO()
-                    img.save(buffer, format='JPEG', quality=80, optimize=True)
-                    buffer.seek(0)
-                    # Save processed image as JPEG
-                    candidate.passport_photo.save(
-                        os.path.splitext(img_name)[0] + '.jpg',
-                        File(buffer),
-                        save=False
-                    )
-            else:
+            if not os.path.exists(img_path):
+                print(f"[DEBUG] Row {idx} SKIPPED: Image file '{img_name}' not found after extraction.")
                 errors.append(f"Row {idx}: Image file '{img_name}' not found after extraction.")
                 continue
+            from PIL import Image
+            import io
+            # Open and process the image
+            with open(img_path, 'rb') as img_file:
+                img = Image.open(img_file)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                from PIL import Image
+                resample_method = getattr(Image, 'Resampling', Image).LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
+                img = img.resize((300, 400), resample=resample_method)
+                buffer = io.BytesIO()
+                img.save(buffer, format='JPEG', quality=80, optimize=True)
+                buffer.seek(0)
+                candidate.passport_photo.save(
+                    os.path.splitext(img_name)[0] + '.jpg',
+                    File(buffer),
+                    save=False
+                )
             candidate.save()
             created += 1
+            print(f"[DEBUG] Row {idx} IMPORTED: Candidate '{candidate.full_name}' saved.")
+    success_message = None
+    if created > 0:
+        success_message = f"{created} candidate{'s' if created != 1 else ''} imported successfully."
     return render(request, 'candidates/import_dual.html', {
         'errors': errors,
-        'imported_count': created
+        'imported_count': created,
+        'success_message': success_message
     })
 
 @login_required
@@ -1096,16 +1105,25 @@ def bulk_candidate_modules(request):
 
     occupations = set(c.occupation_id for c in candidates)
     regcats = set(c.registration_category for c in candidates)
-    if len(occupations) != 1 or len(regcats) != 1 or regcats.pop() != 'Modular':
+    print("[DEBUG] Candidate IDs:", candidate_ids)
+    print("[DEBUG] Occupations:", occupations)
+    print("[DEBUG] Registration categories:", regcats)
+    for c in candidates:
+        print(f"[DEBUG] Candidate {c.id}: occupation_id={c.occupation_id}, registration_category={c.registration_category!r}")
+    if len(occupations) != 1 or len(regcats) != 1 or list(regcats)[0] != 'Modular':
         return JsonResponse({'success': False, 'error': 'All candidates must be Modular and have the same occupation.'}, status=400)
 
     occupation_id = occupations.pop()
-    level = Level.objects.filter(name__icontains='1').first()
+    occupation = Occupation.objects.get(id=occupation_id)
+    level_name = f"Level 1 {occupation.code}"
+    level = Level.objects.filter(name=level_name, occupation_id=occupation_id).first()
+    print(f"[DEBUG] Occupation: {occupation.name} ({occupation.code}), Looking for level: '{level_name}', Found: {level.id if level else None}")
     if not level:
         return JsonResponse({'success': False, 'error': 'Level 1 not found.'}, status=400)
     modules = Module.objects.filter(occupation_id=occupation_id, level=level)
-    module_list = [{'id': m.id, 'name': m.name} for m in modules]
-    return JsonResponse({'success': True, 'modules': module_list})
+    module_list = [{'id': m.id, 'name': m.name, 'code': getattr(m, 'code', '')} for m in modules]
+    print(f"[DEBUG] Returning module_list: {module_list}")
+    return JsonResponse({'success': True, 'modules': module_list, 'level_id': level.id})
 
 @login_required
 @require_POST
@@ -1113,8 +1131,13 @@ def bulk_candidate_action(request):
     import json
     try:
         data = json.loads(request.body.decode()) if request.body else request.POST
+        print(f"[DEBUG] bulk_candidate_action raw data: {data}")
         action = data.get('action')
         ids = data.get('candidate_ids')
+        module_ids = data.get('module_ids')
+        level_id = data.get('level_id')
+        paper_ids = data.get('paper_ids')
+        print(f"[DEBUG] action: {action}, candidate_ids: {ids}, module_ids: {module_ids}, level_id: {level_id}, paper_ids: {paper_ids}")
         if isinstance(ids, str):
             ids = ids.split(',')
         candidate_ids = [int(i) for i in ids if str(i).isdigit()]

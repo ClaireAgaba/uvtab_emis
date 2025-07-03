@@ -327,18 +327,26 @@ function updateBulkModuleSelector() {
   const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
   if (bulkSelect.value === 'enroll' && checked.length > 0) {
     fetchModulesForCandidates(checked.map(cb => cb.value), function(data) {
+      // --- Debug: log backend response ---
+      console.log('[BULK ENROLL][MODULES RESPONSE]', data);
+      // Store the returned level_id for use in bulk enroll POST
+      window.bulkModularLevelId = data.level_id || null;
       if (data.success && data.modules && data.modules.length > 0) {
         bulkModuleBox.innerHTML = '<div class="font-semibold mb-2 text-gray-800">Select Modules (max 2):</div>';
         data.modules.forEach(m => {
           const id = 'bulkmod_' + m.id;
           const wrapper = document.createElement('div');
-          wrapper.className = 'flex items-center mb-1';
-          wrapper.innerHTML = `<input type="checkbox" id="${id}" value="${m.id}" class="bulk-module-checkbox mr-2"> <label for="${id}" class="text-gray-700">${m.name}</label>`;
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'bulk-module-checkbox';
+          cb.id = id;
+          cb.value = m.id;
+          wrapper.appendChild(cb);
+          const label = document.createElement('label');
+          label.setAttribute('for', id);
+          label.textContent = (m.code ? m.code + ' - ' : '') + m.name;
+          wrapper.appendChild(label);
           bulkModuleBox.appendChild(wrapper);
-        });
-        bulkModuleBox.classList.remove('hidden');
-        // Add logic to limit to 2 checked
-        bulkModuleBox.querySelectorAll('.bulk-module-checkbox').forEach(cb => {
           cb.addEventListener('change', function() {
             const selected = bulkModuleBox.querySelectorAll('.bulk-module-checkbox:checked');
             if (selected.length > 2) {
@@ -349,6 +357,8 @@ function updateBulkModuleSelector() {
             }
           });
         });
+        // --- Ensure module box is visible ---
+        bulkModuleBox.classList.remove('hidden');
       } else {
         bulkModuleBox.innerHTML = '';
         bulkModuleBox.classList.add('hidden');
@@ -359,7 +369,14 @@ function updateBulkModuleSelector() {
     bulkModuleBox.classList.add('hidden');
   }
 }
-
+// --- Call updateBulkModuleSelector on page load if any candidates are checked ---
+document.addEventListener('DOMContentLoaded', function() {
+  if (Array.from(document.querySelectorAll('.candidate-checkbox:checked')).length > 0) {
+    updateBulkModuleSelector();
+  }
+});
+// --- Also call on candidate selection and bulk action change ---
+document.querySelectorAll('.candidate-checkbox').forEach(cb => cb.addEventListener('change', updateBulkModuleSelector));
 bulkSelect.addEventListener('change', updateBulkModuleSelector);
 
 // Bulk Change Reg Category logic
@@ -524,7 +541,7 @@ bulkApply && bulkApply.addEventListener('click', function() {
       action: bulkSelect.value,
       candidate_ids: checked.map(cb => cb.value),
       module_ids: moduleIds,
-      level_id: levelId,
+      level_id: (bulkSelect.value === 'enroll' && document.getElementById('bulk-module-checkboxes') && window.bulkModularLevelId) ? window.bulkModularLevelId : levelId,
       paper_ids: paperIds
     })
   })
