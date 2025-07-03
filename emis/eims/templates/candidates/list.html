@@ -481,9 +481,8 @@ bulkApply && bulkApply.addEventListener('click', function() {
     // Collect all selected paper ids
     const radios = bulkInformalBox.querySelectorAll('input[type=radio]:checked');
     paperIds = Array.from(radios).map(r => r.value);
-    const expectedGroups = (bulkInformalBox.querySelectorAll('div.font-semibold.mb-1') || []).length;
-    if (paperIds.length < expectedGroups) {
-      bulkError.textContent = 'Select one paper for each module.';
+    if (paperIds.length === 0) {
+      bulkError.textContent = 'Select at least one paper to enroll.';
       return;
     }
   }
