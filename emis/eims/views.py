@@ -21,6 +21,9 @@ from django.http import JsonResponse
 from openpyxl import Workbook
 from openpyxl import load_workbook
 from io import BytesIO
+from .models import Candidate, Module, Paper, Level, Occupation, CandidateLevel, CandidateModule, CandidatePaper, Result
+import datetime
+
 
 @login_required
 @require_POST
@@ -29,8 +32,7 @@ def upload_marks(request):
     Bulk upload candidate marks from Excel for all registration categories.
     Expects POST with Excel file and selection params (occupation, level, registration_category, etc).
     """
-    from .models import Candidate, Module, Paper, Level, Occupation, CandidateLevel, CandidateModule, CandidatePaper, Result
-    import datetime
+    
     errors = []
     updated = 0
     file = request.FILES.get('marks_file') or request.FILES.get('excel_file')
@@ -1025,30 +1027,54 @@ def candidate_import_dual(request):
     except Exception:
         errors.append('Invalid Excel file.')
         return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
-    headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
-    expected_headers = [
-        'full_name', 'gender', 'nationality', 'date_of_birth', 'occupation', 'registration_category',
-        'assessment_center', 'entry_year', 'intake', 'start_date', 'finish_date', 'assessment_date'
-    ]
-    if headers != expected_headers:
-        errors.append('Excel headers do not match template. Please download the latest template.')
-        return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
+    headers = [str(cell.value).replace(u'\xa0', ' ').strip().lower() for cell in ws[1] if cell.value]
+
     # Unzip images to temp dir
     with tempfile.TemporaryDirectory() as tmp_dir:
         try:
             with zipfile.ZipFile(photo_zip) as zf:
-                image_names = sorted([n for n in zf.namelist() if n.lower().endswith(('.jpg', '.jpeg', '.png'))])
+                image_files = [n for n in zf.namelist() if n.lower().endswith(('.jpg', '.jpeg', '.png'))]
+                image_name_map = {}
+                for image_name in image_files:
+                    # Extracts '614956.Kajumba Ruth' from '.../614956.Kajumba Ruth.jpg'
+                    image_name_only = os.path.splitext(os.path.basename(image_name))[0]
+                    if '.' in image_name_only:
+                        try:
+                            # Extracts 'Kajumba Ruth'
+                            name_part = image_name_only.split('.', 1)[1]
+                            # Replaces '_' with ' ' -> 'Kajumba Ruth'
+                            cleaned_name = name_part.replace('_', ' ').strip()
+                            # Map 'kajumba ruth' to '.../614956.Kajumba_Ruth.jpg'
+                            image_name_map[cleaned_name.lower()] = image_name
+                        except IndexError:
+                            # This handles cases like '.DS_Store' or filenames without a name part
+                            continue
                 zf.extractall(tmp_dir)
-        except Exception:
-            errors.append('Invalid ZIP file or unable to extract images.')
+                # DEBUG: Log the keys to see what is being generated from filenames
+                errors.append(f"DEBUG: Image name keys generated: {list(image_name_map.keys())}")
+        except Exception as e:
+            errors.append(f'Invalid ZIP file or unable to extract images: {e}')
             return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
         # Read Excel rows
         rows = [row for row in ws.iter_rows(min_row=2, values_only=True) if not all(cell is None for cell in row)]
-        if len(rows) != len(image_names):
-            errors.append(f"Number of images ({len(image_names)}) does not match number of candidates ({len(rows)}).")
-            return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
-        for idx, (row, img_name) in enumerate(zip(rows, image_names), start=2):
+        
+        for idx, row in enumerate(rows, start=2):
             data = dict(zip(headers, row))
+            candidate_name_full = data.get('full_name', '').strip()
+
+            # Handle cases where Excel has 3 names but image has 2
+            name_parts = candidate_name_full.split()
+            if len(name_parts) >= 3:
+                # Use only the first two names for matching
+                candidate_name_for_match = " ".join(name_parts[:2])
+            else:
+                candidate_name_for_match = candidate_name_full
+            
+            img_name = image_name_map.get(candidate_name_for_match.lower())
+
+            if not img_name:
+                errors.append(f"Row {idx}: Image not found for candidate '{candidate_name_full}'.")
+                continue
             # --- (reuse import logic from candidate_import) ---
             form_data = data.copy()
             # Normalize registration_category for modular candidates
