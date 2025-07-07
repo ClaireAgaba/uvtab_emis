@@ -12,6 +12,8 @@ import logging
 
 @login_required
 def results_home(request):
+    logger = logging.getLogger(__name__)
+    logger.info(f'Results home accessed by user: {request.user}')
     return render(request, 'results/home.html')
 
 from django.views.decorators.http import require_POST
@@ -1640,9 +1642,10 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from .forms import ChangeOccupationForm, ChangeCenterForm
 
-
 @login_required
 def dashboard(request):
+    logger = logging.getLogger(__name__)
+    logger.info(f'Dashboard accessed by user: {request.user}')
     group_names = list(request.user.groups.values_list('name', flat=True))
     return render(request, 'dashboard.html', {'group_names': group_names})
 
@@ -2187,213 +2190,238 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
 
 @login_required
 def generate_album(request):
+    logger = logging.getLogger(__name__)
+    logger.info("generate_album view started.")
+
     centers = AssessmentCenter.objects.all()
     occupations = Occupation.objects.all()
     levels = Level.objects.all() # Though not directly used in this version's header/table structure as per screenshot
 
     if request.method == 'POST':
-        center_id = request.POST.get('center')
-        occupation_id = request.POST.get('occupation')
-        reg_category_form = request.POST.get('registration_category', '') # Name from form
-        level_id = request.POST.get('level') # Keep for filtering logic if needed
-        assessment_month_str = request.POST.get('assessment_month')
-        assessment_year_str = request.POST.get('assessment_year')
-
-        if not all([center_id, occupation_id, reg_category_form, assessment_month_str, assessment_year_str]):
-            return HttpResponse("All filter parameters are required.", status=400)
-
         try:
-            assessment_month = int(assessment_month_str)
-            assessment_year = int(assessment_year_str)
-            center = AssessmentCenter.objects.get(id=center_id)
-            occupation = Occupation.objects.get(id=occupation_id)
-        except (ValueError, AssessmentCenter.DoesNotExist, Occupation.DoesNotExist) as e:
-            return HttpResponse(f"Invalid parameter: {e}", status=400)
+            center_id = request.POST.get('center')
+            occupation_id = request.POST.get('occupation')
+            reg_category_form = request.POST.get('registration_category', '') # Name from form
+            level_id = request.POST.get('level') # Keep for filtering logic if needed
+            assessment_month_str = request.POST.get('assessment_month')
+            assessment_year_str = request.POST.get('assessment_year')
 
-        # Candidate Querying lets limit candididate_qs to 5 candidates
-        candidate_qs = Candidate.objects.select_related('occupation', 'assessment_center').filter(
-            assessment_center=center,
-            occupation=occupation,
-            registration_category__iexact=reg_category_form, # Use form value for filtering
-            assessment_date__year=assessment_year,
-            assessment_date__month=assessment_month
-        ).order_by('reg_number')
+            logger.info(f"POST request received with params: center={center_id}, occupation={occupation_id}, category={reg_category_form}, level={level_id}, month={assessment_month_str}, year={assessment_year_str}")
 
-        # Optional level filtering (if applicable for the registration category)
-        if reg_category_form.lower() in ['formal', 'informal', 'workers pas'] and level_id:
-            candidate_qs = candidate_qs.filter(
-                id__in=CandidateLevel.objects.filter(level_id=level_id).values('candidate_id')
-            )
-        
-        final_candidates = list(candidate_qs)
-        if not final_candidates:
-            return HttpResponse("No candidates found matching the criteria.", status=404)
 
-        # PDF Generation
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
-                                title="UVTAB",
-                                rightMargin=0.4*inch, leftMargin=0.4*inch,
-                                topMargin=0.3*inch, bottomMargin=0.3*inch)
-        elements = []
-        styles = getSampleStyleSheet()
+            if not all([center_id, occupation_id, reg_category_form, assessment_month_str, assessment_year_str]):
+                logger.warning("Missing required filter parameters.")
+                return HttpResponse("All filter parameters are required.", status=400)
 
-        # Define Styles
-        contact_style = ParagraphStyle('ContactInfo', parent=styles['Normal'], fontSize=9, leading=11)
-        board_title_style = ParagraphStyle('BoardTitle', parent=styles['h1'], fontSize=14, alignment=TA_CENTER, spaceBefore=6, spaceAfter=6, textColor=colors.HexColor('#000000'))
-        report_title_style = ParagraphStyle('ReportTitle', parent=styles['h2'], fontSize=12, alignment=TA_CENTER, spaceAfter=4)
-        center_info_style = ParagraphStyle('CenterInfo', parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, spaceAfter=10)
-        details_label_style = ParagraphStyle('DetailsLabel', parent=styles['Normal'], fontSize=9, alignment=TA_LEFT, spaceAfter=2)
-        
-        # 1. Header Section
-        # Top contact line
-        logo_path = None
-        possible_paths = [
-            os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab logo.png'),
-            os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab logo.png'),
-            os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab logo.png'),
-            os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab logo.png') # Check collected static too
-        ]
-        for path in possible_paths:
-            if path and os.path.exists(path):
-                logo_path = path
-                break
-        
-        logo_image = Image(logo_path, width=1*inch, height=1*inch) if logo_path else Paragraph(" ", styles['Normal'])
+            try:
+                assessment_month = int(assessment_month_str)
+                assessment_year = int(assessment_year_str)
+                center = AssessmentCenter.objects.get(id=center_id)
+                occupation = Occupation.objects.get(id=occupation_id)
+            except (ValueError, AssessmentCenter.DoesNotExist, Occupation.DoesNotExist) as e:
+                logger.error(f"Invalid parameter provided: {e}")
+                return HttpResponse(f"Invalid parameter: {e}", status=400)
 
-        header_table_data = [
-            [Paragraph("P.O.Box 1499<br/>Email: info@uvtab.go.ug", contact_style), 
-             logo_image, 
-             Paragraph("Tel: 256 414 289786", contact_style)]
-        ]
-        header_table = Table(header_table_data, colWidths=[3*inch, 3*inch, 3*inch]) # Adjusted for landscape
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('ALIGN', (0,0), (0,0), 'LEFT'),
-            ('ALIGN', (1,0), (1,0), 'CENTER'),
-            ('ALIGN', (2,0), (2,0), 'RIGHT'),
-        ]))
-        elements.append(header_table)
-        elements.append(Spacer(1, 0.1*inch))
+            # Candidate Querying
+            logger.info("Querying candidates...")
+            candidate_qs = Candidate.objects.select_related('occupation', 'assessment_center').filter(
+                assessment_center=center,
+                occupation=occupation,
+                registration_category__iexact=reg_category_form, # Use form value for filtering
+                assessment_date__year=assessment_year,
+                assessment_date__month=assessment_month
+            ).order_by('reg_number')
 
-        elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", board_title_style))
-        
-        month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-        assessment_period_str = f"{month_names[assessment_month-1]} {assessment_year}"
-        elements.append(Paragraph(f"Registered Candidates for {assessment_period_str} Assessment", report_title_style))
-        elements.append(Paragraph(f"Assessment Center: {center.center_number} - {center.center_name}", center_info_style))
-        
-        # Occupation Details Section (below Assessment Center info)
-        elements.append(Paragraph(f"Occupation Name: {occupation.name.upper()}<br/>Occupation Code: {occupation.code.upper()}<br/>Registration Category: {reg_category_form.upper()}{(' - Level: ' + Level.objects.get(id=level_id).name.upper()) if reg_category_form.lower() in ['formal', 'informal'] and level_id else ''}", details_label_style))
-        elements.append(Spacer(1, 0.2*inch))
+            # Optional level filtering (if applicable for the registration category)
+            if reg_category_form.lower() in ['formal', 'informal', 'workers pas'] and level_id:
+                logger.info(f"Filtering by level_id: {level_id}")
+                candidate_qs = candidate_qs.filter(
+                    id__in=CandidateLevel.objects.filter(level_id=level_id).values('candidate_id')
+                )
+            
+            final_candidates = list(candidate_qs)
+            logger.info(f"Found {len(final_candidates)} candidates.")
+            if not final_candidates:
+                logger.warning("No candidates found matching the criteria.")
+                return HttpResponse("No candidates found matching the criteria.", status=404)
 
-        # 2. Candidate Table
-        table_header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER, textColor=colors.white)
-        table_cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8, alignment=TA_LEFT, leading=10)
-        table_cell_center_style = ParagraphStyle('TableCellCenter', parent=table_cell_style, alignment=TA_CENTER)
+            # PDF Generation
+            logger.info("Starting PDF generation...")
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
+                                    title="UVTAB",
+                                    rightMargin=0.4*inch, leftMargin=0.4*inch,
+                                    topMargin=0.3*inch, bottomMargin=0.3*inch)
+            elements = []
+            styles = getSampleStyleSheet()
 
-        data = []
-        # Table Headers
-        header_row = [Paragraph(h, table_header_style) for h in ['S/N', 'PHOTO', 'REG NO.', 'FULL NAME', 'OCCUPATION', 'REG TYPE', 'SIGNATURE']]
-        data.append(header_row)
-
-        for i, cand in enumerate(final_candidates):
-            photo_cell_flowables = _create_photo_cell_content(cand, styles)
-            row = [
-                Paragraph(str(i + 1), table_cell_center_style),
-                photo_cell_flowables, # This is a list of flowables
-                Paragraph(cand.reg_number or 'N/A', table_cell_style),
-                Paragraph(cand.full_name.upper(), table_cell_style),
-                Paragraph(cand.occupation.name.upper() if cand.occupation else 'N/A', table_cell_style),
-                Paragraph(cand.registration_category.upper() if cand.registration_category else 'N/A', table_cell_style),
-                Paragraph('', table_cell_style) # Empty for signature
+            # Define Styles
+            contact_style = ParagraphStyle('ContactInfo', parent=styles['Normal'], fontSize=9, leading=11)
+            board_title_style = ParagraphStyle('BoardTitle', parent=styles['h1'], fontSize=14, alignment=TA_CENTER, spaceBefore=6, spaceAfter=6, textColor=colors.HexColor('#000000'))
+            report_title_style = ParagraphStyle('ReportTitle', parent=styles['h2'], fontSize=12, alignment=TA_CENTER, spaceAfter=4)
+            center_info_style = ParagraphStyle('CenterInfo', parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, spaceAfter=10)
+            details_label_style = ParagraphStyle('DetailsLabel', parent=styles['Normal'], fontSize=9, alignment=TA_LEFT, spaceAfter=2)
+            
+            # 1. Header Section
+            logger.info("Generating PDF header.")
+            # Top contact line
+            logo_path = None
+            possible_paths = [
+                os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab logo.png'),
+                os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab logo.png'),
+                os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab logo.png'),
+                os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab logo.png') # Check collected static too
             ]
-            data.append(row)
-        
-        # Column widths (adjust as needed, total should be around 10.2 inch for landscape letter with 0.4 margins)
-        col_widths = [0.4*inch, 1.3*inch, 1.8*inch, 2.7*inch, 1.5*inch, 1.2*inch, 1.3*inch] 
-
-        candidate_table = Table(data, colWidths=col_widths, repeatRows=1)
-        candidate_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4F81BD')), # Header background
-            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-            ('ALIGN', (0,0), (-1,0), 'CENTER'), # Header text alignment
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), # All cells middle aligned vertically
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 8),
-            ('BOTTOMPADDING', (0,0), (-1,0), 6),
-            ('TOPPADDING', (0,0), (-1,0), 6),
+            for path in possible_paths:
+                if path and os.path.exists(path):
+                    logo_path = path
+                    logger.info(f"Found logo at: {logo_path}")
+                    break
             
-            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-            ('BOX', (0,0), (-1,-1), 1, colors.black),
+            if not logo_path:
+                logger.warning("Logo image not found.")
+
+            logo_image = Image(logo_path, width=1*inch, height=1*inch) if logo_path else Paragraph(" ", styles['Normal'])
+
+            header_table_data = [
+                [Paragraph("P.O.Box 1499<br/>Email: info@uvtab.go.ug", contact_style), 
+                 logo_image, 
+                 Paragraph("Tel: 256 414 289786", contact_style)]
+            ]
+            header_table = Table(header_table_data, colWidths=[3*inch, 3*inch, 3*inch]) # Adjusted for landscape
+            header_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (0,0), 'LEFT'),
+                ('ALIGN', (1,0), (1,0), 'CENTER'),
+                ('ALIGN', (2,0), (2,0), 'RIGHT'),
+            ]))
+            elements.append(header_table)
+            elements.append(Spacer(1, 0.1*inch))
+
+            elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", board_title_style))
             
-            # Data row styling
-            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-            ('FONTSIZE', (0,1), (-1,-1), 8),
-            ('ALIGN', (0,1), (0,-1), 'CENTER'), # S/N centered
-            ('ALIGN', (1,1), (1,-1), 'CENTER'), # Photo centered horizontally
-            ('ALIGN', (2,1), (2,-1), 'LEFT'), # Reg No left
-            ('ALIGN', (3,1), (3,-1), 'LEFT'), # Full Name left
-            ('ALIGN', (4,1), (4,-1), 'LEFT'), # Occupation left
-            ('ALIGN', (5,1), (5,-1), 'CENTER'), # Reg Type center
-            ('TOPPADDING', (0,1), (-1,-1), 2), # Reduced padding
-            ('BOTTOMPADDING', (0,1), (-1,-1), 2), # Reduced padding
-        ]))
-        elements.append(candidate_table)
-
-        # --- First pass to count total pages ---
-        # Use a deep copy of elements for the first pass to avoid consuming them
-        first_pass_elements = copy.deepcopy(elements)
-        count_buffer = BytesIO() # Temporary buffer for counting
-        # Ensure all SimpleDocTemplate parameters match the final document for accurate page count
-        count_doc = SimpleDocTemplate(count_buffer, pagesize=landscape(letter),
-                                      rightMargin=0.4*inch, leftMargin=0.4*inch,
-                                      topMargin=0.3*inch, bottomMargin=0.3*inch)
-        
-        def _count_pages_callback(canvas, doc): # Minimal callback for the first pass
-            pass # We only care about the page count
-
-        try:
-            count_doc.build(first_pass_elements, onFirstPage=_count_pages_callback, onLaterPages=_count_pages_callback)
-            total_pages = count_doc.page
-        except Exception as e:
-            # Handle potential errors during the first pass, though less likely with a simple callback
-            print(f"Error during page count pass: {e}")
-            # Fallback to simple page numbering if counting fails
-            total_pages = 0 # Indicates an issue, or use a flag
-
-        # --- End of first pass ---
-
-        # Helper function to add page numbers (includes total_pages if available)
-        def _add_page_numbers(canvas, doc, total_pages_count):
-            canvas.saveState()
-            canvas.setFont('Helvetica', 9)
-            if total_pages_count > 0:
-                page_number_text = f"Page {doc.page} of {total_pages_count}"
-            else:
-                page_number_text = f"Page {doc.page}" # Fallback if total_pages is not available
+            month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+            assessment_period_str = f"{month_names[assessment_month-1]} {assessment_year}"
+            elements.append(Paragraph(f"Registered Candidates for {assessment_period_str} Assessment", report_title_style))
+            elements.append(Paragraph(f"Assessment Center: {center.center_number} - {center.center_name}", center_info_style))
             
-            page_width = doc.pagesize[0] # doc.pagesize[0] is width for landscape
-            canvas.drawCentredString(page_width / 2.0, 0.2 * inch, page_number_text)
-            canvas.restoreState()
+            # Occupation Details Section (below Assessment Center info)
+            elements.append(Paragraph(f"Occupation Name: {occupation.name.upper()}<br/>Occupation Code: {occupation.code.upper()}<br/>Registration Category: {reg_category_form.upper()}{(' - Level: ' + Level.objects.get(id=level_id).name.upper()) if reg_category_form.lower() in ['formal', 'informal'] and level_id else ''}", details_label_style))
+            elements.append(Spacer(1, 0.2*inch))
 
-        # Build PDF (Second pass - actual PDF generation with 'Page X of Y')
-        # The original 'doc', 'buffer', and 'elements' are used for the final output.
-        try:
+            # 2. Candidate Table
+            logger.info("Generating candidate table.")
+            table_header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER, textColor=colors.white)
+            table_cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8, alignment=TA_LEFT, leading=10)
+            table_cell_center_style = ParagraphStyle('TableCellCenter', parent=table_cell_style, alignment=TA_CENTER)
+
+            data = []
+            # Table Headers
+            header_row = [Paragraph(h, table_header_style) for h in ['S/N', 'PHOTO', 'REG NO.', 'FULL NAME', 'OCCUPATION', 'REG TYPE', 'SIGNATURE']]
+            data.append(header_row)
+
+            for i, cand in enumerate(final_candidates):
+                logger.debug(f"Processing candidate {i+1}: {cand.reg_number}")
+                photo_cell_flowables = _create_photo_cell_content(cand, styles)
+                row = [
+                    Paragraph(str(i + 1), table_cell_center_style),
+                    photo_cell_flowables, # This is a list of flowables
+                    Paragraph(cand.reg_number or 'N/A', table_cell_style),
+                    Paragraph(cand.full_name.upper(), table_cell_style),
+                    Paragraph(cand.occupation.name.upper() if cand.occupation else 'N/A', table_cell_style),
+                    Paragraph(cand.registration_category.upper() if cand.registration_category else 'N/A', table_cell_style),
+                    Paragraph('', table_cell_style) # Empty for signature
+                ]
+                data.append(row)
+            
+            # Column widths (adjust as needed, total should be around 10.2 inch for landscape letter with 0.4 margins)
+            col_widths = [0.4*inch, 1.3*inch, 1.8*inch, 2.7*inch, 1.5*inch, 1.2*inch, 1.3*inch] 
+
+            candidate_table = Table(data, colWidths=col_widths, repeatRows=1)
+            candidate_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4F81BD')), # Header background
+                ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+                ('ALIGN', (0,0), (-1,0), 'CENTER'), # Header text alignment
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), # All cells middle aligned vertically
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 8),
+                ('BOTTOMPADDING', (0,0), (-1,0), 6),
+                ('TOPPADDING', (0,0), (-1,0), 6),
+                
+                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+                ('BOX', (0,0), (-1,-1), 1, colors.black),
+                
+                # Data row styling
+                ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+                ('FONTSIZE', (0,1), (-1,-1), 8),
+                ('ALIGN', (0,1), (0,-1), 'CENTER'), # S/N centered
+                ('ALIGN', (1,1), (1,-1), 'CENTER'), # Photo centered horizontally
+                ('ALIGN', (2,1), (2,-1), 'LEFT'), # Reg No left
+                ('ALIGN', (3,1), (3,-1), 'LEFT'), # Full Name left
+                ('ALIGN', (4,1), (4,-1), 'LEFT'), # Occupation left
+                ('ALIGN', (5,1), (5,-1), 'CENTER'), # Reg Type center
+                ('TOPPADDING', (0,1), (-1,-1), 2), # Reduced padding
+                ('BOTTOMPADDING', (0,1), (-1,-1), 2), # Reduced padding
+            ]))
+            elements.append(candidate_table)
+
+            # --- First pass to count total pages ---
+            logger.info("Starting first pass for page count.")
+            # Use a deep copy of elements for the first pass to avoid consuming them
+            first_pass_elements = copy.deepcopy(elements)
+            count_buffer = BytesIO() # Temporary buffer for counting
+            # Ensure all SimpleDocTemplate parameters match the final document for accurate page count
+            count_doc = SimpleDocTemplate(count_buffer, pagesize=landscape(letter),
+                                          rightMargin=0.4*inch, leftMargin=0.4*inch,
+                                          topMargin=0.3*inch, bottomMargin=0.3*inch)
+            
+            def _count_pages_callback(canvas, doc): # Minimal callback for the first pass
+                pass # We only care about the page count
+
+            try:
+                count_doc.build(first_pass_elements, onFirstPage=_count_pages_callback, onLaterPages=_count_pages_callback)
+                total_pages = count_doc.page
+                logger.info(f"Page count successful. Total pages: {total_pages}")
+            except Exception as e:
+                # Handle potential errors during the first pass, though less likely with a simple callback
+                logger.error(f"Error during page count pass: {e}", exc_info=True)
+                # Fallback to simple page numbering if counting fails
+                total_pages = 0 # Indicates an issue, or use a flag
+
+            # --- End of first pass ---
+
+            # Helper function to add page numbers (includes total_pages if available)
+            def _add_page_numbers(canvas, doc, total_pages_count):
+                canvas.saveState()
+                canvas.setFont('Helvetica', 9)
+                if total_pages_count > 0:
+                    page_number_text = f"Page {doc.page} of {total_pages_count}"
+                else:
+                    page_number_text = f"Page {doc.page}" # Fallback if total_pages is not available
+                
+                page_width = doc.pagesize[0] # doc.pagesize[0] is width for landscape
+                canvas.drawCentredString(page_width / 2.0, 0.2 * inch, page_number_text)
+                canvas.restoreState()
+
+            # Build PDF (Second pass - actual PDF generation with 'Page X of Y')
+            # The original 'doc', 'buffer', and 'elements' are used for the final output.
+            logger.info("Starting second pass for final PDF build.")
             doc.build(elements, 
                       onFirstPage=lambda c, d: _add_page_numbers(c, d, total_pages), 
                       onLaterPages=lambda c, d: _add_page_numbers(c, d, total_pages))
             buffer.seek(0)
             response = HttpResponse(buffer, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="candidate_album_{center.center_number}_{occupation.code}_{assessment_year}_{assessment_month}.pdf"'
+            logger.info("PDF generated successfully. Returning response.")
             return response
         except Exception as e:
-            print(f"Error building PDF: {e}")
+            logger.critical(f"Unhandled exception in generate_album view: {e}", exc_info=True)
             import traceback
             traceback.print_exc()
             return HttpResponse(f"Error generating PDF: {e}", status=500)
 
     # GET request or if form not submitted properly
+    logger.info("GET request received, rendering form.")
     return render(request, 'reports/albums.html', {
         'centers': centers,
         'occupations': occupations,
