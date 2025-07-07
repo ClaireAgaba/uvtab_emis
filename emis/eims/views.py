@@ -1,7 +1,13 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
 from django.contrib.auth.decorators import login_required
 from reportlab.platypus import Image as RLImage
 import calendar
+import logging
 
 
 @login_required
@@ -360,6 +366,277 @@ def generate_marksheet(request):
     url = reverse('download_marksheet') + '?' + urllib.parse.urlencode(params)
     return JsonResponse({'success': True, 'download_url': url})
 
+
+@login_required
+@require_POST
+def print_marksheet(request):
+    """
+    Accepts POST with params, validates them, and returns a JSON response with a URL
+    to download the printable PDF marksheet. This logic mirrors `generate_marksheet`.
+    """
+    from .models import Occupation, Level, Module, Candidate, OccupationLevel, CandidateLevel, CandidateModule
+    from django.urls import reverse
+    import urllib.parse
+
+    # Extract params
+    month = request.POST.get('assessment_month')
+    year = request.POST.get('assessment_year')
+    regcat = request.POST.get('registration_category')
+    occupation_id = request.POST.get('occupation')
+    level_id = request.POST.get('level')
+    center_id = request.POST.get('assessment_center')
+    modules = request.POST.getlist('modules')
+
+    # Determine structure_type for validation
+    structure_type = None
+    if occupation_id and level_id:
+        occ_level = OccupationLevel.objects.filter(occupation_id=occupation_id, level_id=level_id).first()
+        if occ_level:
+            structure_type = occ_level.structure_type
+
+    # --- Validation --- #
+    if not all([month, year, regcat, occupation_id]):
+        return JsonResponse({'success': False, 'error': 'Missing required fields (Month, Year, Category, Occupation).'})
+
+    if regcat.lower() != 'modular' and not level_id:
+        return JsonResponse({'success': False, 'error': 'Level is required for this registration category.'})
+
+    if regcat.lower() == 'modular' and not modules:
+        return JsonResponse({'success': False, 'error': 'Please select at least one module for Modular registration.'})
+
+    # Check if any candidates match the criteria
+    candidates = Candidate.objects.all()
+    regcat_filter = 'Informal' if regcat.lower() in ['workers_pas', "worker's pas"] else regcat
+    candidates = candidates.filter(registration_category__iexact=regcat_filter)
+    candidates = candidates.filter(occupation_id=occupation_id)
+
+    if level_id:
+        candidates = candidates.filter(candidatelevel__level_id=level_id)
+    if center_id:
+        candidates = candidates.filter(assessment_center_id=center_id)
+    if regcat.lower() == 'modular' and modules:
+        candidates = candidates.filter(candidatemodule__module_id__in=modules)
+
+    if not candidates.exists():
+        return JsonResponse({'success': False, 'error': 'No enrolled candidates found for the selected criteria.'})
+
+    # --- URL Generation --- #
+    params = {
+        'assessment_month': month,
+        'assessment_year': year,
+        'registration_category': regcat,
+        'occupation': occupation_id,
+        'level': level_id,
+        'assessment_center': center_id,
+    }
+    if regcat.lower() == 'modular' and modules:
+        params['modules'] = ','.join(modules)
+
+    params = {k: v for k, v in params.items() if v}
+    url = reverse('download_printed_marksheet') + '?' + urllib.parse.urlencode(params)
+    return JsonResponse({'success': True, 'download_url': url})
+
+
+@login_required
+def download_printed_marksheet(request):
+    """
+    Generates a printable PDF marksheet with candidates grouped by assessment center.
+    The logic mirrors the filtering of `print_marksheet` to ensure consistency.
+    """
+    # 1. Imports and setup
+    from io import BytesIO
+    from .models import Candidate, Occupation, Level, Module, Paper, Result, AssessmentCenter, OccupationLevel
+    from collections import defaultdict
+    import calendar
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.lib import colors
+
+    logger = logging.getLogger(__name__)
+
+    # 2. Get and log params from request.GET
+    month = request.GET.get('assessment_month')
+    year = request.GET.get('assessment_year')
+    regcat = request.GET.get('registration_category')
+    occupation_id = request.GET.get('occupation')
+    occupation = Occupation.objects.get(id=occupation_id)   
+    level_id = request.GET.get('level')
+    center_id = request.GET.get('assessment_center')
+    module_ids_raw = request.GET.get('modules', '')
+    module_ids = [mid for mid in module_ids_raw.split(',') if mid]
+
+    logger.info(f"--- PDF Marksheet: regcat='{regcat}', occupation='{occupation_id}', level='{level_id}', modules='{module_ids}' ---")
+
+    # 3. Filter candidates (mirroring the logic from print_marksheet)
+    candidates = Candidate.objects.select_related('occupation', 'assessment_center').order_by('assessment_center__center_name', 'full_name')
+    
+    regcat_filter = 'Informal' if regcat and regcat.lower() in ['workers_pas', "worker's pas"] else regcat
+    if regcat_filter:
+        candidates = candidates.filter(registration_category__iexact=regcat_filter)
+    if occupation_id:
+        candidates = candidates.filter(occupation_id=occupation_id)
+    if level_id:
+        candidates = candidates.filter(candidatelevel__level_id=level_id)
+    if center_id:
+        candidates = candidates.filter(assessment_center_id=center_id)
+    if regcat.lower() == 'modular' and module_ids:
+        candidates = candidates.filter(candidatemodule__module_id__in=module_ids).distinct()
+
+    logger.info(f"Found {candidates.count()} candidates after filtering.")
+
+    # 4. Prepare PDF document
+    response = HttpResponse(content_type='application/pdf')
+    filename = f'marksheet_{regcat_filter}_{occupation.name}_{year}_{month}.pdf'
+    pdf_title = f"Marksheet: {occupation.name} ({regcat.replace('_', ' ').title()}) - {month}/{year}"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), topMargin=30, bottomMargin=30, title=pdf_title)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Main Title
+    title_style = styles['h1']
+    title_style.alignment = 1 # Center
+    elements.append(Paragraph(f"UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", title_style))
+    elements.append(Paragraph(f"CANDIDATES MARKSHEETS - {calendar.month_name[int(month)]} {year}", title_style))   
+    elements.append(Spacer(1, 24))
+
+    # 5. Handle no candidates
+    if not candidates.exists():
+        logger.warning("No candidates found, returning PDF with 'No data' message.")
+        elements.append(Paragraph("No data found for the selected criteria.", styles['h2']))
+        doc.build(elements)
+        response.write(buffer.getvalue())
+        buffer.close()
+        return response
+
+    # 6. Get related objects
+    occupation = Occupation.objects.get(pk=occupation_id)
+    level = Level.objects.get(pk=level_id) if level_id else None
+    
+    structure_type = None
+    if occupation and level:
+        occ_level = OccupationLevel.objects.filter(occupation=occupation, level=level).first()
+        if occ_level:
+            structure_type = occ_level.structure_type
+    logger.info(f"Processing with structure_type: '{structure_type}'")
+
+    # 7. Group candidates by center
+    candidates_by_center = defaultdict(list)
+    for c in candidates:
+        center_key = c.assessment_center.id if c.assessment_center else 'unassigned'
+        candidates_by_center[center_key].append(c)
+
+    # 8. Build PDF content
+    table_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+        ('GRID', (0,0), (-1,-1), 1, colors.black)
+    ])
+
+    first_center = True
+    for center_id_key, candidates_in_center in sorted(candidates_by_center.items()):
+        if not first_center:
+            elements.append(PageBreak())
+        first_center = False
+        
+        center = AssessmentCenter.objects.get(pk=center_id_key) if center_id_key != 'unassigned' else None
+        center_name = center.center_name if center else "Unassigned Center"
+        center_number = center.center_number if center else "N/A"
+
+        # --- Modular ---
+        if regcat.lower() == 'modular':
+            modules_to_print = Module.objects.filter(id__in=module_ids)
+            for print_module in modules_to_print:
+                elements.append(Paragraph(f"<b>Centre:</b> {center_number} - {center_name}", styles['h2']))
+                elements.append(Paragraph(f"<b>Occupation:</b> {occupation.name}", styles['Normal']))
+                elements.append(Paragraph(f"<b>Module:</b> {print_module.name}", styles['Normal']))
+                elements.append(Spacer(1, 12))
+                data = [["SN", "Regno", "Names", "Mark"]]
+                dynamic_styles = []
+                for i, c in enumerate(candidates_in_center, 1):
+                    res = Result.objects.filter(candidate=c, module=print_module, assessment_date__year=year, assessment_date__month=month).first()
+                    mark_val = f"{res.mark:.0f}" if res and res.mark is not None else ''
+                    if res and res.mark == -1:
+                        row_index = i
+                        col_index = 3 # Mark column
+                        dynamic_styles.append(('BACKGROUND', (col_index, row_index), (col_index, row_index), colors.lightpink))
+                        dynamic_styles.append(('TEXTCOLOR', (col_index, row_index), (col_index, row_index), colors.red))
+                    data.append([i, c.reg_number, c.full_name, mark_val])
+                
+                final_table_style = TableStyle(table_style.getCommands() + dynamic_styles)
+                elements.append(Table(data, style=final_table_style))
+                elements.append(Spacer(1, 24))
+
+        # --- Paper-Based (Formal & Informal) ---
+        elif structure_type == 'papers':
+            papers = Paper.objects.filter(occupation=occupation, level=level)
+            elements.append(Paragraph(f"<b>Centre:</b> {center_number} - {center_name}", styles['h2']))
+            elements.append(Paragraph(f"<b>Occupation:</b> {occupation.name} - {level.name if level else ''}", styles['Normal']))
+            elements.append(Spacer(1, 12))
+            for paper in papers:
+                elements.append(Paragraph(f"<b>Paper:</b> {paper.name} ({paper.grade_type.title()})", styles['Normal']))
+                data = [["SN", "Regno", "Names", "Mark"]]
+                dynamic_styles = []
+                for i, c in enumerate(candidates_in_center, 1):
+                    res = Result.objects.filter(candidate=c, paper=paper, assessment_date__year=year, assessment_date__month=month).first()
+                    mark_val = f"{res.mark:.0f}" if res and res.mark is not None else ''
+                    if res and res.mark == -1:
+                        row_index = i
+                        col_index = 3 # Mark column
+                        dynamic_styles.append(('BACKGROUND', (col_index, row_index), (col_index, row_index), colors.lightpink))
+                        dynamic_styles.append(('TEXTCOLOR', (col_index, row_index), (col_index, row_index), colors.red))
+                    data.append([i, c.reg_number, c.full_name, mark_val])
+
+                final_table_style = TableStyle(table_style.getCommands() + dynamic_styles)
+                elements.append(Table(data, style=final_table_style))
+                elements.append(Spacer(1, 12))
+
+        # --- Module-Based (Theory/Practical) ---
+        elif structure_type == 'modules':
+            elements.append(Paragraph(f"<b>Centre:</b> {center_number} - {center_name}", styles['h2']))
+            elements.append(Paragraph(f"<b>Occupation:</b> {occupation.name} - {level.name if level else ''}", styles['Normal']))
+            elements.append(Spacer(1, 12))
+            data = [["SN", "Regno", "Names", "Theory", "Practical"]]
+            dynamic_styles = []
+            for i, c in enumerate(candidates_in_center, 1):
+                theory = Result.objects.filter(candidate=c, level=level, assessment_type='theory', assessment_date__year=year, assessment_date__month=month).first()
+                practical = Result.objects.filter(candidate=c, level=level, assessment_type='practical', assessment_date__year=year, assessment_date__month=month).first()
+                
+                theory_val = f"{theory.mark:.0f}" if theory and theory.mark is not None else ''
+                practical_val = f"{practical.mark:.0f}" if practical and practical.mark is not None else ''
+                
+                row_index = i
+                if theory and theory.mark == -1:
+                    dynamic_styles.append(('BACKGROUND', (3, row_index), (3, row_index), colors.lightpink))
+                    dynamic_styles.append(('TEXTCOLOR', (3, row_index), (3, row_index), colors.red))
+                
+                if practical and practical.mark == -1:
+                    dynamic_styles.append(('BACKGROUND', (4, row_index), (4, row_index), colors.lightpink))
+                    dynamic_styles.append(('TEXTCOLOR', (4, row_index), (4, row_index), colors.red))
+
+                data.append([i, c.reg_number, c.full_name, theory_val, practical_val])
+
+            final_table_style = TableStyle(table_style.getCommands() + dynamic_styles)
+            elements.append(Table(data, style=final_table_style))
+            elements.append(Spacer(1, 24))
+        
+        else:
+             logger.error(f"Unknown structure type '{structure_type}' or category '{regcat}' for PDF generation.")
+             elements.append(Paragraph(f"Error: Could not determine marksheet structure for {occupation.name}.", styles['Normal']))
+
+    # 9. Build and return PDF
+    doc.build(elements)
+    pdf = buffer.getvalue()
+    buffer.close()
+    response.write(pdf)
+    return response
+
 @login_required
 def download_marksheet(request):
     """
@@ -431,7 +708,7 @@ def download_marksheet(request):
     elif occupation_id:
         candidates = candidates.filter(occupation_id=occupation_id)
     elif regcat_normalized != 'modular' and hasattr(Candidate, 'level') and level:
-        candidates = candidates.filter(level=level)
+        candidates = candidates.filter(candidatelevel__level_id=level_id)
     if center:
         candidates = candidates.filter(assessment_center=center)
 
@@ -3178,13 +3455,14 @@ def add_result(request, id):
                             assessment_date=assessment_date,
                             result_type='modular',
                             defaults={
+                                'level': None,  # Modular results are not tied to a level
                                 'assessment_type': 'practical',
                                 'mark': mark,
                                 'user': request.user,
                                 'status': ''
                             }
-                        )     
-                    return redirect('candidate_view', id=candidate.id)
+                        )
+            return redirect('candidate_view', id=candidate.id)
         else:
             form = ModularResultsForm(candidate=candidate)
         context['form'] = form
