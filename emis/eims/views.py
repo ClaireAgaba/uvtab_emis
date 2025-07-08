@@ -41,8 +41,10 @@ def upload_marks(request):
     level_id = request.POST.get('level')
     center_id = request.POST.get('assessment_center')
     modules_param = request.POST.get('modules')
-    month = request.POST.get('assessment_month')
-    year = request.POST.get('assessment_year')
+    assessment_month = request.POST.get('assessment_month')
+    assessment_year = request.POST.get('assessment_year')
+    print(assessment_month)
+    print(assessment_year)
     # Normalize registration category
     regcat_normalized = regcat.strip().lower() if regcat else ''
     if regcat_normalized in ["workers_pas", "worker's pas"]:
@@ -120,10 +122,18 @@ def upload_marks(request):
                 errors.append(f"Row {idx}: Candidate '{regno}' not enrolled in selected level.")
                 continue
         # Assessment date
+        assessment_month = int(assessment_month)
+        print(assessment_month)
+        assessment_year = int(assessment_year)
+        print(assessment_year)
+        from datetime import date
         try:
-            assessment_date = datetime.date(int(year), int(month), 1)
-        except Exception:
-            errors.append(f"Row {idx}: Invalid assessment month/year.")
+            # code to convert 06/2025 to date time object of 2025-06-01
+            assessment_day = date(assessment_year, assessment_month, 1)
+            print(assessment_day)
+        except Exception as e:
+            print(e)
+            errors.append(f"Row {idx}: Invalid conversion of assessment month/year {assessment_month}/{assessment_year}")
             continue
         # Modular: expects PRACTICAL column and selected module
         if regcat_normalized == 'modular':
@@ -142,7 +152,7 @@ def upload_marks(request):
             Result.objects.update_or_create(
                 candidate=candidate,
                 module=selected_module,
-                assessment_date=assessment_date,
+                assessment_date=assessment_day,
                 result_type='modular',
                 defaults={
                     'assessment_type': 'practical',
@@ -167,7 +177,7 @@ def upload_marks(request):
                     Result.objects.update_or_create(
                         candidate=candidate,
                         level=level,
-                        assessment_date=assessment_date,
+                        assessment_date=assessment_day,
                         assessment_type='theory',
                         result_type='formal',
                         defaults={
@@ -249,8 +259,8 @@ def upload_marks(request):
                     updated += 1
 
     if errors:
-        return JsonResponse({'success': False, 'updated': updated, 'errors': errors})
-    return JsonResponse({'success': True, 'updated': updated})
+        return JsonResponse({'success': False, 'updated_count': updated, 'errors': errors})
+    return JsonResponse({'success': True, 'updated_count': updated, 'errors': []})
 
 @login_required
 @require_POST

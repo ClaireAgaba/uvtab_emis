@@ -39,18 +39,18 @@
             <div class="flex gap-2">
               <select name="assessment_month" id="assessment-month" required class="border px-3 py-2 rounded w-full">
                 <option value="">Month</option>
-                <option value="01">January</option>
-                <option value="02">February</option>
-                <option value="03">March</option>
-                <option value="04">April</option>
-                <option value="05">May</option>
-                <option value="06">June</option>
-                <option value="07">July</option>
-                <option value="08">August</option>
-                <option value="09">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
               </select>
               <select name="assessment_year" id="assessment-year" required class="border px-3 py-2 rounded w-full">
                 <!-- Years will be populated by JS -->
@@ -117,18 +117,18 @@
             <div class="flex gap-2">
               <select name="assessment_month" id="print-assessment-month" required class="border px-3 py-2 rounded w-full">
                 <option value="">Month</option>
-                <option value="01">January</option>
-                <option value="02">February</option>
-                <option value="03">March</option>
-                <option value="04">April</option>
-                <option value="05">May</option>
-                <option value="06">June</option>
-                <option value="07">July</option>
-                <option value="08">August</option>
-                <option value="09">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
               </select>
               <select name="assessment_year" id="print-assessment-year" required class="border px-3 py-2 rounded w-full">
                 <!-- Years will be populated by JS -->
@@ -195,15 +195,15 @@
             <div class="flex gap-2">
               <select name="assessment_month" id="upload-assessment-month" required class="border px-3 py-2 rounded w-full">
                 <option value="">Month</option>
-                <option value="01">January</option>
-                <option value="02">February</option>
-                <option value="03">March</option>
-                <option value="04">April</option>
-                <option value="05">May</option>
-                <option value="06">June</option>
-                <option value="07">July</option>
-                <option value="08">August</option>
-                <option value="09">September</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
                 <option value="10">October</option>
                 <option value="11">November</option>
                 <option value="12">December</option>
@@ -563,11 +563,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
                     },
                 });
+
                 const data = await response.json();
+
                 if (data.success) {
-                    successDiv.textContent = `Successfully updated ${data.updated_count} records.`;
+                    successDiv.textContent = `Successfully uploaded marks for ${data.updated_count} records.`;
                     uploadForm.reset();
-                } else {
+                }
+
+                if (data.errors && data.errors.length > 0) {
+                    msgDiv.innerHTML = '<strong>Upload failed with the following errors:</strong><br>' + data.errors.join('<br>');
+                } else if (!data.success) {
                     msgDiv.textContent = data.error || 'An unknown error occurred.';
                 }
             } catch (error) {
