@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full mb-6">
+  <a href="{% url 'report_list' %}"
+     class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+    &larr; Back to Reports
+  </a>
+</div>
+
+<div class="max-w-2xl mx-auto mb-8">
+  <h1 class="text-3xl font-bold text-gray-900">Generate Result List</h1>
+  <p class="mt-1 text-sm text-gray-600">
+    Select parameters to generate the result list
+  </p>
+</div>
+
+<div class="bg-white max-w-2xl mx-auto rounded shadow p-6 mb-10">
+  {% if errors %}
+    <div class="bg-red-100 text-red-700 p-3 mb-4 rounded border border-red-300">
+      {% for error in errors %}<div>{{ error }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Month -->
+      <div>
+        <label for="assessment_month" class="block text-sm font-medium text-gray-700">Assessment Month</label>
+        <select id="assessment_month" name="assessment_month" class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500" required>
+          <option value="">Select Month</option>
+          {% for m in months %}
+            <option value="{{ m.value }}" {% if form_data.month == m.value|stringformat:'s' %}selected{% endif %}>{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <!-- Year -->
+      <div>
+        <label for="assessment_year" class="block text-sm font-medium text-gray-700">Assessment Year</label>
+        <select id="assessment_year" name="assessment_year" class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500" required>
+          <option value="">Select Year</option>
+          {% for y in years %}
+            <option value="{{ y }}" {% if form_data.year == y|stringformat:'s' %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <!-- Registration Category -->
+      <div>
+        <label for="reg_category" class="block text-sm font-medium text-gray-700">Registration Category</label>
+        <select id="reg_category" name="registration_category" class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500" required>
+          <option value="">Select Category</option>
+          <option value="modular" {% if form_data.regcat == "modular" %}selected{% endif %}>Modular</option>
+          <option value="formal" {% if form_data.regcat == "formal" %}selected{% endif %}>Formal</option>
+          <option value="informal" {% if form_data.regcat == "informal" %}selected{% endif %}>Informal/Worker's PAS</option>
+        </select>
+      </div>
+      <!-- Occupation -->
+      <div>
+        <label for="occupation" class="block text-sm font-medium text-gray-700">Occupation</label>
+        <select id="occupation" name="occupation" class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500" required>
+          <option value="">Select Occupation</option>
+          {% for occ in occupations %}
+            <option value="{{ occ.id }}" {% if form_data.occupation_id == occ.id|stringformat:'s' %}selected{% endif %}>{{ occ.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <!-- Level -->
+      <div id="level_wrapper" class="hidden">
+        <label for="level" class="block text-sm font-medium text-gray-700">Level</label>
+        <select id="level" name="level" class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+          <option value="">Select Level</option>
+          {% for lvl in levels %}
+            <option value="{{ lvl.id }}" {% if form_data.level_id == lvl.id|stringformat:'s' %}selected{% endif %}>{{ lvl.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <!-- Center -->
+      <div>
+        <label for="assessment_center" class="block text-sm font-medium text-gray-700">Assessment Center (Optional)</label>
+        <select id="assessment_center" name="assessment_center" class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+          <option value="">All Centers</option>
+          {% for c in centers %}
+            <option value="{{ c.id }}" {% if form_data.center_id == c.id|stringformat:'s' %}selected{% endif %}>{{ c.center_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="flex justify-end gap-4 pt-6 border-t mt-8">
+      <a href="{% url 'report_list' %}" class="text-sm px-4 py-2 rounded hover:underline">Cancel</a>
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">Generate PDF</button>
+    </div>
+  </form>
+
+  <script>
+    document.getElementById('reg_category').addEventListener('change', function() {
+      const val = this.value;
+      document.getElementById('level_wrapper').classList.toggle('hidden', !(val === 'formal' || val === 'informal'));
+    });
+  </script>
+</div>
+
+{% if preview %}
+<div class="flex justify-end mb-2">
+  <button onclick="window.print()" class="no-print bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow">Download</button>
+</div>
+<div id="result-list-preview" class="bg-white rounded shadow p-8 mt-8 mb-8">
+  <div class="flex items-center justify-between mb-4">
+    <img src="{{ logo_path }}" alt="UVTAB Logo" class="h-14">
+    <div class="text-center flex-1">
+      <div class="text-lg font-bold tracking-wide">UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD</div>
+      <div class="text-md font-semibold">PROVISIONAL ASSESSMENT RESULTS FOR</div>
+      <div class="text-md font-semibold">ASSESSMENT PERIOD: {{ formatted_period }}</div>
+    </div>
+    <div class="text-right text-xs text-gray-500">Preview Mode</div>
+  </div>
+  {% for center, data in centered_result_data.items %}
+    <div class="mb-2 font-semibold" style="page-break-before: {% if not forloop.first %}always{% else %}auto{% endif %};">
+      Category: {{ form_data.regcat|title }}
+      {% if level_name and form_data.regcat == 'formal' %} | Level: {{ level_name }}{% elif level_name and form_data.regcat == 'informal' %} | Level: {{ level_name }}{% endif %}<br>
+      Occupation: {{ form_data.occupation_name }}<br>
+      Assessment Center: {{ center }}
+    </div>
+    {% if data and data|length > 0 %}
+      <div class="overflow-x-auto">
+        {% if form_data.regcat == 'modular' %}
+          <div style="color: red; font-weight: bold;">DEBUG: data length = {{ data|length }}</div>
+          <table class="min-w-full border text-sm">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="border p-2">S/N</th>
+                <th class="border p-2">Reg No</th>
+                <th class="border p-2">Name</th>
+                <th class="border p-2">Gender</th>
+                <th class="border p-2">Practical</th>
+                <th class="border p-2">Comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in data %}
+                <tr>
+                  <td colspan="6" style="color: blue;">DEBUG: entry regno = {{ entry.candidate.reg_number }}</td>
+                </tr>
+                <tr>
+                  <td class="border p-2">{{ forloop.counter }}</td>
+                  <td class="border p-2">{{ entry.candidate.reg_number }}</td>
+                  <td class="border p-2">{{ entry.candidate.full_name }}</td>
+                  <td class="border p-2">{{ entry.candidate.gender }}</td>
+                  <td class="border p-2">
+                    {% for r in entry.results %}
+                      <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                    {% endfor %}
+                  </td>
+                  <td class="border p-2">
+                    {% if entry.successful %}Successful{% else %}Not Successful{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% elif form_data.regcat == 'formal' %}
+          <table class="min-w-full border text-sm">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="border p-2">S/N</th>
+                <th class="border p-2">Reg No</th>
+                <th class="border p-2">Name</th>
+                <th class="border p-2">Gender</th>
+                <th class="border p-2">Theory</th>
+                <th class="border p-2">Practical</th>
+                <th class="border p-2">Comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in data %}
+                <tr>
+                  <td class="border p-2">{{ forloop.counter }}</td>
+                  <td class="border p-2">{{ entry.candidate.reg_number }}</td>
+                  <td class="border p-2">{{ entry.candidate.full_name }}</td>
+                  <td class="border p-2">{{ entry.candidate.gender }}</td>
+                  <td class="border p-2">
+                    {% for r in entry.results %}
+                      {% if r.assessment_type == 'theory' %}
+                        <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                      {% endif %}
+                    {% endfor %}
+                  </td>
+                  <td class="border p-2">
+                    {% for r in entry.results %}
+                      {% if r.assessment_type == 'practical' %}
+                        <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                      {% endif %}
+                    {% endfor %}
+                  </td>
+                  <td class="border p-2">
+                    {% if entry.successful %}Successful{% else %}Not Successful{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% elif form_data.regcat == 'informal' %}
+          <table class="min-w-full border text-sm">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="border p-2">S/N</th>
+                <th class="border p-2">Reg No</th>
+                <th class="border p-2">Name</th>
+                <th class="border p-2">Gender</th>
+                <th class="border p-2">Module/Code</th>
+                <th class="border p-2">Comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in data %}
+                <tr>
+                  <td class="border p-2">{{ forloop.counter }}</td>
+                  <td class="border p-2">{{ entry.candidate.reg_number }}</td>
+                  <td class="border p-2">{{ entry.candidate.full_name }}</td>
+                  <td class="border p-2">{{ entry.candidate.gender }}</td>
+                  <td class="border p-2">
+                    {% for r in entry.results %}
+                      <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.module_code }}</span>
+                    {% endfor %}
+                  </td>
+                  <td class="border p-2">
+                    {% if entry.successful %}Successful{% else %}Not Successful{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="border rounded p-6 text-gray-400 text-center">No candidates with results found for this center.</div>
+    {% endif %}
+  {% empty %}
+    <div class="border rounded p-6 text-gray-400 text-center">No candidates with results found for the selected parameters.</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

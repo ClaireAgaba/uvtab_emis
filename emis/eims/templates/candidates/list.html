@@ -19,6 +19,7 @@
       <option value="regenerate">Regenerate Reg. Number</option>
       <option value="add_regno_photo">Add Regno on Photo</option>
       <option value="change_reg_cat">Change Reg Category</option>
+      <option value="mark_disabled">Mark as Disabled</option>
     </select>
     <!-- Level selector for Formal/Informal bulk enroll -->
     <div id="bulk-level-select-wrapper" class="hidden" style="min-width:180px; margin-right:12px;">
@@ -50,6 +51,32 @@
         <button id="bulk-regcat-apply" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Apply</button>
       </div>
       <button id="bulk-regcat-close" class="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+    </div>
+  </div>
+
+  <!-- Bulk Mark as Disabled Modal -->
+  <div id="bulk-mark-disabled-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+      <h2 class="text-lg font-bold mb-4">Mark as Disabled</h2>
+      <div class="mb-4">
+        <p class="mb-2 font-medium">Select Nature(s) of Disability <span class="text-red-600">*</span></p>
+        <div id="bulk-nature-checkboxes" class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded px-3 py-2">
+          {% for nature in nature_of_disabilities %}
+            <label class="flex items-center gap-2">
+              <input type="checkbox" class="bulk-nature-checkbox" value="{{ nature.id }}">
+              <span>{{ nature.name }}</span>
+            </label>
+          {% empty %}
+            <span class="text-gray-500">No nature of disability options available.</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div id="bulk-mark-disabled-error" class="text-red-600 text-sm mb-2 hidden"></div>
+      <div class="flex justify-between mt-4">
+        <button id="bulk-mark-disabled-cancel" class="text-gray-600 hover:underline">Cancel</button>
+        <button id="bulk-mark-disabled-apply" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Apply</button>
+      </div>
+      <button id="bulk-mark-disabled-close" class="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
     </div>
   </div>
 
@@ -173,6 +200,78 @@ const bulkBar = document.getElementById('bulk-action-bar');
 const bulkApply = document.getElementById('bulk-action-apply');
 const bulkSelect = document.getElementById('bulk-action-select');
 const bulkError = document.getElementById('bulk-action-error');
+
+// Bulk Mark as Disabled modal logic
+const bulkMarkDisabledModal = document.getElementById('bulk-mark-disabled-modal');
+const bulkMarkDisabledApply = document.getElementById('bulk-mark-disabled-apply');
+const bulkMarkDisabledCancel = document.getElementById('bulk-mark-disabled-cancel');
+const bulkMarkDisabledClose = document.getElementById('bulk-mark-disabled-close');
+const bulkMarkDisabledError = document.getElementById('bulk-mark-disabled-error');
+const bulkNatureCheckboxes = document.getElementById('bulk-nature-checkboxes');
+
+function showBulkMarkDisabledModal() {
+  bulkMarkDisabledModal.classList.remove('hidden');
+  bulkMarkDisabledError.classList.add('hidden');
+  bulkMarkDisabledError.textContent = '';
+  // Uncheck all natures
+  bulkMarkDisabledModal.querySelectorAll('.bulk-nature-checkbox').forEach(cb => cb.checked = false);
+}
+function hideBulkMarkDisabledModal() {
+  bulkMarkDisabledModal.classList.add('hidden');
+}
+// Open modal on select
+bulkSelect.addEventListener('change', function() {
+  if (bulkSelect.value === 'mark_disabled') {
+    showBulkMarkDisabledModal();
+    bulkSelect.value = '';
+  }
+});
+bulkMarkDisabledCancel.addEventListener('click', hideBulkMarkDisabledModal);
+bulkMarkDisabledClose.addEventListener('click', hideBulkMarkDisabledModal);
+
+bulkMarkDisabledApply.addEventListener('click', function() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  const natureIds = Array.from(bulkNatureCheckboxes.querySelectorAll('.bulk-nature-checkbox:checked')).map(cb => cb.value);
+  if (natureIds.length === 0) {
+    bulkMarkDisabledError.textContent = 'Please select at least one nature of disability.';
+    bulkMarkDisabledError.classList.remove('hidden');
+    return;
+  }
+  if (checked.length === 0) {
+    bulkMarkDisabledError.textContent = 'Please select at least one candidate.';
+    bulkMarkDisabledError.classList.remove('hidden');
+    return;
+  }
+  bulkMarkDisabledError.textContent = '';
+  bulkMarkDisabledError.classList.add('hidden');
+  // AJAX POST to backend
+  fetch("/eims/candidates/bulk-action/", {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      action: 'mark_disabled',
+      candidate_ids: checked.map(cb => cb.value),
+      nature_of_disability_ids: natureIds
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(data.message || 'Candidates marked as disabled successfully.');
+      window.location.reload();
+    } else {
+      bulkMarkDisabledError.textContent = data.error || 'An error occurred.';
+      bulkMarkDisabledError.classList.remove('hidden');
+    }
+  })
+  .catch(() => {
+    bulkMarkDisabledError.textContent = 'Server error.';
+    bulkMarkDisabledError.classList.remove('hidden');
+  });
+});
 
 function updateBulkBar() {
   const checked = document.querySelectorAll('.candidate-checkbox:checked');

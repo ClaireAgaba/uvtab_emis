@@ -70,8 +70,14 @@ urlpatterns = [
     path('config/districts/create/', views.district_create, name='district_create'),
     path('config/villages/', views.village_list, name='village_list'),
     path('config/villages/create/', views.village_create, name='village_create'),
+    # Nature of Disability CRUD
+    path('config/nature-of-disability/', views.natureofdisability_list, name='natureofdisability_list'),
+    path('config/nature-of-disability/create/', views.natureofdisability_create, name='natureofdisability_create'),
+    path('config/nature-of-disability/<int:pk>/', views.natureofdisability_view, name='natureofdisability_view'),
+    path('config/nature-of-disability/<int:pk>/edit/', views.natureofdisability_edit, name='natureofdisability_edit'),
     path('reports/', views.report_list, name='report_list'),
     path('reports/albums/', views.generate_album, name='generate_album'),
+    path('reports/result-list/', views.generate_result_list, name='generate_result_list'),
     path('users/', views.user_home, name='user_home'),
     # Center Representatives
     path('users/center-representatives/', views.view_center_reps, name='view_center_reps'),

@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, FeesType, Result
+from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, FeesType, Result, NatureOfDisability
 from datetime import datetime   
 
 from django_countries.fields import CountryField
@@ -9,6 +9,15 @@ from django_countries.widgets import CountrySelectWidget
 CURRENT_YEAR = datetime.now().year
 YEAR_CHOICES = [(year, year) for year in range(CURRENT_YEAR, CURRENT_YEAR - 30, -1)]
 
+
+class NatureOfDisabilityForm(forms.ModelForm):
+    class Meta:
+        model = NatureOfDisability
+        fields = ['name', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'description': forms.Textarea(attrs={'class': 'border rounded px-3 py-2 w-full', 'rows': 3}),
+        }
 
 class AssessmentCenterForm(forms.ModelForm):
     class Meta:
@@ -188,6 +197,18 @@ class CandidateForm(forms.ModelForm):
     nationality = CountryField(blank_label='(Select country)').formfield(
         widget=CountrySelectWidget(attrs={'class': 'border rounded px-3 py-2 w-full'})
     )
+    disability = forms.BooleanField(
+        required=False,
+        label="Disability",
+        widget=forms.CheckboxInput(attrs={'class': 'ml-2'})
+    )
+    nature_of_disability = forms.ModelMultipleChoiceField(
+        queryset=NatureOfDisability.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'ml-2'}),
+        label="Nature of Disability",
+        help_text="Select nature(s) of disability if applicable"
+    )
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
@@ -197,6 +218,16 @@ class CandidateForm(forms.ModelForm):
         for field in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']:
             if field in self.fields:
                 self.fields[field].input_formats = ['%d/%m/%Y']
+        # Show/hide nature_of_disability based on disability field value
+        disability_value = False
+        if self.data.get('disability') in ['on', 'true', 'True', True]:
+            disability_value = True
+        elif hasattr(self.instance, 'disability'):
+            disability_value = getattr(self.instance, 'disability', False)
+        if not disability_value:
+            self.fields['nature_of_disability'].required = False
+        else:
+            self.fields['nature_of_disability'].required = True
         if user and user.groups.filter(name='CenterRep').exists():
             from .models import CenterRepresentative
             try:
@@ -292,6 +323,15 @@ class CandidateForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        disability = cleaned_data.get('disability')
+        nature_of_disability = cleaned_data.get('nature_of_disability')
+        # Enforce: If disability is checked, nature_of_disability must be selected
+        if disability:
+            if not nature_of_disability or len(nature_of_disability) == 0:
+                self.add_error('nature_of_disability', 'Please select at least one nature of disability.')
+        else:
+            cleaned_data['nature_of_disability'] = []
+        # --- Existing logic below ---
         occupation = cleaned_data.get('occupation')
         level = cleaned_data.get('level')
         modules = cleaned_data.get('modules')

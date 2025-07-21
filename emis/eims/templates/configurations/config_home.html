@@ -4,7 +4,7 @@
 <div class="container mx-auto px-4 py-8">
   <h1 class="text-2xl font-bold text-gray-900 mb-8">System Configuration</h1>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
     <a href="{% url 'district_list' %}">
       <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center hover:shadow-lg transition-shadow">
         <div class="text-4xl text-blue-600 mb-3">🏛️</div>
@@ -18,6 +18,13 @@
         <div class="text-4xl text-green-600 mb-3">🏘️</div>
         <div class="text-lg font-medium">Villages</div>
         <p class="text-gray-600 text-sm text-center mt-2">Manage villages and their districts</p>
+      </div>
+    </a>
+    <a href="{% url 'natureofdisability_list' %}">
+      <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center hover:shadow-lg transition-shadow">
+        <div class="text-4xl text-purple-600 mb-3">♿</div>
+        <div class="text-lg font-medium">Nature of Disability</div>
+        <p class="text-gray-600 text-sm text-center mt-2">Manage types of disability</p>
       </div>
     </a>
   </div>

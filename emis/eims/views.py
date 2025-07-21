@@ -3,6 +3,198 @@ from django.contrib.auth.decorators import login_required
 from reportlab.platypus import Image as RLImage
 import calendar
 
+@login_required
+def generate_result_list(request):
+    months = [
+        {"value": "1", "name": "January"},
+        {"value": "2", "name": "February"},
+        {"value": "3", "name": "March"},
+        {"value": "4", "name": "April"},
+        {"value": "5", "name": "May"},
+        {"value": "6", "name": "June"},
+        {"value": "7", "name": "July"},
+        {"value": "8", "name": "August"},
+        {"value": "9", "name": "September"},
+        {"value": "10", "name": "October"},
+        {"value": "11", "name": "November"},
+        {"value": "12", "name": "December"},
+    ]
+    years = ["2021", "2022", "2023", "2024", "2025"]
+
+    if request.method == 'POST':
+        # Get form data
+        month = request.POST.get('assessment_month')
+        year = request.POST.get('assessment_year')
+        regcat = request.POST.get('registration_category')
+        occupation_id = request.POST.get('occupation')
+        level_id = request.POST.get('level')
+        center_id = request.POST.get('assessment_center')
+        # Validate required fields
+        errors = []
+        if not (month and year and regcat and occupation_id):
+            errors.append('Please fill in all required fields.')
+        from datetime import datetime
+        from .models import Candidate, Result, Occupation, Level
+        candidates = []
+        result_data = []
+        if not errors:
+            # Build assessment period filter
+            period_start = datetime(int(year), int(month), 1)
+            period_end = datetime(int(year), int(month), 28)  # crude, will catch all results in month
+            # Filter candidates for occupation, level, center
+            filters = {
+                'occupation_id': occupation_id,
+                'registration_category': regcat.title(),
+            }
+            if center_id:
+                filters['assessment_center_id'] = center_id
+            if level_id:
+                filters['candidatelevel__level_id'] = level_id
+            qs = Candidate.objects.filter(**filters).distinct()
+            print(f'[DEBUG] Candidate queryset count: {qs.count()}')
+            print(f'[DEBUG] Candidate filter values: occupation_id={occupation_id}, regcat={regcat}, level_id={level_id}, center_id={center_id}')
+            # Only keep candidates with at least one result in period
+            for cand in qs:
+                print(f'[DEBUG] Processing candidate: id={cand.id}, regno={cand.reg_number}, name={cand.full_name}, center={getattr(cand.assessment_center, "center_name", None)}')
+                regcat_lower = regcat.lower()
+                if regcat_lower == 'modular':
+                    results = Result.objects.filter(
+                        candidate=cand,
+                        assessment_date__year=year,
+                        assessment_date__month=month,
+                        result_type='modular',
+                    )
+                    print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (modular): year={year}, month={month}, result_type=modular')
+                elif regcat_lower == 'formal':
+                    results = Result.objects.filter(
+                        candidate=cand,
+                        assessment_date__year=year,
+                        assessment_date__month=month,
+                        result_type='formal',
+                    )
+                    print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (formal): year={year}, month={month}, result_type=formal')
+                elif regcat_lower in ['informal', "worker's pas", "workers pas"]:
+                    results = Result.objects.filter(
+                        candidate=cand,
+                        assessment_date__year=year,
+                        assessment_date__month=month,
+                        result_type='informal',
+                    )
+                    print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (informal): year={year}, month={month}, result_type=informal')
+                else:
+                    results = Result.objects.none()
+                print(f'[DEBUG] Results found for candidate {cand.reg_number}: {results.count()}')
+                if results.exists():
+                    candidates.append(cand)
+                    # Serialize candidate fields needed by template
+                    cand_dict = {
+                        'reg_number': cand.reg_number,
+                        'full_name': cand.full_name,
+                        'gender': cand.get_gender_display(),
+                        'passport_photo_with_regno': cand.passport_photo_with_regno.url if cand.passport_photo_with_regno else None,
+                        'assessment_center': getattr(cand.assessment_center, 'center_name', None),
+                    }
+                    # Serialize results fields needed by template
+                    results_list = [
+                        {
+                            'grade': r.grade,
+                            'comment': r.comment,
+                            'assessment_type': getattr(r, 'assessment_type', ''),
+                            'module_code': getattr(r, 'module_code', ''),
+                            'module_name': getattr(r, 'module_name', ''),
+                        }
+                        for r in results
+                    ]
+                    is_successful = any(r['comment'] == 'Successful' for r in results_list)
+                    result_data.append({
+                        'candidate': cand_dict,
+                        'results': results_list,
+                        'successful': is_successful,
+                    })
+        # Get occupation and level names for display
+        occupation_name = None
+        level_name = None
+        if occupation_id:
+            try:
+                occ = Occupation.objects.filter(id=int(occupation_id)).first()
+                if occ:
+                    occupation_name = occ.name
+            except Exception:
+                occupation_name = None
+        if level_id:
+            try:
+                lvl = Level.objects.filter(id=int(level_id)).first()
+                if lvl:
+                    level_name = lvl.name
+            except Exception:
+                level_name = None
+        # Format month as "June, 2025"
+        import calendar
+        formatted_period = f"{calendar.month_name[int(month)]}, {year}"
+        # Group by center if all centers
+        centered_result_data = None
+        if not center_id:
+            from collections import defaultdict
+            centered_result_data = defaultdict(list)
+            for entry in result_data:
+                center_name = entry['candidate'].get('assessment_center', 'No Center')
+                centered_result_data[center_name].append(entry)
+        # Always include occupations, levels, centers for dropdowns
+        from .models import AssessmentCenter
+        occupations = Occupation.objects.all()
+        levels = Level.objects.all()
+        centers = AssessmentCenter.objects.all()
+        print(f'[DEBUG] centered_result_data: {centered_result_data}')
+        context = {
+            'months': months,
+            'years': years,
+            'preview': True,
+            'form_data': {
+                'month': month,
+                'year': year,
+                'regcat': regcat,
+                'occupation_id': occupation_id,
+                'occupation_name': occupation_name,
+                'level_id': level_id,
+                'level_name': level_name,
+                'center_id': center_id,
+            },
+            'candidates': candidates,
+            'result_data': result_data,
+            'centered_result_data': centered_result_data,
+            'formatted_period': formatted_period,
+            'logo_path': '/static/images/uvtab_logo.png',
+            'errors': errors,
+            'occupations': occupations,
+            'levels': levels,
+            'centers': centers,
+        }
+        return render(request, 'reports/result_list.html', context)
+    else:
+        # GET: show form only
+        from .models import AssessmentCenter, Occupation, Level
+        occupations = Occupation.objects.all()
+        levels = Level.objects.all()
+        centers = AssessmentCenter.objects.all()
+        context = {
+            'preview': False,
+            'form_data': {},
+            'candidates': [],
+            'result_data': [],
+            'centered_result_data': None,
+            'formatted_period': '',
+            'logo_path': '/static/images/uvtab_logo.png',
+            'errors': [],
+            'occupations': occupations,
+            'levels': levels,
+            'centers': centers,
+            'months': months,
+            'years': years,
+        }
+        return render(request, 'reports/result_list.html', context)
+        return render(request, 'reports/result_list.html')
+
+
 
 @login_required
 def results_home(request):
@@ -1342,6 +1534,26 @@ def bulk_candidate_action(request):
             candidate.save(update_fields=["registration_category", "reg_number"])
             updated += 1
         return JsonResponse({'success': True, 'message': f'Changed registration category for {updated} candidates.'})
+    elif action == 'mark_disabled':
+        # Bulk mark as disabled
+        nature_ids = data.get('nature_of_disability_ids', [])
+        if isinstance(nature_ids, str):
+            nature_ids = [nature_ids]
+        if not isinstance(nature_ids, list):
+            return JsonResponse({'success': False, 'error': 'Invalid nature_of_disability_ids.'}, status=400)
+        if not nature_ids:
+            return JsonResponse({'success': False, 'error': 'Please select at least one nature of disability.'}, status=400)
+        from .models import NatureOfDisability
+        natures = NatureOfDisability.objects.filter(id__in=nature_ids)
+        if natures.count() != len(nature_ids):
+            return JsonResponse({'success': False, 'error': 'One or more selected natures are invalid.'}, status=400)
+        updated = 0
+        for c in candidates:
+            c.disability = True
+            c.save()
+            c.nature_of_disability.set(natures)
+            updated += 1
+        return JsonResponse({'success': True, 'message': f'Marked {updated} candidates as disabled with selected nature(s).'})
     else:
         return JsonResponse({'success': False, 'error': 'Unknown action.'}, status=400)
 
@@ -1362,6 +1574,43 @@ import os
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from .forms import ChangeOccupationForm, ChangeCenterForm
+from .models import NatureOfDisability
+from .forms import NatureOfDisabilityForm
+
+from django.urls import reverse
+
+@login_required
+def natureofdisability_list(request):
+    disabilities = NatureOfDisability.objects.all().order_by('name')
+    return render(request, 'configurations/natureofdisability_list.html', {'disabilities': disabilities})
+
+@login_required
+def natureofdisability_create(request):
+    if request.method == 'POST':
+        form = NatureOfDisabilityForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('natureofdisability_list')
+    else:
+        form = NatureOfDisabilityForm()
+    return render(request, 'configurations/natureofdisability_form.html', {'form': form, 'create': True})
+
+@login_required
+def natureofdisability_view(request, pk):
+    entry = get_object_or_404(NatureOfDisability, pk=pk)
+    return render(request, 'configurations/natureofdisability_view.html', {'entry': entry})
+
+@login_required
+def natureofdisability_edit(request, pk):
+    entry = get_object_or_404(NatureOfDisability, pk=pk)
+    if request.method == 'POST':
+        form = NatureOfDisabilityForm(request.POST, instance=entry)
+        if form.is_valid():
+            form.save()
+            return redirect('natureofdisability_view', pk=pk)
+    else:
+        form = NatureOfDisabilityForm(instance=entry)
+    return render(request, 'configurations/natureofdisability_form.html', {'form': form, 'entry': entry, 'edit': True})
 
 
 @login_required
@@ -2222,6 +2471,7 @@ def candidate_list(request):
     import urllib
     filter_params = urllib.parse.urlencode(current_filters)
 
+    from .models import NatureOfDisability
     return render(request, 'candidates/list.html', {
         'candidates': page_obj.object_list,
         'page_obj': page_obj,
@@ -2231,6 +2481,7 @@ def candidate_list(request):
         'centers': centers,
         'filters': current_filters,
         'filter_params': filter_params,
+        'nature_of_disabilities': NatureOfDisability.objects.all(),
     })
 
 
@@ -2745,6 +2996,7 @@ def candidate_create(request):
             candidate.created_by = request.user
             candidate.updated_by = request.user
             candidate.save()
+            form.save_m2m()  # Ensure ManyToMany fields like nature_of_disability are saved
             return redirect('candidate_view', id=candidate.id)
     return render(request, 'candidates/create.html', {'form': form})
 
@@ -3281,6 +3533,7 @@ def edit_candidate(request, id):
             candidate = form.save(commit=False)
             candidate.updated_by = request.user
             candidate.save()
+            form.save_m2m()  # Ensure ManyToMany fields like nature_of_disability are saved
             return redirect('candidate_view', id=candidate.id)
     else:
         form = CandidateForm(instance=candidate, edit=True)

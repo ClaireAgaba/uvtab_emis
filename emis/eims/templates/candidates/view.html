@@ -192,6 +192,20 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     <p><strong>Start Date:</strong> {{ candidate.start_date }}</p>
     <p><strong>Finish Date:</strong> {{ candidate.finish_date }}</p>
     <p><strong>Assessment Date:</strong> {{ candidate.assessment_date }}</p>
+    {% if candidate.disability %}
+      <p><strong>Disability:</strong> Yes</p>
+      <p><strong>Nature of Disability:</strong>
+        {% if candidate.nature_of_disability.all|length > 0 %}
+          {% for nature in candidate.nature_of_disability.all %}
+            <span class="inline-block bg-gray-200 rounded px-2 py-1 text-xs mr-1">{{ nature.name }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="text-gray-500">Not specified</span>
+        {% endif %}
+      </p>
+    {% else %}
+      <p><strong>Disability:</strong> No</p>
+    {% endif %}
   </div>
 
   <!-- Enrollment Summary -->

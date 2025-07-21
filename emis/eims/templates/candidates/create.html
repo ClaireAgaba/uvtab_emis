@@ -104,6 +104,21 @@
       <span id="occupation-loading" class="text-xs text-gray-500 hidden">Loading...</span>
     </div>
 
+    <!-- Disability Section -->
+    <div class="md:col-span-2 border-t pt-4 mt-4">
+      <label for="id_disability" class="font-semibold mb-1">{{ form.disability.label_tag }}</label>
+      {{ form.disability }}
+      {% if form.disability.help_text %}<p class="text-gray-600 text-xs">{{ form.disability.help_text }}</p>{% endif %}
+    </div>
+    <div class="md:col-span-2 mb-4" id="nature-of-disability-group" style="display: none;">
+      <label class="font-semibold mb-1" id="nature-label">{{ form.nature_of_disability.label }}<span id="nature-required" style="color:red; display:none;">*</span></label>
+      <div id="nature-checkboxes">
+        {{ form.nature_of_disability }}
+      </div>
+      {% if form.nature_of_disability.help_text %}<p class="text-gray-600 text-xs">{{ form.nature_of_disability.help_text }}</p>{% endif %}
+      {% for error in form.nature_of_disability.errors %}<p class="text-red-600 text-xs">{{ error }}</p>{% endfor %}
+    </div>
+
     <!-- Assessment Dates -->
     <div>
       <label class="block font-semibold mb-1">Start Date</label>
@@ -265,5 +280,57 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // --- End Dynamic Village Filtering ---
+// --- Disability/Nature of Disability Dynamic Logic ---
+document.addEventListener('DOMContentLoaded', function() {
+    const disabilityCheckbox = document.getElementById('id_disability');
+    const natureGroup = document.getElementById('nature-of-disability-group');
+    function updateNatureVisibility() {
+        if (disabilityCheckbox && disabilityCheckbox.checked) {
+            natureGroup.style.display = 'block';
+        } else {
+            natureGroup.style.display = 'none';
+        }
+    }
+    if (disabilityCheckbox && natureGroup) {
+        updateNatureVisibility();
+        disabilityCheckbox.addEventListener('change', updateNatureVisibility);
+    }
+});
+// --- End Disability/Nature of Disability Dynamic Logic ---
+// --- End Disability/Nature of Disability Dynamic Logic ---
+// --- Begin Nature of Disability Required Logic ---
+document.addEventListener('DOMContentLoaded', function() {
+    const disabilityCheckbox = document.getElementById('id_disability');
+    const natureGroup = document.getElementById('nature-of-disability-group');
+    const natureRequired = document.getElementById('nature-required');
+    const natureCheckboxes = document.querySelectorAll('#nature-checkboxes input[type="checkbox"]');
+    const form = document.querySelector('form');
+    function updateNatureRequired() {
+        if (disabilityCheckbox && disabilityCheckbox.checked) {
+            if (natureRequired) natureRequired.style.display = 'inline';
+        } else {
+            if (natureRequired) natureRequired.style.display = 'none';
+        }
+    }
+    if (disabilityCheckbox && natureRequired) {
+        updateNatureRequired();
+        disabilityCheckbox.addEventListener('change', updateNatureRequired);
+    }
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (disabilityCheckbox && disabilityCheckbox.checked) {
+                let anyChecked = false;
+                natureCheckboxes.forEach(cb => { if (cb.checked) anyChecked = true; });
+                if (!anyChecked) {
+                    e.preventDefault();
+                    alert('Please select at least one Nature of Disability.');
+                    // Optionally, scroll to field
+                    document.getElementById('nature-of-disability-group').scrollIntoView({behavior:'smooth'});
+                }
+            }
+        });
+    }
+});
+// --- End Nature of Disability Required Logic ---
 </script>
 {% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-lg">
+  <h1 class="text-2xl font-bold text-gray-900 mb-8">Nature of Disability: {{ entry.name }}</h1>
+  <div class="bg-white shadow rounded-xl p-6">
+    <div class="mb-4">
+      <span class="font-medium">Name:</span> {{ entry.name }}
+    </div>
+    <div class="mb-4">
+      <span class="font-medium">Description:</span><br>
+      <span class="text-gray-700">{{ entry.description|linebreaksbr }}</span>
+    </div>
+    <div class="flex justify-end">
+      <a href="{% url 'natureofdisability_edit' entry.id %}" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Edit</a>
+      <a href="{% url 'natureofdisability_list' %}" class="ml-2 bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400">Back to List</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

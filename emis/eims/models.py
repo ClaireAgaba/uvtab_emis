@@ -40,6 +40,13 @@ class Village(models.Model):
     def __str__(self):
         return f"{self.name} ({self.district.name})"
 
+class NatureOfDisability(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
 class AssessmentCenterCategory(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -308,6 +315,10 @@ class Candidate(models.Model):
 
     reg_number = models.CharField(max_length=100, unique=True, blank=True, null=True)
 
+
+    # Disability fields
+    disability = models.BooleanField(default=False, help_text="Check if candidate has a disability")
+    nature_of_disability = models.ManyToManyField('NatureOfDisability', blank=True, help_text="Select nature(s) of disability if applicable")
 
     # models.py  (inside Candidate)
 # --------------------------------

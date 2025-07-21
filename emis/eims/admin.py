@@ -4,10 +4,13 @@ from django import forms  # ✅ this is the missing line
 from .models import (
     SupportStaff, CenterRepresentative, Occupation, Module, Paper, Grade, AssessmentCenter,
     District, Village, AssessmentCenterCategory, OccupationCategory,
-    RegistrationCategory, Level, Candidate
+    RegistrationCategory, Level, Candidate, NatureOfDisability
 )
 
 # Paper form limited to occupations with structure_type='papers'
+
+admin.site.register(NatureOfDisability)
+
 class PaperAdminForm(forms.ModelForm):
     class Meta:
         model = Paper
@@ -64,12 +67,30 @@ class CandidateAdminForm(forms.ModelForm):
                     self.fields['occupation'].queryset = Occupation.objects.filter(category=cat)
                 except OccupationCategory.DoesNotExist:
                     self.fields['occupation'].queryset = Occupation.objects.none()
+        # Disability logic for admin form
+        disability_value = False
+        if self.data.get('disability') in ['on', 'true', 'True', True]:
+            disability_value = True
+        elif hasattr(self.instance, 'disability'):
+            disability_value = getattr(self.instance, 'disability', False)
+        if not disability_value:
+            self.fields['nature_of_disability'].widget.attrs['disabled'] = True
+            self.fields['nature_of_disability'].required = False
+        else:
+            self.fields['nature_of_disability'].widget.attrs.pop('disabled', None)
+            self.fields['nature_of_disability'].required = True
+
 
 class CandidateAdmin(admin.ModelAdmin):
     form = CandidateAdminForm
-    list_display = ('full_name', 'reg_number', 'registration_category', 'occupation', 'assessment_center')
+    list_display = ('full_name', 'reg_number', 'registration_category', 'occupation', 'assessment_center', 'disability', 'get_nature_of_disability')
     search_fields = ('full_name', 'reg_number')
-    list_filter = ('registration_category', 'occupation', 'assessment_center')
+    list_filter = ('registration_category', 'occupation', 'assessment_center', 'disability')
+    filter_horizontal = ('nature_of_disability',)
+
+    def get_nature_of_disability(self, obj):
+        return ", ".join([str(n) for n in obj.nature_of_disability.all()])
+    get_nature_of_disability.short_description = 'Nature of Disability'
 
     def save_model(self, request, obj, form, change):
         # Save the object first to get the ID
