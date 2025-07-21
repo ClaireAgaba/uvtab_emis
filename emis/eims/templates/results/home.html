@@ -3,7 +3,7 @@
 <div class="max-w-2xl mx-auto mt-10 bg-white rounded shadow p-8">
   <h1 class="text-2xl font-bold mb-6"></h1>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
     <!-- Generate Marksheets Card -->
     <button id="generate-marksheet-btn"
         data-occupation-id="{{ filters.occupation|default:'' }}"
@@ -11,6 +11,12 @@
         class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
       <span class="text-3xl mb-2">📄</span>
       Generate Marksheets
+    </button>
+    <!-- Upload Marks Card -->
+    <button id="print-marksheet-btn"
+        class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
+      <span class="text-3xl mb-2">🖨️</span>
+      Print Marksheet
     </button>
     <!-- Upload Marks Card -->
     <a href="#" id="upload-marks-btn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
@@ -23,7 +29,7 @@
     <div class="bg-white rounded-lg shadow-lg w-full max-w-xl p-8 relative">
       <button id="close-marksheet-modal" class="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
       <h2 class="text-xl font-bold mb-4">Generate Marksheet Template</h2>
-      <form id="marksheet-form" method="post">
+      <form id="marksheet-form" method="post" action="{% url 'generate_marksheet' %}">
         {% csrf_token %}
         <div id="marksheet-msg" class="mb-2 text-sm text-red-600"></div>
         <div id="marksheet-download-link" class="mb-4"></div>
@@ -33,18 +39,18 @@
             <div class="flex gap-2">
               <select name="assessment_month" id="assessment-month" required class="border px-3 py-2 rounded w-full">
                 <option value="">Month</option>
-                <option value="01">January</option>
-                <option value="02">February</option>
-                <option value="03">March</option>
-                <option value="04">April</option>
-                <option value="05">May</option>
-                <option value="06">June</option>
-                <option value="07">July</option>
-                <option value="08">August</option>
-                <option value="09">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
               </select>
               <select name="assessment_year" id="assessment-year" required class="border px-3 py-2 rounded w-full">
                 <!-- Years will be populated by JS -->
@@ -96,12 +102,90 @@
     </div>
   </div>
 
+  <!-- Modal for Print Marksheet -->
+  <div id="print-marksheet-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-xl p-8 relative">
+      <button id="close-print-marksheet-modal" class="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+      <h2 class="text-xl font-bold mb-4">Print Marksheet</h2>
+      <form id="print-marksheet-form" method="post" action="{% url 'print_marksheet' %}">
+        {% csrf_token %}
+        <div id="print-marksheet-msg" class="mb-2 text-sm text-red-600"></div>
+        <div id="print-marksheet-download-link" class="mb-4"></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-medium mb-1">Assessment Series <span class="text-red-500">*</span></label>
+            <div class="flex gap-2">
+              <select name="assessment_month" id="print-assessment-month" required class="border px-3 py-2 rounded w-full">
+                <option value="">Month</option>
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
+              </select>
+              <select name="assessment_year" id="print-assessment-year" required class="border px-3 py-2 rounded w-full">
+                <!-- Years will be populated by JS -->
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Registration Category <span class="text-red-500">*</span></label>
+            <select name="registration_category" id="print-reg-category-select" required class="border px-3 py-2 rounded w-full">
+              <option value="">-- Select --</option>
+              <option value="modular">Modular</option>
+              <option value="formal">Formal</option>
+              <option value="workers_pas">Worker's PAS</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Occupation <span class="text-red-500">*</span></label>
+            <select name="occupation" id="print-occupation-select" required class="border px-3 py-2 rounded w-full">
+              <option value="">-- Select --</option>
+              <!-- Options will be populated dynamically -->
+            </select>
+          </div>
+          <div id="print-level-field" class="hidden">
+            <label class="block font-medium mb-1">Level <span class="text-red-500">*</span></label>
+            <select name="level" id="print-level-select" class="border px-3 py-2 rounded w-full">
+              <option value="">-- Select --</option>
+              <!-- Options will be populated dynamically -->
+            </select>
+          </div>
+          <div id="print-modules-field" class="hidden">
+            <label class="block font-medium mb-1">Select Module(s) <span class="text-red-500">*</span></label>
+            <select name="modules" id="print-modules-select" multiple class="border px-3 py-2 rounded w-full">
+              <!-- Options will be populated dynamically -->
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Assessment Center (optional)</label>
+            <select name="assessment_center" id="print-center-select" class="border px-3 py-2 rounded w-full">
+              <option value="">-- All Centers --</option>
+              <!-- Options will be populated dynamically -->
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-end gap-4 mt-8">
+          <button type="button" id="cancel-print-marksheet-modal" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded">Cancel</button>
+          <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">Print</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal for Upload Marks -->
   <div id="upload-marks-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
     <div class="bg-white rounded-lg shadow-lg w-full max-w-xl p-8 relative">
       <button id="close-upload-marks-modal" class="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
       <h2 class="text-xl font-bold mb-4">Upload Marks (Bulk)</h2>
-      <form id="upload-marks-form" method="post" enctype="multipart/form-data">
+      <form id="upload-marks-form" method="post" enctype="multipart/form-data" action="{% url 'upload_marks' %}">
         {% csrf_token %}
         <div id="upload-marks-msg" class="mb-2 text-sm text-red-600"></div>
         <div id="upload-marks-success" class="mb-2 text-sm text-green-600"></div>
@@ -111,15 +195,15 @@
             <div class="flex gap-2">
               <select name="assessment_month" id="upload-assessment-month" required class="border px-3 py-2 rounded w-full">
                 <option value="">Month</option>
-                <option value="01">January</option>
-                <option value="02">February</option>
-                <option value="03">March</option>
-                <option value="04">April</option>
-                <option value="05">May</option>
-                <option value="06">June</option>
-                <option value="07">July</option>
-                <option value="08">August</option>
-                <option value="09">September</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
                 <option value="10">October</option>
                 <option value="11">November</option>
                 <option value="12">December</option>
@@ -180,313 +264,326 @@
 </div>
 
 <script>
-// Modal open/close logic
-const openBtn = document.getElementById('generate-marksheet-btn');
-const modal = document.getElementById('marksheet-modal');
-const closeBtn = document.getElementById('close-marksheet-modal');
-const cancelBtn = document.getElementById('cancel-marksheet-modal');
-openBtn.onclick = () => modal.classList.remove('hidden');
-closeBtn.onclick = cancelBtn.onclick = () => modal.classList.add('hidden');
-window.onclick = function(e) { if (e.target === modal) modal.classList.add('hidden'); };
-
-// --- Dynamic Occupation/Level Population ---
-let allOccupations = [];
-let allLevels = [];
-
-// Fetch all occupations and levels from backend when modal opens
-openBtn.onclick = async () => {
-  modal.classList.remove('hidden');
-  populateYearDropdown();
-  await populateCentersDropdown();
-  // Fetch occupations
-  const occResp = await fetch('/eims/api/occupations/');
-  if (occResp.ok) {
-    allOccupations = await occResp.json();
-  }
-  // Fetch levels
-  const lvlResp = await fetch('/eims/api/levels/');
-  if (lvlResp.ok) {
-    allLevels = await lvlResp.json();
-  }
-  updateOccupationOptions();
-  // --- Pre-select occupation and level if provided ---
-  const preOccId = openBtn.getAttribute('data-occupation-id');
-  const preLvlId = openBtn.getAttribute('data-level-id');
-  if (preOccId) {
-    document.getElementById('occupation-select').value = String(parseInt(preOccId, 10));
-    updateLevelOptions();
-    if (preLvlId) {
-      document.getElementById('level-select').value = String(parseInt(preLvlId, 10));
-    }
-  }
-};
-
-function updateOccupationOptions() {
-  const regcat = document.getElementById('reg-category-select').value;
-  const occSelect = document.getElementById('occupation-select');
-  occSelect.innerHTML = '<option value="">-- Select --</option>';
-  let filtered = allOccupations;
-  if (regcat === 'formal') {
-    filtered = allOccupations.filter(o => o.category === 'formal');
-  } else if (regcat === "workers_pas") {
-    filtered = allOccupations.filter(o => o.category === 'informal');
-  } else if (regcat === 'modular') {
-    filtered = allOccupations.filter(o => o.category === 'formal' && o.has_modular);
-  }
-  filtered.forEach(o => {
-    occSelect.innerHTML += `<option value="${o.id}">${o.name}</option>`;
-  });
-  updateLevelOptions();
-}
-
-function updateLevelOptions() {
-  const regcat = document.getElementById('reg-category-select').value;
-  const occId = parseInt(document.getElementById('occupation-select').value);
-  const levelField = document.getElementById('level-field');
-  const levelSelect = document.getElementById('level-select');
-  levelSelect.innerHTML = '<option value="">-- Select --</option>';
-  // Show level for formal, informal, and workers_pas
-  if ((regcat === 'formal' || regcat === 'informal' || regcat === 'workers_pas') && occId) {
-    levelField.classList.remove('hidden');
-    // Filter levels by occupation
-    const occLevels = allLevels.filter(lvl => lvl.occupation_id === occId);
-    occLevels.forEach(lvl => {
-      levelSelect.innerHTML += `<option value="${lvl.id}">${lvl.name}</option>`;
-    });
-  } else {
-    levelField.classList.add('hidden');
-  }
-}
-
-document.getElementById('reg-category-select').onchange = updateOccupationOptions;
-document.getElementById('occupation-select').onchange = updateLevelOptions;
-// Populate centers dynamically from API
-async function populateCentersDropdown() {
-  const centerSelect = document.getElementById('center-select');
-  centerSelect.innerHTML = '<option value="">-- All Centers --</option>';
-  try {
-    const resp = await fetch('/eims/api/centers/');
-    if (resp.ok) {
-      const centers = await resp.json();
-      centers.forEach(c => {
-        centerSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-      });
-    }
-  } catch (err) {
-    // Optionally show error
-  }
-}
-
-function populateYearDropdown() {
-  const yearSelect = document.getElementById('assessment-year');
-  yearSelect.innerHTML = '';
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  for (let y = currentYear - 5; y <= currentYear + 5; y++) {
-    const opt = document.createElement('option');
-    opt.value = y;
-    opt.text = y;
-    if (y === currentYear) opt.selected = true;
-    yearSelect.appendChild(opt);
-  }
-}
-
-// --- AJAX for marksheet generation ---
-document.getElementById('marksheet-form').onsubmit = async function(e) {
-  e.preventDefault();
-  const form = e.target;
-  const msgDiv = document.getElementById('marksheet-msg');
-  const linkDiv = document.getElementById('marksheet-download-link');
-  msgDiv.textContent = '';
-  linkDiv.innerHTML = '';
-  const data = new FormData(form);
-  try {
-    const resp = await fetch("/eims/results/generate-marksheet/", {
-      method: "POST",
-      headers: {
-        'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
-      },
-      body: data
-    });
-    if (!resp.ok) throw new Error('Server error');
-    const json = await resp.json();
-    if (json.success && json.download_url) {
-      // Ensure download link is prefixed with /eims/ if not already
-      let downloadUrl = json.download_url;
-      if (!downloadUrl.startsWith('/eims/')) {
-        if (downloadUrl.startsWith('/')) downloadUrl = '/eims' + downloadUrl;
-        else downloadUrl = '/eims/' + downloadUrl;
-      }
-      linkDiv.innerHTML = `<a href="${downloadUrl}" target="_blank" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Download Marksheet Template</a>`;
-      msgDiv.textContent = '';
-    } else {
-      msgDiv.textContent = json.error || 'An error occurred.';
-    }
-  } catch (err) {
-    msgDiv.textContent = err.message || 'An error occurred.';
-  }
-};
-// --- Upload Marks Modal Logic ---
-const uploadBtn = document.getElementById('upload-marks-btn');
-const uploadModal = document.getElementById('upload-marks-modal');
-const closeUploadBtn = document.getElementById('close-upload-marks-modal');
-const cancelUploadBtn = document.getElementById('cancel-upload-marks-modal');
-uploadBtn.onclick = (e) => { e.preventDefault(); uploadModal.classList.remove('hidden'); uploadPopulateYearDropdown(); uploadPopulateCentersDropdown(); uploadFetchOccupationsLevels(); };
-closeUploadBtn.onclick = cancelUploadBtn.onclick = () => uploadModal.classList.add('hidden');
-window.onclick = function(e) { if (e.target === uploadModal) uploadModal.classList.add('hidden'); };
-
-// --- AJAX for Upload Marks ---
 document.addEventListener('DOMContentLoaded', function() {
-  const uploadForm = document.getElementById('upload-marks-form');
-  if (!uploadForm) return;
-  uploadForm.addEventListener('submit', async function(e) {
-    console.log('Intercepted upload-marks-form submit');
-    e.preventDefault();
-    const form = e.target;
-    const msgDiv = document.getElementById('upload-marks-msg');
-    const successDiv = document.getElementById('upload-marks-success');
-    msgDiv.textContent = '';
-    successDiv.textContent = '';
-    const data = new FormData(form);
-    try {
-      const resp = await fetch('/eims/results/upload-marks/', {
-        method: "POST",
-        headers: {
-          'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
-        },
-        body: data
-      });
-      const json = await resp.json();
-      if (json.success) {
-        successDiv.textContent = `Success: ${json.updated} record${json.updated === 1 ? '' : 's'} updated.`;
-        msgDiv.textContent = '';
-        form.reset();
-        // Optionally, close modal after short delay
-        setTimeout(() => {
-          uploadModal.classList.add('hidden');
-          successDiv.textContent = '';
-        }, 2000);
-      } else {
-        msgDiv.textContent = json.errors ? json.errors.join('\n') : (json.error || 'An error occurred.');
-        successDiv.textContent = '';
-      }
-    } catch (err) {
-      msgDiv.textContent = err.message || 'An error occurred.';
-      successDiv.textContent = '';
+    // --- CACHED DATA ---
+    let allOccupations = [];
+    let allLevels = [];
+    let allCenters = [];
+    let dataFetched = false;
+
+    // --- ASYNC DATA FETCHER ---
+    async function fetchDataIfNeeded() {
+        if (dataFetched) return;
+        try {
+            const [occResponse, lvlResponse, centerResponse] = await Promise.all([
+                fetch('/eims/api/occupations/'),
+                fetch('/eims/api/levels/'),
+                fetch('/eims/api/centers/')
+            ]);
+            if (occResponse.ok) allOccupations = await occResponse.json();
+            if (lvlResponse.ok) allLevels = await lvlResponse.json();
+            if (centerResponse.ok) allCenters = await centerResponse.json();
+            dataFetched = true;
+        } catch (error) {
+            console.error('Failed to fetch initial data:', error);
+        }
     }
-  });
+
+    // --- UI HELPER FUNCTIONS ---
+    function populateYearDropdown(selectElement) {
+        selectElement.innerHTML = '';
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.text = y;
+            if (y === currentYear) opt.selected = true;
+            selectElement.appendChild(opt);
+        }
+    }
+
+    function populateCentersDropdown(selectElement) {
+        selectElement.innerHTML = '<option value="">-- All Centers --</option>';
+        allCenters.forEach(c => {
+            selectElement.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        });
+    }
+
+    // --- CORE MODAL LOGIC ---
+    function setupModal(config) {
+        const openBtn = document.getElementById(config.openBtnId);
+        const modal = document.getElementById(config.modalId);
+        const closeBtn = document.getElementById(config.closeBtnId);
+        const cancelBtn = document.getElementById(config.cancelBtnId);
+        const form = document.getElementById(config.formId);
+        const regCategorySelect = document.getElementById(config.regCategorySelectId);
+        const occupationSelect = document.getElementById(config.occupationSelectId);
+        const levelField = document.getElementById(config.levelFieldId);
+        const levelSelect = document.getElementById(config.levelSelectId);
+        const modulesField = document.getElementById(config.modulesFieldId);
+        const modulesSelect = document.getElementById(config.modulesSelectId);
+        const yearSelect = document.getElementById(config.yearSelectId);
+        const centerSelect = document.getElementById(config.centerSelectId);
+        const msgDiv = document.getElementById(config.msgId);
+        const linkDiv = document.getElementById(config.linkId);
+
+        // Attach event listeners
+        openBtn.addEventListener('click', async () => {
+            await fetchDataIfNeeded();
+            populateYearDropdown(yearSelect);
+            populateCentersDropdown(centerSelect);
+            updateOccupationOptions();
+            modal.classList.remove('hidden');
+        });
+
+        closeBtn.onclick = cancelBtn.onclick = () => modal.classList.add('hidden');
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.add('hidden');
+        });
+
+        regCategorySelect.onchange = updateOccupationOptions;
+        occupationSelect.onchange = updateLevelAndModuleOptions;
+
+        function updateOccupationOptions() {
+            const regcat = regCategorySelect.value;
+            occupationSelect.innerHTML = '<option value="">-- Select --</option>';
+            let filtered = allOccupations;
+
+            if (regcat === 'formal') {
+                filtered = allOccupations.filter(o => o.category === 'formal');
+            } else if (regcat === 'workers_pas') {
+                filtered = allOccupations.filter(o => o.category === 'informal');
+            } else if (regcat === 'modular') {
+                filtered = allOccupations.filter(o => o.category === 'formal' && o.has_modular);
+            }
+
+            filtered.forEach(o => {
+                occupationSelect.innerHTML += `<option value="${o.id}">${o.name}</option>`;
+            });
+            updateLevelAndModuleOptions();
+        }
+
+        function updateLevelAndModuleOptions() {
+            const regcat = regCategorySelect.value;
+            const occId = parseInt(occupationSelect.value, 10);
+            levelSelect.innerHTML = '<option value="">-- Select --</option>';
+            modulesSelect.innerHTML = '';
+
+            // Handle modules for 'Modular' category
+            if (regcat === 'modular' && occId) {
+                modulesField.classList.remove('hidden');
+                levelField.classList.add('hidden');
+                fetch(`/eims/api/modules/?occupation_id=${occId}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const modulesArray = Array.isArray(data) ? data : (data.modules || []);
+                        modulesSelect.innerHTML = '';
+                        modulesArray.forEach(m => {
+                            modulesSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+                        });
+                    }).catch(err => console.error('Failed to fetch modules:', err));
+            } else {
+                modulesField.classList.add('hidden');
+            }
+
+            // Handle levels for other categories
+            if ((regcat === 'formal' || regcat === 'workers_pas') && occId) {
+                levelField.classList.remove('hidden');
+                const occLevels = allLevels.filter(lvl => lvl.occupation_id === occId);
+                occLevels.forEach(lvl => {
+                    levelSelect.innerHTML += `<option value="${lvl.id}">${lvl.name}</option>`;
+                });
+            } else if (regcat !== 'modular') {
+                levelField.classList.add('hidden');
+            }
+        }
+
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            msgDiv.textContent = '';
+            if(linkDiv) linkDiv.innerHTML = '';
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    if(linkDiv) linkDiv.innerHTML = `<a href="${data.download_url}" class="text-blue-600 font-bold hover:underline" target="_blank">${config.linkText}</a>`;
+                } else {
+                    msgDiv.textContent = data.error || 'An unknown error occurred.';
+                }
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                msgDiv.textContent = 'A network error occurred. Please try again.';
+            }
+        };
+    }
+
+    // --- INITIALIZE ALL MODALS ---
+    setupModal({
+        openBtnId: 'generate-marksheet-btn',
+        modalId: 'marksheet-modal',
+        closeBtnId: 'close-marksheet-modal',
+        cancelBtnId: 'cancel-marksheet-modal',
+        formId: 'marksheet-form',
+        regCategorySelectId: 'reg-category-select',
+        occupationSelectId: 'occupation-select',
+        levelFieldId: 'level-field',
+        levelSelectId: 'level-select',
+        modulesFieldId: 'modules-field',
+        modulesSelectId: 'modules-select',
+        yearSelectId: 'assessment-year',
+        centerSelectId: 'center-select',
+        msgId: 'marksheet-msg',
+        linkId: 'marksheet-download-link',
+        linkText: 'Download Marksheet'
+    });
+
+    setupModal({
+        openBtnId: 'print-marksheet-btn',
+        modalId: 'print-marksheet-modal',
+        closeBtnId: 'close-print-marksheet-modal',
+        cancelBtnId: 'cancel-print-marksheet-modal',
+        formId: 'print-marksheet-form',
+        regCategorySelectId: 'print-reg-category-select',
+        occupationSelectId: 'print-occupation-select',
+        levelFieldId: 'print-level-field',
+        levelSelectId: 'print-level-select',
+        modulesFieldId: 'print-modules-field',
+        modulesSelectId: 'print-modules-select',
+        yearSelectId: 'print-assessment-year',
+        centerSelectId: 'print-center-select',
+        msgId: 'print-marksheet-msg',
+        linkId: 'print-marksheet-download-link',
+        linkText: 'Download Printable Marksheet'
+    });
+    
+    // --- UPLOAD MARKS MODAL LOGIC ---
+    const uploadBtn = document.getElementById('upload-marks-btn');
+    const uploadModal = document.getElementById('upload-marks-modal');
+    const closeUploadBtn = document.getElementById('close-upload-marks-modal');
+    const cancelUploadBtn = document.getElementById('cancel-upload-marks-modal');
+    const uploadForm = document.getElementById('upload-marks-form');
+    const uploadRegCategorySelect = document.getElementById('upload-reg-category-select');
+    const uploadOccupationSelect = document.getElementById('upload-occupation-select');
+
+    if (uploadBtn) {
+        uploadBtn.onclick = async (e) => {
+            e.preventDefault();
+            await fetchDataIfNeeded();
+            populateYearDropdown(document.getElementById('upload-assessment-year'));
+            populateCentersDropdown(document.getElementById('upload-center-select'));
+            uploadUpdateOccupationOptions();
+            uploadModal.classList.remove('hidden');
+        };
+    }
+
+    if(closeUploadBtn) closeUploadBtn.onclick = () => uploadModal.classList.add('hidden');
+    if(cancelUploadBtn) cancelUploadBtn.onclick = () => uploadModal.classList.add('hidden');
+    window.addEventListener('click', (e) => {
+        if (e.target === uploadModal) uploadModal.classList.add('hidden');
+    });
+
+    function uploadUpdateOccupationOptions() {
+        const regcat = uploadRegCategorySelect.value;
+        uploadOccupationSelect.innerHTML = '<option value="">-- Select --</option>';
+        let filtered = allOccupations;
+        if (regcat === 'formal') {
+            filtered = allOccupations.filter(o => o.category === 'formal');
+        } else if (regcat === 'workers_pas') {
+            filtered = allOccupations.filter(o => o.category === 'informal');
+        } else if (regcat === 'modular') {
+            filtered = allOccupations.filter(o => o.category === 'formal' && o.has_modular);
+        }
+        filtered.forEach(o => {
+            uploadOccupationSelect.innerHTML += `<option value="${o.id}">${o.name}</option>`;
+        });
+        uploadUpdateLevelAndModuleOptions();
+    }
+
+    function uploadUpdateLevelAndModuleOptions() {
+        const regcat = uploadRegCategorySelect.value;
+        const occId = parseInt(uploadOccupationSelect.value, 10);
+        const levelField = document.getElementById('upload-level-field');
+        const levelSelect = document.getElementById('upload-level-select');
+        levelSelect.innerHTML = '<option value="">-- Select --</option>';
+        const modulesField = document.getElementById('upload-modules-field');
+        const modulesSelect = document.getElementById('upload-modules-select');
+        modulesSelect.innerHTML = '';
+
+        if (regcat === 'modular' && occId) {
+            modulesField.classList.remove('hidden');
+            levelField.classList.add('hidden');
+            fetch(`/eims/api/modules/?occupation_id=${occId}`)
+                .then(res => res.json())
+                .then(data => {
+                    const modulesArray = Array.isArray(data) ? data : (data.modules || []);
+                    modulesSelect.innerHTML = '';
+                    modulesArray.forEach(m => {
+                        modulesSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+                    });
+                }).catch(err => console.error('Failed to fetch modules for upload:', err));
+        } else {
+            modulesField.classList.add('hidden');
+        }
+
+        if ((regcat === 'formal' || regcat === 'workers_pas') && occId) {
+            levelField.classList.remove('hidden');
+            const occupationLevels = allLevels.filter(l => l.occupation_id === occId);
+            occupationLevels.forEach(l => {
+                levelSelect.innerHTML += `<option value="${l.id}">${l.name}</option>`;
+            });
+        } else if (regcat !== 'modular') {
+            levelField.classList.add('hidden');
+        }
+    }
+
+    if(uploadRegCategorySelect) uploadRegCategorySelect.onchange = uploadUpdateOccupationOptions;
+    if(uploadOccupationSelect) uploadOccupationSelect.onchange = uploadUpdateLevelAndModuleOptions;
+
+    if(uploadForm) {
+        uploadForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(uploadForm);
+            const msgDiv = document.getElementById('upload-marks-msg');
+            const successDiv = document.getElementById('upload-marks-success');
+            msgDiv.textContent = '';
+            successDiv.textContent = '';
+
+            try {
+                const response = await fetch(uploadForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                    },
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successDiv.textContent = `Successfully uploaded marks for ${data.updated_count} records.`;
+                    uploadForm.reset();
+                }
+
+                if (data.errors && data.errors.length > 0) {
+                    msgDiv.innerHTML = '<strong>Upload failed with the following errors:</strong><br>' + data.errors.join('<br>');
+                } else if (!data.success) {
+                    msgDiv.textContent = data.error || 'An unknown error occurred.';
+                }
+            } catch (error) {
+                console.error('Error uploading marks:', error);
+                msgDiv.textContent = 'A network error occurred. Please try again.';
+            }
+        });
+    }
+
 });
-
-// --- Dynamic Dropdowns for Upload Marks Modal ---
-let uploadAllOccupations = [];
-let uploadAllLevels = [];
-
-async function uploadFetchOccupationsLevels() {
-  // Fetch occupations
-  const occResp = await fetch('/eims/api/occupations/');
-  if (occResp.ok) {
-    uploadAllOccupations = await occResp.json();
-  }
-  // Fetch levels
-  const lvlResp = await fetch('/eims/api/levels/');
-  if (lvlResp.ok) {
-    uploadAllLevels = await lvlResp.json();
-  }
-  uploadUpdateOccupationOptions();
-}
-
-function uploadUpdateOccupationOptions() {
-  const regcat = document.getElementById('upload-reg-category-select').value;
-  const occSelect = document.getElementById('upload-occupation-select');
-  occSelect.innerHTML = '<option value="">-- Select --</option>';
-  let filtered = uploadAllOccupations;
-  if (regcat === 'formal') {
-    filtered = uploadAllOccupations.filter(o => o.category === 'formal');
-  } else if (regcat === "workers_pas") {
-    filtered = uploadAllOccupations.filter(o => o.category === 'informal');
-  } else if (regcat === 'modular') {
-    filtered = uploadAllOccupations.filter(o => o.category === 'formal' && o.has_modular);
-  }
-  filtered.forEach(o => {
-    occSelect.innerHTML += `<option value="${o.id}">${o.name}</option>`;
-  });
-  uploadUpdateLevelOptions();
-}
-
-function uploadUpdateLevelOptions() {
-  const regcat = document.getElementById('upload-reg-category-select').value;
-  const occId = parseInt(document.getElementById('upload-occupation-select').value);
-  const levelField = document.getElementById('upload-level-field');
-  const levelSelect = document.getElementById('upload-level-select');
-  levelSelect.innerHTML = '<option value="">-- Select --</option>';
-  // Show level for formal, informal, and workers_pas
-  if ((regcat === 'formal' || regcat === 'informal' || regcat === 'workers_pas') && occId) {
-    levelField.classList.remove('hidden');
-    // Filter levels by occupation
-    const occLevels = uploadAllLevels.filter(lvl => lvl.occupation_id === occId);
-    occLevels.forEach(lvl => {
-      levelSelect.innerHTML += `<option value="${lvl.id}">${lvl.name}</option>`;
-    });
-  } else {
-    levelField.classList.add('hidden');
-  }
-  uploadUpdateModulesOptions();
-}
-
-function uploadUpdateModulesOptions() {
-  const regcat = document.getElementById('upload-reg-category-select').value;
-  const occId = parseInt(document.getElementById('upload-occupation-select').value);
-  const levelId = parseInt(document.getElementById('upload-level-select').value);
-  const modulesField = document.getElementById('upload-modules-field');
-  const modulesSelect = document.getElementById('upload-modules-select');
-  modulesSelect.innerHTML = '';
-  if (regcat === 'modular' && occId) {
-    modulesField.classList.remove('hidden');
-    // Fetch modules for occupation (and optionally level)
-    let url = `/eims/api/modules/?occupation_id=${occId}`;
-    if (levelId) url += `&level_id=${levelId}`;
-    fetch(url).then(resp => resp.json()).then(data => {
-      (data.modules || []).forEach(m => {
-        modulesSelect.innerHTML += `<option value="${m.id}">${m.name} (${m.code})</option>`;
-      });
-    });
-  } else {
-    modulesField.classList.add('hidden');
-  }
-}
-
-document.getElementById('upload-reg-category-select').onchange = uploadUpdateOccupationOptions;
-document.getElementById('upload-occupation-select').onchange = uploadUpdateLevelOptions;
-document.getElementById('upload-level-select').onchange = uploadUpdateModulesOptions;
-
-// Populate centers dynamically from API for upload modal
-async function uploadPopulateCentersDropdown() {
-  const centerSelect = document.getElementById('upload-center-select');
-  centerSelect.innerHTML = '<option value="">-- All Centers --</option>';
-  try {
-    const resp = await fetch('/eims/api/centers/');
-    if (resp.ok) {
-      const centers = await resp.json();
-      centers.forEach(c => {
-        centerSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-      });
-    }
-  } catch (err) {}
-}
-
-function uploadPopulateYearDropdown() {
-  const yearSelect = document.getElementById('upload-assessment-year');
-  yearSelect.innerHTML = '';
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  for (let y = currentYear - 5; y <= currentYear + 5; y++) {
-    const opt = document.createElement('option');
-    opt.value = y;
-    opt.text = y;
-    if (y === currentYear) opt.selected = true;
-    yearSelect.appendChild(opt);
-  }
-}
 </script>
 <script src="/static/js/results_marksheet_modules.js"></script>
 {% endblock %}
