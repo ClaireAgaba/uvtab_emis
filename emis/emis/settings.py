@@ -124,6 +124,11 @@ USE_TZ = True
 
 
 # Logging Configuration
+# Ensure logs directory exists before configuring LOGGING
+import os
+LOG_DIR = os.path.join(BASE_DIR, '..', 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

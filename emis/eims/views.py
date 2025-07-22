@@ -43,6 +43,7 @@ def generate_result_list(request):
         from .models import Candidate, Result, Occupation, Level
         candidates = []
         result_data = []
+        papers_list = []
         if not errors:
             # Build assessment period filter
             period_start = datetime(int(year), int(month), 1)
@@ -50,14 +51,35 @@ def generate_result_list(request):
             # Filter candidates for occupation, level, center
             filters = {
                 'occupation_id': occupation_id,
-                'registration_category': regcat.title(),
+                'registration_category__iexact': regcat,
             }
+            # For paper-based, fetch all papers for occupation/level
+            structure_type = 'modules'
+            if regcat.lower() == 'formal' and occupation_id and level_id:
+                from .models import OccupationLevel, Paper
+                occ_level = OccupationLevel.objects.filter(occupation_id=occupation_id, level_id=level_id).first()
+                if occ_level:
+                    structure_type = occ_level.structure_type
+                if structure_type == 'papers':
+                    papers = Paper.objects.filter(occupation_id=occupation_id, level_id=level_id)
+                    papers_list = [{'code': p.code, 'name': p.name, 'type': p.get_grade_type_display()} for p in papers]
+                    print(f'[DEBUG] Papers for occupation_id={occupation_id}, level_id={level_id}: {papers_list}')
             if center_id:
                 filters['assessment_center_id'] = center_id
             if level_id:
                 filters['candidatelevel__level_id'] = level_id
+                from .models import CandidateLevel
+                candidate_levels = CandidateLevel.objects.filter(level_id=level_id)
+                print(f'[DEBUG] CandidateLevel entries for level_id={level_id}: ' + str([{"candidate_id": cl.candidate_id, "level_id": cl.level_id} for cl in candidate_levels]))
+                # Print all candidates for this level with their registration_category and occupation_id
+                from .models import Candidate
+                candidate_ids = [cl.candidate_id for cl in candidate_levels]
+                debug_candidates = Candidate.objects.filter(id__in=candidate_ids)
+                for c in debug_candidates:
+                    print(f'[DEBUG] Candidate id={c.id}, reg_number={c.reg_number}, full_name={c.full_name}, occupation_id={c.occupation_id}, registration_category={c.registration_category}')
             qs = Candidate.objects.filter(**filters).distinct()
             print(f'[DEBUG] Candidate queryset count: {qs.count()}')
+            print(f'[DEBUG] Candidate IDs in queryset: {list(qs.values_list("id", flat=True))}')
             print(f'[DEBUG] Candidate filter values: occupation_id={occupation_id}, regcat={regcat}, level_id={level_id}, center_id={center_id}')
             # Only keep candidates with at least one result in period
             for cand in qs:
@@ -72,13 +94,32 @@ def generate_result_list(request):
                     )
                     print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (modular): year={year}, month={month}, result_type=modular')
                 elif regcat_lower == 'formal':
-                    results = Result.objects.filter(
-                        candidate=cand,
-                        assessment_date__year=year,
-                        assessment_date__month=month,
-                        result_type='formal',
-                    )
-                    print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (formal): year={year}, month={month}, result_type=formal')
+                    # Determine structure type for occupation/level
+                    structure_type = 'modules'
+                    if occupation_id and level_id:
+                        from .models import OccupationLevel
+                        occ_level = OccupationLevel.objects.filter(occupation_id=occupation_id, level_id=level_id).first()
+                        if occ_level:
+                            structure_type = occ_level.structure_type
+                    if structure_type == 'papers':
+                        # Paper-based: fetch paper results
+                        results = Result.objects.filter(
+                            candidate=cand,
+                            assessment_date__year=year,
+                            assessment_date__month=month,
+                            result_type='formal',
+                            paper__isnull=False
+                        )
+                        print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (formal, papers): year={year}, month={month}, result_type=formal, structure_type=papers')
+                    else:
+                        # Module-based: keep old logic
+                        results = Result.objects.filter(
+                            candidate=cand,
+                            assessment_date__year=year,
+                            assessment_date__month=month,
+                            result_type='formal',
+                        )
+                        print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (formal, modules): year={year}, month={month}, result_type=formal, structure_type=modules')
                 elif regcat_lower in ['informal', "worker's pas", "workers pas"]:
                     results = Result.objects.filter(
                         candidate=cand,
@@ -98,19 +139,38 @@ def generate_result_list(request):
                         'full_name': cand.full_name,
                         'gender': cand.get_gender_display(),
                         'passport_photo_with_regno': cand.passport_photo_with_regno.url if cand.passport_photo_with_regno else None,
+                        'passport_photo': cand.passport_photo.url if cand.passport_photo else None,
                         'assessment_center': getattr(cand.assessment_center, 'center_name', None),
                     }
                     # Serialize results fields needed by template
-                    results_list = [
-                        {
-                            'grade': r.grade,
-                            'comment': r.comment,
-                            'assessment_type': getattr(r, 'assessment_type', ''),
-                            'module_code': getattr(r, 'module_code', ''),
-                            'module_name': getattr(r, 'module_name', ''),
-                        }
-                        for r in results
-                    ]
+                    results_list = []
+                    if regcat_lower == 'formal' and 'structure_type' in locals() and structure_type == 'papers':
+                        for r in results:
+                            results_list.append({
+                                'grade': r.grade,
+                                'comment': r.comment,
+                                'assessment_type': getattr(r, 'assessment_type', ''),
+                                'paper_code': r.paper.code if r.paper else '',
+                                'paper_name': r.paper.name if r.paper else '',
+                                'paper_type': r.paper.get_grade_type_display() if r.paper else '',
+                                'mark': r.mark,
+                                'date': r.assessment_date,
+                                'status': getattr(r, 'status', ''),
+                                'user': getattr(r, 'user', ''),
+                            })
+                    else:
+                        for r in results:
+                            results_list.append({
+                                'grade': r.grade,
+                                'comment': r.comment,
+                                'assessment_type': getattr(r, 'assessment_type', ''),
+                                'module_code': getattr(r, 'module_code', ''),
+                                'module_name': getattr(r, 'module_name', ''),
+                                'mark': r.mark,
+                                'date': r.assessment_date,
+                                'status': getattr(r, 'status', ''),
+                                'user': getattr(r, 'user', ''),
+                            })
                     is_successful = any(r['comment'] == 'Successful' for r in results_list)
                     result_data.append({
                         'candidate': cand_dict,
@@ -129,11 +189,16 @@ def generate_result_list(request):
                 occupation_name = None
         if level_id:
             try:
+                print(f"DEBUG: level_id received: {level_id}")
                 lvl = Level.objects.filter(id=int(level_id)).first()
                 if lvl:
                     level_name = lvl.name
-            except Exception:
+                else:
+                    pass
+            except Exception as e:
                 level_name = None
+        else:
+            pass
         # Format month as "June, 2025"
         import calendar
         formatted_period = f"{calendar.month_name[int(month)]}, {year}"
@@ -167,13 +232,14 @@ def generate_result_list(request):
             },
             'candidates': candidates,
             'result_data': result_data,
-            'centered_result_data': centered_result_data,
+            'centered_result_data': dict(centered_result_data) if centered_result_data else None,
             'formatted_period': formatted_period,
             'logo_path': '/static/images/uvtab_logo.png',
             'errors': errors,
             'occupations': occupations,
             'levels': levels,
             'centers': centers,
+            'papers_list': papers_list,
         }
         return render(request, 'reports/result_list.html', context)
     else:
@@ -198,7 +264,7 @@ def generate_result_list(request):
             'years': years,
         }
         return render(request, 'reports/result_list.html', context)
-        return render(request, 'reports/result_list.html')
+        return render(request, 'reports/result_list.html', context)
 
 
 
@@ -4520,4 +4586,484 @@ def add_regno_to_photo(request, id):
     return JsonResponse({'success': True, 'url': url})
 
 
+@login_required
+def download_result_list_pdf(request):
+    """
+    Generate a PDF download for the result list that matches the HTML preview exactly
+    by converting the rendered HTML to PDF for pixel-perfect fidelity.
+    """
+    from django.template.loader import render_to_string
+    from django.http import HttpResponse
+    from .models import Candidate, Result, Occupation, OccupationLevel, AssessmentCenter
+    from collections import defaultdict
+    import calendar
+    import os
+    logger = logging.getLogger(__name__)
+    
+    try:
+        import weasyprint
+    except ImportError:
+        # Fallback to xhtml2pdf if WeasyPrint is not available
+        try:
+            from xhtml2pdf import pisa
+        except ImportError:
+            # If neither is available, return an error
+            return HttpResponse('PDF generation libraries not available. Please install WeasyPrint or xhtml2pdf.', status=500)
+    
+    # Use the same logic as the HTML preview to get the exact same data
+    # Get parameters from either POST (form submission) or GET (download link)
+    assessment_month = request.POST.get('assessment_month') or request.GET.get('assessment_month')
+    assessment_year = request.POST.get('assessment_year') or request.GET.get('assessment_year')
+    regcat = (request.POST.get('registration_category') or request.GET.get('registration_category', '')).lower()
+    occupation_id = request.POST.get('occupation') or request.GET.get('occupation')
+    level_id = request.POST.get('level') or request.GET.get('level')
+    center_id = request.POST.get('assessment_center') or request.GET.get('assessment_center')
+    
+    # Validate required parameters
+    if not assessment_month or not assessment_year or not occupation_id:
+        return HttpResponse("Missing required parameters: assessment_month, assessment_year, and occupation are required.", status=400)
+    
+    # Convert empty strings to None for optional parameters
+    level_id = level_id if level_id else None
+    center_id = center_id if center_id else None
+    
+    logger.info(f"PDF Download - regcat: {regcat}, occupation: {occupation_id}, level: {level_id}, center: {center_id}")
+    
+    # Find logo path
+    logo_path = None
+    possible_paths = [
+        os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab_logo.png'),
+        os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab_logo.png'),
+        os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab_logo.png'),
+        os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab_logo.png')
+    ]
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            logo_path = path
+            logger.info(f"Found logo at: {logo_path}")
+            print(f"DEBUG: Logo found at: {logo_path}")
+            print(f"DEBUG: Logo exists: {os.path.exists(logo_path)}")
+            break
+    
+    if not logo_path:
+        print("DEBUG: Logo not found in any of the expected locations")
+        logger.warning("Logo not found in any of the expected locations")
+    
+    # Get occupation for filename
+    try:
+        occupation = Occupation.objects.get(id=occupation_id)
+        occupation_name = occupation.name.replace(' ', '_').replace('/', '_')
+    except Occupation.DoesNotExist:
+        occupation_name = 'Unknown'
+    
+    # Format registration category for filename
+    regcat_display = regcat.replace('_', ' ').title() if regcat else 'All'
+    regcat_filename = regcat_display.replace(' ', '_').replace("'", '')
+    
+    # Create filename
+    assessment_period = f"{assessment_month}_{assessment_year}"
+    filename = f"{regcat_filename}_{occupation_name}_{assessment_period}.pdf"
+    
+    # Query the data directly instead of using mock requests
+    # Get the occupation and level objects
+    try:
+        occupation = Occupation.objects.get(id=occupation_id)
+    except Occupation.DoesNotExist:
+        return HttpResponse("Occupation not found", status=404)
+    
+    level = None
+    if level_id:
+        try:
+            from .models import Level
+            level = Level.objects.get(id=level_id)
+        except Level.DoesNotExist:
+            pass
+    
+    # Get assessment center if specified
+    center = None
+    if center_id:
+        try:
+            center = AssessmentCenter.objects.get(id=center_id)
+        except AssessmentCenter.DoesNotExist:
+            pass
+    
+    # Build the candidate filter
+    candidate_filter = {
+        'occupation': occupation,
+        'registration_category__iexact': regcat,
+    }
+    if level:
+        candidate_filter['candidatelevel__level'] = level
+    if center:
+        candidate_filter['assessment_center'] = center
+    
+    # Get candidates
+    candidates = Candidate.objects.filter(**candidate_filter).order_by('reg_number')
+    
+    # Build result filter
+    result_filter = {
+        'assessment_date__year': int(assessment_year),
+        'assessment_date__month': int(assessment_month),
+    }
+    
+    # Add result_type filter based on registration category
+    if regcat == 'formal':
+        # For formal, check structure type
+        if level and hasattr(level, 'structure_type'):
+            if level.structure_type == 'modules':
+                result_filter['result_type'] = 'modular'
+            else:
+                result_filter['result_type'] = 'formal'
+        else:
+            result_filter['result_type'] = 'formal'
+    else:
+        result_filter['result_type'] = regcat
+    
+    # Get results for these candidates
+    candidate_ids = list(candidates.values_list('id', flat=True))
+    results = Result.objects.filter(
+        candidate_id__in=candidate_ids,
+        **result_filter
+    ).select_related('candidate', 'paper')
+    
+    # Group results by candidate and center
+    centered_result_data = defaultdict(lambda: defaultdict(list))
+    
+    for result in results:
+        candidate = result.candidate
+        center_name = candidate.assessment_center.center_name if candidate.assessment_center else 'Unknown Center'
+        
+        # Add candidate photo URLs
+        if hasattr(candidate, 'passport_photo_with_regno') and candidate.passport_photo_with_regno:
+            candidate.photo_url = candidate.passport_photo_with_regno.url
+        elif hasattr(candidate, 'passport_photo') and candidate.passport_photo:
+            candidate.photo_url = candidate.passport_photo.url
+        else:
+            candidate.photo_url = None
+        
+        centered_result_data[center_name][candidate.reg_number].append(result)
+    
+    # Convert to regular dict
+    centered_result_data = dict(centered_result_data)
+    for center in centered_result_data:
+        centered_result_data[center] = dict(centered_result_data[center])
+    
+    # Get papers list for formal paper-based occupations (using same logic as HTML preview)
+    papers_list = []
+    if regcat.lower() == 'formal':
+        # Determine structure type for occupation/level
+        structure_type = 'modules'
+        if occupation_id and level_id:
+            from .models import OccupationLevel, Paper
+            occ_level = OccupationLevel.objects.filter(occupation_id=occupation_id, level_id=level_id).first()
+            if occ_level:
+                structure_type = occ_level.structure_type
+            if structure_type == 'papers':
+                papers = Paper.objects.filter(occupation_id=occupation_id, level_id=level_id)
+                papers_list = [p.code for p in papers]  # Use just codes for PDF
+    
+    # Build context
+    context = {
+        'preview': True,
+        'centered_result_data': centered_result_data,
+        'form_data': {
+            'month': assessment_month,
+            'year': assessment_year,
+            'regcat': regcat,
+            'occupation_id': occupation_id,
+            'occupation_name': occupation.name,
+            'level_id': level_id,
+            'level_name': level.name if level else None,
+            'center_id': center_id,
+        },
+        'assessment_month': calendar.month_name[int(assessment_month)],
+        'assessment_year': assessment_year,
+        'registration_category': regcat,
+        'occupation': occupation,
+        'level': level,
+        'assessment_center': center,
+        'papers_list': papers_list,
+    }
+    
+    # Create custom PDF using ReportLab to match the preview template exactly
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from io import BytesIO
+    import os
+    
+    # Create PDF buffer
+    buffer = BytesIO()
+    
+    # Create PDF document in landscape orientation
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=0.5*inch,
+        leftMargin=0.5*inch,
+        topMargin=0.5*inch,
+        bottomMargin=0.5*inch
+    )
+    
+    # Get styles
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Title'],
+        fontSize=16,
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        textColor=colors.black
+    )
+    
+    header_style = ParagraphStyle(
+        'CustomHeader',
+        parent=styles['Normal'],
+        fontSize=12,
+        spaceAfter=6,
+        alignment=TA_CENTER,
+        textColor=colors.black
+    )
+    
+    # Build PDF content
+    elements = []
+    
+    # Add logo if available
+    logo_path = None
+    possible_paths = [
+        os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab_logo.png'),
+        os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab_logo.png'),
+        os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab_logo.png'),
+    ]
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            logo_path = path
+            break
+    
+    if logo_path:
+        try:
+            logo = Image(logo_path, width=1*inch, height=1*inch)
+            elements.append(logo)
+            elements.append(Spacer(1, 12))
+        except:
+            pass
+    
+    # Add header information
+    elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", title_style))
+    elements.append(Paragraph("PROVISIONAL ASSESSMENT RESULT LIST FOR", header_style))
+    elements.append(Paragraph("ASSESSMENT PERIOD:", header_style))
+    elements.append(Paragraph(f"{calendar.month_name[int(assessment_month)]} {assessment_year}", header_style))
+    elements.append(Spacer(1, 12))
+    
+    # Add occupation and category info
+    elements.append(Paragraph(f"Category: {regcat.title()}", header_style))
+    elements.append(Paragraph(f"Occupation: {occupation.name}", header_style))
+    if level:
+        elements.append(Paragraph(f"Level: {level.name}", header_style))
+    elements.append(Spacer(1, 20))
+    
+    # Process each center
+    for center_name, candidates_data in centered_result_data.items():
+        if elements:  # Add page break between centers (except for first)
+            elements.append(PageBreak())
+            
+            # Repeat header for new page
+            if logo_path:
+                try:
+                    logo = Image(logo_path, width=1*inch, height=1*inch)
+                    elements.append(logo)
+                    elements.append(Spacer(1, 12))
+                except:
+                    pass
+            
+            elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", title_style))
+            elements.append(Paragraph("PROVISIONAL ASSESSMENT RESULT LIST FOR", header_style))
+            elements.append(Paragraph("ASSESSMENT PERIOD:", header_style))
+            elements.append(Paragraph(f"{calendar.month_name[int(assessment_month)]} {assessment_year}", header_style))
+            elements.append(Spacer(1, 12))
+            elements.append(Paragraph(f"Category: {regcat.title()}", header_style))
+            elements.append(Paragraph(f"Occupation: {occupation.name}", header_style))
+            if level:
+                elements.append(Paragraph(f"Level: {level.name}", header_style))
+            elements.append(Spacer(1, 20))
+        
+        # Center header
+        elements.append(Paragraph(f"Assessment Center: {center_name}", header_style))
+        elements.append(Spacer(1, 12))
+        
+        # Create table data
+        table_data = []
+        
+        # Table headers
+        if papers_list and len(papers_list) > 0:
+            # Paper-based formal occupation
+            headers = ['S/N', 'Photo', 'Reg No', 'Name']
+            headers.extend(papers_list)  # Add paper codes
+            headers.append('Comment')
+        else:
+            # Module-based or other types
+            headers = ['S/N', 'Photo', 'Reg No', 'Name', 'Theory', 'Practical', 'Comment']
+        
+        table_data.append(headers)
+        
+        # Add candidate data
+        sn = 1
+        for reg_number, results in candidates_data.items():
+            if not results:
+                continue
+                
+            candidate = results[0].candidate
+            row = [str(sn)]
+            
+            # Photo cell
+            photo_cell = "No Photo"
+            if hasattr(candidate, 'photo_url') and candidate.photo_url:
+                try:
+                    # Convert URL to file path
+                    photo_path = candidate.photo_url.replace('/media/', '')
+                    full_photo_path = os.path.join(settings.MEDIA_ROOT, photo_path)
+                    if os.path.exists(full_photo_path):
+                        photo_img = Image(full_photo_path, width=0.8*inch, height=0.8*inch)
+                        photo_cell = photo_img
+                except:
+                    photo_cell = "No Photo"
+            
+            row.append(photo_cell)
+            row.append(candidate.reg_number or 'N/A')
+            row.append(candidate.full_name if candidate.full_name else 'N/A')
+            
+            if papers_list and len(papers_list) > 0:
+                # Paper-based: add grade for each paper
+                result_dict = {r.paper.code: r for r in results if r.paper}
+                for paper_code in papers_list:
+                    if paper_code in result_dict:
+                        result = result_dict[paper_code]
+                        grade = getattr(result, 'grade', None) or getattr(result, 'marks', None) or 'N/A'
+                        row.append(str(grade))
+                    else:
+                        row.append('N/A')
+                
+                # Comment: "Fail" if any result has comment "CTR", otherwise "Successful"
+                has_ctr = any(r.comment == 'CTR' for r in results if hasattr(r, 'comment'))
+                comment = "Fail" if has_ctr else "Successful"
+                row.append(comment)
+            else:
+                # Module-based: show theory/practical with proper grade extraction
+                theory_grade = 'N/A'
+                practical_grade = 'N/A'
+                
+                for result in results:
+                    # Check for theory results
+                    if hasattr(result, 'assessment_type'):
+                        if result.assessment_type == 'theory':
+                            if hasattr(result, 'grade') and result.grade:
+                                theory_grade = str(result.grade)
+                        elif result.assessment_type == 'practical':
+                            if hasattr(result, 'grade') and result.grade:
+                                practical_grade = str(result.grade)
+                    else:
+                        # Fallback: try different grade fields
+                        if hasattr(result, 'theory_grade') and result.theory_grade:
+                            theory_grade = str(result.theory_grade)
+                        if hasattr(result, 'practical_grade') and result.practical_grade:
+                            practical_grade = str(result.practical_grade)
+                        if hasattr(result, 'grade') and result.grade and theory_grade == 'N/A':
+                            theory_grade = str(result.grade)
+                
+                # Comment: "Fail" if any result has comment "CTR", otherwise "Successful"
+                has_ctr = any(getattr(r, 'comment', '') == 'CTR' for r in results)
+                comment = "Fail" if has_ctr else "Successful"
+                
+                row.extend([theory_grade, practical_grade, comment])
+            
+            table_data.append(row)
+            sn += 1
+        
+        # Create and style table
+        if len(table_data) > 1:  # Only create table if there's data
+            table = Table(table_data)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ]))
+            elements.append(table)
+        else:
+            elements.append(Paragraph("No results found for this center.", styles['Normal']))
+    
+    # Build PDF
+    doc.build(elements)
+    pdf = buffer.getvalue()
+    buffer.close()
+    
+    # Return PDF response
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    logger.info(f"Generated custom PDF: {filename}")
+    return response
+
+
+def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_height=0.8*inch):
+    """Creates a list of flowables for the candidate photo cell, including image, name, and details."""
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus.flowables import Image
+    from reportlab.platypus import Paragraph
+    
+    cell_elements = []
+    photo_image = None
+
+    # Photo Styles
+    photo_name_style = ParagraphStyle(
+        'PhotoName',
+        parent=styles['Normal'],
+        fontSize=6,
+        alignment=TA_CENTER,
+        spaceBefore=1,
+        leading=6
+    )
+    photo_detail_style = ParagraphStyle(
+        'PhotoDetail',
+        parent=styles['Normal'],
+        fontSize=5,
+        alignment=TA_CENTER,
+        spaceBefore=1,
+        leading=5
+    )
+    
+    # Handle photo with fallback logic
+    if hasattr(candidate, 'passport_photo_with_regno') and candidate.passport_photo_with_regno:
+        try:
+            photo_image = Image(candidate.passport_photo_with_regno.path, width=photo_width, height=photo_height)
+        except:
+            pass
+    elif hasattr(candidate, 'passport_photo') and candidate.passport_photo:
+        try:
+            photo_image = Image(candidate.passport_photo.path, width=photo_width, height=photo_height)
+        except:
+            pass
+    
+    if not photo_image:
+        photo_image = Paragraph('No Photo', ParagraphStyle('NoPhoto', fontSize=6, alignment=TA_CENTER))
+    
+    cell_elements.append(photo_image)
+    
+    occupation_code = candidate.occupation.code if candidate.occupation else 'N/A'
+    reg_category_short = candidate.registration_category.upper() if candidate.registration_category else 'N/A'
+    
+    return cell_elements
 

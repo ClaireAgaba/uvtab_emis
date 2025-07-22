@@ -1,6 +1,27 @@
 {% extends 'base.html' %}
+{% load result_extras %}
 
 {% block content %}
+<style>
+  @media print {
+    .page-break-before {
+      page-break-before: always;
+    }
+    .center-page {
+      page-break-after: always;
+    }
+    .center-page:last-child {
+      page-break-after: auto;
+    }
+  }
+  @media screen {
+    .page-break-before {
+      border-top: 2px dashed #ccc;
+      margin-top: 2rem;
+      padding-top: 2rem;
+    }
+  }
+</style>
 <div class="w-full mb-6">
   <a href="{% url 'report_list' %}"
      class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
@@ -66,7 +87,7 @@
         </select>
       </div>
       <!-- Level -->
-      <div id="level_wrapper" class="hidden">
+      <div id="level_wrapper" class="{% if form_data.regcat == 'formal' or form_data.regcat == 'informal' %}{% else %}hidden{% endif %}">
         <label for="level" class="block text-sm font-medium text-gray-700">Level</label>
         <select id="level" name="level" class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500">
           <option value="">Select Level</option>
@@ -88,39 +109,61 @@
     </div>
     <div class="flex justify-end gap-4 pt-6 border-t mt-8">
       <a href="{% url 'report_list' %}" class="text-sm px-4 py-2 rounded hover:underline">Cancel</a>
-      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">Generate PDF</button>
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">Generate Preview</button>
     </div>
   </form>
 
   <script>
-    document.getElementById('reg_category').addEventListener('change', function() {
-      const val = this.value;
-      document.getElementById('level_wrapper').classList.toggle('hidden', !(val === 'formal' || val === 'informal'));
+    document.addEventListener('DOMContentLoaded', function() {
+      const regCategorySelect = document.getElementById('reg_category');
+      const levelWrapper = document.getElementById('level_wrapper');
+      
+      function toggleLevelField() {
+        const val = regCategorySelect.value;
+        console.log('Registration category changed to:', val);
+        if (val === 'formal' || val === 'informal') {
+          levelWrapper.classList.remove('hidden');
+        } else {
+          levelWrapper.classList.add('hidden');
+        }
+      }
+      
+      // Set initial state
+      toggleLevelField();
+      
+      // Listen for changes
+      regCategorySelect.addEventListener('change', toggleLevelField);
     });
   </script>
 </div>
 
-{% if preview %}
+{% if preview and centered_result_data %}
 <div class="flex justify-end mb-2">
-  <button onclick="window.print()" class="no-print bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow">Download</button>
+  <a href="{% url 'download_result_list_pdf' %}?assessment_month={{ form_data.month }}&assessment_year={{ form_data.year }}&registration_category={{ form_data.regcat }}&occupation={{ form_data.occupation_id }}&level={{ form_data.level_id }}&assessment_center={{ form_data.center_id }}" class="no-print bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow inline-block">Download PDF</a>
 </div>
 <div id="result-list-preview" class="bg-white rounded shadow p-8 mt-8 mb-8">
-  <div class="flex items-center justify-between mb-4">
-    <img src="{{ logo_path }}" alt="UVTAB Logo" class="h-14">
-    <div class="text-center flex-1">
-      <div class="text-lg font-bold tracking-wide">UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD</div>
-      <div class="text-md font-semibold">PROVISIONAL ASSESSMENT RESULTS FOR</div>
-      <div class="text-md font-semibold">ASSESSMENT PERIOD: {{ formatted_period }}</div>
-    </div>
-    <div class="text-right text-xs text-gray-500">Preview Mode</div>
-  </div>
-  {% for center, data in centered_result_data.items %}
-    <div class="mb-2 font-semibold" style="page-break-before: {% if not forloop.first %}always{% else %}auto{% endif %};">
-      Category: {{ form_data.regcat|title }}
-      {% if level_name and form_data.regcat == 'formal' %} | Level: {{ level_name }}{% elif level_name and form_data.regcat == 'informal' %} | Level: {{ level_name }}{% endif %}<br>
-      Occupation: {{ form_data.occupation_name }}<br>
-      Assessment Center: {{ center }}
-    </div>
+  {% if centered_result_data %}
+    {% for center, data in centered_result_data.items %}
+    <!-- Each center gets its own page with full header -->
+    <div class="center-page{% if not forloop.first %} page-break-before{% endif %}">
+      <!-- Full UVTAB Header for each center -->
+      <div class="flex items-center justify-between mb-4">
+        <img src="{{ logo_path }}" alt="UVTAB Logo" class="h-14">
+        <div class="text-center flex-1">
+          <div class="text-lg font-bold tracking-wide">UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD</div>
+          <div class="text-md font-semibold">PROVISIONAL ASSESSMENT RESULTS FOR</div>
+          <div class="text-md font-semibold">ASSESSMENT PERIOD: {{ formatted_period }}</div>
+        </div>
+        <div class="text-right text-xs text-gray-500">Preview Mode</div>
+      </div>
+      
+      <!-- Center-specific information -->
+      <div class="mb-2 font-semibold">
+        Category: {{ form_data.regcat|title }}<br>
+        Occupation: {{ form_data.occupation_name }}<br>
+        {% if form_data.level_name and form_data.regcat != 'modular' %}Level: {{ form_data.level_name }}<br>{% endif %}
+        Assessment Center: {{ center }}
+      </div>
     {% if data and data|length > 0 %}
       <div class="overflow-x-auto">
         {% if form_data.regcat == 'modular' %}
@@ -129,6 +172,7 @@
             <thead>
               <tr class="bg-gray-100">
                 <th class="border p-2">S/N</th>
+                <th class="border p-2">Photo</th>
                 <th class="border p-2">Reg No</th>
                 <th class="border p-2">Name</th>
                 <th class="border p-2">Gender</th>
@@ -139,10 +183,19 @@
             <tbody>
               {% for entry in data %}
                 <tr>
-                  <td colspan="6" style="color: blue;">DEBUG: entry regno = {{ entry.candidate.reg_number }}</td>
+                  <td colspan="7" style="color: blue;">DEBUG: entry regno = {{ entry.candidate.reg_number }}</td>
                 </tr>
                 <tr>
                   <td class="border p-2">{{ forloop.counter }}</td>
+                  <td class="border p-2">
+                    {% if entry.candidate.passport_photo_with_regno %}
+                      <img src="{{ entry.candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                    {% elif entry.candidate.passport_photo %}
+                      <img src="{{ entry.candidate.passport_photo }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                    {% else %}
+                      <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
+                    {% endif %}
+                  </td>
                   <td class="border p-2">{{ entry.candidate.reg_number }}</td>
                   <td class="border p-2">{{ entry.candidate.full_name }}</td>
                   <td class="border p-2">{{ entry.candidate.gender }}</td>
@@ -163,11 +216,18 @@
             <thead>
               <tr class="bg-gray-100">
                 <th class="border p-2">S/N</th>
+                <th class="border p-2">Photo</th>
                 <th class="border p-2">Reg No</th>
                 <th class="border p-2">Name</th>
                 <th class="border p-2">Gender</th>
-                <th class="border p-2">Theory</th>
-                <th class="border p-2">Practical</th>
+                {% if papers_list and papers_list|length > 0 %}
+                  {% for paper in papers_list %}
+                    <th class="border p-2">{{ paper.code }}<br><span class="text-xs">({{ paper.type }})</span></th>
+                  {% endfor %}
+                {% else %}
+                  <th class="border p-2">Theory</th>
+                  <th class="border p-2">Practical</th>
+                {% endif %}
                 <th class="border p-2">Comment</th>
               </tr>
             </thead>
@@ -175,25 +235,59 @@
               {% for entry in data %}
                 <tr>
                   <td class="border p-2">{{ forloop.counter }}</td>
+                  <td class="border p-2">
+                    {% if entry.candidate.passport_photo_with_regno %}
+                      <img src="{{ entry.candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                    {% elif entry.candidate.passport_photo %}
+                      <img src="{{ entry.candidate.passport_photo }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                    {% else %}
+                      <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
+                    {% endif %}
+                  </td>
                   <td class="border p-2">{{ entry.candidate.reg_number }}</td>
                   <td class="border p-2">{{ entry.candidate.full_name }}</td>
                   <td class="border p-2">{{ entry.candidate.gender }}</td>
+                  {% if papers_list and papers_list|length > 0 %}
+                    {% for paper in papers_list %}
+  <td class="border p-2">
+    {% with found_result=None %}
+      {% for r in entry.results %}
+        {% if r.paper_code == paper.code and not found_result %}
+          {% with found_result=r %}
+            <span class="inline-block px-2 py-1 rounded {% if found_result.grade == 'F' or found_result.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ found_result.grade }}</span>
+          {% endwith %}
+        {% endif %}
+      {% endfor %}
+      {% if not found_result %}-{% endif %}
+    {% endwith %}
+  </td>
+{% endfor %}
+                  {% else %}
+                    <td class="border p-2">
+                      {% for r in entry.results %}
+                        {% if r.assessment_type == 'theory' %}
+                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                        {% endif %}
+                      {% endfor %}
+                    </td>
+                    <td class="border p-2">
+                      {% for r in entry.results %}
+                        {% if r.assessment_type == 'practical' %}
+                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                        {% endif %}
+                      {% endfor %}
+                    </td>
+                  {% endif %}
                   <td class="border p-2">
-                    {% for r in entry.results %}
-                      {% if r.assessment_type == 'theory' %}
-                        <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                    {% if papers_list and papers_list|length > 0 %}
+                      {% if entry.results|has_ctr %}
+                        Fail
+                      {% else %}
+                        Successful
                       {% endif %}
-                    {% endfor %}
-                  </td>
-                  <td class="border p-2">
-                    {% for r in entry.results %}
-                      {% if r.assessment_type == 'practical' %}
-                        <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
-                      {% endif %}
-                    {% endfor %}
-                  </td>
-                  <td class="border p-2">
-                    {% if entry.successful %}Successful{% else %}Not Successful{% endif %}
+                    {% else %}
+                      {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
+                    {% endif %}
                   </td>
                 </tr>
               {% endfor %}
@@ -204,6 +298,7 @@
             <thead>
               <tr class="bg-gray-100">
                 <th class="border p-2">S/N</th>
+                <th class="border p-2">Photo</th>
                 <th class="border p-2">Reg No</th>
                 <th class="border p-2">Name</th>
                 <th class="border p-2">Gender</th>
@@ -215,6 +310,15 @@
               {% for entry in data %}
                 <tr>
                   <td class="border p-2">{{ forloop.counter }}</td>
+                  <td class="border p-2">
+                    {% if entry.candidate.passport_photo_with_regno %}
+                      <img src="{{ entry.candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                    {% elif entry.candidate.passport_photo %}
+                      <img src="{{ entry.candidate.passport_photo }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                    {% else %}
+                      <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
+                    {% endif %}
+                  </td>
                   <td class="border p-2">{{ entry.candidate.reg_number }}</td>
                   <td class="border p-2">{{ entry.candidate.full_name }}</td>
                   <td class="border p-2">{{ entry.candidate.gender }}</td>
@@ -224,7 +328,7 @@
                     {% endfor %}
                   </td>
                   <td class="border p-2">
-                    {% if entry.successful %}Successful{% else %}Not Successful{% endif %}
+                    {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
                   </td>
                 </tr>
               {% endfor %}
@@ -235,9 +339,105 @@
     {% else %}
       <div class="border rounded p-6 text-gray-400 text-center">No candidates with results found for this center.</div>
     {% endif %}
-  {% empty %}
+    </div> <!-- End center-page -->
+    {% empty %}
     <div class="border rounded p-6 text-gray-400 text-center">No candidates with results found for the selected parameters.</div>
-  {% endfor %}
+    {% endfor %}
+  {% else %}
+    <!-- Single center display with full header -->
+    <div class="flex items-center justify-between mb-4">
+      <img src="{{ logo_path }}" alt="UVTAB Logo" class="h-14">
+      <div class="text-center flex-1">
+        <div class="text-lg font-bold tracking-wide">UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD</div>
+        <div class="text-md font-semibold">PROVISIONAL ASSESSMENT RESULTS FOR</div>
+        <div class="text-md font-semibold">ASSESSMENT PERIOD: {{ formatted_period }}</div>
+      </div>
+      <div class="text-right text-xs text-gray-500">Preview Mode</div>
+    </div>
+    <!-- Single center display -->
+    <div class="mb-2 font-semibold">
+      Category: {{ form_data.regcat|title }}
+      {% if form_data.level_name and form_data.regcat == 'formal' %} | Level: {{ form_data.level_name }}{% elif form_data.level_name and form_data.regcat == 'informal' %} | Level: {{ form_data.level_name }}{% endif %}<br>
+      Occupation: {{ form_data.occupation_name }}<br>
+      {% if form_data.center_id %}Assessment Center: {{ form_data.center_name }}{% endif %}
+    </div>
+    {% if result_data and result_data|length > 0 %}
+      <div class="overflow-x-auto">
+        {% if form_data.regcat == 'formal' %}
+          <table class="min-w-full border text-sm">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="border p-2">S/N</th>
+                <th class="border p-2">Photo</th>
+                <th class="border p-2">Reg No</th>
+                <th class="border p-2">Name</th>
+                <th class="border p-2">Gender</th>
+                {% if papers_list and papers_list|length > 0 %}
+                  {% for paper in papers_list %}
+                    <th class="border p-2">{{ paper.code }}<br>({{ paper.type }})</th>
+                  {% endfor %}
+                {% else %}
+                  <th class="border p-2">Theory</th>
+                  <th class="border p-2">Practical</th>
+                {% endif %}
+                <th class="border p-2">Comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in result_data %}
+                <tr>
+                  <td class="border p-2">{{ forloop.counter }}</td>
+                  <td class="border p-2">
+                    {% if entry.candidate.passport_photo_with_regno %}
+                      <img src="{{ entry.candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                    {% elif entry.candidate.passport_photo %}
+                      <img src="{{ entry.candidate.passport_photo }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                    {% else %}
+                      <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
+                    {% endif %}
+                  </td>
+                  <td class="border p-2">{{ entry.candidate.reg_no }}</td>
+                  <td class="border p-2">{{ entry.candidate.name }}</td>
+                  <td class="border p-2">{{ entry.candidate.gender }}</td>
+                  {% if papers_list and papers_list|length > 0 %}
+                    {% for paper in papers_list %}
+                      <td class="border p-2">
+                        {% for r in entry.results %}
+                          {% if r.paper_code == paper.code %}
+                            <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                          {% endif %}
+                        {% endfor %}
+                      </td>
+                    {% endfor %}
+                  {% else %}
+                    <td class="border p-2">
+                      {% for r in entry.results %}
+                        {% if r.assessment_type == 'theory' %}
+                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                        {% endif %}
+                      {% endfor %}
+                    </td>
+                    <td class="border p-2">
+                      {% for r in entry.results %}
+                        {% if r.assessment_type == 'practical' %}
+                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                        {% endif %}
+                      {% endfor %}
+                    </td>
+                  {% endif %}
+                  <td class="border p-2">
+                    {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="border rounded p-6 text-gray-400 text-center">No candidates with results found.</div>
+    {% endif %}
+  {% endif %}
 </div>
 {% endif %}
 

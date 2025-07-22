@@ -80,6 +80,7 @@ urlpatterns = [
     path('reports/', views.report_list, name='report_list'),
     path('reports/albums/', views.generate_album, name='generate_album'),
     path('reports/result-list/', views.generate_result_list, name='generate_result_list'),
+    path('reports/result-list/download/', views.download_result_list_pdf, name='download_result_list_pdf'),
     path('users/', views.user_home, name='user_home'),
     # Center Representatives
     path('users/center-representatives/', views.view_center_reps, name='view_center_reps'),
