@@ -135,6 +135,7 @@ def generate_result_list(request):
                     candidates.append(cand)
                     # Serialize candidate fields needed by template
                     cand_dict = {
+                        'id': cand.id,  # Add id field for module grouping
                         'reg_number': cand.reg_number,
                         'full_name': cand.full_name,
                         'gender': cand.get_gender_display(),
@@ -202,9 +203,13 @@ def generate_result_list(request):
         # Format month as "June, 2025"
         import calendar
         formatted_period = f"{calendar.month_name[int(month)]}, {year}"
-        # Group by center if all centers
+        
+        # For modular category, group by modules instead of centers (DISABLED - restoring original functionality)
+        module_result_data = None
+        
+        # Group by center if all centers (for non-modular or when no module grouping)
         centered_result_data = None
-        if not center_id:
+        if not center_id and regcat.lower() != 'modular':
             from collections import defaultdict
             centered_result_data = defaultdict(list)
             for entry in result_data:
@@ -232,7 +237,9 @@ def generate_result_list(request):
             },
             'candidates': candidates,
             'result_data': result_data,
+            'data': result_data,  # Template expects 'data' variable
             'centered_result_data': dict(centered_result_data) if centered_result_data else None,
+            'module_result_data': dict(module_result_data) if module_result_data else None,
             'formatted_period': formatted_period,
             'logo_path': '/static/images/uvtab_logo.png',
             'errors': errors,
@@ -4748,6 +4755,52 @@ def download_result_list_pdf(request):
     for center in centered_result_data:
         centered_result_data[center] = dict(centered_result_data[center])
     
+    # For modular category, create module-based grouping for PDF
+    module_result_data = None
+    if regcat.lower() == 'modular':
+        from collections import defaultdict
+        from .models import CandidateModule, Module
+        module_result_data = defaultdict(list)
+        
+        # Process all results to group by module
+        for result in results:
+            candidate = result.candidate
+            candidate_id = candidate.id
+            
+            # Get all modules this candidate is enrolled in
+            candidate_modules = CandidateModule.objects.filter(candidate_id=candidate_id).select_related('module')
+            
+            for cm in candidate_modules:
+                module = cm.module
+                module_key = f"{module.code} - {module.name}"
+                
+                # Check if this result belongs to this module
+                if hasattr(result, 'module') and result.module == module:
+                    # Create candidate entry for this module
+                    candidate_entry = {
+                        'id': candidate.id,
+                        'reg_number': candidate.reg_number,
+                        'full_name': candidate.full_name,
+                        'gender': candidate.get_gender_display(),
+                        'assessment_center': getattr(candidate.assessment_center, 'center_name', None),
+                    }
+                    
+                    # Add result data
+                    result_entry = {
+                        'candidate': candidate_entry,
+                        'results': [{
+                            'grade': result.grade,
+                            'comment': result.comment,
+                            'mark': result.mark,
+                        }],
+                        'successful': result.comment != 'CTR',
+                    }
+                    
+                    module_result_data[module_key].append(result_entry)
+        
+        # Convert to regular dict
+        module_result_data = dict(module_result_data)
+    
     # Get papers list for formal paper-based occupations (using same logic as HTML preview)
     papers_list = []
     if regcat.lower() == 'formal':
@@ -4766,6 +4819,7 @@ def download_result_list_pdf(request):
     context = {
         'preview': True,
         'centered_result_data': centered_result_data,
+        'module_result_data': module_result_data,
         'form_data': {
             'month': assessment_month,
             'year': assessment_year,
@@ -4867,142 +4921,268 @@ def download_result_list_pdf(request):
         elements.append(Paragraph(f"Level: {level.name}", header_style))
     elements.append(Spacer(1, 20))
     
-    # Process each center
-    for center_name, candidates_data in centered_result_data.items():
-        if elements:  # Add page break between centers (except for first)
-            elements.append(PageBreak())
-            
-            # Repeat header for new page
-            if logo_path:
-                try:
-                    logo = Image(logo_path, width=1*inch, height=1*inch)
-                    elements.append(logo)
-                    elements.append(Spacer(1, 12))
-                except:
-                    pass
-            
-            elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", title_style))
-            elements.append(Paragraph("PROVISIONAL ASSESSMENT RESULT LIST FOR", header_style))
-            elements.append(Paragraph("ASSESSMENT PERIOD:", header_style))
-            elements.append(Paragraph(f"{calendar.month_name[int(assessment_month)]} {assessment_year}", header_style))
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph(f"Category: {regcat.title()}", header_style))
-            elements.append(Paragraph(f"Occupation: {occupation.name}", header_style))
-            if level:
-                elements.append(Paragraph(f"Level: {level.name}", header_style))
-            elements.append(Spacer(1, 20))
-        
-        # Center header
-        elements.append(Paragraph(f"Assessment Center: {center_name}", header_style))
-        elements.append(Spacer(1, 12))
-        
-        # Create table data
-        table_data = []
-        
-        # Table headers
-        if papers_list and len(papers_list) > 0:
-            # Paper-based formal occupation
-            headers = ['S/N', 'Photo', 'Reg No', 'Name']
-            headers.extend(papers_list)  # Add paper codes
-            headers.append('Comment')
-        else:
-            # Module-based or other types
-            headers = ['S/N', 'Photo', 'Reg No', 'Name', 'Theory', 'Practical', 'Comment']
-        
-        table_data.append(headers)
-        
-        # Add candidate data
-        sn = 1
-        for reg_number, results in candidates_data.items():
-            if not results:
-                continue
+    # Handle modular category with module grouping
+    if regcat.lower() == 'modular' and module_result_data:
+        # Process each module
+        for module_name, module_entries in module_result_data.items():
+            if elements:  # Add page break between modules (except for first)
+                elements.append(PageBreak())
                 
-            candidate = results[0].candidate
-            row = [str(sn)]
+                # Repeat header for new page
+                if logo_path:
+                    try:
+                        logo = Image(logo_path, width=1*inch, height=1*inch)
+                        elements.append(logo)
+                        elements.append(Spacer(1, 12))
+                    except:
+                        pass
+                
+                elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", title_style))
+                elements.append(Paragraph("PROVISIONAL ASSESSMENT RESULT LIST FOR", header_style))
+                elements.append(Paragraph("ASSESSMENT PERIOD:", header_style))
+                elements.append(Paragraph(f"{calendar.month_name[int(assessment_month)]} {assessment_year}", header_style))
+                elements.append(Spacer(1, 12))
+                elements.append(Paragraph(f"Category: {regcat.title()}", header_style))
+                elements.append(Paragraph(f"Occupation: {occupation.name}", header_style))
+                if level:
+                    elements.append(Paragraph(f"Level: {level.name}", header_style))
+                elements.append(Spacer(1, 20))
             
-            # Photo cell
-            photo_cell = "No Photo"
-            if hasattr(candidate, 'photo_url') and candidate.photo_url:
+            # Module header
+            elements.append(Paragraph(f"Module: {module_name}", header_style))
+            elements.append(Spacer(1, 12))
+            
+            # Create table data for this module
+            table_data = []
+            headers = ['S/N', 'Photo', 'Reg No', 'Name', 'Gender', 'Practical', 'Comment']
+            table_data.append(headers)
+            
+            # Add candidate data for this module
+            sn = 1
+            for entry in module_entries:
+                candidate = entry['candidate']
+                results = entry['results']
+                
+                row = [str(sn)]
+                
+                # Photo cell with fallback logic
+                photo_cell = "No Photo"
+                # For module entries, we need to get the actual candidate object for photo
                 try:
-                    # Convert URL to file path
-                    photo_path = candidate.photo_url.replace('/media/', '')
-                    full_photo_path = os.path.join(settings.MEDIA_ROOT, photo_path)
-                    if os.path.exists(full_photo_path):
-                        photo_img = Image(full_photo_path, width=0.8*inch, height=0.8*inch)
-                        photo_cell = photo_img
+                    actual_candidate = Candidate.objects.get(id=candidate['id'])
+                    photo_path = None
+                    
+                    if hasattr(actual_candidate, 'passport_photo_with_regno') and actual_candidate.passport_photo_with_regno and hasattr(actual_candidate.passport_photo_with_regno, 'path') and os.path.exists(actual_candidate.passport_photo_with_regno.path):
+                        photo_path = actual_candidate.passport_photo_with_regno.path
+                    elif hasattr(actual_candidate, 'passport_photo') and actual_candidate.passport_photo and hasattr(actual_candidate.passport_photo, 'path') and os.path.exists(actual_candidate.passport_photo.path):
+                        photo_path = actual_candidate.passport_photo.path
+                    
+                    if photo_path:
+                        try:
+                            photo_img = Image(photo_path, width=0.8*inch, height=0.8*inch)
+                            photo_cell = photo_img
+                        except Exception as e:
+                            photo_cell = "No Photo"
                 except:
                     photo_cell = "No Photo"
-            
-            row.append(photo_cell)
-            row.append(candidate.reg_number or 'N/A')
-            row.append(candidate.full_name if candidate.full_name else 'N/A')
-            
-            if papers_list and len(papers_list) > 0:
-                # Paper-based: add grade for each paper
-                result_dict = {r.paper.code: r for r in results if r.paper}
-                for paper_code in papers_list:
-                    if paper_code in result_dict:
-                        result = result_dict[paper_code]
-                        grade = getattr(result, 'grade', None) or getattr(result, 'marks', None) or 'N/A'
-                        row.append(str(grade))
-                    else:
-                        row.append('N/A')
                 
-                # Comment: "Fail" if any result has comment "CTR", otherwise "Successful"
-                has_ctr = any(r.comment == 'CTR' for r in results if hasattr(r, 'comment'))
-                comment = "Fail" if has_ctr else "Successful"
-                row.append(comment)
-            else:
-                # Module-based: show theory/practical with proper grade extraction
-                theory_grade = 'N/A'
+                row.append(photo_cell)
+                row.append(candidate['reg_number'] or 'N/A')
+                row.append(candidate['full_name'] or 'N/A')
+                row.append(candidate['gender'] or 'N/A')
+                
+                # Practical grade
                 practical_grade = 'N/A'
-                
-                for result in results:
-                    # Check for theory results
-                    if hasattr(result, 'assessment_type'):
-                        if result.assessment_type == 'theory':
-                            if hasattr(result, 'grade') and result.grade:
-                                theory_grade = str(result.grade)
-                        elif result.assessment_type == 'practical':
-                            if hasattr(result, 'grade') and result.grade:
-                                practical_grade = str(result.grade)
-                    else:
-                        # Fallback: try different grade fields
-                        if hasattr(result, 'theory_grade') and result.theory_grade:
-                            theory_grade = str(result.theory_grade)
-                        if hasattr(result, 'practical_grade') and result.practical_grade:
-                            practical_grade = str(result.practical_grade)
-                        if hasattr(result, 'grade') and result.grade and theory_grade == 'N/A':
-                            theory_grade = str(result.grade)
+                if results and len(results) > 0:
+                    practical_grade = str(results[0]['grade']) if results[0]['grade'] else 'N/A'
                 
                 # Comment: "Fail" if any result has comment "CTR", otherwise "Successful"
-                has_ctr = any(getattr(r, 'comment', '') == 'CTR' for r in results)
+                has_ctr = any(r['comment'] == 'CTR' for r in results if r.get('comment'))
                 comment = "Fail" if has_ctr else "Successful"
                 
-                row.extend([theory_grade, practical_grade, comment])
+                row.extend([practical_grade, comment])
+                table_data.append(row)
+                sn += 1
             
-            table_data.append(row)
-            sn += 1
-        
-        # Create and style table
-        if len(table_data) > 1:  # Only create table if there's data
-            table = Table(table_data)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]))
-            elements.append(table)
-        else:
-            elements.append(Paragraph("No results found for this center.", styles['Normal']))
+            # Create and style the table for this module
+            if len(table_data) > 1:  # Only create table if there are candidates
+                table = Table(table_data)
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                elements.append(table)
+                elements.append(Spacer(1, 20))
+    else:
+        # Process each center (non-modular or fallback)
+        for center_name, candidates_data in centered_result_data.items():
+            if elements:  # Add page break between centers (except for first)
+                elements.append(PageBreak())
+                
+                # Repeat header for new page
+                if logo_path:
+                    try:
+                        logo = Image(logo_path, width=1*inch, height=1*inch)
+                        elements.append(logo)
+                        elements.append(Spacer(1, 12))
+                    except:
+                        pass
+                
+                elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", title_style))
+                elements.append(Paragraph("PROVISIONAL ASSESSMENT RESULT LIST FOR", header_style))
+                elements.append(Paragraph("ASSESSMENT PERIOD:", header_style))
+                elements.append(Paragraph(f"{calendar.month_name[int(assessment_month)]} {assessment_year}", header_style))
+                elements.append(Spacer(1, 12))
+                elements.append(Paragraph(f"Category: {regcat.title()}", header_style))
+                elements.append(Paragraph(f"Occupation: {occupation.name}", header_style))
+                if level:
+                    elements.append(Paragraph(f"Level: {level.name}", header_style))
+                elements.append(Spacer(1, 20))
+            
+            # Center header
+            elements.append(Paragraph(f"Assessment Center: {center_name}", header_style))
+            elements.append(Spacer(1, 12))
+            
+            # Create table data for this center
+            table_data = []
+            
+            # Table headers
+            if papers_list and len(papers_list) > 0:
+                # Paper-based formal occupation
+                headers = ['S/N', 'Photo', 'Reg No', 'Name', 'Gender']
+                headers.extend(papers_list)  # Add paper codes
+                headers.append('Comment')
+            elif regcat.lower() == 'modular':
+                # Modular: only practical, no theory
+                headers = ['S/N', 'Photo', 'Reg No', 'Name', 'Gender', 'Practical', 'Comment']
+            else:
+                # Formal module-based: theory + practical
+                headers = ['S/N', 'Photo', 'Reg No', 'Name', 'Gender', 'Theory', 'Practical', 'Comment']
+            
+            table_data.append(headers)
+            
+            # Add candidate data for this center
+            sn = 1
+            for reg_number, results in candidates_data.items():
+                if not results:
+                    continue
+                    
+                candidate = results[0].candidate
+                row = [str(sn)]
+                
+                # Photo cell with fallback logic (copying working formal photo logic)
+                photo_cell = "No Photo"
+                photo_path = None
+                
+                # Use the same logic that works for formal PDFs - check .path instead of .url
+                if hasattr(candidate, 'passport_photo_with_regno') and candidate.passport_photo_with_regno and hasattr(candidate.passport_photo_with_regno, 'path') and os.path.exists(candidate.passport_photo_with_regno.path):
+                    photo_path = candidate.passport_photo_with_regno.path
+                elif hasattr(candidate, 'passport_photo') and candidate.passport_photo and hasattr(candidate.passport_photo, 'path') and os.path.exists(candidate.passport_photo.path):
+                    photo_path = candidate.passport_photo.path
+                
+                if photo_path:
+                    try:
+                        photo_img = Image(photo_path, width=0.8*inch, height=0.8*inch)
+                        photo_cell = photo_img
+                    except Exception as e:
+                        photo_cell = "No Photo"
+                
+                row.append(photo_cell)
+                row.append(candidate.reg_number or 'N/A')
+                row.append(candidate.full_name if candidate.full_name else 'N/A')
+                row.append(candidate.gender or 'N/A')
+                
+                if papers_list and len(papers_list) > 0:
+                    # Paper-based: add grade for each paper
+                    result_dict = {r.paper.code: r for r in results if r.paper}
+                    for paper_code in papers_list:
+                        if paper_code in result_dict:
+                            result = result_dict[paper_code]
+                            grade = getattr(result, 'grade', None) or getattr(result, 'marks', None) or 'N/A'
+                            row.append(str(grade))
+                        else:
+                            row.append('N/A')
+                    
+                    # Comment: "Fail" if any result has comment "CTR", otherwise "Successful"
+                    has_ctr = any(r.comment == 'CTR' for r in results if hasattr(r, 'comment'))
+                    comment = "Fail" if has_ctr else "Successful"
+                    row.append(comment)
+                elif regcat.lower() == 'modular':
+                    # Modular: only practical grade, no theory
+                    practical_grade = 'N/A'
+                    
+                    for result in results:
+                        # For modular, just get the grade (which is practical)
+                        if hasattr(result, 'grade') and result.grade:
+                            practical_grade = str(result.grade)
+                            break  # Take the first grade found
+                    
+                    # Comment: "Fail" if any result has comment "CTR", otherwise "Successful"
+                    has_ctr = any(getattr(r, 'comment', '') == 'CTR' for r in results)
+                    comment = "Fail" if has_ctr else "Successful"
+                    
+                    row.extend([practical_grade, comment])
+                else:
+                    # Formal module-based: show theory/practical with proper grade extraction
+                    theory_grade = 'N/A'
+                    practical_grade = 'N/A'
+                    
+                    for result in results:
+                        # Check for theory results
+                        if hasattr(result, 'assessment_type'):
+                            if result.assessment_type == 'theory':
+                                if hasattr(result, 'grade') and result.grade:
+                                    theory_grade = str(result.grade)
+                            elif result.assessment_type == 'practical':
+                                if hasattr(result, 'grade') and result.grade:
+                                    practical_grade = str(result.grade)
+                        else:
+                            # Fallback: try different grade fields
+                            if hasattr(result, 'theory_grade') and result.theory_grade:
+                                theory_grade = str(result.theory_grade)
+                            if hasattr(result, 'practical_grade') and result.practical_grade:
+                                practical_grade = str(result.practical_grade)
+                            if hasattr(result, 'grade') and result.grade and theory_grade == 'N/A':
+                                theory_grade = str(result.grade)
+                    
+                    # Comment: "Fail" if any result has comment "CTR", otherwise "Successful"
+                    has_ctr = any(getattr(r, 'comment', '') == 'CTR' for r in results)
+                    comment = "Fail" if has_ctr else "Successful"
+                    
+                    row.extend([theory_grade, practical_grade, comment])
+                
+                table_data.append(row)
+                sn += 1
+            
+            # Create and style table for this center
+            if len(table_data) > 1:  # Only create table if there's data
+                table = Table(table_data)
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ]))
+                elements.append(table)
+                elements.append(Spacer(1, 20))
+            else:
+                elements.append(Paragraph("No results found for this center.", styles['Normal']))
+                elements.append(Spacer(1, 20))
     
     # Build PDF
     doc.build(elements)

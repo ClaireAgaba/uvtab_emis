@@ -167,7 +167,6 @@
     {% if data and data|length > 0 %}
       <div class="overflow-x-auto">
         {% if form_data.regcat == 'modular' %}
-          <div style="color: red; font-weight: bold;">DEBUG: data length = {{ data|length }}</div>
           <table class="min-w-full border text-sm">
             <thead>
               <tr class="bg-gray-100">
@@ -182,9 +181,6 @@
             </thead>
             <tbody>
               {% for entry in data %}
-                <tr>
-                  <td colspan="7" style="color: blue;">DEBUG: entry regno = {{ entry.candidate.reg_number }}</td>
-                </tr>
                 <tr>
                   <td class="border p-2">{{ forloop.counter }}</td>
                   <td class="border p-2">
@@ -205,7 +201,7 @@
                     {% endfor %}
                   </td>
                   <td class="border p-2">
-                    {% if entry.successful %}Successful{% else %}Not Successful{% endif %}
+                    {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
                   </td>
                 </tr>
               {% endfor %}
