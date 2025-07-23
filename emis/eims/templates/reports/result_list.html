@@ -167,23 +167,23 @@
     {% if data and data|length > 0 %}
       <div class="overflow-x-auto">
         {% if form_data.regcat == 'modular' %}
-          <table class="min-w-full border text-sm">
+          <table class="w-full border text-base" style="font-size: 14px; width: 100%; table-layout: fixed;">
             <thead>
               <tr class="bg-gray-100">
-                <th class="border p-2">S/N</th>
-                <th class="border p-2">Photo</th>
-                <th class="border p-2">Reg No</th>
-                <th class="border p-2">Name</th>
-                <th class="border p-2">Gender</th>
-                <th class="border p-2">Practical</th>
-                <th class="border p-2">Comment</th>
+                <th class="border p-3" style="width: 8%; font-weight: bold; font-size: 14px;">S/N</th>
+                <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Photo</th>
+                <th class="border p-3" style="width: 18%; font-weight: bold; font-size: 14px;">Reg No</th>
+                <th class="border p-3" style="width: 25%; font-weight: bold; font-size: 14px;">Name</th>
+                <th class="border p-3" style="width: 10%; font-weight: bold; font-size: 14px;">Gender</th>
+                <th class="border p-3" style="width: 15%; font-weight: bold; font-size: 14px;">Practical</th>
+                <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Comment</th>
               </tr>
             </thead>
             <tbody>
               {% for entry in data %}
                 <tr>
-                  <td class="border p-2">{{ forloop.counter }}</td>
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ forloop.counter }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% if entry.candidate.passport_photo_with_regno %}
                       <img src="{{ entry.candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
                     {% elif entry.candidate.passport_photo %}
@@ -192,15 +192,15 @@
                       <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
                     {% endif %}
                   </td>
-                  <td class="border p-2">{{ entry.candidate.reg_number }}</td>
-                  <td class="border p-2">{{ entry.candidate.full_name }}</td>
-                  <td class="border p-2">{{ entry.candidate.gender }}</td>
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.reg_number }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.full_name }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.gender }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% for r in entry.results %}
                       <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
                     {% endfor %}
                   </td>
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
                   </td>
                 </tr>
@@ -208,30 +208,30 @@
             </tbody>
           </table>
         {% elif form_data.regcat == 'formal' %}
-          <table class="min-w-full border text-sm">
+          <table class="w-full border text-base" style="font-size: 14px; width: 100%; table-layout: fixed;">
             <thead>
               <tr class="bg-gray-100">
-                <th class="border p-2">S/N</th>
-                <th class="border p-2">Photo</th>
-                <th class="border p-2">Reg No</th>
-                <th class="border p-2">Name</th>
-                <th class="border p-2">Gender</th>
+                <th class="border p-3" style="width: 8%; font-weight: bold; font-size: 14px;">S/N</th>
+                <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Photo</th>
+                <th class="border p-3" style="width: 18%; font-weight: bold; font-size: 14px;">Reg No</th>
+                <th class="border p-3" style="width: 22%; font-weight: bold; font-size: 14px;">Name</th>
+                <th class="border p-3" style="width: 10%; font-weight: bold; font-size: 14px;">Gender</th>
                 {% if papers_list and papers_list|length > 0 %}
                   {% for paper in papers_list %}
-                    <th class="border p-2">{{ paper.code }}<br><span class="text-xs">({{ paper.type }})</span></th>
+                    <th class="border p-3" style="font-weight: bold; font-size: 14px;">{{ paper.code }}<br><span class="text-xs">({{ paper.type }})</span></th>
                   {% endfor %}
                 {% else %}
-                  <th class="border p-2">Theory</th>
-                  <th class="border p-2">Practical</th>
+                  <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Theory</th>
+                  <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Practical</th>
                 {% endif %}
-                <th class="border p-2">Comment</th>
+                <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Comment</th>
               </tr>
             </thead>
             <tbody>
               {% for entry in data %}
                 <tr>
-                  <td class="border p-2">{{ forloop.counter }}</td>
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ forloop.counter }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% if entry.candidate.passport_photo_with_regno %}
                       <img src="{{ entry.candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
                     {% elif entry.candidate.passport_photo %}
@@ -240,9 +240,9 @@
                       <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
                     {% endif %}
                   </td>
-                  <td class="border p-2">{{ entry.candidate.reg_number }}</td>
-                  <td class="border p-2">{{ entry.candidate.full_name }}</td>
-                  <td class="border p-2">{{ entry.candidate.gender }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.reg_number }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.full_name }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.gender }}</td>
                   {% if papers_list and papers_list|length > 0 %}
                     {% for paper in papers_list %}
   <td class="border p-2">
@@ -259,14 +259,14 @@
   </td>
 {% endfor %}
                   {% else %}
-                    <td class="border p-2">
+                    <td class="border p-3" style="font-size: 13px; text-align: center;">
                       {% for r in entry.results %}
                         {% if r.assessment_type == 'theory' %}
                           <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
                         {% endif %}
                       {% endfor %}
                     </td>
-                    <td class="border p-2">
+                    <td class="border p-3" style="font-size: 13px; text-align: center;">
                       {% for r in entry.results %}
                         {% if r.assessment_type == 'practical' %}
                           <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
@@ -274,7 +274,7 @@
                       {% endfor %}
                     </td>
                   {% endif %}
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% if papers_list and papers_list|length > 0 %}
                       {% if entry.results|has_ctr %}
                         Fail
@@ -290,23 +290,23 @@
             </tbody>
           </table>
         {% elif form_data.regcat == 'informal' %}
-          <table class="min-w-full border text-sm">
+          <table class="w-full border text-base" style="font-size: 14px; width: 100%; table-layout: fixed;">
             <thead>
               <tr class="bg-gray-100">
-                <th class="border p-2">S/N</th>
-                <th class="border p-2">Photo</th>
-                <th class="border p-2">Reg No</th>
-                <th class="border p-2">Name</th>
-                <th class="border p-2">Gender</th>
-                <th class="border p-2">Module/Code</th>
-                <th class="border p-2">Comment</th>
+                <th class="border p-3" style="width: 8%; font-weight: bold; font-size: 14px;">S/N</th>
+                <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Photo</th>
+                <th class="border p-3" style="width: 18%; font-weight: bold; font-size: 14px;">Reg No</th>
+                <th class="border p-3" style="width: 25%; font-weight: bold; font-size: 14px;">Name</th>
+                <th class="border p-3" style="width: 10%; font-weight: bold; font-size: 14px;">Gender</th>
+                <th class="border p-3" style="width: 15%; font-weight: bold; font-size: 14px;">Module/Code</th>
+                <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Comment</th>
               </tr>
             </thead>
             <tbody>
               {% for entry in data %}
                 <tr>
-                  <td class="border p-2">{{ forloop.counter }}</td>
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ forloop.counter }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% if entry.candidate.passport_photo_with_regno %}
                       <img src="{{ entry.candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
                     {% elif entry.candidate.passport_photo %}
@@ -315,15 +315,15 @@
                       <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
                     {% endif %}
                   </td>
-                  <td class="border p-2">{{ entry.candidate.reg_number }}</td>
-                  <td class="border p-2">{{ entry.candidate.full_name }}</td>
-                  <td class="border p-2">{{ entry.candidate.gender }}</td>
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.reg_number }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.full_name }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.gender }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% for r in entry.results %}
                       <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.module_code }}</span>
                     {% endfor %}
                   </td>
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
                   </td>
                 </tr>
@@ -360,30 +360,30 @@
     {% if result_data and result_data|length > 0 %}
       <div class="overflow-x-auto">
         {% if form_data.regcat == 'formal' %}
-          <table class="min-w-full border text-sm">
+          <table class="w-full border text-base" style="font-size: 14px; width: 100%; table-layout: fixed;">
             <thead>
               <tr class="bg-gray-100">
-                <th class="border p-2">S/N</th>
-                <th class="border p-2">Photo</th>
-                <th class="border p-2">Reg No</th>
-                <th class="border p-2">Name</th>
-                <th class="border p-2">Gender</th>
+                <th class="border p-3" style="width: 8%; font-weight: bold; font-size: 14px;">S/N</th>
+                <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Photo</th>
+                <th class="border p-3" style="width: 18%; font-weight: bold; font-size: 14px;">Reg No</th>
+                <th class="border p-3" style="width: 22%; font-weight: bold; font-size: 14px;">Name</th>
+                <th class="border p-3" style="width: 10%; font-weight: bold; font-size: 14px;">Gender</th>
                 {% if papers_list and papers_list|length > 0 %}
                   {% for paper in papers_list %}
-                    <th class="border p-2">{{ paper.code }}<br>({{ paper.type }})</th>
+                    <th class="border p-3" style="font-weight: bold; font-size: 14px;">{{ paper.code }}<br>({{ paper.type }})</th>
                   {% endfor %}
                 {% else %}
-                  <th class="border p-2">Theory</th>
-                  <th class="border p-2">Practical</th>
+                  <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Theory</th>
+                  <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Practical</th>
                 {% endif %}
-                <th class="border p-2">Comment</th>
+                <th class="border p-3" style="width: 12%; font-weight: bold; font-size: 14px;">Comment</th>
               </tr>
             </thead>
             <tbody>
               {% for entry in result_data %}
                 <tr>
-                  <td class="border p-2">{{ forloop.counter }}</td>
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ forloop.counter }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% if entry.candidate.passport_photo_with_regno %}
                       <img src="{{ entry.candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
                     {% elif entry.candidate.passport_photo %}
@@ -392,12 +392,12 @@
                       <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
                     {% endif %}
                   </td>
-                  <td class="border p-2">{{ entry.candidate.reg_no }}</td>
-                  <td class="border p-2">{{ entry.candidate.name }}</td>
-                  <td class="border p-2">{{ entry.candidate.gender }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.reg_no }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.name }}</td>
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.gender }}</td>
                   {% if papers_list and papers_list|length > 0 %}
                     {% for paper in papers_list %}
-                      <td class="border p-2">
+                      <td class="border p-3" style="font-size: 13px; text-align: center;">
                         {% for r in entry.results %}
                           {% if r.paper_code == paper.code %}
                             <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
@@ -406,14 +406,14 @@
                       </td>
                     {% endfor %}
                   {% else %}
-                    <td class="border p-2">
+                    <td class="border p-3" style="font-size: 13px; text-align: center;">
                       {% for r in entry.results %}
                         {% if r.assessment_type == 'theory' %}
                           <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
                         {% endif %}
                       {% endfor %}
                     </td>
-                    <td class="border p-2">
+                    <td class="border p-3" style="font-size: 13px; text-align: center;">
                       {% for r in entry.results %}
                         {% if r.assessment_type == 'practical' %}
                           <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
@@ -421,7 +421,7 @@
                       {% endfor %}
                     </td>
                   {% endif %}
-                  <td class="border p-2">
+                  <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
                   </td>
                 </tr>

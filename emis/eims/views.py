@@ -205,11 +205,67 @@ def generate_result_list(request):
         formatted_period = f"{calendar.month_name[int(month)]}, {year}"
         
         # For modular category, group by modules instead of centers (DISABLED - restoring original functionality)
+        # Enable module grouping for modular category
         module_result_data = None
+        if regcat.lower() == 'modular':
+            from collections import defaultdict
+            from .models import CandidateModule, Module
+            module_result_data = defaultdict(list)
+            
+            # Get all results for modular category
+            modular_results = Result.objects.filter(
+                candidate__occupation_id=occupation_id,
+                assessment_date__year=year,
+                assessment_date__month=month,
+                result_type='modular',
+            )
+            if level_id:
+                modular_results = modular_results.filter(candidate__candidatelevel__level=level_id)
+            if center_id:
+                modular_results = modular_results.filter(candidate__assessment_center=center_id)
+            
+            # Process all results to group by module
+            for result in modular_results:
+                candidate = result.candidate
+                candidate_id = candidate.id
+                
+                # Get all modules this candidate is enrolled in
+                candidate_modules = CandidateModule.objects.filter(candidate_id=candidate_id).select_related('module')
+                
+                for cm in candidate_modules:
+                    module = cm.module
+                    module_key = f"{module.code} - {module.name}"
+                    
+                    # Check if this result belongs to this module
+                    if hasattr(result, 'module') and result.module == module:
+                        # Create candidate entry for this module
+                        candidate_entry = {
+                            'id': candidate.id,
+                            'reg_number': candidate.reg_number,
+                            'full_name': candidate.full_name,
+                            'gender': candidate.get_gender_display(),
+                            'assessment_center': getattr(candidate.assessment_center, 'center_name', None),
+                        }
+                        
+                        # Add result data
+                        result_entry = {
+                            'candidate': candidate_entry,
+                            'results': [{
+                                'grade': result.grade,
+                                'comment': result.comment,
+                                'mark': result.mark,
+                            }],
+                            'successful': result.comment != 'CTR',
+                        }
+                        
+                        module_result_data[module_key].append(result_entry)
+            
+            # Convert to regular dict
+            module_result_data = dict(module_result_data)
         
         # Group by center if all centers (for non-modular or when no module grouping)
         centered_result_data = None
-        if not center_id and regcat.lower() != 'modular':
+        if not center_id:
             from collections import defaultdict
             centered_result_data = defaultdict(list)
             for entry in result_data:
