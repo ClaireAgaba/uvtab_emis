@@ -5118,7 +5118,31 @@ def download_result_list_pdf(request):
         if path and os.path.exists(path):
             logo_path = path
             break
-    
+            
+    # Add general header for modular and formal categories (informal has its own center-specific headers)
+    if regcat.lower() in ['modular', 'formal']:
+        if logo_path:
+            try:
+                logo = Image(logo_path, width=1*inch, height=1*inch)
+                elements.append(logo)
+                elements.append(Spacer(1, 12))
+            except:
+                pass
+        
+        # Add header information
+        elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", title_style))
+        elements.append(Paragraph("PROVISIONAL ASSESSMENT RESULT LIST FOR", header_style))
+        elements.append(Paragraph("ASSESSMENT PERIOD:", header_style))
+        elements.append(Paragraph(f"{calendar.month_name[int(assessment_month)]} {assessment_year}", header_style))
+        elements.append(Spacer(1, 12))
+        
+        # Add occupation and category info
+        elements.append(Paragraph(f"Category: {regcat.title()}", header_style))
+        elements.append(Paragraph(f"Occupation: {occupation.name}", header_style))
+        if level:
+            elements.append(Paragraph(f"Level: {level.name}", header_style))
+        elements.append(Spacer(1, 20))
+
     # Handle modular category with module grouping
     if regcat.lower() == 'modular' and module_result_data:
         # Process each module
