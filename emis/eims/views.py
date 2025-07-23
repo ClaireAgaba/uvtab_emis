@@ -5255,8 +5255,30 @@ def download_result_list_pdf(request):
             first_module = True
             for module_name, module_info in center_modules.items():
                 if module_info['candidates']:
-                    if not first_module:  # Add space between modules within same center
+                    if not first_module:  # Add page break between modules within same center
+                        elements.append(PageBreak())
+                        
+                        # Add header for new module page
+                        if logo_path:
+                            try:
+                                logo = Image(logo_path, width=1*inch, height=1*inch)
+                                elements.append(logo)
+                                elements.append(Spacer(1, 12))
+                            except:
+                                pass
+    
+                        elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", title_style))
+                        elements.append(Paragraph("PROVISIONAL ASSESSMENT RESULT LIST FOR", header_style))
+                        elements.append(Paragraph("ASSESSMENT PERIOD:", header_style))
+                        elements.append(Paragraph(f"{calendar.month_name[int(assessment_month)]} {assessment_year}", header_style))
+                        elements.append(Spacer(1, 12))
+                        elements.append(Paragraph(f"Category: {regcat.title()}", header_style))
+                        elements.append(Paragraph(f"Occupation: {occupation.name}", header_style))
+                        if level:
+                            elements.append(Paragraph(f"Level: {level.name}", header_style))
+                        elements.append(Paragraph(f"Assessment Center: {center_name}", header_style))
                         elements.append(Spacer(1, 20))
+                    
                     
                     first_module = False
                     
