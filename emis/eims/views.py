@@ -267,7 +267,7 @@ def generate_result_list(request):
         if regcat.lower() in ['informal', "worker's pas", "workers pas"] and result_data:
             from collections import defaultdict
             from .models import Module, Paper
-            informal_module_data = defaultdict(lambda: {'papers': [], 'candidates': []})
+            informal_module_data = defaultdict(lambda: defaultdict(lambda: {'papers': [], 'candidates': []}))
             
             # Get all modules for this level to ensure we show all modules even if no results
             if level_id and occupation_id:
@@ -276,19 +276,21 @@ def generate_result_list(request):
                     module_key = f"{module.code} - {module.name}"
                     # Get all papers for this module
                     module_papers = Paper.objects.filter(module=module)
-                    informal_module_data[module_key]['papers'] = [{
-                        'code': p.code,
-                        'name': p.name,
-                        'id': p.id
-                    } for p in module_papers]
+                    # Initialize for all centers that have candidates
+                    centers_with_candidates = set(entry['candidate']['assessment_center'] for entry in result_data)
+                    for center_name in centers_with_candidates:
+                        informal_module_data[center_name][module_key]['papers'] = [{
+                            'code': p.code,
+                            'name': p.name,
+                            'id': p.id
+                        } for p in module_papers]
             
-            # Convert to regular dict
-            informal_module_data = dict(informal_module_data)
-                        # Process all results to group by module
+            # Process all results to group by center, then by module
             processed_candidates = set()
             for entry in result_data:
                 candidate = entry['candidate']
                 candidate_id = candidate['id']
+                center_name = candidate['assessment_center'] or 'Unknown Center'
                 
                 # Get all results for this candidate
                 candidate_results = Result.objects.filter(
@@ -303,12 +305,12 @@ def generate_result_list(request):
                         module = result.module
                         module_key = f"{module.code} - {module.name}"
                         
-                        # Check if we already processed this candidate for this module
-                        candidate_module_key = f"{candidate_id}_{module.id}"
+                        # Check if we already processed this candidate for this module in this center
+                        candidate_module_key = f"{candidate_id}_{module.id}_{center_name}"
                         if candidate_module_key not in processed_candidates:
                             processed_candidates.add(candidate_module_key)
                             
-                            # Create candidate entry for this module
+                            # Create candidate entry for this module in this center
                             candidate_entry = {
                                 'id': candidate['id'],
                                 'reg_number': candidate['reg_number'],
@@ -335,7 +337,13 @@ def generate_result_list(request):
                             candidate_entry['paper_results'] = paper_results
                             candidate_entry['has_ctr'] = any(r.comment == 'CTR' for r in candidate_module_results)
                             
-                            informal_module_data[module_key]['candidates'].append(candidate_entry)
+                            informal_module_data[center_name][module_key]['candidates'].append(candidate_entry)
+            
+            # Convert to regular dict
+            informal_module_data = dict(informal_module_data)
+            for center_name in informal_module_data:
+                informal_module_data[center_name] = dict(informal_module_data[center_name])
+
 
 
         # Group by center if all centers (for non-modular or when no module grouping)
@@ -4934,7 +4942,73 @@ def download_result_list_pdf(request):
         
         # Convert to regular dict
         module_result_data = dict(module_result_data)
-    
+            # Enable module and paper grouping for informal category (same logic as HTML preview)
+    informal_module_data = None
+    if regcat.lower() in ['informal', "worker's pas", "workers pas"] and results:
+        from collections import defaultdict
+        from .models import Module, Paper
+        informal_module_data = defaultdict(lambda: {'papers': [], 'candidates': []})
+        
+        # Get all modules for this level to ensure we show all modules even if no results
+        if level_id and occupation_id:
+            all_modules = Module.objects.filter(occupation_id=occupation_id, level_id=level_id)
+            for module in all_modules:
+                module_key = f"{module.code} - {module.name}"
+                # Get all papers for this module
+                module_papers = Paper.objects.filter(module=module)
+                informal_module_data[module_key]['papers'] = [{
+                    'code': p.code,
+                    'name': p.name,
+                    'id': p.id
+                } for p in module_papers]
+        
+        # Process all results to group by module
+        processed_candidates = set()
+        for result in results:
+            candidate = result.candidate
+            candidate_id = candidate.id
+            
+            if result.module:
+                module = result.module
+                module_key = f"{module.code} - {module.name}"
+                
+                # Check if we already processed this candidate for this module
+                candidate_module_key = f"{candidate_id}_{module.id}"
+                if candidate_module_key not in processed_candidates:
+                    processed_candidates.add(candidate_module_key)
+                    
+                    # Create candidate entry for this module
+                    candidate_entry = {
+                        'id': candidate.id,
+                        'reg_number': candidate.reg_number,
+                        'full_name': candidate.full_name,
+                        'gender': candidate.get_gender_display(),
+                        'passport_photo_with_regno': candidate.passport_photo_with_regno.url if candidate.passport_photo_with_regno else None,
+                        'passport_photo': candidate.passport_photo.url if candidate.passport_photo else None,
+                        'assessment_center': getattr(candidate.assessment_center, 'center_name', None),
+                    }
+                    
+                    # Get all results for this candidate in this module
+                    candidate_module_results = [r for r in results if r.candidate_id == candidate_id and r.module == module]
+                    
+                    # Create paper results mapping
+                    paper_results = {}
+                    for r in candidate_module_results:
+                        if r.paper:
+                            paper_results[r.paper.id] = {
+                                'grade': r.grade,
+                                'comment': r.comment,
+                                'mark': r.mark,
+                            }
+                    
+                    candidate_entry['paper_results'] = paper_results
+                    candidate_entry['has_ctr'] = any(r.comment == 'CTR' for r in candidate_module_results)
+                    
+                    informal_module_data[module_key]['candidates'].append(candidate_entry)
+        
+        # Convert to regular dict
+        informal_module_data = dict(informal_module_data)
+
     # Get papers list for formal paper-based occupations (using same logic as HTML preview)
     papers_list = []
     if regcat.lower() == 'formal':
@@ -4954,6 +5028,7 @@ def download_result_list_pdf(request):
         'preview': True,
         'centered_result_data': centered_result_data,
         'module_result_data': module_result_data,
+        'informal_module_data': informal_module_data,
         'form_data': {
             'month': assessment_month,
             'year': assessment_year,
@@ -5155,7 +5230,125 @@ def download_result_list_pdf(request):
                 ]))
                 elements.append(table)
                 elements.append(Spacer(1, 20))
+    # Handle informal category with module and paper grouping
+    elif regcat.lower() in ['informal', "worker's pas", "workers pas"] and informal_module_data:
+        # Process each module
+        first_module = True
+        for module_name, module_info in informal_module_data.items():
+            if module_info['candidates']:
+                if not first_module:  # Add page break between modules (except for first)
+                    elements.append(PageBreak())
+                    
+                    # Repeat header for new page
+                    if logo_path:
+                        try:
+                            logo = Image(logo_path, width=1*inch, height=1*inch)
+                            elements.append(logo)
+                            elements.append(Spacer(1, 12))
+                        except:
+                            pass
+                    
+                    elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", title_style))
+                    elements.append(Paragraph("PROVISIONAL ASSESSMENT RESULT LIST FOR", header_style))
+                    elements.append(Paragraph("ASSESSMENT PERIOD:", header_style))
+                    elements.append(Paragraph(f"{calendar.month_name[int(assessment_month)]} {assessment_year}", header_style))
+                    elements.append(Spacer(1, 12))
+                    elements.append(Paragraph(f"Category: {regcat.title()}", header_style))
+                    elements.append(Paragraph(f"Occupation: {occupation.name}", header_style))
+                    if level:
+                        elements.append(Paragraph(f"Level: {level.name}", header_style))
+                    elements.append(Spacer(1, 20))
+                
+                first_module = False
+                
+                # Module header
+                elements.append(Paragraph(f"MODULE: {module_name}", header_style))
+                elements.append(Spacer(1, 12))
+                
+                # Create table data for this module
+                table_data = []
+                
+                # Table headers - dynamic based on papers in this module
+                headers = ['S/N', 'Photo', 'Reg No', 'Name', 'Gender']
+                for paper in module_info['papers']:
+                    headers.append(paper['code'])
+                headers.append('Comment')
+                
+                table_data.append(headers)
+                
+                # Add candidate data for this module
+                sn = 1
+                for candidate in module_info['candidates']:
+                    row = [str(sn)]
+
+                    # Add photo cell with actual image
+                    photo_cell = None
+                    if candidate.get('passport_photo_with_regno'):
+                        try:
+                            photo_path = candidate['passport_photo_with_regno']
+                            if photo_path.startswith('/media/'):
+                                # Convert URL to file path
+                                photo_file_path = os.path.join(settings.MEDIA_ROOT, photo_path[7:])  # Remove /media/ prefix
+                                if os.path.exists(photo_file_path):
+                                    photo_cell = Image(photo_file_path, width=0.8*inch, height=0.8*inch)
+                        except:
+                            pass
+
+                    if not photo_cell and candidate.get('passport_photo'):
+                        try:
+                            photo_path = candidate['passport_photo']
+                            if photo_path.startswith('/media/'):
+                                # Convert URL to file path
+                                photo_file_path = os.path.join(settings.MEDIA_ROOT, photo_path[7:])  # Remove /media/ prefix
+                                if os.path.exists(photo_file_path):
+                                    photo_cell = Image(photo_file_path, width=0.8*inch, height=0.8*inch)
+                        except:
+                            pass
+
+                    if not photo_cell:
+                            photo_cell = 'No Photo'
+
+                    row.append(photo_cell)
+                    
+                    # Add candidate info
+                    row.append(candidate['reg_number'])
+                    row.append(candidate['full_name'])
+                    row.append(candidate['gender'])
+                    
+                    # Add grades for each paper
+                    for paper in module_info['papers']:
+                        paper_result = candidate['paper_results'].get(paper['id'])
+                        if paper_result:
+                            row.append(paper_result['grade'])
+                        else:
+                            row.append('N/A')
+                    
+                    # Add comment
+                    comment = 'Fail' if candidate['has_ctr'] else 'Successful'
+                    row.append(comment)
+                    
+                    table_data.append(row)
+                    sn += 1
+                
+                # Create and style the table
+                if len(table_data) > 1:  # Only create table if there are candidates
+                    table = Table(table_data)
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 10),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                        ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                    ]))
+                    elements.append(table)
+                    elements.append(Spacer(1, 20))
     else:
+    
         # Process each center (non-modular or fallback)
         for center_name, candidates_data in centered_result_data.items():
             if elements:  # Add page break between centers (except for first)

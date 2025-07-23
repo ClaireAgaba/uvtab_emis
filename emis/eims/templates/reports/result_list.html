@@ -291,71 +291,84 @@
           </table>
           {% elif form_data.regcat == 'informal' %}
           {% if informal_module_data %}
-            {% for module_name, module_info in informal_module_data.items %}
-              {% if module_info.candidates %}
-                <!-- Module Header -->
-                <div class="mb-4 mt-6">
-                  <h3 class="text-lg font-bold text-center bg-gray-100 p-3 border">
-                    MODULE: {{ module_name }}
-                  </h3>
-                </div>
-                
-                <!-- Module Table -->
-                <table class="w-full border text-base mb-6" style="font-size: 14px; width: 100%; table-layout: fixed;">
-                  <thead>
-                    <tr class="bg-gray-100">
-                      <th class="border p-3" style="width: 6%; font-weight: bold; font-size: 14px;">S/N</th>
-                      <th class="border p-3" style="width: 10%; font-weight: bold; font-size: 14px;">Photo</th>
-                      <th class="border p-3" style="width: 15%; font-weight: bold; font-size: 14px;">Reg No</th>
-                      <th class="border p-3" style="width: 20%; font-weight: bold; font-size: 14px;">Name</th>
-                      <th class="border p-3" style="width: 8%; font-weight: bold; font-size: 14px;">Gender</th>
-                      {% for paper in module_info.papers %}
-                        <th class="border p-3" style="width: 8%; font-weight: bold; font-size: 14px;">{{ paper.code }}</th>
-                      {% endfor %}
-                      <th class="border p-3" style="width: 10%; font-weight: bold; font-size: 14px;">Comment</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for candidate in module_info.candidates %}
-                      <tr>
-                        <td class="border p-3" style="font-size: 13px; text-align: center;">{{ forloop.counter }}</td>
-                        <td class="border p-3" style="font-size: 13px; text-align: center;">
-                          {% if candidate.passport_photo_with_regno %}
-                            <img src="{{ candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
-                          {% elif candidate.passport_photo %}
-                            <img src="{{ candidate.passport_photo }}" alt="Photo" class="w-12 h-12 object-cover rounded">
-                          {% else %}
-                            <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
-                          {% endif %}
-                        </td>
-                        <td class="border p-3" style="font-size: 13px; text-align: center;">{{ candidate.reg_number }}</td>
-                        <td class="border p-3" style="font-size: 13px; text-align: center;">{{ candidate.full_name }}</td>
-                        <td class="border p-3" style="font-size: 13px; text-align: center;">{{ candidate.gender }}</td>
+            {% for center_name, center_modules in informal_module_data.items %}
+              <!-- Center Header -->
+              <div class="mb-4 mt-6">
+                <h2 class="text-xl font-bold text-center bg-blue-100 p-3 border">
+                  ASSESSMENT CENTER: {{ center_name }}
+                </h2>
+              </div>
+              
+              {% for module_name, module_info in center_modules.items %}
+                {% if module_info.candidates %}
+                  <!-- Module Header -->
+                  <div class="mb-4 mt-6">
+                    <h3 class="text-lg font-bold text-center bg-gray-100 p-3 border">
+                      MODULE: {{ module_name }}
+                    </h3>
+                  </div>
+                  
+                  <!-- Module Table -->
+                  <table class="w-full border text-base mb-6" style="font-size: 14px; width: 100%; table-layout: fixed;">
+                    <thead>
+                      <tr class="bg-gray-100">
+                        <th class="border p-3" style="width: 6%; font-weight: bold; font-size: 14px;">S/N</th>
+                        <th class="border p-3" style="width: 10%; font-weight: bold; font-size: 14px;">Photo</th>
+                        <th class="border p-3" style="width: 15%; font-weight: bold; font-size: 14px;">Reg No</th>
+                        <th class="border p-3" style="width: 20%; font-weight: bold; font-size: 14px;">Name</th>
+                        <th class="border p-3" style="width: 8%; font-weight: bold; font-size: 14px;">Gender</th>
                         {% for paper in module_info.papers %}
-                          <td class="border p-3" style="font-size: 13px; text-align: center;">
-                            {% with paper_result=candidate.paper_results|lookup:paper.id %}
-                              {% if paper_result %}
-                                <span class="inline-block px-2 py-1 rounded {% if paper_result.grade == 'F' or paper_result.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %}">
-                                  {{ paper_result.grade }}
-                                </span>
-                              {% else %}
-                                <span class="text-gray-400">N/A</span>
-                              {% endif %}
-                            {% endwith %}
-                          </td>
+                          <th class="border p-3" style="width: 8%; font-weight: bold; font-size: 14px;">{{ paper.code }}</th>
                         {% endfor %}
-                        <td class="border p-3" style="font-size: 13px; text-align: center;">
-                          {% if candidate.has_ctr %}Fail{% else %}Successful{% endif %}
-                        </td>
+                        <th class="border p-3" style="width: 10%; font-weight: bold; font-size: 14px;">Comment</th>
                       </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              {% endif %}
+                    </thead>
+                    <tbody>
+                      {% for candidate in module_info.candidates %}
+                        <tr>
+                          <td class="border p-3" style="font-size: 13px; text-align: center;">{{ forloop.counter }}</td>
+                          <td class="border p-3" style="font-size: 13px; text-align: center;">
+                            {% if candidate.passport_photo_with_regno %}
+                              <img src="{{ candidate.passport_photo_with_regno }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                            {% elif candidate.passport_photo %}
+                              <img src="{{ candidate.passport_photo }}" alt="Photo" class="w-12 h-12 object-cover rounded">
+                            {% else %}
+                              <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Photo</div>
+                            {% endif %}
+                          </td>
+                          <td class="border p-3" style="font-size: 13px; text-align: center;">{{ candidate.reg_number }}</td>
+                          <td class="border p-3" style="font-size: 13px; text-align: center;">{{ candidate.full_name }}</td>
+                          <td class="border p-3" style="font-size: 13px; text-align: center;">{{ candidate.gender }}</td>
+                          {% for paper in module_info.papers %}
+                            <td class="border p-3" style="font-size: 13px; text-align: center;">
+                              {% with paper_result=candidate.paper_results|lookup:paper.id %}
+                                {% if paper_result %}
+                                  <span class="inline-block px-2 py-1 rounded {% if paper_result.grade == 'F' or paper_result.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %}">
+                                    {{ paper_result.grade }}
+                                  </span>
+                                {% else %}
+                                  <span class="text-gray-400">N/A</span>
+                                {% endif %}
+                              {% endwith %}
+                            </td>
+                          {% endfor %}
+                          <td class="border p-3" style="font-size: 13px; text-align: center;">
+                            {% if candidate.has_ctr %}Fail{% else %}Successful{% endif %}
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                {% endif %}
+              {% endfor %}
+              
+              <!-- Page break after each center -->
+              <div class="page-break-after"></div>
             {% endfor %}
           {% else %}
             <div class="border rounded p-6 text-gray-400 text-center">No informal results found for the selected parameters.</div>
           {% endif %}
+          
       </div>
         {% endif %}
     {% else %}
