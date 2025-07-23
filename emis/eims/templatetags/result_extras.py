@@ -19,3 +19,33 @@ def has_ctr(results):
             return True
     
     return False
+
+@register.filter
+def lookup(dictionary, key):
+    """
+    Template filter to lookup a value in a dictionary by key.
+    Usage: {{ dict|lookup:key }}
+    """
+    if isinstance(dictionary, dict) and key in dictionary:
+        return dictionary[key]
+    return None
+
+@register.filter
+def lookup(dictionary, key):
+    """
+    Template filter to lookup a value in a dictionary by key.
+    Usage: {{ dict|lookup:key }}
+    """
+    if isinstance(dictionary, dict) and key in dictionary:
+        return dictionary[key]
+    return None
+
+@register.filter
+def lookup(dictionary, key):
+    """
+    Template filter to lookup a value in a dictionary by key.
+    Usage: {{ dict|lookup:key }}
+    """
+    if isinstance(dictionary, dict) and key in dictionary:
+        return dictionary[key]
+    return None

@@ -262,7 +262,82 @@ def generate_result_list(request):
             
             # Convert to regular dict
             module_result_data = dict(module_result_data)
-        
+                    # Enable module and paper grouping for informal category
+        informal_module_data = None
+        if regcat.lower() in ['informal', "worker's pas", "workers pas"] and result_data:
+            from collections import defaultdict
+            from .models import Module, Paper
+            informal_module_data = defaultdict(lambda: {'papers': [], 'candidates': []})
+            
+            # Get all modules for this level to ensure we show all modules even if no results
+            if level_id and occupation_id:
+                all_modules = Module.objects.filter(occupation_id=occupation_id, level_id=level_id)
+                for module in all_modules:
+                    module_key = f"{module.code} - {module.name}"
+                    # Get all papers for this module
+                    module_papers = Paper.objects.filter(module=module)
+                    informal_module_data[module_key]['papers'] = [{
+                        'code': p.code,
+                        'name': p.name,
+                        'id': p.id
+                    } for p in module_papers]
+            
+            # Convert to regular dict
+            informal_module_data = dict(informal_module_data)
+                        # Process all results to group by module
+            processed_candidates = set()
+            for entry in result_data:
+                candidate = entry['candidate']
+                candidate_id = candidate['id']
+                
+                # Get all results for this candidate
+                candidate_results = Result.objects.filter(
+                    candidate_id=candidate_id,
+                    assessment_date__year=year,
+                    assessment_date__month=month,
+                    result_type='informal',
+                ).select_related('module', 'paper')
+                
+                for result in candidate_results:
+                    if result.module:
+                        module = result.module
+                        module_key = f"{module.code} - {module.name}"
+                        
+                        # Check if we already processed this candidate for this module
+                        candidate_module_key = f"{candidate_id}_{module.id}"
+                        if candidate_module_key not in processed_candidates:
+                            processed_candidates.add(candidate_module_key)
+                            
+                            # Create candidate entry for this module
+                            candidate_entry = {
+                                'id': candidate['id'],
+                                'reg_number': candidate['reg_number'],
+                                'full_name': candidate['full_name'],
+                                'gender': candidate['gender'],
+                                'passport_photo_with_regno': candidate['passport_photo_with_regno'],
+                                'passport_photo': candidate['passport_photo'],
+                                'assessment_center': candidate['assessment_center'],
+                            }
+                            
+                            # Get all results for this candidate in this module
+                            candidate_module_results = candidate_results.filter(module=module)
+                            
+                            # Create paper results mapping
+                            paper_results = {}
+                            for r in candidate_module_results:
+                                if r.paper:
+                                    paper_results[r.paper.id] = {
+                                        'grade': r.grade,
+                                        'comment': r.comment,
+                                        'mark': r.mark,
+                                    }
+                            
+                            candidate_entry['paper_results'] = paper_results
+                            candidate_entry['has_ctr'] = any(r.comment == 'CTR' for r in candidate_module_results)
+                            
+                            informal_module_data[module_key]['candidates'].append(candidate_entry)
+
+
         # Group by center if all centers (for non-modular or when no module grouping)
         centered_result_data = None
         if not center_id:
@@ -277,6 +352,8 @@ def generate_result_list(request):
         levels = Level.objects.all()
         centers = AssessmentCenter.objects.all()
         print(f'[DEBUG] centered_result_data: {centered_result_data}')
+        print(f'[DEBUG] informal_module_data: {informal_module_data}')
+
         context = {
             'months': months,
             'years': years,
@@ -296,6 +373,7 @@ def generate_result_list(request):
             'data': result_data,  # Template expects 'data' variable
             'centered_result_data': dict(centered_result_data) if centered_result_data else None,
             'module_result_data': dict(module_result_data) if module_result_data else None,
+            'informal_module_data': informal_module_data,
             'formatted_period': formatted_period,
             'logo_path': '/static/images/uvtab_logo.png',
             'errors': errors,
