@@ -5621,7 +5621,8 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
     reg_category_short = candidate.registration_category.upper() if candidate.registration_category else 'N/A'
     
     return cell_elements
-
+    
+    return render(request, 'statistics/home.html', context)
 @login_required
 def statistics_home(request):
     """Enhanced statistics dashboard showing system overview and detailed metrics including assessment series"""
@@ -5680,61 +5681,49 @@ def statistics_home(request):
             'color': reg_colors.get(reg_cat, '#6B7280')  # Default gray
         })
     
-    # Disability breakdown
-    total_with_disability = Candidate.objects.filter(disability=True).count()
-    total_without_disability = Candidate.objects.filter(disability=False).count()
+    # Special needs breakdown
+    total_with_special_needs = Candidate.objects.filter(disability=True).count()
+    total_without_special_needs = Candidate.objects.filter(disability=False).count()
     
-    disability_breakdown = [
+    special_needs_breakdown = [
         {
-            'name': 'With Disability',
-            'count': total_with_disability,
-            'percentage': round((total_with_disability / total_candidates_for_percentage) * 100, 1),
+            'name': 'With Special Needs',
+            'count': total_with_special_needs,
+            'percentage': round((total_with_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#EF4444'  # Red
         },
         {
-            'name': 'Without Disability',
-            'count': total_without_disability,
-            'percentage': round((total_without_disability / total_candidates_for_percentage) * 100, 1),
+            'name': 'Without Special Needs',
+            'count': total_without_special_needs,
+            'percentage': round((total_without_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#10B981'  # Green
         }
     ]
     
-    # Disability by Gender breakdown
-    disability_by_gender = []
+    # Special needs by Gender breakdown
+    special_needs_by_gender = []
     
-    # Male with disability
-    male_with_disability = Candidate.objects.filter(gender='M', disability=True).count()
-    # Female with disability
-    female_with_disability = Candidate.objects.filter(gender='F', disability=True).count()
-    # Male without disability
-    male_without_disability = Candidate.objects.filter(gender='M', disability=False).count()
-    # Female without disability
-    female_without_disability = Candidate.objects.filter(gender='F', disability=False).count()
+    # Male with special needs
+    male_with_special_needs = Candidate.objects.filter(gender='M', disability=True).count()
+    # Female with special needs
+    female_with_special_needs = Candidate.objects.filter(gender='F', disability=True).count()
+    # Male without special needs
+    male_without_special_needs = Candidate.objects.filter(gender='M', disability=False).count()
+    # Female without special needs
+    female_without_special_needs = Candidate.objects.filter(gender='F', disability=False).count()
     
-    disability_by_gender = [
+    special_needs_by_gender = [
         {
-            'category': 'Male with Disability',
-            'count': male_with_disability,
-            'percentage': round((male_with_disability / total_candidates_for_percentage) * 100, 1),
+            'category': 'Male with Special Needs',
+            'count': male_with_special_needs,
+            'percentage': round((male_with_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#DC2626'  # Dark red
         },
         {
-            'category': 'Female with Disability',
-            'count': female_with_disability,
-            'percentage': round((female_with_disability / total_candidates_for_percentage) * 100, 1),
+            'category': 'Female with Special Needs',
+            'count': female_with_special_needs,
+            'percentage': round((female_with_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#BE185D'  # Dark pink
-        },
-        {
-            'category': 'Male without Disability',
-            'count': male_without_disability,
-            'percentage': round((male_without_disability / total_candidates_for_percentage) * 100, 1),
-            'color': '#2563EB'  # Blue
-        },
-        {
-            'category': 'Female without Disability',
-            'count': female_without_disability,
-            'percentage': round((female_without_disability / total_candidates_for_percentage) * 100, 1),
-            'color': '#DB2777'  # Pink
         }
     ]
     
@@ -5756,15 +5745,15 @@ def statistics_home(request):
                 'color': reg_colors.get(reg_cat, '#6B7280')
             })
     
-    # Assessment Series breakdown (grouped by month and year)
+    # Assessment Series breakdown (grouped by month and year from CANDIDATE assessment_date)
     assessment_series = []
     
-    # Get distinct assessment periods from results
-    assessment_periods = Result.objects.values(
+    # Get distinct assessment periods from CANDIDATES (not results)
+    assessment_periods = Candidate.objects.values(
         'assessment_date__year', 
         'assessment_date__month'
     ).annotate(
-        total_candidates=Count('candidate', distinct=True)
+        total_candidates=Count('id')
     ).order_by('-assessment_date__year', '-assessment_date__month')
     
     for period in assessment_periods:
@@ -5772,18 +5761,18 @@ def statistics_home(request):
         month = period['assessment_date__month']
         
         if year and month:
-            # Get candidates who have results in this period
+            # Get candidates who have assessment_date in this period
             candidates_in_period = Candidate.objects.filter(
-                result__assessment_date__year=year,
-                result__assessment_date__month=month
-            ).distinct()
+                assessment_date__year=year,
+                assessment_date__month=month
+            )
             
             # Count by gender
             male_count = candidates_in_period.filter(gender='M').count()
             female_count = candidates_in_period.filter(gender='F').count()
             
-            # Count with disability
-            disability_count = candidates_in_period.filter(disability=True).count()
+            # Count with special needs
+            special_needs_count = candidates_in_period.filter(disability=True).count()
             
             # Count distinct occupations
             occupation_count = candidates_in_period.values('occupation').distinct().count()
@@ -5798,7 +5787,7 @@ def statistics_home(request):
                 'total_candidates': period['total_candidates'],
                 'male_count': male_count,
                 'female_count': female_count,
-                'disability_count': disability_count,
+                'special_needs_count': special_needs_count,
                 'occupation_count': occupation_count
             })
     
@@ -5809,8 +5798,8 @@ def statistics_home(request):
         'total_results': total_results,
         'gender_breakdown': gender_breakdown,
         'registration_categories': registration_categories,
-        'disability_breakdown': disability_breakdown,
-        'disability_by_gender': disability_by_gender,
+        'special_needs_breakdown': special_needs_breakdown,
+        'special_needs_by_gender': special_needs_by_gender,
         'reg_cat_by_gender': reg_cat_by_gender,
         'assessment_series': assessment_series,
     }
@@ -5820,13 +5809,13 @@ def statistics_home(request):
 
 @login_required
 def assessment_series_detail(request, year, month):
-    """Detailed breakdown for a specific assessment period (month/year)"""
+    """Detailed breakdown for a specific assessment period (month/year) using CANDIDATE assessment_date"""
     
-    # Get candidates who have results in this period
+    # Get candidates who have assessment_date in this period (not result assessment_date)
     candidates_in_period = Candidate.objects.filter(
-        result__assessment_date__year=year,
-        result__assessment_date__month=month
-    ).distinct()
+        assessment_date__year=year,
+        assessment_date__month=month
+    )
     
     total_candidates = candidates_in_period.count()
     total_candidates_for_percentage = total_candidates if total_candidates > 0 else 1
@@ -5894,54 +5883,54 @@ def assessment_series_detail(request, year, month):
     
     # Special needs breakdown
     special_needs_breakdown = []
-    with_disability = candidates_in_period.filter(disability=True).count()
-    without_disability = candidates_in_period.filter(disability=False).count()
+    with_special_needs = candidates_in_period.filter(disability=True).count()
+    without_special_needs = candidates_in_period.filter(disability=False).count()
     
     special_needs_breakdown = [
         {
             'name': 'With Special Needs',
-            'count': with_disability,
-            'percentage': round((with_disability / total_candidates_for_percentage) * 100, 1),
+            'count': with_special_needs,
+            'percentage': round((with_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#EF4444'
         },
         {
             'name': 'Without Special Needs',
-            'count': without_disability,
-            'percentage': round((without_disability / total_candidates_for_percentage) * 100, 1),
+            'count': without_special_needs,
+            'percentage': round((without_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#10B981'
         }
     ]
     
     # Special needs by gender
     special_needs_by_gender = []
-    male_with_disability = candidates_in_period.filter(gender='M', disability=True).count()
-    female_with_disability = candidates_in_period.filter(gender='F', disability=True).count()
-    male_without_disability = candidates_in_period.filter(gender='M', disability=False).count()
-    female_without_disability = candidates_in_period.filter(gender='F', disability=False).count()
+    male_with_special_needs = candidates_in_period.filter(gender='M', disability=True).count()
+    female_with_special_needs = candidates_in_period.filter(gender='F', disability=True).count()
+    male_without_special_needs = candidates_in_period.filter(gender='M', disability=False).count()
+    female_without_special_needs = candidates_in_period.filter(gender='F', disability=False).count()
     
     special_needs_by_gender = [
         {
             'category': 'Male with Special Needs',
-            'count': male_with_disability,
-            'percentage': round((male_with_disability / total_candidates_for_percentage) * 100, 1),
+            'count': male_with_special_needs,
+            'percentage': round((male_with_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#DC2626'
         },
         {
             'category': 'Female with Special Needs',
-            'count': female_with_disability,
-            'percentage': round((female_with_disability / total_candidates_for_percentage) * 100, 1),
+            'count': female_with_special_needs,
+            'percentage': round((female_with_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#BE185D'
         },
         {
             'category': 'Male without Special Needs',
-            'count': male_without_disability,
-            'percentage': round((male_without_disability / total_candidates_for_percentage) * 100, 1),
+            'count': male_without_special_needs,
+            'percentage': round((male_without_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#2563EB'
         },
         {
             'category': 'Female without Special Needs',
-            'count': female_without_disability,
-            'percentage': round((female_without_disability / total_candidates_for_percentage) * 100, 1),
+            'count': female_without_special_needs,
+            'percentage': round((female_without_special_needs / total_candidates_for_percentage) * 100, 1),
             'color': '#DB2777'
         }
     ]

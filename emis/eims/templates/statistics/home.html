@@ -115,8 +115,8 @@
               </div>
               
               <div class="flex justify-between text-sm">
-                <span class="text-gray-600">With Disability:</span>
-                <span class="font-medium text-red-600">{{ series.disability_count }}</span>
+                <span class="text-gray-600">With Special Needs:</span>
+                <span class="font-medium text-red-600">{{ series.special_needs_count }}</span>
               </div>
               
               <div class="flex justify-between text-sm">
@@ -170,24 +170,24 @@
         </div>
       </div>
 
-      <!-- Disability Breakdown -->
+      <!-- Special Needs Breakdown -->
       <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Candidates by Disability Status</h3>
+          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Candidates by Special Needs Status</h3>
           <div class="space-y-4">
-            {% for disability in disability_breakdown %}
+            {% for special_need in special_needs_breakdown %}
             <div class="flex items-center justify-between">
               <div class="flex items-center">
-                <div class="w-4 h-4 rounded-full mr-3" style="background-color: {{ disability.color }}"></div>
-                <span class="text-sm font-medium text-gray-900">{{ disability.name }}</span>
+                <div class="w-4 h-4 rounded-full mr-3" style="background-color: {{ special_need.color }}"></div>
+                <span class="text-sm font-medium text-gray-900">{{ special_need.name }}</span>
               </div>
-              <span class="text-sm text-gray-500">{{ disability.count }} candidates ({{ disability.percentage }}%)</span>
+              <span class="text-sm text-gray-500">{{ special_need.count }} candidates ({{ special_need.percentage }}%)</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
-              <div class="h-2 rounded-full" style="background-color: {{ disability.color }}; width: {{ disability.percentage }}%"></div>
+              <div class="h-2 rounded-full" style="background-color: {{ special_need.color }}; width: {{ special_need.percentage }}%"></div>
             </div>
             {% empty %}
-            <p class="text-gray-500 text-sm">No disability data available</p>
+            <p class="text-gray-500 text-sm">No special needs data available</p>
             {% endfor %}
           </div>
         </div>
@@ -217,12 +217,12 @@
       </div>
     </div>
 
-    <!-- Disability by Gender Breakdown -->
+    <!-- Special Needs by Gender Breakdown -->
     <div class="bg-white shadow rounded-lg mb-8">
       <div class="px-4 py-5 sm:p-6">
-        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Special Needs by Gender</h3>
+        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Special Needs Candidates by Gender</h3>
         <div class="space-y-4">
-          {% for item in disability_by_gender %}
+          {% for item in special_needs_by_gender %}
           <div class="flex items-center justify-between">
             <div class="flex items-center">
               <div class="w-4 h-4 rounded-full mr-3" style="background-color: {{ item.color }}"></div>
@@ -234,7 +234,7 @@
             <div class="h-2 rounded-full" style="background-color: {{ item.color }}; width: {{ item.percentage }}%"></div>
           </div>
           {% empty %}
-          <p class="text-gray-500 text-sm">No disability by gender data available</p>
+          <p class="text-gray-500 text-sm">No special needs by gender data available</p>
           {% endfor %}
         </div>
       </div>
@@ -290,7 +290,7 @@
         <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Recent Activity</h3>
         <div class="text-center py-8">
           <div class="text-4xl text-gray-400 mb-4">📈</div>
-          <p class="text-gray-500">Enhanced statistics with gender and disability breakdowns.</p>
+          <p class="text-gray-500">Enhanced statistics with gender and special needs breakdowns.</p>
           <p class="text-sm text-gray-400 mt-2">More detailed analytics and charts can be added here.</p>
         </div>
       </div>
