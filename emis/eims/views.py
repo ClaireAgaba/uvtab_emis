@@ -2969,9 +2969,33 @@ def add_paper(request, level_id):
 
 from django.core.paginator import Paginator
 
+@login_required
 def candidate_list(request):
     # Get current filters from session or initialize
     current_filters = request.session.get('candidate_filters', {})
+    
+    # Handle URL-based filters (for statistics clickable links)
+    url_filters = {}
+    if request.GET:
+        # Extract filters from URL parameters
+        url_filters = {
+            'reg_number': request.GET.get('reg_number', '').strip(),
+            'search': request.GET.get('search', '').strip(),
+            'occupation': request.GET.get('occupation', '').strip(),
+            'registration_category': request.GET.get('registration_category', '').strip(),
+            'assessment_center': request.GET.get('assessment_center', '').strip(),
+            'gender': request.GET.get('gender', '').strip(),
+            'disability': request.GET.get('disability', '').strip(),
+            'assessment_year': request.GET.get('assessment_year', '').strip(),
+            'assessment_month': request.GET.get('assessment_month', '').strip(),
+        }
+        # Remove empty values
+        url_filters = {k: v for k, v in url_filters.items() if v}
+        
+        # If URL filters exist, use them and update session
+        if url_filters:
+            current_filters.update(url_filters)
+            request.session['candidate_filters'] = current_filters
 
     # If form is submitted, update filters in session
     if 'apply_filters' in request.GET:
@@ -3005,7 +3029,7 @@ def candidate_list(request):
         except CenterRepresentative.DoesNotExist:
             candidates = candidates.none()
 
-    # Filtering logic from session filters
+    # Enhanced filtering logic from session filters
     if current_filters.get('reg_number'):
         candidates = candidates.filter(reg_number__icontains=current_filters.get('reg_number'))
     if current_filters.get('search'):
@@ -3016,7 +3040,37 @@ def candidate_list(request):
         candidates = candidates.filter(registration_category=current_filters.get('registration_category'))
     if current_filters.get('assessment_center'):
         candidates = candidates.filter(assessment_center_id=current_filters.get('assessment_center'))
+    
+    # NEW: Additional filters for statistics integration
+    if current_filters.get('gender'):
+        candidates = candidates.filter(gender=current_filters.get('gender'))
+    if current_filters.get('disability'):
+        # Convert string to boolean
+        disability_filter = current_filters.get('disability').lower() == 'true'
+        candidates = candidates.filter(disability=disability_filter)
+    if current_filters.get('assessment_year'):
+        candidates = candidates.filter(assessment_date__year=current_filters.get('assessment_year'))
+    if current_filters.get('assessment_month'):
+        candidates = candidates.filter(assessment_date__month=current_filters.get('assessment_month'))
 
+    def build_candidate_filter_url(base_filters=None, **additional_filters):
+        """Build a URL for filtering candidates with given parameters"""
+        from django.urls import reverse
+        import urllib.parse
+        
+        filters = base_filters.copy() if base_filters else {}
+        filters.update(additional_filters)
+    
+        # Remove empty values
+        filters = {k: v for k, v in filters.items() if v}
+    
+        if filters:
+            query_string = urllib.parse.urlencode(filters)
+            return f"{reverse('candidate_list')}?{query_string}"
+        else:
+            return reverse('candidate_list')
+
+    
     from .models import Occupation, AssessmentCenter
     occupations = Occupation.objects.all()
     centers = AssessmentCenter.objects.all()
@@ -5967,3 +6021,24 @@ def assessment_series_detail(request, year, month):
     }
     
     return render(request, 'statistics/assessment_series_detail.html', context)
+
+    def get_candidate_filter_urls(assessment_year=None, assessment_month=None):
+        """Generate common filter URLs for statistics templates"""
+        base_filters = {}
+        if assessment_year:
+            base_filters['assessment_year'] = assessment_year
+        if assessment_month:
+            base_filters['assessment_month'] = assessment_month
+    
+        return {
+            'male_url': build_candidate_filter_url(base_filters, gender='M'),
+            'female_url': build_candidate_filter_url(base_filters, gender='F'),
+            'special_needs_url': build_candidate_filter_url(base_filters, disability='true'),
+            'no_special_needs_url': build_candidate_filter_url(base_filters, disability='false'),
+            'male_special_needs_url': build_candidate_filter_url(base_filters, gender='M', disability='true'),
+            'female_special_needs_url': build_candidate_filter_url(base_filters, gender='F', disability='true'),
+            'formal_url': build_candidate_filter_url(base_filters, registration_category='Formal'),
+            'modular_url': build_candidate_filter_url(base_filters, registration_category='Modular'),
+            'informal_url': build_candidate_filter_url(base_filters, registration_category='Informal'),
+            'workers_pas_url': build_candidate_filter_url(base_filters, registration_category="Worker's PAS"),
+        }

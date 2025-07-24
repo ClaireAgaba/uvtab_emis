@@ -56,10 +56,15 @@
               <div class="text-3xl text-blue-600">👥</div>
             </div>
             <div class="ml-5 w-0 flex-1">
-              <dl>
-                <dt class="text-sm font-medium text-gray-500 truncate">Total Candidates</dt>
-                <dd class="text-lg font-medium text-gray-900">{{ total_candidates }}</dd>
-              </dl>
+                <dl>
+                    <dt class="text-sm font-medium text-gray-500 truncate">Total Candidates</dt>
+                    <dd class="text-lg font-medium text-gray-900">
+                      <a href="{% url 'candidate_list' %}?assessment_year={{ year }}&assessment_month={{ month }}" 
+                         class="text-blue-600 hover:text-blue-800 hover:underline">
+                        {{ total_candidates }}
+                      </a>
+                    </dd>
+                  </dl>
             </div>
           </div>
         </div>
