@@ -56,6 +56,13 @@
             <div class="text-lg font-medium">Reports</div>
           </div>
         </a>
+        
+        <a href="{% url 'statistics_home' %}">
+          <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center">
+            <div class="text-4xl text-indigo-600 mb-3">📈</div>
+            <div class="text-lg font-medium">Statistics</div>
+          </div>
+        </a>
       {% endif %}
       
     {% elif "SupportStaff" in group_names or "CenterRep" in group_names %}
