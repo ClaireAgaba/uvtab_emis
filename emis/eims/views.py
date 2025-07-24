@@ -8,6 +8,8 @@ from django.contrib.auth.decorators import login_required
 from reportlab.platypus import Image as RLImage
 import calendar
 import logging
+from django.db.models import Count
+from .models import Candidate, Occupation, AssessmentCenter, Result
 
 @login_required
 def generate_result_list(request):
@@ -5619,4 +5621,54 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
     reg_category_short = candidate.registration_category.upper() if candidate.registration_category else 'N/A'
     
     return cell_elements
+
+@login_required
+def statistics_home(request):
+    """Statistics dashboard showing system overview and metrics"""
+    
+    # Get basic counts
+    total_candidates = Candidate.objects.count()
+    total_occupations = Occupation.objects.count()
+    total_centers = AssessmentCenter.objects.count()
+    total_results = Result.objects.count()
+    
+    # Get registration categories breakdown
+    registration_categories = []
+    reg_cat_data = Candidate.objects.values('registration_category').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Define colors for different registration categories
+    colors = {
+        'Formal': '#3B82F6',      # Blue
+        'Modular': '#10B981',     # Green
+        'Informal': '#F59E0B',    # Yellow
+        'Worker\'s PAS': '#EF4444', # Red
+    }
+    
+    total_candidates_for_percentage = total_candidates if total_candidates > 0 else 1
+    
+    for category in reg_cat_data:
+        reg_cat = category['registration_category']
+        count = category['count']
+        percentage = (count / total_candidates_for_percentage) * 100
+        
+        registration_categories.append({
+            'name': reg_cat or 'Unknown',
+            'count': count,
+            'percentage': round(percentage, 1),
+            'color': colors.get(reg_cat, '#6B7280')  # Default gray
+        })
+    
+    context = {
+        'total_candidates': total_candidates,
+        'total_occupations': total_occupations,
+        'total_centers': total_centers,
+        'total_results': total_results,
+        'registration_categories': registration_categories,
+    }
+    
+    return render(request, 'statistics/home.html', context)
+
+
 

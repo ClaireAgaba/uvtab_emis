@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 px-6 py-8">
+  <div class="max-w-7xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-900 mb-8">Statistics Dashboard</h1>
+    
+    <!-- Statistics Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <!-- Total Candidates Card -->
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <div class="text-3xl text-blue-600">👥</div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Total Candidates</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ total_candidates|default:"0" }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total Occupations Card -->
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <div class="text-3xl text-green-600">💼</div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Total Occupations</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ total_occupations|default:"0" }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Assessment Centers Card -->
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <div class="text-3xl text-cyan-600">🏢</div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Assessment Centers</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ total_centers|default:"0" }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Recorded Card -->
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <div class="text-3xl text-red-600">📊</div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Results Recorded</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ total_results|default:"0" }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Registration Categories Chart -->
+    <div class="bg-white shadow rounded-lg mb-8">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Candidates by Registration Category</h3>
+        <div class="space-y-4">
+          {% for category in registration_categories %}
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div class="w-4 h-4 rounded-full mr-3" style="background-color: {{ category.color }}"></div>
+              <span class="text-sm font-medium text-gray-900">{{ category.name }}</span>
+            </div>
+            <span class="text-sm text-gray-500">{{ category.count }} candidates</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="h-2 rounded-full" style="background-color: {{ category.color }}; width: {{ category.percentage }}%"></div>
+          </div>
+          {% empty %}
+          <p class="text-gray-500 text-sm">No registration data available</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="bg-white shadow rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Recent Activity</h3>
+        
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
