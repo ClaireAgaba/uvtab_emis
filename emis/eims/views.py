@@ -5624,7 +5624,7 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
 
 @login_required
 def statistics_home(request):
-    """Statistics dashboard showing system overview and metrics"""
+    """Enhanced statistics dashboard showing system overview and detailed metrics including assessment series"""
     
     # Get basic counts
     total_candidates = Candidate.objects.count()
@@ -5632,21 +5632,41 @@ def statistics_home(request):
     total_centers = AssessmentCenter.objects.count()
     total_results = Result.objects.count()
     
-    # Get registration categories breakdown
+    # Gender breakdown
+    gender_data = Candidate.objects.values('gender').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    gender_breakdown = []
+    gender_colors = {'M': '#3B82F6', 'F': '#EC4899'}  # Blue for Male, Pink for Female
+    total_candidates_for_percentage = total_candidates if total_candidates > 0 else 1
+    
+    for gender in gender_data:
+        gender_code = gender['gender']
+        count = gender['count']
+        percentage = (count / total_candidates_for_percentage) * 100
+        
+        gender_breakdown.append({
+            'code': gender_code,
+            'name': 'Male' if gender_code == 'M' else 'Female' if gender_code == 'F' else 'Unknown',
+            'count': count,
+            'percentage': round(percentage, 1),
+            'color': gender_colors.get(gender_code, '#6B7280')
+        })
+    
+    # Registration categories breakdown
     registration_categories = []
     reg_cat_data = Candidate.objects.values('registration_category').annotate(
         count=Count('id')
     ).order_by('-count')
     
     # Define colors for different registration categories
-    colors = {
+    reg_colors = {
         'Formal': '#3B82F6',      # Blue
         'Modular': '#10B981',     # Green
         'Informal': '#F59E0B',    # Yellow
         'Worker\'s PAS': '#EF4444', # Red
     }
-    
-    total_candidates_for_percentage = total_candidates if total_candidates > 0 else 1
     
     for category in reg_cat_data:
         reg_cat = category['registration_category']
@@ -5657,18 +5677,304 @@ def statistics_home(request):
             'name': reg_cat or 'Unknown',
             'count': count,
             'percentage': round(percentage, 1),
-            'color': colors.get(reg_cat, '#6B7280')  # Default gray
+            'color': reg_colors.get(reg_cat, '#6B7280')  # Default gray
         })
+    
+    # Disability breakdown
+    total_with_disability = Candidate.objects.filter(disability=True).count()
+    total_without_disability = Candidate.objects.filter(disability=False).count()
+    
+    disability_breakdown = [
+        {
+            'name': 'With Disability',
+            'count': total_with_disability,
+            'percentage': round((total_with_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#EF4444'  # Red
+        },
+        {
+            'name': 'Without Disability',
+            'count': total_without_disability,
+            'percentage': round((total_without_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#10B981'  # Green
+        }
+    ]
+    
+    # Disability by Gender breakdown
+    disability_by_gender = []
+    
+    # Male with disability
+    male_with_disability = Candidate.objects.filter(gender='M', disability=True).count()
+    # Female with disability
+    female_with_disability = Candidate.objects.filter(gender='F', disability=True).count()
+    # Male without disability
+    male_without_disability = Candidate.objects.filter(gender='M', disability=False).count()
+    # Female without disability
+    female_without_disability = Candidate.objects.filter(gender='F', disability=False).count()
+    
+    disability_by_gender = [
+        {
+            'category': 'Male with Disability',
+            'count': male_with_disability,
+            'percentage': round((male_with_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#DC2626'  # Dark red
+        },
+        {
+            'category': 'Female with Disability',
+            'count': female_with_disability,
+            'percentage': round((female_with_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#BE185D'  # Dark pink
+        },
+        {
+            'category': 'Male without Disability',
+            'count': male_without_disability,
+            'percentage': round((male_without_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#2563EB'  # Blue
+        },
+        {
+            'category': 'Female without Disability',
+            'count': female_without_disability,
+            'percentage': round((female_without_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#DB2777'  # Pink
+        }
+    ]
+    
+    # Registration Category by Gender
+    reg_cat_by_gender = []
+    for category in reg_cat_data:
+        reg_cat = category['registration_category']
+        if reg_cat:
+            male_count = Candidate.objects.filter(registration_category=reg_cat, gender='M').count()
+            female_count = Candidate.objects.filter(registration_category=reg_cat, gender='F').count()
+            
+            reg_cat_by_gender.append({
+                'category': reg_cat,
+                'male_count': male_count,
+                'female_count': female_count,
+                'total_count': male_count + female_count,
+                'male_percentage': round((male_count / total_candidates_for_percentage) * 100, 1),
+                'female_percentage': round((female_count / total_candidates_for_percentage) * 100, 1),
+                'color': reg_colors.get(reg_cat, '#6B7280')
+            })
+    
+    # Assessment Series breakdown (grouped by month and year)
+    assessment_series = []
+    
+    # Get distinct assessment periods from results
+    assessment_periods = Result.objects.values(
+        'assessment_date__year', 
+        'assessment_date__month'
+    ).annotate(
+        total_candidates=Count('candidate', distinct=True)
+    ).order_by('-assessment_date__year', '-assessment_date__month')
+    
+    for period in assessment_periods:
+        year = period['assessment_date__year']
+        month = period['assessment_date__month']
+        
+        if year and month:
+            # Get candidates who have results in this period
+            candidates_in_period = Candidate.objects.filter(
+                result__assessment_date__year=year,
+                result__assessment_date__month=month
+            ).distinct()
+            
+            # Count by gender
+            male_count = candidates_in_period.filter(gender='M').count()
+            female_count = candidates_in_period.filter(gender='F').count()
+            
+            # Count with disability
+            disability_count = candidates_in_period.filter(disability=True).count()
+            
+            # Count distinct occupations
+            occupation_count = candidates_in_period.values('occupation').distinct().count()
+            
+            # Get month name
+            month_name = calendar.month_name[month]
+            
+            assessment_series.append({
+                'year': year,
+                'month': month,
+                'period_name': f"{month_name} {year}",
+                'total_candidates': period['total_candidates'],
+                'male_count': male_count,
+                'female_count': female_count,
+                'disability_count': disability_count,
+                'occupation_count': occupation_count
+            })
     
     context = {
         'total_candidates': total_candidates,
         'total_occupations': total_occupations,
         'total_centers': total_centers,
         'total_results': total_results,
+        'gender_breakdown': gender_breakdown,
         'registration_categories': registration_categories,
+        'disability_breakdown': disability_breakdown,
+        'disability_by_gender': disability_by_gender,
+        'reg_cat_by_gender': reg_cat_by_gender,
+        'assessment_series': assessment_series,
     }
     
     return render(request, 'statistics/home.html', context)
 
 
-
+@login_required
+def assessment_series_detail(request, year, month):
+    """Detailed breakdown for a specific assessment period (month/year)"""
+    
+    # Get candidates who have results in this period
+    candidates_in_period = Candidate.objects.filter(
+        result__assessment_date__year=year,
+        result__assessment_date__month=month
+    ).distinct()
+    
+    total_candidates = candidates_in_period.count()
+    total_candidates_for_percentage = total_candidates if total_candidates > 0 else 1
+    
+    # Month name for display
+    month_name = calendar.month_name[int(month)]
+    period_name = f"{month_name} {year}"
+    
+    # Gender breakdown
+    gender_breakdown = []
+    gender_colors = {'M': '#3B82F6', 'F': '#EC4899'}
+    
+    gender_data = candidates_in_period.values('gender').annotate(count=Count('id'))
+    for gender in gender_data:
+        gender_code = gender['gender']
+        count = gender['count']
+        percentage = (count / total_candidates_for_percentage) * 100
+        
+        gender_breakdown.append({
+            'code': gender_code,
+            'name': 'Male' if gender_code == 'M' else 'Female' if gender_code == 'F' else 'Unknown',
+            'count': count,
+            'percentage': round(percentage, 1),
+            'color': gender_colors.get(gender_code, '#6B7280')
+        })
+    
+    # Registration category breakdown
+    reg_cat_breakdown = []
+    reg_colors = {
+        'Formal': '#3B82F6',
+        'Modular': '#10B981',
+        'Informal': '#F59E0B',
+        'Worker\'s PAS': '#EF4444',
+    }
+    
+    reg_cat_data = candidates_in_period.values('registration_category').annotate(count=Count('id'))
+    for category in reg_cat_data:
+        reg_cat = category['registration_category']
+        count = category['count']
+        percentage = (count / total_candidates_for_percentage) * 100
+        
+        reg_cat_breakdown.append({
+            'name': reg_cat or 'Unknown',
+            'count': count,
+            'percentage': round(percentage, 1),
+            'color': reg_colors.get(reg_cat, '#6B7280')
+        })
+    
+    # Occupation breakdown
+    occupation_breakdown = []
+    occupation_colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316']
+    
+    occupation_data = candidates_in_period.values('occupation__name').annotate(count=Count('id')).order_by('-count')
+    for i, occupation in enumerate(occupation_data):
+        occ_name = occupation['occupation__name']
+        count = occupation['count']
+        percentage = (count / total_candidates_for_percentage) * 100
+        
+        occupation_breakdown.append({
+            'name': occ_name or 'Unknown',
+            'count': count,
+            'percentage': round(percentage, 1),
+            'color': occupation_colors[i % len(occupation_colors)]
+        })
+    
+    # Special needs breakdown
+    special_needs_breakdown = []
+    with_disability = candidates_in_period.filter(disability=True).count()
+    without_disability = candidates_in_period.filter(disability=False).count()
+    
+    special_needs_breakdown = [
+        {
+            'name': 'With Special Needs',
+            'count': with_disability,
+            'percentage': round((with_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#EF4444'
+        },
+        {
+            'name': 'Without Special Needs',
+            'count': without_disability,
+            'percentage': round((without_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#10B981'
+        }
+    ]
+    
+    # Special needs by gender
+    special_needs_by_gender = []
+    male_with_disability = candidates_in_period.filter(gender='M', disability=True).count()
+    female_with_disability = candidates_in_period.filter(gender='F', disability=True).count()
+    male_without_disability = candidates_in_period.filter(gender='M', disability=False).count()
+    female_without_disability = candidates_in_period.filter(gender='F', disability=False).count()
+    
+    special_needs_by_gender = [
+        {
+            'category': 'Male with Special Needs',
+            'count': male_with_disability,
+            'percentage': round((male_with_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#DC2626'
+        },
+        {
+            'category': 'Female with Special Needs',
+            'count': female_with_disability,
+            'percentage': round((female_with_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#BE185D'
+        },
+        {
+            'category': 'Male without Special Needs',
+            'count': male_without_disability,
+            'percentage': round((male_without_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#2563EB'
+        },
+        {
+            'category': 'Female without Special Needs',
+            'count': female_without_disability,
+            'percentage': round((female_without_disability / total_candidates_for_percentage) * 100, 1),
+            'color': '#DB2777'
+        }
+    ]
+    
+    # Registration category by gender
+    reg_cat_by_gender = []
+    for category in reg_cat_data:
+        reg_cat = category['registration_category']
+        if reg_cat:
+            male_count = candidates_in_period.filter(registration_category=reg_cat, gender='M').count()
+            female_count = candidates_in_period.filter(registration_category=reg_cat, gender='F').count()
+            
+            reg_cat_by_gender.append({
+                'category': reg_cat,
+                'male_count': male_count,
+                'female_count': female_count,
+                'total_count': male_count + female_count,
+                'male_percentage': round((male_count / total_candidates_for_percentage) * 100, 1),
+                'female_percentage': round((female_count / total_candidates_for_percentage) * 100, 1),
+                'color': reg_colors.get(reg_cat, '#6B7280')
+            })
+    
+    context = {
+        'period_name': period_name,
+        'year': year,
+        'month': month,
+        'total_candidates': total_candidates,
+        'gender_breakdown': gender_breakdown,
+        'reg_cat_breakdown': reg_cat_breakdown,
+        'occupation_breakdown': occupation_breakdown,
+        'special_needs_breakdown': special_needs_breakdown,
+        'special_needs_by_gender': special_needs_by_gender,
+        'reg_cat_by_gender': reg_cat_by_gender,
+    }
+    
+    return render(request, 'statistics/assessment_series_detail.html', context)
