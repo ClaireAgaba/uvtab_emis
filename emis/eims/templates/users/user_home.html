@@ -17,14 +17,13 @@
         <div class="text-lg font-semibold mb-2">Support Staff</div>
       </div>
     </a>
-    <!-- Staff Card (not clickable) -->
-    <div class="bg-white rounded-xl p-8 text-center border border-gray-100 opacity-60 cursor-not-allowed">
+    <!-- Staff Card -->
+    <a href="{% url 'staff_list' %}" class="block bg-white hover:shadow-lg transition-shadow rounded-xl p-8 text-center border border-gray-100">
       <div class="flex flex-col items-center">
         <div class="text-5xl mb-4">👥</div>
         <div class="text-lg font-semibold mb-2">Staff</div>
-        
       </div>
-    </div>
+    </a>
   </div>
 </div>
 {% endblock %}

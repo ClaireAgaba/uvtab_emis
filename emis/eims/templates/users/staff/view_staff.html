@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="min-h-screen bg-gray-50 px-6 py-8">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+      <nav class="flex" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+          <li>
+            <a href="{% url 'staff_list' %}" class="text-gray-400 hover:text-gray-500">Staff Management</a>
+          </li>
+          <li>
+            <div class="flex items-center">
+              <svg class="flex-shrink-0 h-5 w-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+              </svg>
+              <span class="ml-4 text-sm font-medium text-gray-900">{{ staff.name }}</span>
+            </div>
+          </li>
+        </ol>
+      </nav>
+      <div class="flex justify-between items-start">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">{{ staff.name }}</h1>
+          <p class="mt-2 text-sm text-gray-600">Staff Member Details</p>
+        </div>
+        <a href="{% url 'staff_edit' staff.pk %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+          Edit Staff Member
+        </a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Staff Information -->
+      <div class="lg:col-span-2">
+        <div class="bg-white shadow-sm rounded-lg">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Staff Information</h2>
+          </div>
+          
+          <div class="px-6 py-6">
+            <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Full Name</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ staff.name }}</dd>
+              </div>
+              
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Department</dt>
+                <dd class="mt-1">
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                    {% if staff.department == 'Research' %}bg-green-100 text-green-800
+                    {% elif staff.department == 'Data' %}bg-blue-100 text-blue-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    {{ staff.department }}
+                  </span>
+                </dd>
+              </div>
+              
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ staff.contact }}</dd>
+              </div>
+              
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Username</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ staff.user.username }}</dd>
+              </div>
+              
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Email</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ staff.user.email|default:"Not set" }}</dd>
+              </div>
+              
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Date Created</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ staff.created_at|date:"F d, Y \a\t g:i A" }}</dd>
+              </div>
+              
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Created By</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ staff.created_by.first_name|default:staff.created_by.username }}</dd>
+              </div>
+              
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Last Updated</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ staff.updated_at|date:"F d, Y \a\t g:i A" }}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      <!-- Department Access -->
+      <div class="lg:col-span-1">
+        <div class="bg-white shadow-sm rounded-lg">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Module Access</h3>
+          </div>
+          
+          <div class="px-6 py-6">
+            {% if staff.department == 'Research' %}
+              <div class="flex items-center mb-4">
+                <span class="text-green-600 text-2xl mr-2">🔬</span>
+                <h4 class="text-md font-medium text-gray-900">Research Department</h4>
+              </div>
+              <div class="space-y-3 text-sm">
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Assessment Centers</span>
+                  <span class="ml-auto text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Create/Edit</span>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Occupations</span>
+                  <span class="ml-auto text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">View Only</span>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Statistics</span>
+                  <span class="ml-auto text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">View Only</span>
+                </div>
+              </div>
+            {% elif staff.department == 'Data' %}
+              <div class="flex items-center mb-4">
+                <span class="text-blue-600 text-2xl mr-2">📊</span>
+                <h4 class="text-md font-medium text-gray-900">Data Department</h4>
+              </div>
+              <div class="space-y-3 text-sm">
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Candidates</span>
+                  <span class="ml-auto text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Full Access</span>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Results</span>
+                  <span class="ml-auto text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Full Access</span>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Reports</span>
+                  <span class="ml-auto text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Full Access</span>
+                </div>
+              </div>
+            {% else %}
+              <div class="text-center text-gray-500">
+                <div class="text-4xl mb-2">🏢</div>
+                <p class="text-sm">Department access not configured</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Account Information -->
+        <div class="mt-6 bg-white shadow-sm rounded-lg">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Account Status</h3>
+          </div>
+          
+          <div class="px-6 py-6">
+            <div class="space-y-3 text-sm">
+              <div class="flex items-center justify-between">
+                <span class="text-gray-700">Account Status</span>
+                <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Active</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-700">User Group</span>
+                <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">SupportStaff</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-700">Login Access</span>
+                <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Enabled</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

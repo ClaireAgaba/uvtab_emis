@@ -502,3 +502,31 @@ class SupportStaff(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.department}"
+
+class Staff(models.Model):
+    """Departmental staff with module access control (separate from SupportStaff)"""
+    from django.contrib.auth import get_user_model
+    
+    DEPARTMENT_CHOICES = [
+        ('Research', 'Research'),
+        ('Data', 'Data'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
+    name = models.CharField(max_length=100)
+    contact = models.CharField(max_length=15)
+    department = models.CharField(max_length=20, choices=DEPARTMENT_CHOICES)
+    
+    # Audit trail fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), related_name='created_staff', null=True, blank=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(get_user_model(), related_name='updated_staff', null=True, blank=True, on_delete=models.SET_NULL)
+    
+    def __str__(self):
+        return f"{self.name} - {self.department} Department"
+    
+    class Meta:
+        verbose_name = "Staff Member"
+        verbose_name_plural = "Staff Members"
+

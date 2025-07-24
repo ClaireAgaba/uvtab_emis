@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, FeesType, Result, NatureOfDisability
+from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, FeesType, Result, NatureOfDisability, Staff
 from datetime import datetime   
 
 from django_countries.fields import CountryField
@@ -589,6 +589,54 @@ class SupportStaffForm(forms.ModelForm):
             profile.save()
         return profile
 
+class StaffForm(forms.ModelForm):
+    """Form for departmental staff management (separate from SupportStaff)"""
+    class Meta:
+        model = Staff
+        fields = ['name', 'contact', 'department']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400'}),
+            'contact': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400'}),
+            'department': forms.Select(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400'}),
+        }
+        labels = {
+            'name': 'Full Name',
+            'contact': 'Phone Number',
+            'department': 'Department',
+        }
+
+    def save(self, commit=True):
+        """Create user account and assign to Staff group"""
+        from django.contrib.auth.models import User, Group
+        import random
+        
+        # Generate unique username
+        base_username = self.cleaned_data['name'].lower().replace(' ', '.')
+        username = base_username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+        
+        # Create user account
+        password = "uvtab"
+        user = User.objects.create_user(
+            username=username,
+            email=f"{username}@uvtab.go.ug",
+            password=password,
+            first_name=self.cleaned_data.get('name', '')
+        )
+        
+        # Add to Staff group (create if doesn't exist)
+        staff_group, created = Group.objects.get_or_create(name='Staff')
+        user.groups.add(staff_group)
+        
+        # Save staff profile
+        profile = super().save(commit=False)
+        profile.user = user
+        if commit:
+            profile.save()
+        return profile
 
 import calendar
 
@@ -824,5 +872,3 @@ class ChangeCenterForm(forms.ModelForm):
                 attrs={'class': 'w-full border rounded-md px-3 py-2'}
             )
         }
-
-

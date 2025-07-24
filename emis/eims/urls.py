@@ -4,8 +4,6 @@ from . import views_api
 from django.contrib.auth import views as auth_views
 
 
-
-
 urlpatterns = [
     path('candidates/import-dual/', views.candidate_import_dual, name='candidate_import_dual'),
     path('candidates/bulk-action/', views.bulk_candidate_action, name='bulk_candidate_action'),
@@ -97,8 +95,15 @@ urlpatterns = [
     path('candidates/<int:id>/add-regno-to-photo/', views.add_regno_to_photo, name='add_regno_to_photo'),
     path('candidates/<int:id>/transcript/', views.generate_transcript, name='generate_transcript'),
     path('statistics/', views.statistics_home, name='statistics_home'),
-    path('statistics/assessment-series/<int:year>/<int:month>/', views.assessment_series_detail, name='assessment_series_detail')
-    
+    path('statistics/assessment-series/<int:year>/<int:month>/', views.assessment_series_detail, name='assessment_series_detail'),
+    # Staff Management
+    path('users/staff/', views.staff_list, name='staff_list'),
+    path('users/staff/create/', views.staff_create, name='staff_create'),
+    path('users/staff/<int:pk>/', views.staff_detail, name='staff_detail'),
+    path('users/staff/<int:pk>/edit/', views.staff_edit, name='staff_edit')
+
+
+
 
  ]    
 

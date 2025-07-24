@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="min-h-screen bg-gray-50 px-6 py-8">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+      <nav class="flex" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+          <li>
+            <a href="{% url 'staff_list' %}" class="text-gray-400 hover:text-gray-500">Staff Management</a>
+          </li>
+          <li>
+            <div class="flex items-center">
+              <svg class="flex-shrink-0 h-5 w-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+              </svg>
+              <span class="ml-4 text-sm font-medium text-gray-900">Add Staff Member</span>
+            </div>
+          </li>
+        </ol>
+      </nav>
+      <h1 class="mt-4 text-3xl font-bold text-gray-900">Add New Staff Member</h1>
+      <p class="mt-2 text-sm text-gray-600">Create a new staff member and assign them to a department</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Form -->
+      <div class="lg:col-span-2">
+        <div class="bg-white shadow-sm rounded-lg">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Staff Information</h2>
+          </div>
+          
+          <form method="post" class="px-6 py-6 space-y-6">
+            {% csrf_token %}
+            
+            <!-- Name Field -->
+            <div>
+              <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                Full Name
+              </label>
+              {{ form.name }}
+              {% if form.name.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <!-- Contact Field -->
+            <div>
+              <label for="{{ form.contact.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                Contact Number
+              </label>
+              {{ form.contact }}
+              {% if form.contact.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.contact.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <!-- Department Field -->
+            <div>
+              <label for="{{ form.department.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                Department
+              </label>
+              {{ form.department }}
+              {% if form.department.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.department.errors.0 }}</p>
+              {% endif %}
+              <p class="mt-1 text-sm text-gray-500">Select the department this staff member will belong to</p>
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+              <a href="{% url 'staff_list' %}" class="bg-white border border-gray-300 rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Cancel
+              </a>
+              <button type="submit" class="bg-blue-600 border border-transparent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Create Staff Member
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Department Access Preview -->
+      <div class="lg:col-span-1">
+        <div class="bg-white shadow-sm rounded-lg sticky top-6">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Department Access</h3>
+          </div>
+          
+          <div class="px-6 py-6">
+            <div id="research-access" class="department-access hidden">
+              <div class="flex items-center mb-4">
+                <span class="text-green-600 text-2xl mr-2">🔬</span>
+                <h4 class="text-md font-medium text-gray-900">Research Department</h4>
+              </div>
+              <div class="space-y-3 text-sm">
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Assessment Centers</span>
+                  <span class="ml-auto text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Create/Edit</span>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Occupations</span>
+                  <span class="ml-auto text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">View Only</span>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Statistics</span>
+                  <span class="ml-auto text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">View Only</span>
+                </div>
+              </div>
+            </div>
+
+            <div id="data-access" class="department-access hidden">
+              <div class="flex items-center mb-4">
+                <span class="text-blue-600 text-2xl mr-2">📊</span>
+                <h4 class="text-md font-medium text-gray-900">Data Department</h4>
+              </div>
+              <div class="space-y-3 text-sm">
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Candidates</span>
+                  <span class="ml-auto text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Full Access</span>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Results</span>
+                  <span class="ml-auto text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Full Access</span>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">Reports</span>
+                  <span class="ml-auto text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Full Access</span>
+                </div>
+              </div>
+            </div>
+
+            <div id="default-access" class="department-access">
+              <div class="text-center text-gray-500">
+                <div class="text-4xl mb-2">🏢</div>
+                <p class="text-sm">Select a department to see module access</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const departmentSelect = document.getElementById('{{ form.department.id_for_label }}');
+    const accessDivs = document.querySelectorAll('.department-access');
+    
+    function updateAccessPreview() {
+        // Hide all access divs
+        accessDivs.forEach(div => div.classList.add('hidden'));
+        
+        const selectedDepartment = departmentSelect.value;
+        if (selectedDepartment === 'Research') {
+            document.getElementById('research-access').classList.remove('hidden');
+        } else if (selectedDepartment === 'Data') {
+            document.getElementById('data-access').classList.remove('hidden');
+        } else {
+            document.getElementById('default-access').classList.remove('hidden');
+        }
+    }
+    
+    // Update on change
+    departmentSelect.addEventListener('change', updateAccessPreview);
+    
+    // Initial update
+    updateAccessPreview();
+});
+</script>
+{% endblock %}

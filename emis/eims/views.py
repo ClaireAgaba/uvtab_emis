@@ -10,6 +10,79 @@ import calendar
 import logging
 from django.db.models import Count
 from .models import Candidate, Occupation, AssessmentCenter, Result
+from .models import SupportStaff
+from .forms import SupportStaffForm
+from .models import Staff
+from .forms import StaffForm
+
+
+
+@login_required
+def staff_list(request):
+    """List all staff members with their departments"""
+    staff_members = Staff.objects.select_related('user').all()
+    return render(request, 'users/staff/list_staff.html', {'staff_members': staff_members})
+
+@login_required
+def staff_create(request):
+    """Create a new staff member with department assignment"""
+    if request.method == 'POST':
+        form = StaffForm(request.POST)
+        if form.is_valid():
+            staff = form.save(commit=False)
+            staff.created_by = request.user
+            staff.updated_by = request.user
+            staff.save()
+            messages.success(request, f'Staff member {staff.name} created successfully!')
+            return redirect('staff_list')
+    else:
+        form = StaffForm()
+    return render(request, 'users/staff/create_staff.html', {'form': form})
+
+@login_required
+def staff_detail(request, pk):
+    """View staff member details"""
+    staff = get_object_or_404(Staff, pk=pk)
+    return render(request, 'users/staff/view_staff.html', {'staff': staff})
+
+@login_required
+def staff_edit(request, pk):
+    """Edit staff member details and department"""
+    staff = get_object_or_404(Staff, pk=pk)
+    if request.method == 'POST':
+        form = StaffForm(request.POST, instance=staff)
+        if form.is_valid():
+            staff_obj = form.save(commit=False)
+            staff_obj.updated_by = request.user
+            staff_obj.save()
+            messages.success(request, f'Staff member {staff.name} updated successfully!')
+            return redirect('staff_detail', pk=staff.pk)
+    else:
+        form = StaffForm(instance=staff)
+    return render(request, 'users/staff/edit_staff.html', {'form': form, 'staff': staff})
+
+def get_user_department_modules(user):
+    """Get modules accessible to user based on their staff department"""
+    try:
+        staff = Staff.objects.get(user=user)  # Changed from SupportStaff to Staff
+        department = staff.department
+        
+        if department == 'Research':
+            return {
+                'assessment_centers': {'access': 'create_edit', 'name': 'Assessment Centers'},
+                'occupations': {'access': 'view_only', 'name': 'Occupations'},
+                'statistics': {'access': 'view_only', 'name': 'Statistics'},
+            }
+        elif department == 'Data':
+            return {
+                'candidates': {'access': 'full_access', 'name': 'Candidates'},
+                'results': {'access': 'full_access', 'name': 'Results'},
+                'reports': {'access': 'full_access', 'name': 'Reports'},
+            }
+    except Staff.DoesNotExist:  # Changed from SupportStaff to Staff
+        pass
+    
+    return {}
 
 @login_required
 def generate_result_list(request):
@@ -2143,14 +2216,27 @@ def natureofdisability_edit(request, pk):
     else:
         form = NatureOfDisabilityForm(instance=entry)
     return render(request, 'configurations/natureofdisability_form.html', {'form': form, 'entry': entry, 'edit': True})
-
 @login_required
 def dashboard(request):
     logger = logging.getLogger(__name__)
     logger.info(f'Dashboard accessed by user: {request.user}')
     group_names = list(request.user.groups.values_list('name', flat=True))
-    return render(request, 'dashboard.html', {'group_names': group_names})
-
+    
+    # Get user department if they are staff (using new Staff model)
+    user_department = None
+    try:
+        staff = Staff.objects.get(user=request.user)  # Changed from SupportStaff to Staff
+        user_department = staff.department
+    except Staff.DoesNotExist:  # Changed from SupportStaff to Staff
+        pass
+    
+    context = {
+        'group_names': group_names,
+        'user_department': user_department
+    }
+    
+    return render(request, 'dashboard.html', context)
+    
 def district_villages_api(request, district_id):
     villages = Village.objects.filter(district_id=district_id).values('id', 'name')
     # returns [{"id": 3, "name": "Ntare"}, ...]
