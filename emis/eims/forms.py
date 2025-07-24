@@ -279,7 +279,7 @@ class CandidateForm(forms.ModelForm):
         # Disable occupation, assessment dates, and center fields in edit mode
         if edit:
             for fname in [
-                'occupation', 'assessment_center', 'assessment_date', 'start_date', 'finish_date',
+                'occupation', 'assessment_center', 'start_date', 'finish_date',
                 'registration_category', 'level', 'modules', 'reg_number', 'entry_year', 'intake', 'created_by',
                 'enrollment_label', 'updated_by'
             ]:
