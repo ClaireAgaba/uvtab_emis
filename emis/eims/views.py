@@ -2245,8 +2245,36 @@ from django.urls import reverse
 
 @login_required
 def natureofdisability_list(request):
-    disabilities = NatureOfDisability.objects.all().order_by('name')
-    return render(request, 'configurations/natureofdisability_list.html', {'disabilities': disabilities})
+    # Get filter parameters
+    name = request.GET.get('name', '').strip()
+    description = request.GET.get('description', '').strip()
+    
+    from django.core.paginator import Paginator
+    from django.db.models import Q
+    
+    disabilities = NatureOfDisability.objects.all()
+    
+    # Apply filters
+    if name:
+        disabilities = disabilities.filter(name__icontains=name)
+    if description:
+        disabilities = disabilities.filter(description__icontains=description)
+    
+    disabilities = disabilities.order_by('name')
+    
+    # Pagination: 20 per page
+    paginator = Paginator(disabilities, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'configurations/natureofdisability_list.html', {
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'filters': {
+            'name': name,
+            'description': description,
+        }
+    })
 
 @login_required
 def natureofdisability_create(request):
