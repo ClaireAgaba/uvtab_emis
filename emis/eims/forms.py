@@ -295,13 +295,19 @@ class CandidateForm(forms.ModelForm):
                 self.fields['village'].queryset = Village.objects.filter(district_id=district_id).order_by('name')
             except (ValueError, TypeError):
                 pass  # invalid input from browser; ignore and fallback to an empty queryset
-        elif self.instance.pk and self.instance.district: # If form is for an existing instance
+        elif self.instance.pk and self.instance.district: # If form is for an editing existing instance
             self.fields['village'].queryset = Village.objects.filter(district=self.instance.district).order_by('name')
+        elif self.initial.get('district'): # If initial data has district (form re-render after error)
+            try:
+                district_id = int(self.initial.get('district'))
+                self.fields['village'].queryset = Village.objects.filter(district_id=district_id).order_by('name')
+            except (ValueError, TypeError):
+                pass
         # If it's a new form or no district selected, village queryset remains Village.objects.none()
         # JavaScript will populate it on district change.
     class Meta:
         model = Candidate
-        fields = '__all__'
+        exclude = ['status']
         widgets = {
             'date_of_birth': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
             'start_date': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
@@ -316,8 +322,7 @@ class CandidateForm(forms.ModelForm):
             #'entry_year': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full', 'choices': YEAR_CHOICES }),
             'intake': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'occupation': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
-            'registration_category': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),  
-            'status': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'registration_category': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             # ...add others similarly
 
             }
