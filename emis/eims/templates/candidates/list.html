@@ -3,7 +3,7 @@
 {% block content %}
 <div class="w-full px-2 md:px-8 mt-8">
   <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold">Candidates</h1>
+    <h1 class="text-2xl font-normal" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Candidates</h1>
     <div class="flex gap-2">
   <a href="{% url 'candidate_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Candidate</a>
   <a href="{% url 'candidate_import_dual' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ml-2">Import Candidates & Photos</a>
@@ -95,60 +95,60 @@
   </span>
 </div>
 
-<div class="bg-white shadow rounded">
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg">
     <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-100">
+      <thead class="bg-gray-50">
         <tr>
           <th class="px-2 py-2 text-center">
             <input type="checkbox" id="select-all" class="form-checkbox h-4 w-4">
           </th>
-          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Image</th>
-          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Reg No</th>
-          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Full Name</th>
-          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Occupation</th>
-          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Reg. Category</th>
-          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Center</th>
-          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Status</th>
-          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Actions</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Image</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Reg No</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Full Name</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Occupation</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Reg. Category</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Center</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Status</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Actions</th>
         </tr>
         <tr>
           <form method="get">
             <th></th> <!-- Checkbox column, no filter -->
             <th></th> <!-- Image column, no filter -->
-            <th class="px-4 py-1 whitespace-nowrap">
-              <input type="text" name="reg_number" value="{{ filters.reg_number }}" placeholder="Search Reg No" class="border px-2 py-1 w-full" />
+            <th class="px-3 py-2">
+              <input type="text" name="reg_number" value="{{ filters.reg_number }}" placeholder="Search Reg No" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
             </th>
-            <th class="px-4 py-1 whitespace-nowrap">
-              <input type="text" name="search" value="{{ filters.search }}" placeholder="Search Name" class="border px-2 py-1 w-full" />
+            <th class="px-3 py-2">
+              <input type="text" name="search" value="{{ filters.search }}" placeholder="Search Name" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
             </th>
-            <th class="px-4 py-1 whitespace-nowrap">
-              <select name="occupation" class="border px-2 py-1 w-full">
+            <th class="px-3 py-2">
+              <select name="occupation" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                 <option value="">All Occupations</option>
                 {% for occupation in occupations %}
                   <option value="{{ occupation.id }}" {% if filters.occupation == occupation.id|stringformat:"s" %}selected{% endif %}>{{ occupation.name }}</option>
                 {% endfor %}
               </select>
             </th>
-            <th class="px-4 py-1 whitespace-nowrap">
-              <select name="registration_category" class="border px-2 py-1 w-full">
-                <option value="">All Categories</option>
+            <th class="px-3 py-2">
+              <select name="registration_category" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">All Categ...</option>
                 <option value="Formal" {% if filters.registration_category == 'Formal' %}selected{% endif %}>Formal</option>
                 <option value="Modular" {% if filters.registration_category == 'Modular' %}selected{% endif %}>Modular</option>
                 <option value="Informal" {% if filters.registration_category == 'Informal' %}selected{% endif %}>Informal</option>
               </select>
             </th>
-            <th class="px-4 py-1 whitespace-nowrap text-center">
-              <select name="assessment_center" class="border px-2 py-1 w-full">
+            <th class="px-3 py-2">
+              <select name="assessment_center" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                 <option value="">All Centers</option>
                 {% for center in centers %}
                   <option value="{{ center.id }}" {% if filters.assessment_center == center.id|stringformat:"s" %}selected{% endif %}>{{center.center_number}} - {{ center.center_name }}</option>
                 {% endfor %}
               </select>
             </th>
-            <th class="px-4 py-1 whitespace-nowrap text-center">
-                <div class="flex gap-2">
-                    <button type="submit" name="apply_filters" value="1" class="bg-blue-600 text-white px-4 py-1 rounded">Apply Filters</button>
-                    <a href="?reset_filters=1" class="bg-gray-400 text-white px-4 py-1 rounded">Reset</a>
+            <th class="px-3 py-2">
+                <div class="flex gap-1">
+                    <button type="submit" name="apply_filters" value="1" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">Apply Filters</button>
+                    <a href="?reset_filters=1" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors">Reset</a>
                 </div>
             </th>
           </form>
@@ -156,11 +156,11 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for candidate in candidates %}
-        <tr class="cursor-pointer hover:bg-blue-50 transition" onclick="window.location='{% url 'candidate_view' candidate.id %}'">
-          <td class="px-2 py-2 text-center">
+        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'candidate_view' candidate.id %}'">
+          <td class="px-2 py-3 text-center">
             <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}" onclick="event.stopPropagation();">
           </td>
-          <td class="px-4 py-2 whitespace-nowrap">
+          <td class="px-3 py-3">
             <div class="flex flex-col items-center w-32 mx-auto">
               {# Show regno-stamped photo if available, else fallback to original, else show No photo #}
               {% if candidate.passport_photo_with_regno %}
@@ -172,18 +172,18 @@
               {% endif %}
             </div>
           </td>
-          <td class="px-4 py-2 whitespace-nowrap">{{ candidate.reg_number }}</td>
-          <td class="px-4 py-2">{{ candidate.full_name }}</td>
-          <td class="px-4 py-2">{{ candidate.occupation.name }}</td>
-          <td class="px-4 py-2">{{ candidate.get_registration_category_display }}</td>
-          <td class="px-4 py-2 whitespace-nowrap">
+          <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.reg_number }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.full_name }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.occupation.name }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.get_registration_category_display }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900">
             {{ candidate.assessment_center.center_name|default:"—" }}
           </td>
-          <td class="px-4 py-2">
-            {{ candidate.status }}
+          <td class="px-3 py-3">
+            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">{{ candidate.status }}</span>
           </td>
-          <td class="px-4 py-2">
-            <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:underline" onclick="event.stopPropagation();">View</a>
+          <td class="px-3 py-3 text-sm">
+            <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:text-blue-900 font-medium" onclick="event.stopPropagation();">View</a>
           </td>
         </tr>
         {% empty %}
