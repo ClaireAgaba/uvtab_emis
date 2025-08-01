@@ -1,29 +1,32 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="max-w-2xl mx-auto mt-10 bg-white rounded shadow p-8">
-  <h1 class="text-2xl font-bold mb-6"></h1>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8">
+  <div class="max-w-2xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6 text-gray-900"></h1>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-    <!-- Generate Marksheets Card -->
-    <button id="generate-marksheet-btn"
-        data-occupation-id="{{ filters.occupation|default:'' }}"
-        data-level-id="{{ filters.level|default:'' }}"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
-      <span class="text-3xl mb-2">📄</span>
-      Generate Marksheets
-    </button>
-    <!-- Upload Marks Card -->
-    <button id="print-marksheet-btn"
-        class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
-      <span class="text-3xl mb-2">🖨️</span>
-      Print Marksheet
-    </button>
-    <!-- Upload Marks Card -->
-    <a href="#" id="upload-marks-btn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg shadow text-lg font-semibold flex flex-col items-center">
-      <span class="text-3xl mb-2">⬆️</span>
-      Upload Marks
-    </a>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+      <!-- Generate Marksheets Card -->
+      <button id="generate-marksheet-btn"
+          data-occupation-id="{{ filters.occupation|default:'' }}"
+          data-level-id="{{ filters.level|default:'' }}"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg shadow-md hover:shadow-lg text-lg font-semibold flex flex-col items-center transform hover:scale-105 transition-all duration-200">
+        <span class="text-3xl mb-2">📄</span>
+        Generate Marksheets
+      </button>
+      <!-- Upload Marks Card -->
+      <button id="print-marksheet-btn"
+          class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-lg shadow-md hover:shadow-lg text-lg font-semibold flex flex-col items-center transform hover:scale-105 transition-all duration-200">
+        <span class="text-3xl mb-2">🖨️</span>
+        Print Marksheet
+      </button>
+      <!-- Upload Marks Card -->
+      <a href="#" id="upload-marks-btn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg shadow-md hover:shadow-lg text-lg font-semibold flex flex-col items-center transform hover:scale-105 transition-all duration-200">
+        <span class="text-3xl mb-2">⬆️</span>
+        Upload Marks
+      </a>
+    </div>
   </div>
+
   <!-- Modal for Generate Marksheets -->
   <div id="marksheet-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
     <div class="bg-white rounded-lg shadow-lg w-full max-w-xl p-8 relative">
@@ -261,329 +264,328 @@
       </form>
     </div>
   </div>
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // --- CACHED DATA ---
-    let allOccupations = [];
-    let allLevels = [];
-    let allCenters = [];
-    let dataFetched = false;
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+      // --- CACHED DATA ---
+      let allOccupations = [];
+      let allLevels = [];
+      let allCenters = [];
+      let dataFetched = false;
 
-    // --- ASYNC DATA FETCHER ---
-    async function fetchDataIfNeeded() {
-        if (dataFetched) return;
-        try {
-            const [occResponse, lvlResponse, centerResponse] = await Promise.all([
-                fetch('/eims/api/occupations/'),
-                fetch('/eims/api/levels/'),
-                fetch('/eims/api/centers/')
-            ]);
-            if (occResponse.ok) allOccupations = await occResponse.json();
-            if (lvlResponse.ok) allLevels = await lvlResponse.json();
-            if (centerResponse.ok) allCenters = await centerResponse.json();
-            dataFetched = true;
-        } catch (error) {
-            console.error('Failed to fetch initial data:', error);
-        }
-    }
+      // --- ASYNC DATA FETCHER ---
+      async function fetchDataIfNeeded() {
+          if (dataFetched) return;
+          try {
+              const [occResponse, lvlResponse, centerResponse] = await Promise.all([
+                  fetch('/eims/api/occupations/'),
+                  fetch('/eims/api/levels/'),
+                  fetch('/eims/api/centers/')
+              ]);
+              if (occResponse.ok) allOccupations = await occResponse.json();
+              if (lvlResponse.ok) allLevels = await lvlResponse.json();
+              if (centerResponse.ok) allCenters = await centerResponse.json();
+              dataFetched = true;
+          } catch (error) {
+              console.error('Failed to fetch initial data:', error);
+          }
+      }
 
-    // --- UI HELPER FUNCTIONS ---
-    function populateYearDropdown(selectElement) {
-        selectElement.innerHTML = '';
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        for (let y = currentYear - 5; y <= currentYear + 5; y++) {
-            const opt = document.createElement('option');
-            opt.value = y;
-            opt.text = y;
-            if (y === currentYear) opt.selected = true;
-            selectElement.appendChild(opt);
-        }
-    }
+      // --- UI HELPER FUNCTIONS ---
+      function populateYearDropdown(selectElement) {
+          selectElement.innerHTML = '';
+          const now = new Date();
+          const currentYear = now.getFullYear();
+          for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+              const opt = document.createElement('option');
+              opt.value = y;
+              opt.text = y;
+              if (y === currentYear) opt.selected = true;
+              selectElement.appendChild(opt);
+          }
+      }
 
-    function populateCentersDropdown(selectElement) {
-        selectElement.innerHTML = '<option value="">-- All Centers --</option>';
-        allCenters.forEach(c => {
-            selectElement.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-        });
-    }
+      function populateCentersDropdown(selectElement) {
+          selectElement.innerHTML = '<option value="">-- All Centers --</option>';
+          allCenters.forEach(c => {
+              selectElement.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+          });
+      }
 
-    // --- CORE MODAL LOGIC ---
-    function setupModal(config) {
-        const openBtn = document.getElementById(config.openBtnId);
-        const modal = document.getElementById(config.modalId);
-        const closeBtn = document.getElementById(config.closeBtnId);
-        const cancelBtn = document.getElementById(config.cancelBtnId);
-        const form = document.getElementById(config.formId);
-        const regCategorySelect = document.getElementById(config.regCategorySelectId);
-        const occupationSelect = document.getElementById(config.occupationSelectId);
-        const levelField = document.getElementById(config.levelFieldId);
-        const levelSelect = document.getElementById(config.levelSelectId);
-        const modulesField = document.getElementById(config.modulesFieldId);
-        const modulesSelect = document.getElementById(config.modulesSelectId);
-        const yearSelect = document.getElementById(config.yearSelectId);
-        const centerSelect = document.getElementById(config.centerSelectId);
-        const msgDiv = document.getElementById(config.msgId);
-        const linkDiv = document.getElementById(config.linkId);
+      // --- CORE MODAL LOGIC ---
+      function setupModal(config) {
+          const openBtn = document.getElementById(config.openBtnId);
+          const modal = document.getElementById(config.modalId);
+          const closeBtn = document.getElementById(config.closeBtnId);
+          const cancelBtn = document.getElementById(config.cancelBtnId);
+          const form = document.getElementById(config.formId);
+          const regCategorySelect = document.getElementById(config.regCategorySelectId);
+          const occupationSelect = document.getElementById(config.occupationSelectId);
+          const levelField = document.getElementById(config.levelFieldId);
+          const levelSelect = document.getElementById(config.levelSelectId);
+          const modulesField = document.getElementById(config.modulesFieldId);
+          const modulesSelect = document.getElementById(config.modulesSelectId);
+          const yearSelect = document.getElementById(config.yearSelectId);
+          const centerSelect = document.getElementById(config.centerSelectId);
+          const msgDiv = document.getElementById(config.msgId);
+          const linkDiv = document.getElementById(config.linkId);
 
-        // Attach event listeners
-        openBtn.addEventListener('click', async () => {
-            await fetchDataIfNeeded();
-            populateYearDropdown(yearSelect);
-            populateCentersDropdown(centerSelect);
-            updateOccupationOptions();
-            modal.classList.remove('hidden');
-        });
+          // Attach event listeners
+          openBtn.addEventListener('click', async () => {
+              await fetchDataIfNeeded();
+              populateYearDropdown(yearSelect);
+              populateCentersDropdown(centerSelect);
+              updateOccupationOptions();
+              modal.classList.remove('hidden');
+          });
 
-        closeBtn.onclick = cancelBtn.onclick = () => modal.classList.add('hidden');
-        window.addEventListener('click', (e) => {
-            if (e.target === modal) modal.classList.add('hidden');
-        });
+          closeBtn.onclick = cancelBtn.onclick = () => modal.classList.add('hidden');
+          window.addEventListener('click', (e) => {
+              if (e.target === modal) modal.classList.add('hidden');
+          });
 
-        regCategorySelect.onchange = updateOccupationOptions;
-        occupationSelect.onchange = updateLevelAndModuleOptions;
+          regCategorySelect.onchange = updateOccupationOptions;
+          occupationSelect.onchange = updateLevelAndModuleOptions;
 
-        function updateOccupationOptions() {
-            const regcat = regCategorySelect.value;
-            occupationSelect.innerHTML = '<option value="">-- Select --</option>';
-            let filtered = allOccupations;
+          function updateOccupationOptions() {
+              const regcat = regCategorySelect.value;
+              occupationSelect.innerHTML = '<option value="">-- Select --</option>';
+              let filtered = allOccupations;
 
-            if (regcat === 'formal') {
-                filtered = allOccupations.filter(o => o.category === 'formal');
-            } else if (regcat === 'workers_pas') {
-                filtered = allOccupations.filter(o => o.category === 'informal');
-            } else if (regcat === 'modular') {
-                filtered = allOccupations.filter(o => o.category === 'formal' && o.has_modular);
-            }
+              if (regcat === 'formal') {
+                  filtered = allOccupations.filter(o => o.category === 'formal');
+              } else if (regcat === 'workers_pas') {
+                  filtered = allOccupations.filter(o => o.category === 'informal');
+              } else if (regcat === 'modular') {
+                  filtered = allOccupations.filter(o => o.category === 'formal' && o.has_modular);
+              }
 
-            filtered.forEach(o => {
-                occupationSelect.innerHTML += `<option value="${o.id}">${o.name}</option>`;
-            });
-            updateLevelAndModuleOptions();
-        }
+              filtered.forEach(o => {
+                  occupationSelect.innerHTML += `<option value="${o.id}">${o.name}</option>`;
+              });
+              updateLevelAndModuleOptions();
+          }
 
-        function updateLevelAndModuleOptions() {
-            const regcat = regCategorySelect.value;
-            const occId = parseInt(occupationSelect.value, 10);
-            levelSelect.innerHTML = '<option value="">-- Select --</option>';
-            modulesSelect.innerHTML = '';
+          function updateLevelAndModuleOptions() {
+              const regcat = regCategorySelect.value;
+              const occId = parseInt(occupationSelect.value, 10);
+              levelSelect.innerHTML = '<option value="">-- Select --</option>';
+              modulesSelect.innerHTML = '';
 
-            // Handle modules for 'Modular' category
-            if (regcat === 'modular' && occId) {
-                modulesField.classList.remove('hidden');
-                levelField.classList.add('hidden');
-                fetch(`/eims/api/modules/?occupation_id=${occId}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        const modulesArray = Array.isArray(data) ? data : (data.modules || []);
-                        modulesSelect.innerHTML = '';
-                        modulesArray.forEach(m => {
-                            modulesSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-                        });
-                    }).catch(err => console.error('Failed to fetch modules:', err));
-            } else {
-                modulesField.classList.add('hidden');
-            }
+              // Handle modules for 'Modular' category
+              if (regcat === 'modular' && occId) {
+                  modulesField.classList.remove('hidden');
+                  levelField.classList.add('hidden');
+                  fetch(`/eims/api/modules/?occupation_id=${occId}`)
+                      .then(res => res.json())
+                      .then(data => {
+                          const modulesArray = Array.isArray(data) ? data : (data.modules || []);
+                          modulesSelect.innerHTML = '';
+                          modulesArray.forEach(m => {
+                              modulesSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+                          });
+                      }).catch(err => console.error('Failed to fetch modules:', err));
+              } else {
+                  modulesField.classList.add('hidden');
+              }
 
-            // Handle levels for other categories
-            if ((regcat === 'formal' || regcat === 'workers_pas') && occId) {
-                levelField.classList.remove('hidden');
-                const occLevels = allLevels.filter(lvl => lvl.occupation_id === occId);
-                occLevels.forEach(lvl => {
-                    levelSelect.innerHTML += `<option value="${lvl.id}">${lvl.name}</option>`;
-                });
-            } else if (regcat !== 'modular') {
-                levelField.classList.add('hidden');
-            }
-        }
+              // Handle levels for other categories
+              if ((regcat === 'formal' || regcat === 'workers_pas') && occId) {
+                  levelField.classList.remove('hidden');
+                  const occLevels = allLevels.filter(lvl => lvl.occupation_id === occId);
+                  occLevels.forEach(lvl => {
+                      levelSelect.innerHTML += `<option value="${lvl.id}">${lvl.name}</option>`;
+                  });
+              } else if (regcat !== 'modular') {
+                  levelField.classList.add('hidden');
+              }
+          }
 
-        form.onsubmit = async function(e) {
-            e.preventDefault();
-            const formData = new FormData(form);
-            msgDiv.textContent = '';
-            if(linkDiv) linkDiv.innerHTML = '';
+          form.onsubmit = async function(e) {
+              e.preventDefault();
+              const formData = new FormData(form);
+              msgDiv.textContent = '';
+              if(linkDiv) linkDiv.innerHTML = '';
 
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
-                });
-                const data = await response.json();
-                if (data.success) {
-                    if(linkDiv) linkDiv.innerHTML = `<a href="${data.download_url}" class="text-blue-600 font-bold hover:underline" target="_blank">${config.linkText}</a>`;
-                } else {
-                    msgDiv.textContent = data.error || 'An unknown error occurred.';
-                }
-            } catch (error) {
-                console.error('Error submitting form:', error);
-                msgDiv.textContent = 'A network error occurred. Please try again.';
-            }
-        };
-    }
+              try {
+                  const response = await fetch(form.action, {
+                      method: 'POST',
+                      body: formData,
+                      headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
+                  });
+                  const data = await response.json();
+                  if (data.success) {
+                      if(linkDiv) linkDiv.innerHTML = `<a href="${data.download_url}" class="text-blue-600 font-bold hover:underline" target="_blank">${config.linkText}</a>`;
+                  } else {
+                      msgDiv.textContent = data.error || 'An unknown error occurred.';
+                  }
+              } catch (error) {
+                  console.error('Error submitting form:', error);
+                  msgDiv.textContent = 'A network error occurred. Please try again.';
+              }
+          };
+      }
 
-    // --- INITIALIZE ALL MODALS ---
-    setupModal({
-        openBtnId: 'generate-marksheet-btn',
-        modalId: 'marksheet-modal',
-        closeBtnId: 'close-marksheet-modal',
-        cancelBtnId: 'cancel-marksheet-modal',
-        formId: 'marksheet-form',
-        regCategorySelectId: 'reg-category-select',
-        occupationSelectId: 'occupation-select',
-        levelFieldId: 'level-field',
-        levelSelectId: 'level-select',
-        modulesFieldId: 'modules-field',
-        modulesSelectId: 'modules-select',
-        yearSelectId: 'assessment-year',
-        centerSelectId: 'center-select',
-        msgId: 'marksheet-msg',
-        linkId: 'marksheet-download-link',
-        linkText: 'Download Marksheet'
-    });
+      // --- INITIALIZE ALL MODALS ---
+      setupModal({
+          openBtnId: 'generate-marksheet-btn',
+          modalId: 'marksheet-modal',
+          closeBtnId: 'close-marksheet-modal',
+          cancelBtnId: 'cancel-marksheet-modal',
+          formId: 'marksheet-form',
+          regCategorySelectId: 'reg-category-select',
+          occupationSelectId: 'occupation-select',
+          levelFieldId: 'level-field',
+          levelSelectId: 'level-select',
+          modulesFieldId: 'modules-field',
+          modulesSelectId: 'modules-select',
+          yearSelectId: 'assessment-year',
+          centerSelectId: 'center-select',
+          msgId: 'marksheet-msg',
+          linkId: 'marksheet-download-link',
+          linkText: 'Download Marksheet'
+      });
 
-    setupModal({
-        openBtnId: 'print-marksheet-btn',
-        modalId: 'print-marksheet-modal',
-        closeBtnId: 'close-print-marksheet-modal',
-        cancelBtnId: 'cancel-print-marksheet-modal',
-        formId: 'print-marksheet-form',
-        regCategorySelectId: 'print-reg-category-select',
-        occupationSelectId: 'print-occupation-select',
-        levelFieldId: 'print-level-field',
-        levelSelectId: 'print-level-select',
-        modulesFieldId: 'print-modules-field',
-        modulesSelectId: 'print-modules-select',
-        yearSelectId: 'print-assessment-year',
-        centerSelectId: 'print-center-select',
-        msgId: 'print-marksheet-msg',
-        linkId: 'print-marksheet-download-link',
-        linkText: 'Download Printable Marksheet'
-    });
-    
-    // --- UPLOAD MARKS MODAL LOGIC ---
-    const uploadBtn = document.getElementById('upload-marks-btn');
-    const uploadModal = document.getElementById('upload-marks-modal');
-    const closeUploadBtn = document.getElementById('close-upload-marks-modal');
-    const cancelUploadBtn = document.getElementById('cancel-upload-marks-modal');
-    const uploadForm = document.getElementById('upload-marks-form');
-    const uploadRegCategorySelect = document.getElementById('upload-reg-category-select');
-    const uploadOccupationSelect = document.getElementById('upload-occupation-select');
+      setupModal({
+          openBtnId: 'print-marksheet-btn',
+          modalId: 'print-marksheet-modal',
+          closeBtnId: 'close-print-marksheet-modal',
+          cancelBtnId: 'cancel-print-marksheet-modal',
+          formId: 'print-marksheet-form',
+          regCategorySelectId: 'print-reg-category-select',
+          occupationSelectId: 'print-occupation-select',
+          levelFieldId: 'print-level-field',
+          levelSelectId: 'print-level-select',
+          modulesFieldId: 'print-modules-field',
+          modulesSelectId: 'print-modules-select',
+          yearSelectId: 'print-assessment-year',
+          centerSelectId: 'print-center-select',
+          msgId: 'print-marksheet-msg',
+          linkId: 'print-marksheet-download-link',
+          linkText: 'Download Printable Marksheet'
+      });
+      
+      // --- UPLOAD MARKS MODAL LOGIC ---
+      const uploadBtn = document.getElementById('upload-marks-btn');
+      const uploadModal = document.getElementById('upload-marks-modal');
+      const closeUploadBtn = document.getElementById('close-upload-marks-modal');
+      const cancelUploadBtn = document.getElementById('cancel-upload-marks-modal');
+      const uploadForm = document.getElementById('upload-marks-form');
+      const uploadRegCategorySelect = document.getElementById('upload-reg-category-select');
+      const uploadOccupationSelect = document.getElementById('upload-occupation-select');
 
-    if (uploadBtn) {
-        uploadBtn.onclick = async (e) => {
-            e.preventDefault();
-            await fetchDataIfNeeded();
-            populateYearDropdown(document.getElementById('upload-assessment-year'));
-            populateCentersDropdown(document.getElementById('upload-center-select'));
-            uploadUpdateOccupationOptions();
-            uploadModal.classList.remove('hidden');
-        };
-    }
+      if (uploadBtn) {
+          uploadBtn.onclick = async (e) => {
+              e.preventDefault();
+              await fetchDataIfNeeded();
+              populateYearDropdown(document.getElementById('upload-assessment-year'));
+              populateCentersDropdown(document.getElementById('upload-center-select'));
+              uploadUpdateOccupationOptions();
+              uploadModal.classList.remove('hidden');
+          };
+      }
 
-    if(closeUploadBtn) closeUploadBtn.onclick = () => uploadModal.classList.add('hidden');
-    if(cancelUploadBtn) cancelUploadBtn.onclick = () => uploadModal.classList.add('hidden');
-    window.addEventListener('click', (e) => {
-        if (e.target === uploadModal) uploadModal.classList.add('hidden');
-    });
+      if(closeUploadBtn) closeUploadBtn.onclick = () => uploadModal.classList.add('hidden');
+      if(cancelUploadBtn) cancelUploadBtn.onclick = () => uploadModal.classList.add('hidden');
+      window.addEventListener('click', (e) => {
+          if (e.target === uploadModal) uploadModal.classList.add('hidden');
+      });
 
-    function uploadUpdateOccupationOptions() {
-        const regcat = uploadRegCategorySelect.value;
-        uploadOccupationSelect.innerHTML = '<option value="">-- Select --</option>';
-        let filtered = allOccupations;
-        if (regcat === 'formal') {
-            filtered = allOccupations.filter(o => o.category === 'formal');
-        } else if (regcat === 'workers_pas') {
-            filtered = allOccupations.filter(o => o.category === 'informal');
-        } else if (regcat === 'modular') {
-            filtered = allOccupations.filter(o => o.category === 'formal' && o.has_modular);
-        }
-        filtered.forEach(o => {
-            uploadOccupationSelect.innerHTML += `<option value="${o.id}">${o.name}</option>`;
-        });
-        uploadUpdateLevelAndModuleOptions();
-    }
+      function uploadUpdateOccupationOptions() {
+          const regcat = uploadRegCategorySelect.value;
+          uploadOccupationSelect.innerHTML = '<option value="">-- Select --</option>';
+          let filtered = allOccupations;
+          if (regcat === 'formal') {
+              filtered = allOccupations.filter(o => o.category === 'formal');
+          } else if (regcat === 'workers_pas') {
+              filtered = allOccupations.filter(o => o.category === 'informal');
+          } else if (regcat === 'modular') {
+              filtered = allOccupations.filter(o => o.category === 'formal' && o.has_modular);
+          }
+          filtered.forEach(o => {
+              uploadOccupationSelect.innerHTML += `<option value="${o.id}">${o.name}</option>`;
+          });
+          uploadUpdateLevelAndModuleOptions();
+      }
 
-    function uploadUpdateLevelAndModuleOptions() {
-        const regcat = uploadRegCategorySelect.value;
-        const occId = parseInt(uploadOccupationSelect.value, 10);
-        const levelField = document.getElementById('upload-level-field');
-        const levelSelect = document.getElementById('upload-level-select');
-        levelSelect.innerHTML = '<option value="">-- Select --</option>';
-        const modulesField = document.getElementById('upload-modules-field');
-        const modulesSelect = document.getElementById('upload-modules-select');
-        modulesSelect.innerHTML = '';
+      function uploadUpdateLevelAndModuleOptions() {
+          const regcat = uploadRegCategorySelect.value;
+          const occId = parseInt(uploadOccupationSelect.value, 10);
+          const levelField = document.getElementById('upload-level-field');
+          const levelSelect = document.getElementById('upload-level-select');
+          levelSelect.innerHTML = '<option value="">-- Select --</option>';
+          const modulesField = document.getElementById('upload-modules-field');
+          const modulesSelect = document.getElementById('upload-modules-select');
+          modulesSelect.innerHTML = '';
 
-        if (regcat === 'modular' && occId) {
-            modulesField.classList.remove('hidden');
-            levelField.classList.add('hidden');
-            fetch(`/eims/api/modules/?occupation_id=${occId}`)
-                .then(res => res.json())
-                .then(data => {
-                    const modulesArray = Array.isArray(data) ? data : (data.modules || []);
-                    modulesSelect.innerHTML = '';
-                    modulesArray.forEach(m => {
-                        modulesSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-                    });
-                }).catch(err => console.error('Failed to fetch modules for upload:', err));
-        } else {
-            modulesField.classList.add('hidden');
-        }
+          if (regcat === 'modular' && occId) {
+              modulesField.classList.remove('hidden');
+              levelField.classList.add('hidden');
+              fetch(`/eims/api/modules/?occupation_id=${occId}`)
+                  .then(res => res.json())
+                  .then(data => {
+                      const modulesArray = Array.isArray(data) ? data : (data.modules || []);
+                      modulesSelect.innerHTML = '';
+                      modulesArray.forEach(m => {
+                          modulesSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+                      });
+                  }).catch(err => console.error('Failed to fetch modules for upload:', err));
+          } else {
+              modulesField.classList.add('hidden');
+          }
 
-        if ((regcat === 'formal' || regcat === 'workers_pas') && occId) {
-            levelField.classList.remove('hidden');
-            const occupationLevels = allLevels.filter(l => l.occupation_id === occId);
-            occupationLevels.forEach(l => {
-                levelSelect.innerHTML += `<option value="${l.id}">${l.name}</option>`;
-            });
-        } else if (regcat !== 'modular') {
-            levelField.classList.add('hidden');
-        }
-    }
+          if ((regcat === 'formal' || regcat === 'workers_pas') && occId) {
+              levelField.classList.remove('hidden');
+              const occupationLevels = allLevels.filter(l => l.occupation_id === occId);
+              occupationLevels.forEach(l => {
+                  levelSelect.innerHTML += `<option value="${l.id}">${l.name}</option>`;
+              });
+          } else if (regcat !== 'modular') {
+              levelField.classList.add('hidden');
+          }
+      }
 
-    if(uploadRegCategorySelect) uploadRegCategorySelect.onchange = uploadUpdateOccupationOptions;
-    if(uploadOccupationSelect) uploadOccupationSelect.onchange = uploadUpdateLevelAndModuleOptions;
+      if(uploadRegCategorySelect) uploadRegCategorySelect.onchange = uploadUpdateOccupationOptions;
+      if(uploadOccupationSelect) uploadOccupationSelect.onchange = uploadUpdateLevelAndModuleOptions;
 
-    if(uploadForm) {
-        uploadForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const formData = new FormData(uploadForm);
-            const msgDiv = document.getElementById('upload-marks-msg');
-            const successDiv = document.getElementById('upload-marks-success');
-            msgDiv.textContent = '';
-            successDiv.textContent = '';
+      if(uploadForm) {
+          uploadForm.addEventListener('submit', async function(e) {
+              e.preventDefault();
+              const formData = new FormData(uploadForm);
+              const msgDiv = document.getElementById('upload-marks-msg');
+              const successDiv = document.getElementById('upload-marks-success');
+              msgDiv.textContent = '';
+              successDiv.textContent = '';
 
-            try {
-                const response = await fetch(uploadForm.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
-                    },
-                });
+              try {
+                  const response = await fetch(uploadForm.action, {
+                      method: 'POST',
+                      body: formData,
+                      headers: {
+                          'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                      },
+                  });
 
-                const data = await response.json();
+                  const data = await response.json();
 
-                if (data.success) {
-                    successDiv.textContent = `Successfully uploaded marks for ${data.updated_count} records.`;
-                    uploadForm.reset();
-                }
+                  if (data.success) {
+                      successDiv.textContent = `Successfully uploaded marks for ${data.updated_count} records.`;
+                      uploadForm.reset();
+                  }
 
-                if (data.errors && data.errors.length > 0) {
-                    msgDiv.innerHTML = '<strong>Upload failed with the following errors:</strong><br>' + data.errors.join('<br>');
-                } else if (!data.success) {
-                    msgDiv.textContent = data.error || 'An unknown error occurred.';
-                }
-            } catch (error) {
-                console.error('Error uploading marks:', error);
-                msgDiv.textContent = 'A network error occurred. Please try again.';
-            }
-        });
-    }
+                  if (data.errors && data.errors.length > 0) {
+                      msgDiv.innerHTML = '<strong>Upload failed with the following errors:</strong><br>' + data.errors.join('<br>');
+                  } else if (!data.success) {
+                      msgDiv.textContent = data.error || 'An unknown error occurred.';
+                  }
+              } catch (error) {
+                  console.error('Error uploading marks:', error);
+                  msgDiv.textContent = 'A network error occurred. Please try again.';
+              }
+          });
+      }
 
-});
-</script>
-<script src="/static/js/results_marksheet_modules.js"></script>
-{% endblock %}
+  });
+  </script>
+  <script src="/static/js/results_marksheet_modules.js"></script>
+  {% endblock %}
