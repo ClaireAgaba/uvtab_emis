@@ -3,7 +3,7 @@
 <div class="p-4">
   <div class="flex justify-between items-center mb-6">
     <div>
-      <h1 class="text-2xl font-bold">Occupations</h1>
+      <h1 class="text-2xl font-normal" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Occupations</h1>
     </div>
     <div class="flex items-center space-x-4">
       <a href="{% url 'module_list' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Modules</a>
@@ -15,48 +15,50 @@
   <div class="mb-6">
     <a href="{% url 'occupation_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Create Occupation</a>
   </div>
-  <table class="min-w-full bg-white border">
-    <thead>
-      <tr>
-        <form method="get">
-          <th class="py-2 px-4 border">
-            <input type="text" name="code" value="{{ request.GET.code }}" class="border px-2 py-1 w-full" placeholder="Filter code">
-          </th>
-          <th class="py-2 px-4 border">
-            <input type="text" name="name" value="{{ request.GET.name }}" class="border px-2 py-1 w-full" placeholder="Filter name">
-          </th>
-          <th class="py-2 px-4 border">
-            <select name="structure" class="border px-2 py-1 w-full">
-              <option value="">All</option>
-              {% for value, label in structure_choices %}
-                <option value="{{ value }}" {% if request.GET.structure == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </th>
-          <th class="py-2 px-4 border">
-            <button type="submit" class="bg-blue-500 text-white px-3 py-1 rounded">Filter</button>
-          </th>
-        </form>
-      </tr>
-      <tr>
-        <th class="py-2 px-4 border">Code</th>
-        <th class="py-2 px-4 border">Name</th>
-        <th class="py-2 px-4 border">Structure</th>
-        <th class="py-2 px-4 border">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for occ in occupations %}
-      <tr>
-        <td class="border px-4 py-2">{{ occ.code }}</td>
-        <td class="border px-4 py-2">{{ occ.name }}</td>
-        <td class="border px-4 py-2">{{ occ.get_structure_type_display }}</td>
-        <td class="border px-4 py-2">
-          <a href="{% url 'occupation_detail' occ.pk %}" class="text-blue-600">View</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Code</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Name</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Category</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Actions</th>
+        </tr>
+        <tr>
+          <form method="get">
+            <th class="px-3 py-2">
+              <input type="text" name="code" value="{{ request.GET.code }}" placeholder="Filter code" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+            </th>
+            <th class="px-3 py-2">
+              <input type="text" name="name" value="{{ request.GET.name }}" placeholder="Filter name" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+            </th>
+            <th class="px-3 py-2">
+              <select name="category" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">All Categories</option>
+                {% for category in categories %}
+                  <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+                {% endfor %}
+              </select>
+            </th>
+            <th class="px-3 py-2">
+              <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">Filter</button>
+            </th>
+          </form>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for occ in occupations %}
+        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'occupation_detail' occ.pk %}'">
+          <td class="px-3 py-3 text-sm text-gray-900">{{ occ.code }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900">{{ occ.name }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900">{{ occ.category.name }}</td>
+          <td class="px-3 py-3 text-sm">
+            <a href="{% url 'occupation_detail' occ.pk %}" class="text-blue-600 hover:text-blue-900 font-medium" onclick="event.stopPropagation();">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

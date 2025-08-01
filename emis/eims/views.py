@@ -2313,18 +2313,22 @@ def occupation_list(request):
     occupations = Occupation.objects.all()
     code = request.GET.get('code', '').strip()
     name = request.GET.get('name', '').strip()
-    structure = request.GET.get('structure', '').strip()
+    category = request.GET.get('category', '').strip()
 
     if code:
         occupations = occupations.filter(code__icontains=code)
     if name:
         occupations = occupations.filter(name__icontains=name)
-    if structure:
-        occupations = occupations.filter(structure_type=structure)
+    if category:
+        occupations = occupations.filter(category_id=category)
+
+    # Get all categories for the filter dropdown
+    from .models import OccupationCategory
+    categories = OccupationCategory.objects.all().order_by('name')
 
     return render(request, 'occupations/list.html', {
         'occupations': occupations,
-        'structure_choices': Occupation.STRUCTURE_CHOICES,
+        'categories': categories,
     })
 
 def occupation_create(request):
