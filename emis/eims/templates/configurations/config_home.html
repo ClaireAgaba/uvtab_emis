@@ -1,32 +1,40 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-  <h1 class="text-2xl font-bold text-gray-900 mb-8">System Configuration</h1>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8">
+  <div class="container mx-auto">
+    <h1 class="text-3xl font-bold text-gray-900 mb-12">System Configuration</h1>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <a href="{% url 'district_list' %}">
-      <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center hover:shadow-lg transition-shadow">
-        <div class="text-4xl text-blue-600 mb-3">🏛️</div>
-        <div class="text-lg font-medium">Districts</div>
-        <p class="text-gray-600 text-sm text-center mt-2">Manage districts and their regions</p>
-      </div>
-    </a>
+    <div class="flex justify-center">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl">
+        <a href="{% url 'district_list' %}" class="group">
+          <div class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-3 min-h-[80px]">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            <span class="text-lg font-semibold">Districts</span>
+          </div>
+        </a>
 
-    <a href="{% url 'village_list' %}">
-      <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center hover:shadow-lg transition-shadow">
-        <div class="text-4xl text-green-600 mb-3">🏘️</div>
-        <div class="text-lg font-medium">Villages</div>
-        <p class="text-gray-600 text-sm text-center mt-2">Manage villages and their districts</p>
+        <a href="{% url 'village_list' %}" class="group">
+          <div class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-3 min-h-[80px]">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+            <span class="text-lg font-semibold">Villages</span>
+          </div>
+        </a>
+
+        <a href="{% url 'natureofdisability_list' %}" class="group">
+          <div class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-3 min-h-[80px]">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+            <span class="text-lg font-semibold">Nature of Disability</span>
+          </div>
+        </a>
       </div>
-    </a>
-    <a href="{% url 'natureofdisability_list' %}">
-      <div class="bg-white shadow rounded-xl p-6 flex flex-col items-center hover:shadow-lg transition-shadow">
-        <div class="text-4xl text-purple-600 mb-3">♿</div>
-        <div class="text-lg font-medium">Nature of Disability</div>
-        <p class="text-gray-600 text-sm text-center mt-2">Manage types of disability</p>
-      </div>
-    </a>
+    </div>
   </div>
 </div>
 {% endblock %}

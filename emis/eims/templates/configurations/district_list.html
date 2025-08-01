@@ -6,7 +6,7 @@
     <a href="{% url 'config_home' %}" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-200 flex items-center mr-4">
       <span class="mr-2">←</span> Back to Configuration
     </a>
-    <h1 class="text-2xl font-bold text-gray-900">Districts</h1>
+    <h1 class="text-2xl font-bold text-gray-900" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Districts</h1>
   </div>
 
   <div class="flex justify-end mb-6">
@@ -16,6 +16,45 @@
   </div>
 
   <div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <!-- Filter Form -->
+    <div class="px-6 py-4 border-b border-gray-200">
+      <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <input type="text" name="name" value="{{ filters.name }}" 
+                 placeholder="District Name" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+          <input type="text" name="region" value="{{ filters.region }}" 
+                 placeholder="Region" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            Filter
+          </button>
+          <a href="{% url 'district_list' %}" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
+            Reset
+          </a>
+        </div>
+      </form>
+    </div>
+    
+    <!-- Count and Pagination Info -->
+    <div class="px-6 py-2 bg-gray-50 text-sm text-gray-600 flex justify-between items-center">
+      <span>
+        {{ page_obj.start_index }}-{{ page_obj.end_index }} / {{ paginator.count }}
+      </span>
+      <span>
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" class="inline-block px-2">&#60;</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="inline-block px-2">&#62;</a>
+        {% endif %}
+      </span>
+    </div>
+
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
@@ -25,10 +64,10 @@
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
-        {% for district in districts %}
-        <tr>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ district.name }}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ district.region }}</td>
+        {% for district in page_obj.object_list %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{{ district.name }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{{ district.region }}</td>
           <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
             <a href="{% url 'village_list' %}?district={{ district.id }}" class="text-blue-600 hover:text-blue-900">View Villages</a>
           </td>
@@ -42,6 +81,32 @@
         {% endfor %}
       </tbody>
     </table>
+
+    <!-- Bottom Pagination -->
+    {% if paginator.num_pages > 1 %}
+    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-gray-700">
+          Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ paginator.count }} results
+        </div>
+        <div class="flex space-x-2">
+          {% if page_obj.has_previous %}
+            <a href="?page=1" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50">First</a>
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50">Previous</a>
+          {% endif %}
+          
+          <span class="px-3 py-2 text-sm bg-blue-600 text-white border border-blue-600 rounded-md">
+            {{ page_obj.number }}
+          </span>
+          
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50">Next</a>
+            <a href="?page={{ paginator.num_pages }}" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50">Last</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
