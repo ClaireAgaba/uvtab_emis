@@ -7,6 +7,21 @@
     <a href="{% url 'create_assessment_center' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Center</a>
 </div>
 
+<!-- Count and Pagination Info -->
+<div class="mb-2 text-sm text-gray-600 flex justify-between items-center">
+  <span>
+    {{ page_obj.start_index }}-{{ page_obj.end_index }} / {{ paginator.count }}
+  </span>
+  <span>
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}" class="inline-block px-2">&#60;</a>
+    {% endif %}
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}" class="inline-block px-2">&#62;</a>
+    {% endif %}
+  </span>
+</div>
+
 <div class="bg-white shadow-sm border border-gray-200 rounded-lg">
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">

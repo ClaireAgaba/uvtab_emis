@@ -2270,8 +2270,16 @@ def assessment_center_list(request):
     from .models import AssessmentCenterCategory
     categories = AssessmentCenterCategory.objects.all().order_by('name')
     
+    # Pagination: 100 per page
+    from django.core.paginator import Paginator
+    paginator = Paginator(centers, 100)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
     return render(request, 'assessment_centers/list.html', {
-        'centers': centers,
+        'centers': page_obj.object_list,
+        'page_obj': page_obj,
+        'paginator': paginator,
         'categories': categories,
     })
 
@@ -2338,8 +2346,16 @@ def occupation_list(request):
     from .models import OccupationCategory
     categories = OccupationCategory.objects.all().order_by('name')
 
+    # Pagination: 100 per page
+    from django.core.paginator import Paginator
+    paginator = Paginator(occupations, 100)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'occupations/list.html', {
-        'occupations': occupations,
+        'occupations': page_obj.object_list,
+        'page_obj': page_obj,
+        'paginator': paginator,
         'categories': categories,
     })
 
