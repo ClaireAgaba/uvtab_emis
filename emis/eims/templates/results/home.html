@@ -1,31 +1,31 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8">
-  <div class="max-w-2xl mx-auto">
-    <h1 class="text-2xl font-bold mb-6 text-gray-900"></h1>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-6">
+  <div class="max-w-6xl mx-auto">
+    <h1 class="text-2xl font-bold mb-4 text-gray-900">Results Management</h1>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+    <!-- Action Buttons -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 max-w-2xl">
       <!-- Generate Marksheets Card -->
       <button id="generate-marksheet-btn"
           data-occupation-id="{{ filters.occupation|default:'' }}"
           data-level-id="{{ filters.level|default:'' }}"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg shadow-md hover:shadow-lg text-lg font-semibold flex flex-col items-center transform hover:scale-105 transition-all duration-200">
-        <span class="text-3xl mb-2">📄</span>
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg shadow-md hover:shadow-lg text-sm font-semibold flex flex-col items-center transform hover:scale-105 transition-all duration-200">
+        <span class="text-2xl mb-1">📄</span>
         Generate Marksheets
       </button>
-      <!-- Upload Marks Card -->
+      <!-- Print Marksheet Card -->
       <button id="print-marksheet-btn"
-          class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-lg shadow-md hover:shadow-lg text-lg font-semibold flex flex-col items-center transform hover:scale-105 transition-all duration-200">
-        <span class="text-3xl mb-2">🖨️</span>
+          class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg shadow-md hover:shadow-lg text-sm font-semibold flex flex-col items-center transform hover:scale-105 transition-all duration-200">
+        <span class="text-2xl mb-1">🖨️</span>
         Print Marksheet
       </button>
       <!-- Upload Marks Card -->
-      <a href="#" id="upload-marks-btn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg shadow-md hover:shadow-lg text-lg font-semibold flex flex-col items-center transform hover:scale-105 transition-all duration-200">
-        <span class="text-3xl mb-2">⬆️</span>
+      <a href="#" id="upload-marks-btn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg shadow-md hover:shadow-lg text-sm font-semibold flex flex-col items-center transform hover:scale-105 transition-all duration-200">
+        <span class="text-2xl mb-1">⬆️</span>
         Upload Marks
       </a>
     </div>
-  </div>
 
   <!-- Modal for Generate Marksheets -->
   <div id="marksheet-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
@@ -262,6 +262,109 @@
           <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded">Upload</button>
         </div>
       </form>
+    </div>
+  </div>
+
+    <!-- Enrolled Candidates Table -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-100">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">Enrolled Candidates</h2>
+        
+        <!-- Filter Form -->
+        <form method="get" class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <input type="text" name="reg_number" value="{{ filters.reg_number }}" 
+                   placeholder="Reg Number" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <input type="text" name="name" value="{{ filters.name }}" 
+                   placeholder="Name" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <select name="registration_category" 
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="">All Categories</option>
+              {% for value, label in reg_categories %}
+                <option value="{{ value }}" {% if filters.registration_category == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="flex gap-2">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              Filter
+            </button>
+            <a href="{% url 'results_home' %}" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
+              Reset
+            </a>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Count and Pagination Info -->
+      <div class="px-6 py-2 bg-gray-50 text-sm text-gray-600 flex justify-between items-center">
+        <span>
+          {{ page_obj.start_index }}-{{ page_obj.end_index }} / {{ paginator.count }}
+        </span>
+        <span>
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="inline-block px-2">&#60;</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="inline-block px-2">&#62;</a>
+          {% endif %}
+        </span>
+      </div>
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg Number</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Type</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Occupation</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Upload Status</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for item in candidates_with_status %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                {{ item.candidate.reg_number }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {{ item.candidate.full_name }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {{ item.candidate.get_registration_category_display }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {{ item.candidate.occupation.name|default:"N/A" }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm">
+                {% if item.upload_status == 'Uploaded' %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                    Uploaded
+                  </span>
+                {% else %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                    Not Uploaded
+                  </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+                No enrolled candidates found.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
