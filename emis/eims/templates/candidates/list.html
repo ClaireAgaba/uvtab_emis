@@ -108,6 +108,7 @@
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Occupation</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Reg. Category</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Center</th>
+          <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Status</th>
           <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Actions</th>
         </tr>
         <tr>
@@ -177,6 +178,9 @@
           <td class="px-4 py-2">{{ candidate.get_registration_category_display }}</td>
           <td class="px-4 py-2 whitespace-nowrap">
             {{ candidate.assessment_center.center_name|default:"—" }}
+          </td>
+          <td class="px-4 py-2">
+            {{ candidate.status }}
           </td>
           <td class="px-4 py-2">
             <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:underline" onclick="event.stopPropagation();">View</a>

@@ -162,15 +162,29 @@
             <div class="space-y-3 text-sm">
               <div class="flex items-center justify-between">
                 <span class="text-gray-700">Account Status</span>
-                <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Active</span>
+                {% if staff.status == 'Active' %}
+                  <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Active</span>
+                {% else %}
+                  <span class="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">Inactive</span>
+                {% endif %}
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-gray-700">User Group</span>
-                <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">SupportStaff</span>
+                {% if staff.user.groups.all %}
+                  {% for group in staff.user.groups.all %}
+                    <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">{{ group.name }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">No Group</span>
+                {% endif %}
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-gray-700">Login Access</span>
-                <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Enabled</span>
+                {% if staff.status == 'Active' and staff.user.is_active %}
+                  <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Enabled</span>
+                {% else %}
+                  <span class="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">Disabled</span>
+                {% endif %}
               </div>
             </div>
           </div>

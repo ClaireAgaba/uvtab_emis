@@ -320,8 +320,18 @@ class Candidate(models.Model):
     disability = models.BooleanField(default=False, help_text="Check if candidate has a disability")
     nature_of_disability = models.ManyToManyField('NatureOfDisability', blank=True, help_text="Select nature(s) of disability if applicable")
 
-    # models.py  (inside Candidate)
-# --------------------------------
+    # Account status field
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+    ]
+    status = models.CharField(
+        max_length=10, 
+        choices=STATUS_CHOICES, 
+        default='Active',
+        help_text="Account status - Active users can login, Inactive users cannot login"
+    )
+
     def build_reg_number(self):
         """
         Build a registration number in the format
@@ -489,10 +499,23 @@ class SupportStaff(models.Model):
         ('Accounts', 'Accounts'),
         ('Research', 'Research'),
     ]
+    
+    # Account status field
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+    ]
+    
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     contact = models.CharField(max_length=15)
     department = models.CharField(max_length=20, choices=DEPARTMENT_CHOICES)
+    status = models.CharField(
+        max_length=10, 
+        choices=STATUS_CHOICES, 
+        default='Active',
+        help_text="Account status - Active users can login, Inactive users cannot login"
+    )
 
     # Audit trail fields
     created_at = models.DateTimeField(auto_now_add=True)
@@ -512,10 +535,22 @@ class Staff(models.Model):
         ('Data', 'Data'),
     ]
     
+    # Account status field
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+    ]
+    
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
     name = models.CharField(max_length=100)
     contact = models.CharField(max_length=15)
     department = models.CharField(max_length=20, choices=DEPARTMENT_CHOICES)
+    status = models.CharField(
+        max_length=10, 
+        choices=STATUS_CHOICES, 
+        default='Active',
+        help_text="Account status - Active users can login, Inactive users cannot login"
+    )
     
     # Audit trail fields
     created_at = models.DateTimeField(auto_now_add=True)
@@ -529,4 +564,3 @@ class Staff(models.Model):
     class Meta:
         verbose_name = "Staff Member"
         verbose_name_plural = "Staff Members"
-

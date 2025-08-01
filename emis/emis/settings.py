@@ -26,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-+mb146sw)3ayx06d&0#hbeh1-^43=(py6akp9+)t55^l0nug88'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -189,6 +189,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
+
+# Custom authentication backend to check staff status
+AUTHENTICATION_BACKENDS = [
+    'eims.backends.StatusCheckBackend',  # Our custom backend
+    'django.contrib.auth.backends.ModelBackend',  # Default backend as fallback
+]
 
 # Session Timeout Settings
 SESSION_COOKIE_AGE = 30 * 60  # 30 minutes in seconds (30 * 60 = 1800)

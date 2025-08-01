@@ -317,6 +317,7 @@ class CandidateForm(forms.ModelForm):
             'intake': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'occupation': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'registration_category': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),  
+            'status': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             # ...add others similarly
 
             }
@@ -593,47 +594,58 @@ class StaffForm(forms.ModelForm):
     """Form for departmental staff management (separate from SupportStaff)"""
     class Meta:
         model = Staff
-        fields = ['name', 'contact', 'department']
+        fields = ['name', 'contact', 'department', 'status']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400'}),
             'contact': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400'}),
             'department': forms.Select(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400'}),
+            'status': forms.Select(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400'}),
         }
         labels = {
             'name': 'Full Name',
             'contact': 'Phone Number',
             'department': 'Department',
+            'status': 'Account Status',
         }
 
     def save(self, commit=True):
-        """Create user account and assign to Staff group"""
+        """Create user account and assign to Staff group (only for new staff)"""
         from django.contrib.auth.models import User, Group
         import random
         
-        # Generate unique username
-        base_username = self.cleaned_data['name'].lower().replace(' ', '.')
-        username = base_username
-        counter = 1
-        while User.objects.filter(username=username).exists():
-            username = f"{base_username}{counter}"
-            counter += 1
-        
-        # Create user account
-        password = "uvtab"
-        user = User.objects.create_user(
-            username=username,
-            email=f"{username}@uvtab.go.ug",
-            password=password,
-            first_name=self.cleaned_data.get('name', '')
-        )
-        
-        # Add to Staff group (create if doesn't exist)
-        staff_group, created = Group.objects.get_or_create(name='Staff')
-        user.groups.add(staff_group)
-        
         # Save staff profile
         profile = super().save(commit=False)
-        profile.user = user
+        
+        # Only create new user if this is a new staff member (no existing user)
+        if not profile.user_id:
+            # Generate unique username
+            base_username = self.cleaned_data['name'].lower().replace(' ', '.')
+            username = base_username
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}{counter}"
+                counter += 1
+            
+            # Create user account
+            password = "uvtab"
+            user = User.objects.create_user(
+                username=username,
+                email=f"{username}@uvtab.go.ug",
+                password=password,
+                first_name=self.cleaned_data.get('name', '')
+            )
+            
+            # Add to Staff group (create if doesn't exist)
+            staff_group, created = Group.objects.get_or_create(name='Staff')
+            user.groups.add(staff_group)
+            
+            # Assign user to profile
+            profile.user = user
+        else:
+            # For existing staff, just update the name in the User model
+            profile.user.first_name = self.cleaned_data.get('name', '')
+            profile.user.save()
+        
         if commit:
             profile.save()
         return profile
