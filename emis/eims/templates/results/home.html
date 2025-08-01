@@ -330,7 +330,7 @@
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             {% for item in candidates_with_status %}
-            <tr class="hover:bg-gray-50">
+            <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='{% url 'candidate_view' item.candidate.id %}?from=results'">
               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                 {{ item.candidate.reg_number }}
               </td>
@@ -639,9 +639,9 @@
 
           if ((regcat === 'formal' || regcat === 'workers_pas') && occId) {
               levelField.classList.remove('hidden');
-              const occupationLevels = allLevels.filter(l => l.occupation_id === occId);
-              occupationLevels.forEach(l => {
-                  levelSelect.innerHTML += `<option value="${l.id}">${l.name}</option>`;
+              const occupationLevels = allLevels.filter(lvl => lvl.occupation_id === occId);
+              occupationLevels.forEach(lvl => {
+                  levelSelect.innerHTML += `<option value="${lvl.id}">${lvl.name}</option>`;
               });
           } else if (regcat !== 'modular') {
               levelField.classList.add('hidden');

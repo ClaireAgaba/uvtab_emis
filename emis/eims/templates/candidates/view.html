@@ -16,9 +16,32 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
 
 
 <!-- Breadcrumb -->
-<div class="text-sm text-gray-500 mb-4">
-    <a href="{% url 'candidate_list' %}" class="text-blue-600 hover:underline">Candidates</a> /
-    <span class="text-gray-700">{{ candidate.full_name }}</span>
+<div class="text-sm text-gray-500 mb-4 flex items-center justify-between">
+    <div>
+        {% if request.GET.from == 'results' %}
+            <a href="{% url 'results_home' %}" class="text-blue-600 hover:underline">Results</a> /
+        {% else %}
+            <a href="{% url 'candidate_list' %}" class="text-blue-600 hover:underline">Candidates</a> /
+        {% endif %}
+        <span class="text-gray-700">{{ candidate.full_name }}</span>
+    </div>
+    <div>
+        {% if request.GET.from == 'results' %}
+            <a href="{% url 'results_home' %}" class="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                Back to Results
+            </a>
+        {% else %}
+            <a href="{% url 'candidate_list' %}" class="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                Back to Candidates
+            </a>
+        {% endif %}
+    </div>
 </div>
 
 <div class="max-w-7xl w-full mx-auto mt-6 space-y-6">
