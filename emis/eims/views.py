@@ -2246,7 +2246,34 @@ def district_villages_api(request, district_id):
 
 def assessment_center_list(request):
     centers = AssessmentCenter.objects.all()
-    return render(request, 'assessment_centers/list.html', {'centers': centers})
+    
+    # Get filter parameters
+    center_number = request.GET.get('center_number', '').strip()
+    center_name = request.GET.get('center_name', '').strip()
+    district = request.GET.get('district', '').strip()
+    village = request.GET.get('village', '').strip()
+    category = request.GET.get('category', '').strip()
+    
+    # Apply filters
+    if center_number:
+        centers = centers.filter(center_number__icontains=center_number)
+    if center_name:
+        centers = centers.filter(center_name__icontains=center_name)
+    if district:
+        centers = centers.filter(district__name__icontains=district)
+    if village:
+        centers = centers.filter(village__name__icontains=village)
+    if category:
+        centers = centers.filter(category_id=category)
+    
+    # Get all categories for the filter dropdown
+    from .models import AssessmentCenterCategory
+    categories = AssessmentCenterCategory.objects.all().order_by('name')
+    
+    return render(request, 'assessment_centers/list.html', {
+        'centers': centers,
+        'categories': categories,
+    })
 
 
 
@@ -2264,22 +2291,7 @@ def assessment_center_view(request, id):
     })
 
 
-def assessment_center_list(request):
-    centers = AssessmentCenter.objects.all()
-    search = request.GET.get('search')
-    category_id = request.GET.get('category')
 
-    if search:
-        centers = centers.filter(center_name__icontains=search)
-    if category_id:
-        centers = centers.filter(category_id=category_id)
-
-    categories = AssessmentCenterCategory.objects.all()
-
-    return render(request, 'assessment_centers/list.html', {
-        'centers': centers,
-        'categories': categories
-    })
 
 
 def assessment_center_create(request):
