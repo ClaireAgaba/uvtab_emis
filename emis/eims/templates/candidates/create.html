@@ -5,18 +5,19 @@
 {% block content %}
 
 <!-- Breadcrumb -->
-<div class="text-sm text-gray-500 mb-4">
+<div class="text-sm text-gray-500 mb-4 px-4 sm:px-0">
     <a href="{% url 'candidate_list' %}" class="text-blue-600 hover:underline">Candidates</a> /
-    
+    <span class="text-gray-700">New Candidate</span>
 </div>
 
-<div class="max-w-4xl mx-auto mt-10 bg-white p-6 shadow rounded">
-  <h1 class="text-2xl font-normal mb-6" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Register New Candidate</h1>
+<div class="max-w-4xl mx-auto mt-6 sm:mt-10 bg-white p-4 sm:p-6 shadow rounded-lg">
+  <h1 class="text-xl sm:text-2xl font-normal mb-4 sm:mb-6" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Register New Candidate</h1>
+  
   {% if form.errors %}
-    <div class="md:col-span-2 mb-4">
-      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+    <div class="mb-4">
+      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
         <strong class="font-bold">Please correct the errors below:</strong>
-        <ul class="mt-2 text-sm">
+        <ul class="mt-2 text-sm space-y-1">
           {% for field in form %}
             {% for error in field.errors %}
               <li><strong>{{ field.label }}:</strong> {{ error }}</li>
@@ -29,118 +30,144 @@
       </div>
     </div>
   {% endif %}
-  <form method="post" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+  <form method="post" enctype="multipart/form-data" class="space-y-6">
     {% csrf_token %}
     
-    <!-- Personal Details -->
-    <div>
-      <label class="block font-semibold mb-1">Full Name</label>
-      {{ form.full_name }}
+    <!-- Personal Information Section -->
+    <div class="bg-gray-50 p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Form fields with responsive styling -->
+        <div class="space-y-4 md:col-span-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="{{ form.full_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.full_name.label }}</label>
+              {{ form.full_name|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+            </div>
+            <div>
+              <label for="{{ form.passport_photo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.passport_photo.label }}</label>
+              {{ form.passport_photo|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.date_of_birth.label }}</label>
+          {{ form.date_of_birth|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div>
+          <label for="{{ form.gender.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.gender.label }}</label>
+          {{ form.gender|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div>
+          <label for="{{ form.nationality.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.nationality.label }}</label>
+          {{ form.nationality|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+      </div>
     </div>
 
-    <div>
-      <label class="block font-semibold mb-1">Passport Photo</label>
-      {{ form.passport_photo }}
+    <!-- Contact & Location Section -->
+    <div class="bg-gray-50 p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Contact & Location</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="{{ form.contact.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.contact.label }}</label>
+          {{ form.contact|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div>
+          <label for="{{ form.district.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.district.label }}</label>
+          {{ form.district|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div>
+          <label for="{{ form.village.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.village.label }}</label>
+          {{ form.village|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+      </div>
     </div>
 
-    <div>
-      <label class="block font-semibold mb-1">Date of Birth</label>
-      {{ form.date_of_birth }}
-    </div>
-    <!-- Flatpickr CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-
-
-    <div>
-      <label class="block font-semibold mb-1">Gender</label>
-      {{ form.gender }}
-    </div>
-
-    <div>
-      <label class="block font-semibold mb-1">Nationality</label>
-      {{ form.nationality }}
-      <small class="text-gray-500">Please select the candidate's country of nationality.</small>
-    </div>
-
-    <!-- Contact & Location -->
-    <div>
-      <label class="block font-semibold mb-1">Contact</label>
-      {{ form.contact }}
-    </div>
-
-    <div>
-      <label class="block font-semibold mb-1">District</label>
-      {{ form.district }}
-    </div>
-
-    <div>
-      <label class="block font-semibold mb-1">Village</label>
-      {{ form.village }}
-    </div>
-
-    <!-- Assessment Info -->
-    <div>
-      <label class="block font-semibold mb-1">Assessment Center</label>
-      {{ form.assessment_center }}
-    </div>
-
-    <div>
-      <label class="block font-semibold mb-1">Entry Year</label>
-      {{ form.entry_year }}
-    </div>
-
-    <div>
-      <label class="block font-semibold mb-1">Intake</label>
-      {{ form.intake }}
-    </div>
-
-    <div>
-      <label class="block font-semibold mb-1">Registration Category</label>
-      {{ form.registration_category }}
-    </div>
-    <div id="occupation-field-wrapper">
-      <label class="block font-semibold mb-1">Occupation</label>
-      {{ form.occupation }}
-      <span id="occupation-loading" class="text-xs text-gray-500 hidden">Loading...</span>
+    <!-- Assessment Info Section -->
+    <div class="bg-gray-50 p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Assessment Info</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="{{ form.assessment_center.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_center.label }}</label>
+          {{ form.assessment_center|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div>
+          <label for="{{ form.entry_year.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.entry_year.label }}</label>
+          {{ form.entry_year|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div>
+          <label for="{{ form.intake.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.intake.label }}</label>
+          {{ form.intake|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div>
+          <label for="{{ form.registration_category.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.registration_category.label }}</label>
+          {{ form.registration_category|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+      </div>
     </div>
 
     <!-- Disability Section -->
-    <div class="md:col-span-2 border-t pt-4 mt-4">
-      <label for="id_disability" class="font-semibold mb-1">{{ form.disability.label_tag }}</label>
-      {{ form.disability }}
-      {% if form.disability.help_text %}<p class="text-gray-600 text-xs">{{ form.disability.help_text }}</p>{% endif %}
-    </div>
-    <div class="md:col-span-2 mb-4" id="nature-of-disability-group" style="display: none;">
-      <label class="font-semibold mb-1" id="nature-label">{{ form.nature_of_disability.label }}<span id="nature-required" style="color:red; display:none;">*</span></label>
-      <div id="nature-checkboxes">
-        {{ form.nature_of_disability }}
+    <div class="bg-gray-50 p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Disability</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="{{ form.disability.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.disability.label }}</label>
+          {{ form.disability|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div id="nature-of-disability-group" style="display: none;">
+          <label for="{{ form.nature_of_disability.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.nature_of_disability.label }}</label>
+          {{ form.nature_of_disability|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
       </div>
-      {% if form.nature_of_disability.help_text %}<p class="text-gray-600 text-xs">{{ form.nature_of_disability.help_text }}</p>{% endif %}
-      {% for error in form.nature_of_disability.errors %}<p class="text-red-600 text-xs">{{ error }}</p>{% endfor %}
     </div>
 
-    <!-- Assessment Dates -->
-    <div>
-      <label class="block font-semibold mb-1">Start Date</label>
-      {{ form.start_date }}
+    <!-- Assessment Dates Section -->
+    <div class="bg-gray-50 p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Assessment Dates</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.start_date.label }}</label>
+          {{ form.start_date|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div>
+          <label for="{{ form.finish_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.finish_date.label }}</label>
+          {{ form.finish_date|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+        
+        <div>
+          <label for="{{ form.assessment_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_date.label }}</label>
+          {{ form.assessment_date|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+        </div>
+      </div>
     </div>
 
-    <div>
-      <label class="block font-semibold mb-1">Finish Date</label>
-      {{ form.finish_date }}
-    </div>
-
-    <div class="md:col-span-2">
-      <label class="block font-semibold mb-1">Assessment Date</label>
-      {{ form.assessment_date }}
-    </div>
-
-    <!-- Submit Button -->
-    <div class="md:col-span-2 text-right mt-4">
-      <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Save Candidate</button>
+    <!-- Action Buttons -->
+    <div class="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
+      <a href="{% url 'candidate_list' %}" class="w-full sm:w-auto px-6 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center touch-target">
+        Cancel
+      </a>
+      <button type="submit" class="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 touch-target">
+        Register Candidate
+      </button>
     </div>
   </form>
 </div>
+
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
 <!-- Flatpickr JS -->
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
@@ -280,6 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // --- End Dynamic Village Filtering ---
+
 // --- Disability/Nature of Disability Dynamic Logic ---
 document.addEventListener('DOMContentLoaded', function() {
     const disabilityCheckbox = document.getElementById('id_disability');
@@ -297,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // --- End Disability/Nature of Disability Dynamic Logic ---
-// --- End Disability/Nature of Disability Dynamic Logic ---
+
 // --- Begin Nature of Disability Required Logic ---
 document.addEventListener('DOMContentLoaded', function() {
     const disabilityCheckbox = document.getElementById('id_disability');

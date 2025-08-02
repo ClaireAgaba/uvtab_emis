@@ -1,37 +1,41 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="w-full px-2 md:px-8 mt-8">
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-normal" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Candidates</h1>
-    <div class="flex gap-2">
-  <a href="{% url 'candidate_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Candidate</a>
-  <a href="{% url 'candidate_import_dual' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ml-2">Import Candidates & Photos</a>
-</div>
+<div class="w-full px-2 md:px-8 mt-4 md:mt-8">
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
+    <h1 class="text-xl md:text-2xl font-normal" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Candidates</h1>
+    <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+      <a href="{% url 'candidate_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center text-sm touch-target">+ Create Candidate</a>
+      <a href="{% url 'candidate_import_dual' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center text-sm touch-target">Import Candidates & Photos</a>
+    </div>
   </div>
 
   <!-- Bulk Action Bar (hidden by default) -->
-  <div id="bulk-action-bar" class="hidden mb-4 bg-gray-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-4">
-    <span class="font-semibold text-gray-700">Bulk Actions:</span>
-    <select id="bulk-action-select" class="border px-2 py-1 rounded">
-      <option value="">Select Action</option>
-      <option value="enroll">Enroll</option>
-      <option value="regenerate">Regenerate Reg. Number</option>
-      <option value="add_regno_photo">Add Regno on Photo</option>
-      <option value="change_reg_cat">Change Reg Category</option>
-      <option value="mark_disabled">Mark as Disabled</option>
-    </select>
-    <!-- Level selector for Formal/Informal bulk enroll -->
-    <div id="bulk-level-select-wrapper" class="hidden" style="min-width:180px; margin-right:12px;">
-      <label for="bulk-level-select" class="block text-xs font-semibold text-gray-700 mb-1">Select Level:</label>
-      <select id="bulk-level-select" class="border px-2 py-1 rounded w-full"></select>
+  <div id="bulk-action-bar" class="hidden mb-4 bg-gray-50 border border-blue-200 rounded-lg px-4 py-3">
+    <div class="flex flex-col lg:flex-row items-start lg:items-center gap-4">
+      <span class="font-semibold text-gray-700 text-sm">Bulk Actions:</span>
+      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
+        <select id="bulk-action-select" class="border px-3 py-2 rounded text-sm touch-target min-w-0">
+          <option value="">Select Action</option>
+          <option value="enroll">Enroll</option>
+          <option value="regenerate">Regenerate Reg. Number</option>
+          <option value="add_regno_photo">Add Regno on Photo</option>
+          <option value="change_reg_cat">Change Reg Category</option>
+          <option value="mark_disabled">Mark as Disabled</option>
+        </select>
+        <!-- Level selector for Formal/Informal bulk enroll -->
+        <div id="bulk-level-select-wrapper" class="hidden w-full sm:w-auto" style="min-width:180px;">
+          <label for="bulk-level-select" class="block text-xs font-semibold text-gray-700 mb-1">Select Level:</label>
+          <select id="bulk-level-select" class="border px-3 py-2 rounded w-full text-sm touch-target"></select>
+        </div>
+        <!-- Module/Paper selector for Informal bulk enroll -->
+        <div id="bulk-informal-modules-papers" class="hidden w-full sm:w-auto" style="min-width:240px; max-width:100%; max-height:320px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
+        <!-- Module selector for Modular bulk enroll -->
+        <div id="bulk-module-checkboxes" class="hidden w-full sm:w-auto" style="min-width:240px; min-height:120px; max-height:240px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
+        <button id="bulk-action-apply" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm touch-target">Apply</button>
+      </div>
     </div>
-    <!-- Module/Paper selector for Informal bulk enroll -->
-    <div id="bulk-informal-modules-papers" class="hidden" style="min-width:240px; max-width:480px; max-height:320px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
-    <!-- Module selector for Modular bulk enroll -->
-    <div id="bulk-module-checkboxes" class="hidden" style="min-width:240px; min-height:120px; max-height:240px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
-    <button id="bulk-action-apply" class="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Apply</button>
-    <span id="bulk-action-error" class="text-red-600 text-sm ml-4"></span>
+    <span id="bulk-action-error" class="text-red-600 text-sm mt-2 block"></span>
   </div>
 
   <!-- Bulk Change Reg Category Modal -->
