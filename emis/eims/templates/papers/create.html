@@ -223,6 +223,10 @@ document.addEventListener('DOMContentLoaded', function() {
             moduleSelect.required = false;
             gradeTypeField.style.display = 'block';
             gradeTypeSelect.required = true;
+            gradeTypeSelect.disabled = false;
+            gradeTypeField.classList.remove('opacity-60');
+            gradeTypeSelect.style.pointerEvents = 'auto';
+            gradeTypeSelect.removeAttribute('data-auto-selected');
             return;
           }
           
@@ -257,9 +261,12 @@ document.addEventListener('DOMContentLoaded', function() {
               });
             
             // Automatically select "Practical" for informal/worker's pas occupations
-            gradeTypeField.style.display = 'none';
-            gradeTypeSelect.required = false;
+            gradeTypeField.style.display = 'block';
+            gradeTypeSelect.required = true;
+            gradeTypeSelect.readOnly = true;
+            gradeTypeSelect.disabled = false;
             gradeTypeSelect.value = 'Practical';
+            gradeTypeField.classList.add('opacity-60');
           } else {
             // For formal occupations, check structure type
             fetch(`/eims/api/occupation-level-structure/?occupation_id=${occupationId}&level_id=${levelId}`)
@@ -282,6 +289,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 gradeTypeField.style.display = 'block';
                 gradeTypeSelect.required = true;
+                gradeTypeSelect.disabled = false;
+                gradeTypeField.classList.remove('opacity-60');
+                gradeTypeSelect.style.pointerEvents = 'auto';
+                gradeTypeSelect.removeAttribute('data-auto-selected');
               })
               .catch(error => {
                 console.error('Error checking structure type:', error);
@@ -290,6 +301,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 moduleSelect.required = false;
                 gradeTypeField.style.display = 'block';
                 gradeTypeSelect.required = true;
+                gradeTypeSelect.disabled = false;
+                gradeTypeField.classList.remove('opacity-60');
+                gradeTypeSelect.style.pointerEvents = 'auto';
+                gradeTypeSelect.removeAttribute('data-auto-selected');
               });
           }
         })
@@ -300,12 +315,20 @@ document.addEventListener('DOMContentLoaded', function() {
           moduleSelect.required = false;
           gradeTypeField.style.display = 'block';
           gradeTypeSelect.required = true;
+          gradeTypeSelect.disabled = false;
+          gradeTypeField.classList.remove('opacity-60');
+          gradeTypeSelect.style.pointerEvents = 'auto';
+          gradeTypeSelect.removeAttribute('data-auto-selected');
         });
     } else {
       moduleField.style.display = 'none';
       moduleSelect.required = false;
       gradeTypeField.style.display = 'block';
       gradeTypeSelect.required = true;
+      gradeTypeSelect.disabled = false;
+      gradeTypeField.classList.remove('opacity-60');
+      gradeTypeSelect.style.pointerEvents = 'auto';
+      gradeTypeSelect.removeAttribute('data-auto-selected');
     }
   });
 });
