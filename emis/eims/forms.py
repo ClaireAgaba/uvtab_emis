@@ -380,7 +380,14 @@ class CandidateForm(forms.ModelForm):
 class EnrollmentForm(forms.Form):
     """
     Refactored: For worker's PAS/informal, after level selection, dynamically generate a radio group per module (listing that module's papers).
+    Now includes Assessment Series selection filtered by candidate's entry year.
     """
+    assessment_series = forms.ModelChoiceField(
+        queryset=AssessmentSeries.objects.none(), 
+        required=True, 
+        widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        help_text="Select the Assessment Series for this enrollment"
+    )
     level = forms.ModelChoiceField(queryset=Level.objects.all(), required=True, widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
     # modules field for modular/formal; for informal, we'll dynamically add paper fields per module in __init__
     modules = forms.ModelMultipleChoiceField(queryset=Module.objects.none(), required=False, widget=forms.CheckboxSelectMultiple)
@@ -391,6 +398,29 @@ class EnrollmentForm(forms.Form):
         occupation = getattr(candidate, 'occupation', None)
         reg_cat = getattr(candidate, 'registration_category', '').strip().lower() if candidate else None
         self.is_informal = reg_cat in ["worker's pas", 'workers pas', 'informal']
+
+        # Filter Assessment Series by candidate's entry year
+        if candidate and hasattr(candidate, 'entry_year') and candidate.entry_year:
+            # Get series from the candidate's entry year
+            entry_year = candidate.entry_year
+            self.fields['assessment_series'].queryset = AssessmentSeries.objects.filter(
+                start_date__year=entry_year
+            ).order_by('-start_date')
+        elif candidate and hasattr(candidate, 'assessment_date') and candidate.assessment_date:
+            # Fallback: use assessment date year if entry_year not available
+            assessment_year = candidate.assessment_date.year
+            self.fields['assessment_series'].queryset = AssessmentSeries.objects.filter(
+                start_date__year=assessment_year
+            ).order_by('-start_date')
+        else:
+            # Show current series as fallback
+            self.fields['assessment_series'].queryset = AssessmentSeries.objects.filter(
+                is_current=True
+            ).order_by('-start_date')
+
+        # If candidate already has an assessment series, pre-select it
+        if candidate and hasattr(candidate, 'assessment_series') and candidate.assessment_series:
+            self.fields['assessment_series'].initial = candidate.assessment_series
 
         # Dynamically filter levels by occupation
         if occupation:
@@ -448,6 +478,12 @@ class EnrollmentForm(forms.Form):
         occupation = getattr(self.candidate, 'occupation', None)
         reg_cat = getattr(self.candidate, 'registration_category', '').strip().lower() if self.candidate else None
         level = cleaned_data.get('level')
+        assessment_series = cleaned_data.get('assessment_series')
+        
+        # Validate that assessment series is selected
+        if not assessment_series:
+            raise forms.ValidationError("Please select an Assessment Series for this enrollment.")
+        
         # Informal/worker's PAS: allow zero or more module paper selections, but only one per module
         if self.is_informal and occupation and level:
             selected_papers = {}

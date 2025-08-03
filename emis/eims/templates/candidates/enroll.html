@@ -21,6 +21,22 @@
     {% csrf_token %}
     {% csrf_token %}
 
+<!-- ASSESSMENT SERIES: Required selection -->
+<div class="mb-6">
+  <label for="{{ form.assessment_series.id_for_label }}" class="block font-semibold mb-1">Assessment Series: <span class="text-red-500">*</span></label>
+  {{ form.assessment_series }}
+  {% if form.assessment_series.help_text %}
+    <p class="text-sm text-gray-600 mt-1">{{ form.assessment_series.help_text }}</p>
+  {% endif %}
+  {% if form.assessment_series.errors %}
+    <div class="text-red-600 text-sm mt-1">
+      {% for error in form.assessment_series.errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
     <!-- LEVEL: Either dropdown or read-only note -->
     <div class="mb-6">
       {% if form.level %}

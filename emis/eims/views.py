@@ -4375,7 +4375,16 @@ def enroll_candidate_view(request, id):
     if request.method == 'POST' and request.POST.get('_enroll') == '1':
         form = EnrollmentForm(request.POST, candidate=candidate)
         if form.is_valid():
+            # Get the selected assessment series
+            assessment_series = form.cleaned_data.get('assessment_series')     
+
+            # Update candidate's assessment series
+            if assessment_series:
+                candidate.assessment_series = assessment_series
+                candidate.save() 
+
             registration_category = candidate.registration_category
+            
 
             # Handle formal registration (level only)
             if registration_category == 'Formal':
