@@ -45,6 +45,9 @@
                     <a href="{% url 'dashboard' %}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
                         Home
                     </a>
+                    <span class="text-gray-600 px-3 py-2 text-sm font-medium">
+                        {{ request.user.first_name|default:request.user.username }}
+                    </span>
                     <form method="post" action="{% url 'logout' %}" class="inline">
                         {% csrf_token %}
                         <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-medium touch-target">
@@ -69,6 +72,9 @@
                     <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 touch-target">
                         Home
                     </a>
+                    <span class="block px-3 py-2 text-base font-medium text-gray-600">
+                        {{ request.user.first_name|default:request.user.username }}
+                    </span>
                     <form method="post" action="{% url 'logout' %}" class="block">
                         {% csrf_token %}
                         <button type="submit" class="w-full text-left px-3 py-2 rounded-md text-base font-medium bg-red-500 hover:bg-red-600 text-white touch-target">
