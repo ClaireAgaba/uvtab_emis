@@ -169,8 +169,10 @@ document.addEventListener('DOMContentLoaded', function() {
   const levelSelect = document.getElementById('id_level');
   const moduleField = document.getElementById('module-field');
   const moduleSelect = document.getElementById('id_module');
+  const gradeTypeSelect = document.getElementById('id_grade_type');
+  const gradeTypeField = gradeTypeSelect.closest('div'); // Get the parent div containing the whole field
 
-  // Load levels when occupation changes
+  // Load levels for the selected occupation (excluding Level 1 for modular occupations)
   occupationSelect.addEventListener('change', function() {
     const occupationId = this.value;
     levelSelect.innerHTML = '<option value="">Loading...</option>';
@@ -181,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
     moduleSelect.required = false;
     
     if (occupationId) {
-      fetch(`/eims/api/levels-for-occupation/?occupation_id=${occupationId}`)
+      fetch(`/eims/api/levels-for-papers/?occupation_id=${occupationId}`)
         .then(response => response.json())
         .then(data => {
           levelSelect.innerHTML = '<option value="">Select a level...</option>';
@@ -210,83 +212,100 @@ document.addEventListener('DOMContentLoaded', function() {
     const levelId = this.value;
     
     if (occupationId && levelId) {
-      // Check if this is an informal/worker's pas occupation
-      const selectedOccupation = occupationSelect.options[occupationSelect.selectedIndex];
-      const occupationText = selectedOccupation ? selectedOccupation.textContent.toLowerCase() : '';
-      const isInformal = occupationText.includes("worker's pas") || occupationText.includes('informal') || occupationText.includes('workers pas');
-      
-      if (isInformal) {
-        // For informal/worker's pas, always show module field and load modules
-        moduleField.style.display = 'block';
-        moduleSelect.required = true;
-        
-        // Load modules for this occupation and level
-        fetch(`/eims/api/modules/?occupation_id=${occupationId}&level_id=${levelId}`)
-          .then(response => response.json())
-          .then(data => {
-            moduleSelect.innerHTML = '<option value="">Select a module...</option>';
-            if (data.modules && data.modules.length > 0) {
-              data.modules.forEach(module => {
-                const option = document.createElement('option');
-                option.value = module.id;
-                option.textContent = `${module.code} - ${module.name}`;
-                moduleSelect.appendChild(option);
-              });
-            } else {
-              moduleSelect.innerHTML = '<option value="">No modules available</option>';
-            }
-          })
-          .catch(error => {
-            console.error('Error loading modules:', error);
-            moduleSelect.innerHTML = '<option value="">Error loading modules</option>';
-          });
-      } else {
-        // For formal occupations, check structure type
-        fetch(`/eims/api/occupation-level-structure/?occupation_id=${occupationId}&level_id=${levelId}`)
-          .then(response => response.json())
-          .then(data => {
-            if (data.structure_type === 'module-based') {
-              // Show module field for module-based structure
-              moduleField.style.display = 'block';
-              moduleSelect.required = true;
-              
-              // Load modules for this occupation and level
-              fetch(`/eims/api/modules/?occupation_id=${occupationId}&level_id=${levelId}`)
-                .then(response => response.json())
-                .then(data => {
-                  moduleSelect.innerHTML = '<option value="">Select a module...</option>';
-                  if (data.modules && data.modules.length > 0) {
-                    data.modules.forEach(module => {
-                      const option = document.createElement('option');
-                      option.value = module.id;
-                      option.textContent = `${module.code} - ${module.name}`;
-                      moduleSelect.appendChild(option);
-                    });
-                  } else {
-                    moduleSelect.innerHTML = '<option value="">No modules available</option>';
-                  }
-                })
-                .catch(error => {
-                  console.error('Error loading modules:', error);
-                  moduleSelect.innerHTML = '<option value="">Error loading modules</option>';
-                });
-            } else {
-              // Hide module field for paper-based structure
-              moduleField.style.display = 'none';
-              moduleSelect.required = false;
-              moduleSelect.value = '';
-            }
-          })
-          .catch(error => {
-            console.error('Error checking structure type:', error);
-            // Default to hiding module field on error
+      // Check occupation category from database to determine if it's informal/worker's pas
+      fetch(`/eims/api/occupation-category/?occupation_id=${occupationId}`)
+        .then(response => response.json())
+        .then(categoryData => {
+          if (categoryData.error) {
+            console.error('Error fetching occupation category:', categoryData.error);
+            // Default to formal occupation behavior on error
             moduleField.style.display = 'none';
             moduleSelect.required = false;
-          });
-      }
+            gradeTypeField.style.display = 'block';
+            gradeTypeSelect.required = true;
+            return;
+          }
+          
+          // Check if this is an informal/worker's pas occupation based on category name
+          const categoryName = categoryData.category_name.toLowerCase();
+          const isInformal = categoryName.includes('informal') || categoryName.includes('worker');
+          
+          if (isInformal) {
+            // For informal/worker's pas, always show module field and load modules
+            moduleField.style.display = 'block';
+            moduleSelect.required = true;
+            
+            // Load modules for this occupation and level
+            fetch(`/eims/api/modules/?occupation_id=${occupationId}&level_id=${levelId}`)
+              .then(response => response.json())
+              .then(data => {
+                moduleSelect.innerHTML = '<option value="">Select a module...</option>';
+                if (data.modules && data.modules.length > 0) {
+                  data.modules.forEach(module => {
+                    const option = document.createElement('option');
+                    option.value = module.id;
+                    option.textContent = `${module.code} - ${module.name}`;
+                    moduleSelect.appendChild(option);
+                  });
+                } else {
+                  moduleSelect.innerHTML = '<option value="">No modules available</option>';
+                }
+              })
+              .catch(error => {
+                console.error('Error loading modules:', error);
+                moduleSelect.innerHTML = '<option value="">Error loading modules</option>';
+              });
+            
+            // Automatically select "Practical" for informal/worker's pas occupations
+            gradeTypeField.style.display = 'none';
+            gradeTypeSelect.required = false;
+            gradeTypeSelect.value = 'Practical';
+          } else {
+            // For formal occupations, check structure type
+            fetch(`/eims/api/occupation-level-structure/?occupation_id=${occupationId}&level_id=${levelId}`)
+              .then(response => response.json())
+              .then(data => {
+                if (data.structure_type === 'module-based') {
+                  // Module-based formal occupations should NOT create papers
+                  // Hide module field and show error message
+                  moduleField.style.display = 'none';
+                  moduleSelect.required = false;
+                  moduleSelect.value = '';
+                  
+                  // Optional: Show user feedback that this occupation type doesn't use papers
+                  console.log('Module-based formal occupations do not create papers');
+                } else {
+                  // Paper-based formal occupation - hide module field (papers created directly)
+                  moduleField.style.display = 'none';
+                  moduleSelect.required = false;
+                  moduleSelect.value = '';
+                }
+                gradeTypeField.style.display = 'block';
+                gradeTypeSelect.required = true;
+              })
+              .catch(error => {
+                console.error('Error checking structure type:', error);
+                // Default to hiding module field on error
+                moduleField.style.display = 'none';
+                moduleSelect.required = false;
+                gradeTypeField.style.display = 'block';
+                gradeTypeSelect.required = true;
+              });
+          }
+        })
+        .catch(error => {
+          console.error('Error checking occupation category:', error);
+          // Default to formal occupation behavior on error
+          moduleField.style.display = 'none';
+          moduleSelect.required = false;
+          gradeTypeField.style.display = 'block';
+          gradeTypeSelect.required = true;
+        });
     } else {
       moduleField.style.display = 'none';
       moduleSelect.required = false;
+      gradeTypeField.style.display = 'block';
+      gradeTypeSelect.required = true;
     }
   });
 });

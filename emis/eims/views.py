@@ -2639,6 +2639,28 @@ def api_levels_for_occupation(request):
         levels = list(Level.objects.filter(occupation_id=occ_id).values('id', 'name'))
     return JsonResponse({'levels': levels})
 
+def api_levels_for_papers(request):
+    """
+    Returns levels for occupation, excluding Level 1 for modular occupations
+    (since Level 1 is always module-based for modular occupations)
+    """
+    occ_id = request.GET.get('occupation_id')
+    levels = []
+    if occ_id:
+        try:
+            occupation = Occupation.objects.get(id=occ_id)
+            level_filter = Level.objects.filter(occupation_id=occ_id)
+            
+            # For modular occupations, exclude Level 1 (it's always module-based)
+            if occupation.has_modular:
+                level_filter = level_filter.exclude(name__icontains='Level 1')
+            
+            levels = list(level_filter.values('id', 'name'))
+        except Occupation.DoesNotExist:
+            levels = []
+    
+    return JsonResponse({'levels': levels})
+
 def api_levels(request):
     # Returns all levels as JSON (id, name, occupation_id)
     occ_levels = OccupationLevel.objects.select_related('level', 'occupation').all()
@@ -2685,6 +2707,21 @@ def api_modules(request):
         modules = Module.objects.filter(occupation_id=occupation_id)
     data = [{'id': m.id, 'code': m.code, 'name': m.name} for m in modules]
     return JsonResponse({'modules': data})
+
+@require_GET
+def api_occupation_category(request):
+    occupation_id = request.GET.get('occupation_id')
+    if not occupation_id:
+        return JsonResponse({'error': 'occupation_id is required'})
+    
+    try:
+        occupation = Occupation.objects.select_related('category').get(id=occupation_id)
+        return JsonResponse({
+            'category_name': occupation.category.name,
+            'category_id': occupation.category.id
+        })
+    except Occupation.DoesNotExist:
+        return JsonResponse({'error': 'Occupation not found'})
 
 def module_list(request):
     from django.core.paginator import Paginator
