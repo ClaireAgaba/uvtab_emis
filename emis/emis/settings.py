@@ -63,7 +63,6 @@ ROOT_URLCONF = 'emis.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],  # ✅ your templates folder
         'DIRS': [BASE_DIR / 'eims' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
