@@ -2018,15 +2018,29 @@ def bulk_candidate_action(request):
         level_id = data.get('level_id')
         paper_ids = data.get('paper_ids', [])
         module_ids = data.get('module_ids', [])
+        assessment_series_id = data.get('assessment_series_id')
+    
         # Enforce same occupation and regcat for all candidates
         occupations = set(c.occupation_id for c in candidates)
         regcats = set((c.registration_category or '').strip().lower() for c in candidates)
         if len(occupations) != 1 or len(regcats) != 1:
             return JsonResponse({'success': False, 'error': 'All candidates must have the same occupation and registration category to enroll together.'}, status=400)
+    
         regcat = regcats.pop()
+    
+        # Validate Assessment Series selection
+        if not assessment_series_id:
+            return JsonResponse({'success': False, 'error': 'Assessment Series is required for bulk enrollment.'}, status=400)
+    
+        try:
+            assessment_series = AssessmentSeries.objects.get(id=assessment_series_id)
+        except AssessmentSeries.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Invalid Assessment Series selected.'}, status=400)
+    
         from .models import Level, Module, Paper, CandidateLevel, CandidateModule, CandidatePaper
         enrolled = 0
-        # --- FORMAL ---
+    
+         # --- FORMAL ---
         if regcat == 'formal':
             if not level_id:
                 return JsonResponse({'success': False, 'error': 'Level is required.'})
@@ -2035,8 +2049,12 @@ def bulk_candidate_action(request):
                 return JsonResponse({'success': False, 'error': 'Invalid level.'})
             for c in candidates:
                 CandidateLevel.objects.get_or_create(candidate=c, level=level)
+                # Update candidate's assessment series
+                c.assessment_series = assessment_series
+                c.save()
                 enrolled += 1
             return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in {level.name}.'})
+        
         # --- WORKER'S PAS / INFORMAL ---
         elif regcat in ['informal', "worker's pas", "workers pas"]:
             if not level_id:
@@ -2046,6 +2064,9 @@ def bulk_candidate_action(request):
                 return JsonResponse({'success': False, 'error': 'Invalid level.'})
             for c in candidates:
                 CandidateLevel.objects.get_or_create(candidate=c, level=level)
+                # Update candidate's assessment series
+                c.assessment_series = assessment_series
+                c.save()
                 enrolled += 1
             # Assign selected papers (one per module)
             if paper_ids:
@@ -2056,6 +2077,7 @@ def bulk_candidate_action(request):
                         CandidatePaper.objects.get_or_create(candidate=c, module=paper.module, paper=paper, level=level)
                 return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in {level.name} and assigned selected papers.'})
             return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in {level.name}.'})
+        
         # --- MODULAR ---
         elif regcat == 'modular':
             if not (1 <= len(module_ids) <= 2):
@@ -2071,11 +2093,13 @@ def bulk_candidate_action(request):
                 CandidateModule.objects.filter(candidate=c).delete()
                 for m in modules:
                     CandidateModule.objects.create(candidate=c, module=m)
+                # Update candidate's assessment series
+                c.assessment_series = assessment_series
+                c.save()
                 enrolled += 1
             return JsonResponse({'success': True, 'message': f'Successfully enrolled {enrolled} candidates in {modules.count()} module(s).'})
         else:
             return JsonResponse({'success': False, 'error': 'Bulk enroll only supported for Formal, Modular, or Worker\'s PAS/Informal registration categories.'}, status=400)
-
     if action == 'add_regno_photo':
         results = []
         from PIL import Image as PILImage, ImageDraw, ImageFont
@@ -4403,10 +4427,14 @@ def enroll_candidate_view(request, id):
                         'candidate': candidate,
                     })
                 # Not already enrolled: clear previous enrollments and enroll
+                CandidateLevel.objects.create(candidate=candidate, level=level)
                 CandidateLevel.objects.filter(candidate=candidate).delete()
                 CandidateModule.objects.filter(candidate=candidate).delete()
-                CandidateLevel.objects.create(candidate=candidate, level=level)
-                messages.success(request, f"{candidate.full_name} enrolled in {level.name}")
+                CandidatePaper.objects.filter(candidate=candidate).delete()
+                # Also clear the assessment series assignment
+                candidate.assessment_series = None
+                candidate.save()
+                messages.success(request, 'All enrollment records and assessment series assignment for this candidate have been cleared.')
 
             # Handle modular registration (must select 1–2 modules, Level 1 only)
             elif registration_category == 'Modular':
@@ -6857,3 +6885,26 @@ def statistical_reports_home(request):
     }
     
     return render(request, 'statistical_reports/home.html', context)
+
+@login_required
+def api_assessment_series(request):
+    """API endpoint to get Assessment Series data for bulk enrollment"""
+    from django.http import JsonResponse
+    
+    # Get all assessment series, ordered by most recent first
+    series = AssessmentSeries.objects.all().order_by('-start_date')
+    
+    series_data = []
+    for s in series:
+        series_data.append({
+            'id': s.id,
+            'name': s.name,
+            'start_date': s.start_date.strftime('%Y-%m-%d'),
+            'end_date': s.end_date.strftime('%Y-%m-%d'),
+            'is_current': s.is_current,
+        })
+    
+    return JsonResponse({
+        'assessment_series': series_data
+    })
+

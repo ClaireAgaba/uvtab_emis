@@ -117,4 +117,7 @@ urlpatterns = [
     # Statistical Reports URLs
     path('statistical-reports/', views.statistical_reports_home, name='statistical_reports'),
     path('statistical-reports/series/<int:pk>/', views.assessment_series_statistical_report, name='assessment_series_statistical_report'),
+    
+    # API endpoints
+    path('api/assessment-series/', views.api_assessment_series, name='api_assessment_series'),
  ]
