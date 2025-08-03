@@ -37,18 +37,33 @@ def staff_list(request):
 def staff_create(request):
     """Create a new staff member with department assignment"""
     if request.method == 'POST':
+        print(f"[DEBUG] POST data: {request.POST}")
         form = StaffForm(request.POST)
+        print(f"[DEBUG] Form is_valid: {form.is_valid()}")
+        
+        if not form.is_valid():
+            print(f"[DEBUG] Form errors: {form.errors}")
+            print(f"[DEBUG] Form non_field_errors: {form.non_field_errors()}")
+            
         if form.is_valid():
-            staff = form.save(commit=False)
-            staff.created_by = request.user
-            staff.updated_by = request.user
-            staff.save()
-            messages.success(request, f'Staff member {staff.name} created successfully!')
-            return redirect('staff_list')
+            try:
+                print("[DEBUG] Form is valid, attempting to save...")
+                staff = form.save(commit=False)
+                print(f"[DEBUG] Staff object created: {staff}")
+                staff.created_by = request.user
+                staff.updated_by = request.user
+                staff.save()
+                print(f"[DEBUG] Staff saved successfully: {staff.id}")
+                messages.success(request, f'Staff member {staff.name} created successfully!')
+                return redirect('staff_list')
+            except Exception as e:
+                print(f"[DEBUG] Exception during save: {e}")
+                import traceback
+                traceback.print_exc()
+                messages.error(request, f'Error creating staff: {e}')
     else:
         form = StaffForm()
     return render(request, 'users/staff/create_staff.html', {'form': form})
-
 @login_required
 def staff_detail(request, pk):
     """View staff member details"""

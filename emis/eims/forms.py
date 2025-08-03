@@ -449,6 +449,13 @@ class EnrollmentForm(forms.Form):
                 self.fields['level'].initial = level_1.id
                 level = level_1  # Use Level 1 for module filtering below
 
+        # Add this around line 480 for debugging
+        if self.is_modular:
+            print(f"[DEBUG] Modular form - occupation: {occupation}, level: {level}")
+            if occupation and level:
+                modules_count = Module.objects.filter(occupation=occupation, level=level).count()
+                print(f"[DEBUG] Found {modules_count} modules for modular candidate")
+
         # For informal/worker's PAS: dynamically add paper fields per module
         if self.is_informal and occupation and level:
             print("[DEBUG] EnrollmentForm: occupation=", occupation)
@@ -671,34 +678,47 @@ class StaffForm(forms.ModelForm):
         profile = super().save(commit=False)
         
         # Only create new user if this is a new staff member (no existing user)
-        if not profile.user_id:
-            # Generate unique username
-            base_username = self.cleaned_data['name'].lower().replace(' ', '.')
-            username = base_username
-            counter = 1
-            while User.objects.filter(username=username).exists():
-                username = f"{base_username}{counter}"
-                counter += 1
-            
-            # Create user account
-            password = "uvtab"
-            user = User.objects.create_user(
-                username=username,
-                email=f"{username}@uvtab.go.ug",
-                password=password,
-                first_name=self.cleaned_data.get('name', '')
-            )
-            
-            # Add to Staff group (create if doesn't exist)
-            staff_group, created = Group.objects.get_or_create(name='Staff')
-            user.groups.add(staff_group)
-            
-            # Assign user to profile
-            profile.user = user
+        if not hasattr(profile, 'user') or not profile.user:
+            try:
+                # Generate unique username
+                base_username = self.cleaned_data['name'].lower().replace(' ', '.')
+                username = base_username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{counter}"
+                    counter += 1
+                
+                # Generate unique email
+                email = f"{username}@uvtab.go.ug"
+                counter = 1
+                while User.objects.filter(email=email).exists():
+                    email = f"{username}{counter}@uvtab.go.ug"
+                    counter += 1
+                
+                # Create user account
+                password = "uvtab"
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    first_name=self.cleaned_data.get('name', '')
+                )
+                
+                # Add to Staff group (create if doesn't exist)
+                staff_group, created = Group.objects.get_or_create(name='Staff')
+                user.groups.add(staff_group)
+                
+                # Assign user to profile
+                profile.user = user
+                
+            except Exception as e:
+                print(f"[DEBUG] Error creating user for staff: {e}")
+                raise forms.ValidationError(f"Error creating user account: {e}")
         else:
             # For existing staff, just update the name in the User model
-            profile.user.first_name = self.cleaned_data.get('name', '')
-            profile.user.save()
+            if profile.user:
+                profile.user.first_name = self.cleaned_data.get('name', '')
+                profile.user.save()
         
         if commit:
             profile.save()
