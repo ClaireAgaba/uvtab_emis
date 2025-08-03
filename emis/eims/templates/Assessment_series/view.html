@@ -1,0 +1,406 @@
+
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header Section -->
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-2">
+                        <h1 class="text-2xl font-bold text-gray-900">{{ series.name }}</h1>
+                        {% if series.is_current %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Current Series
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                                Inactive
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                        <div>
+                            <span class="font-medium">Period:</span> 
+                            {{ series.start_date|date:"M d, Y" }} - {{ series.end_date|date:"M d, Y" }}
+                        </div>
+                        <div>
+                            <span class="font-medium">Results Release:</span> 
+                            {{ series.date_of_release|date:"M d, Y" }}
+                        </div>
+                        <div>
+                            <span class="font-medium">Created:</span> 
+                            {{ series.created_at|date:"M d, Y" }}
+                        </div>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <a href="{% url 'assessment_series_list' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                        </svg>
+                        Back to List
+                    </a>
+                    <a href="{% url 'assessment_series_edit' series.pk %}" 
+                       class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        Edit Series
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <!-- Series Status -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            {% if is_active %}
+                                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            {% else %}
+                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            {% endif %}
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Series Status</dt>
+                                <dd class="text-lg font-medium text-gray-900">
+                                    {% if is_active %}
+                                        Active
+                                    {% elif today < series.start_date %}
+                                        Upcoming
+                                    {% else %}
+                                        Completed
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Release Status -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            {% if can_release_results %}
+                                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                            {% else %}
+                                <svg class="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                            {% endif %}
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Results Status</dt>
+                                <dd class="text-lg font-medium text-gray-900">
+                                    {% if can_release_results %}
+                                        Can Release
+                                    {% else %}
+                                        Pending
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Candidates -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                            </svg>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Total Candidates</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ total_candidates }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Results -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Total Results</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ total_results }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Gender Distribution -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Gender Distribution</h3>
+                {% if total_candidates > 0 %}
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-blue-500 rounded mr-3"></div>
+                                <span class="text-sm font-medium text-gray-700">Male</span>
+                            </div>
+                            <div class="text-sm text-gray-900">
+                                {{ male_candidates }} ({% widthratio male_candidates total_candidates 100 %}%)
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: {% widthratio male_candidates total_candidates 100 %}%"></div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-pink-500 rounded mr-3"></div>
+                                <span class="text-sm font-medium text-gray-700">Female</span>
+                            </div>
+                            <div class="text-sm text-gray-900">
+                                {{ female_candidates }} ({% widthratio female_candidates total_candidates 100 %}%)
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-pink-500 h-2 rounded-full" style="width: {% widthratio female_candidates total_candidates 100 %}%"></div>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-center py-8">No candidates enrolled in this series yet.</p>
+                {% endif %}
+            </div>
+
+            <!-- Special Needs Distribution -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Special Needs Distribution</h3>
+                {% if total_candidates > 0 %}
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-red-500 rounded mr-3"></div>
+                                <span class="text-sm font-medium text-gray-700">With Special Needs</span>
+                            </div>
+                            <div class="text-sm text-gray-900">
+                                {{ special_needs_candidates }} ({% widthratio special_needs_candidates total_candidates 100 %}%)
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-red-500 h-2 rounded-full" style="width: {% widthratio special_needs_candidates total_candidates 100 %}%"></div>
+                        </div>
+                        
+                        {% with without_special_needs=total_candidates|add:special_needs_candidates|add:"-"|add:special_needs_candidates %}
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-green-500 rounded mr-3"></div>
+                                <span class="text-sm font-medium text-gray-700">Without Special Needs</span>
+                            </div>
+                            <div class="text-sm text-gray-900">
+                                {% with without_special_needs=total_candidates|add:"-"|add:special_needs_candidates %}
+                                    {{ without_special_needs }} ({% widthratio without_special_needs total_candidates 100 %}%)
+                                {% endwith %}
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            {% with without_special_needs=total_candidates|add:"-"|add:special_needs_candidates %}
+                                <div class="bg-green-500 h-2 rounded-full" style="width: {% widthratio without_special_needs total_candidates 100 %}%"></div>
+                            {% endwith %}
+                        </div>
+                        {% endwith %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-center py-8">No candidates enrolled in this series yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Management Actions -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Management Actions</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- View Candidates -->
+                <a href="{% url 'candidate_list' %}?assessment_year={{ series.start_date.year }}&assessment_month={{ series.start_date.month }}" 
+                   class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <svg class="w-8 h-8 text-purple-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                    </svg>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900">View Candidates</h4>
+                        <p class="text-xs text-gray-500">See all candidates in this series</p>
+                    </div>
+                </a>
+
+                <!-- Generate Statistical Reports -->
+                <a href="{% url 'assessment_series_statistical_report' series.pk %}" 
+                   class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <svg class="w-8 h-8 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900">Statistical Reports</h4>
+                        <p class="text-xs text-gray-500">Generate statistical analysis</p>
+                    </div>
+                </a>
+
+                <!-- Release Results Toggle -->
+                <form method="post" action="{% url 'assessment_series_toggle_results' series.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" 
+                            class="w-full flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors {% if series.results_released %}bg-green-50 border-green-200{% endif %}"
+                            onclick="return confirm('Are you sure you want to {% if series.results_released %}hide{% else %}release{% endif %} results for this series?')">
+                        <svg class="w-8 h-8 {% if series.results_released %}text-green-600{% else %}text-orange-600{% endif %} mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            {% if series.results_released %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            {% else %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/>
+                            {% endif %}
+                        </svg>
+                        <div>
+                            <h4 class="text-sm font-medium {% if series.results_released %}text-green-800{% else %}text-gray-900{% endif %}">
+                                {% if series.results_released %}Results Released{% else %}Release Results{% endif %}
+                            </h4>
+                            <p class="text-xs {% if series.results_released %}text-green-600{% else %}text-gray-500{% endif %}">
+                                {% if series.results_released %}Click to hide results{% else %}Make results visible to candidates{% endif %}
+                            </p>
+                        </div>
+                    </button>
+                </form>
+
+                <!-- Set as Current -->
+                {% if not series.is_current %}
+                <a href="{% url 'assessment_series_set_current' series.pk %}" 
+                   class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                   onclick="return confirm('Are you sure you want to set this as the current assessment series?')">
+                    <svg class="w-8 h-8 text-orange-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900">Set as Current</h4>
+                        <p class="text-xs text-gray-500">Make this the active series</p>
+                    </div>
+                </a>
+                {% else %}
+                <div class="flex items-center p-4 border border-green-200 bg-green-50 rounded-lg">
+                    <svg class="w-8 h-8 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <div>
+                        <h4 class="text-sm font-medium text-green-800">Current Series</h4>
+                        <p class="text-xs text-green-600">This is the active series</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Series Timeline -->
+        <div class="bg-white shadow rounded-lg p-6 mt-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Series Timeline</h3>
+            <div class="relative">
+                <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                
+                <!-- Start Date -->
+                <div class="relative flex items-center mb-6">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <h4 class="text-sm font-medium text-gray-900">Assessment Period Starts</h4>
+                        <p class="text-sm text-gray-500">{{ series.start_date|date:"F d, Y" }}</p>
+                        {% if today < series.start_date %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-1">
+                                Upcoming
+                            </span>
+                        {% elif today >= series.start_date and today <= series.end_date %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
+                                Active
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mt-1">
+                                Completed
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- End Date -->
+                <div class="relative flex items-center mb-6">
+                    <div class="flex-shrink-0 w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <h4 class="text-sm font-medium text-gray-900">Assessment Period Ends</h4>
+                        <p class="text-sm text-gray-500">{{ series.end_date|date:"F d, Y" }}</p>
+                        {% if today < series.end_date %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 mt-1">
+                                Pending
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mt-1">
+                                Completed
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Release Date -->
+                <div class="relative flex items-center">
+                    <div class="flex-shrink-0 w-8 h-8 {% if can_release_results %}bg-green-500{% else %}bg-gray-400{% endif %} rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <h4 class="text-sm font-medium text-gray-900">Results Release Date</h4>
+                        <p class="text-sm text-gray-500">{{ series.date_of_release|date:"F d, Y" }}</p>
+                        {% if can_release_results %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
+                                Ready to Release
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mt-1">
+                                Pending
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -288,6 +288,7 @@ class Candidate(models.Model):
 
     # Section 3 - Assessment Info (without modules or levels yet)
     assessment_center = models.ForeignKey(AssessmentCenter, on_delete=models.SET_NULL, null=True)
+    assessment_series = models.ForeignKey('AssessmentSeries', on_delete=models.SET_NULL, null=True, blank=True, help_text="Assessment series this candidate is enrolled in")
     entry_year = models.PositiveIntegerField()
     intake = models.CharField(max_length=6, choices=[('M', 'March'), ('A', 'August')])
     occupation = models.ForeignKey('Occupation', on_delete=models.SET_NULL, null=True)
@@ -564,3 +565,28 @@ class Staff(models.Model):
     class Meta:
         verbose_name = "Staff Member"
         verbose_name_plural = "Staff Members"
+
+
+class AssessmentSeries(models.Model):
+    name = models.CharField(max_length=200, unique=True, help_text="Name of the assessment series")
+    start_date = models.DateField(help_text="Start date of the assessment series")
+    end_date = models.DateField(help_text="End date of the assessment series")
+    date_of_release = models.DateField(help_text="Date when results will be released")
+    is_current = models.BooleanField(default=False, help_text="Mark as current running series")
+    results_released = models.BooleanField(default=False, help_text="Toggle to release results to candidates and assessment centers")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({'Current' if self.is_current else 'Inactive'})"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one series can be current at a time
+        if self.is_current:
+            AssessmentSeries.objects.filter(is_current=True).update(is_current=False)
+        super().save(*args, **kwargs)
+    
+    class Meta:
+        verbose_name = "Assessment Series"
+        verbose_name_plural = "Assessment Series"
+        ordering = ['-is_current', '-start_date']

@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+
+{% block title %}Assessment Series - {{ year }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header with Navigation -->
+        <div class="bg-white shadow rounded-lg mb-6">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex items-center">
+                        <a href="{% url 'assessment_series_years' %}" 
+                           class="mr-4 text-gray-400 hover:text-gray-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                            </svg>
+                        </a>
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900">Assessment Series {{ year }}</h1>
+                            <p class="mt-1 text-sm text-gray-500">
+                                {{ total_count }} series
+                                {% if months_with_series %}
+                                    • Active months: {{ months_with_series|join:", " }}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-3">
+                        <a href="{% url 'assessment_series_create_for_year' year=year %}" 
+                           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700">
+                            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Add Series for {{ year }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Year Navigation -->
+        <div class="bg-white shadow rounded-lg mb-6">
+            <div class="px-4 py-3">
+                <div class="flex items-center justify-between">
+                    <a href="{% url 'assessment_series_year_detail' year=prev_year %}" 
+                       class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        <svg class="-ml-0.5 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        {{ prev_year }}
+                    </a>
+                    
+                    <div class="text-lg font-medium text-gray-900">
+                        {{ year }}
+                        {% if year == current_year %}
+                            <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Current Year
+                            </span>
+                        {% endif %}
+                    </div>
+                    
+                    <a href="{% url 'assessment_series_year_detail' year=next_year %}" 
+                       class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        {{ next_year }}
+                        <svg class="-mr-0.5 ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Series Alert -->
+        {% if current_series %}
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-green-800">Current Active Series</h3>
+                        <div class="mt-2 text-sm text-green-700">
+                            <p>
+                                <strong>{{ current_series.name }}</strong> is currently active 
+                                ({{ current_series.start_date|date:"M d" }} - {{ current_series.end_date|date:"M d, Y" }})
+                            </p>
+                        </div>
+                        <div class="mt-4">
+                            <a href="{% url 'assessment_series_view' pk=current_series.pk %}" 
+                               class="text-sm font-medium text-green-800 hover:text-green-600">
+                                View Details →
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Series List -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                {% if series %}
+                    <!-- Desktop Table View -->
+                    <div class="hidden md:block">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Series Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Release Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for series_item in series %}
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                {% if series_item.is_current %}
+                                                    <div class="w-2 h-2 bg-green-400 rounded-full mr-3"></div>
+                                                {% endif %}
+                                                <div>
+                                                    <div class="text-sm font-medium text-gray-900">{{ series_item.name }}</div>
+                                                    <div class="text-sm text-gray-500">Created {{ series_item.created_at|date:"M d, Y" }}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {{ series_item.start_date|date:"M d" }} - {{ series_item.end_date|date:"M d, Y" }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {{ series_item.date_of_release|date:"M d, Y" }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {% if series_item.is_current %}
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    Current
+                                                </span>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                    Inactive
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <a href="{% url 'assessment_series_view' pk=series_item.pk %}" 
+                                               class="text-purple-600 hover:text-purple-900 mr-3">View</a>
+                                            <a href="{% url 'assessment_series_edit' pk=series_item.pk %}" 
+                                               class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
+                                            {% if not series_item.is_current %}
+                                                <a href="{% url 'assessment_series_set_current' pk=series_item.pk %}" 
+                                                   class="text-green-600 hover:text-green-900">Set Current</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Mobile Card View -->
+                    <div class="md:hidden space-y-4">
+                        {% for series_item in series %}
+                            <div class="bg-white border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                                        {% if series_item.is_current %}
+                                            <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                                        {% endif %}
+                                        {{ series_item.name }}
+                                    </h3>
+                                    {% if series_item.is_current %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Current
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-sm text-gray-600 mb-3">
+                                    <p><strong>Period:</strong> {{ series_item.start_date|date:"M d" }} - {{ series_item.end_date|date:"M d, Y" }}</p>
+                                    <p><strong>Release:</strong> {{ series_item.date_of_release|date:"M d, Y" }}</p>
+                                    <p><strong>Created:</strong> {{ series_item.created_at|date:"M d, Y" }}</p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <a href="{% url 'assessment_series_view' pk=series_item.pk %}" 
+                                       class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-purple-700 bg-purple-100 hover:bg-purple-200">
+                                        View Details
+                                    </a>
+                                    <a href="{% url 'assessment_series_edit' pk=series_item.pk %}" 
+                                       class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200">
+                                        Edit
+                                    </a>
+                                    {% if not series_item.is_current %}
+                                        <a href="{% url 'assessment_series_set_current' pk=series_item.pk %}" 
+                                           class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200">
+                                            Set Current
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if series.has_other_pages %}
+                        <div class="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                            <div class="flex flex-1 justify-between sm:hidden">
+                                {% if series.has_previous %}
+                                    <a href="?page={{ series.previous_page_number }}" 
+                                       class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                        Previous
+                                    </a>
+                                {% endif %}
+                                {% if series.has_next %}
+                                    <a href="?page={{ series.next_page_number }}" 
+                                       class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                        Next
+                                    </a>
+                                {% endif %}
+                            </div>
+                            <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-700">
+                                        Showing <span class="font-medium">{{ series.start_index }}</span> to 
+                                        <span class="font-medium">{{ series.end_index }}</span> of 
+                                        <span class="font-medium">{{ series.paginator.count }}</span> results
+                                    </p>
+                                </div>
+                                <div>
+                                    <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm">
+                                        {% if series.has_previous %}
+                                            <a href="?page={{ series.previous_page_number }}" 
+                                               class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                                <span class="sr-only">Previous</span>
+                                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd"/>
+                                                </svg>
+                                            </a>
+                                        {% endif %}
+                                        
+                                        {% for page_num in series.paginator.page_range %}
+                                            {% if page_num == series.number %}
+                                                <span class="relative z-10 inline-flex items-center bg-purple-600 px-4 py-2 text-sm font-semibold text-white">
+                                                    {{ page_num }}
+                                                </span>
+                                            {% else %}
+                                                <a href="?page={{ page_num }}" 
+                                                   class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                                    {{ page_num }}
+                                                </a>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if series.has_next %}
+                                            <a href="?page={{ series.next_page_number }}" 
+                                               class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                                <span class="sr-only">Next</span>
+                                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/>
+                                                </svg>
+                                            </a>
+                                        {% endif %}
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="text-center py-12">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No assessment series for {{ year }}</h3>
+                        <p class="mt-1 text-sm text-gray-500">Get started by creating your first assessment series for this year.</p>
+                        <div class="mt-6">
+                            <a href="{% url 'assessment_series_create_for_year' year=year %}" 
+                               class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700">
+                                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                </svg>
+                                Create Assessment Series
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

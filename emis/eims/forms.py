@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, FeesType, Result, NatureOfDisability, Staff
+from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, FeesType, Result, NatureOfDisability, Staff, AssessmentSeries
 from datetime import datetime   
 
 from django_countries.fields import CountryField
@@ -889,3 +889,60 @@ class ChangeCenterForm(forms.ModelForm):
                 attrs={'class': 'w-full border rounded-md px-3 py-2'}
             )
         }
+
+class AssessmentSeriesForm(forms.ModelForm):
+    class Meta:
+        model = AssessmentSeries
+        fields = ['name', 'start_date', 'end_date', 'date_of_release', 'is_current', 'results_released']
+        widgets = {
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'w-full border rounded-md px-3 py-2',
+                    'placeholder': 'Enter assessment series name'
+                }
+            ),
+            'start_date': forms.DateInput(
+                attrs={
+                    'class': 'w-full border rounded-md px-3 py-2',
+                    'type': 'date'
+                }
+            ),
+            'end_date': forms.DateInput(
+                attrs={
+                    'class': 'w-full border rounded-md px-3 py-2',
+                    'type': 'date'
+                }
+            ),
+            'date_of_release': forms.DateInput(
+                attrs={
+                    'class': 'w-full border rounded-md px-3 py-2',
+                    'type': 'date'
+                }
+            ),
+            'is_current': forms.CheckboxInput(
+                attrs={
+                    'class': 'rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50'
+                }
+            ),
+            'results_released': forms.CheckboxInput(
+                attrs={
+                    'class': 'rounded border-gray-300 text-green-600 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200 focus:ring-opacity-50'
+                }
+            )
+        }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+        date_of_release = cleaned_data.get('date_of_release')
+        
+        if start_date and end_date:
+            if start_date >= end_date:
+                raise forms.ValidationError("End date must be after start date.")
+        
+        if end_date and date_of_release:
+            if date_of_release < end_date:
+                raise forms.ValidationError("Date of release must be on or after the end date.")
+        
+        return cleaned_data

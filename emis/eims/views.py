@@ -15,8 +15,17 @@ from .forms import SupportStaffForm
 from .models import Staff
 from .forms import StaffForm
 from .forms import CenterRepForm
-
-
+from .models import AssessmentSeries
+from .forms import AssessmentSeriesForm
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from io import BytesIO
+from collections import Counter
 
 @login_required
 def staff_list(request):
@@ -6313,3 +6322,529 @@ def assessment_series_detail(request, year, month):
             'informal_url': build_candidate_filter_url(base_filters, registration_category='Informal'),
             'workers_pas_url': build_candidate_filter_url(base_filters, registration_category="Worker's PAS"),
         }
+
+@login_required
+def assessment_series_list(request):
+    """Display list of all assessment series with pagination"""
+    series_list = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
+    
+    # Add pagination
+    paginator = Paginator(series_list, 10)  # Show 10 series per page
+    page_number = request.GET.get('page')
+    series = paginator.get_page(page_number)
+    
+    context = {
+        'series': series,
+        'total_count': series_list.count(),
+        'current_series': series_list.filter(is_current=True).first()
+    }
+    
+    return render(request, 'Assessment_series/list.html', context)
+
+
+@login_required
+def assessment_series_create(request):
+    """Create a new assessment series"""
+    if request.method == 'POST':
+        form = AssessmentSeriesForm(request.POST)
+        if form.is_valid():
+            series = form.save()
+            messages.success(request, f'Assessment Series "{series.name}" created successfully!')
+            return redirect('assessment_series_view', pk=series.pk)
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AssessmentSeriesForm()
+    
+    context = {
+        'form': form,
+        'title': 'Create Assessment Series'
+    }
+    
+    return render(request, 'Assessment_series/create.html', context)
+
+
+@login_required
+def assessment_series_view(request, pk):
+    """View details of a specific assessment series"""
+    series = get_object_or_404(AssessmentSeries, pk=pk)
+    
+    # Calculate some statistics for this series
+    from datetime import datetime
+    
+    # Get candidates enrolled during this series period
+    candidates_in_period = Candidate.objects.filter(
+        assessment_date__gte=series.start_date,
+        assessment_date__lte=series.end_date
+    )
+    
+    # Get results for this period
+    results_in_period = Result.objects.filter(
+        assessment_date__gte=series.start_date,
+        assessment_date__lte=series.end_date
+    )
+    
+    # Calculate statistics
+    total_candidates = candidates_in_period.count()
+    total_results = results_in_period.count()
+    male_candidates = candidates_in_period.filter(gender='M').count()
+    female_candidates = candidates_in_period.filter(gender='F').count()
+    special_needs_candidates = candidates_in_period.filter(disability=True).count()
+    
+    # Check if series is active (current date is within series period)
+    today = datetime.now().date()
+    is_active = series.start_date <= today <= series.end_date
+    
+    # Check if results can be released (current date is past release date)
+    can_release_results = today >= series.date_of_release
+    
+    context = {
+        'series': series,
+        'total_candidates': total_candidates,
+        'total_results': total_results,
+        'male_candidates': male_candidates,
+        'female_candidates': female_candidates,
+        'special_needs_candidates': special_needs_candidates,
+        'is_active': is_active,
+        'can_release_results': can_release_results,
+        'today': today
+    }
+    
+    return render(request, 'Assessment_series/view.html', context)
+
+
+@login_required
+def assessment_series_edit(request, pk):
+    """Edit an existing assessment series"""
+    series = get_object_or_404(AssessmentSeries, pk=pk)
+    
+    if request.method == 'POST':
+        form = AssessmentSeriesForm(request.POST, instance=series)
+        if form.is_valid():
+            updated_series = form.save()
+            messages.success(request, f'Assessment Series "{updated_series.name}" updated successfully!')
+            return redirect('assessment_series_view', pk=updated_series.pk)
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AssessmentSeriesForm(instance=series)
+    
+    context = {
+        'form': form,
+        'series': series,
+        'title': f'Edit Assessment Series: {series.name}'
+    }
+    
+    return render(request, 'Assessment_series/create.html', context)
+
+
+@login_required
+def assessment_series_delete(request, pk):
+    """Delete an assessment series"""
+    series = get_object_or_404(AssessmentSeries, pk=pk)
+    
+    if request.method == 'POST':
+        series_name = series.name
+        series.delete()
+        messages.success(request, f'Assessment Series "{series_name}" deleted successfully!')
+        return redirect('assessment_series_list')
+    
+    context = {
+        'series': series,
+        'title': f'Delete Assessment Series: {series.name}'
+    }
+    
+    return render(request, 'Assessment_series/delete.html', context)
+
+
+@login_required
+def assessment_series_set_current(request, pk):
+    """Set a specific assessment series as current"""
+    series = get_object_or_404(AssessmentSeries, pk=pk)
+    
+    if request.method == 'POST':
+        # Set this series as current (the model's save method will handle unsetting others)
+        series.is_current = True
+        series.save()
+        messages.success(request, f'Assessment Series "{series.name}" is now set as current!')
+        return redirect('assessment_series_view', pk=series.pk)
+    
+    context = {
+        'series': series,
+        'title': f'Set as Current: {series.name}'
+    }
+    
+    return render(request, 'Assessment_series/set_current.html', context)
+
+
+@login_required
+def assessment_series_years(request):
+    """Display available years with series counts"""
+    # Get all years that have assessment series
+    years_data = []
+    
+    # Get distinct years from start_date field
+    series_years = AssessmentSeries.objects.dates('start_date', 'year', order='DESC')
+    
+    for year_date in series_years:
+        year = year_date.year
+        series_count = AssessmentSeries.objects.filter(
+            start_date__year=year
+        ).count()
+        
+        current_series_count = AssessmentSeries.objects.filter(
+            start_date__year=year,
+            is_current=True
+        ).count()
+        
+        years_data.append({
+            'year': year,
+            'series_count': series_count,
+            'current_series_count': current_series_count,
+            'has_current': current_series_count > 0
+        })
+    
+    # If no years exist, show current year
+    if not years_data:
+        current_year = datetime.now().year
+        years_data.append({
+            'year': current_year,
+            'series_count': 0,
+            'current_series_count': 0,
+            'has_current': False
+        })
+    
+    context = {
+        'years_data': years_data,
+        'total_series': AssessmentSeries.objects.count(),
+        'current_year': datetime.now().year
+    }
+    
+    return render(request, 'Assessment_series/years.html', context)
+
+
+@login_required
+def assessment_series_year_detail(request, year):
+    """Display all assessment series for a specific year"""
+    # Get all series for the specified year
+    series_list = AssessmentSeries.objects.filter(
+        start_date__year=year
+    ).order_by('-is_current', 'start_date')
+    
+    # Add pagination
+    paginator = Paginator(series_list, 12)  # Show 12 series per page (monthly)
+    page_number = request.GET.get('page')
+    series = paginator.get_page(page_number)
+    
+    # Get year statistics
+    current_series = series_list.filter(is_current=True).first()
+    total_count = series_list.count()
+    
+    # Get months with series for this year
+    months_with_series = series_list.dates('start_date', 'month')
+    month_names = [date.strftime('%B') for date in months_with_series]
+    
+    context = {
+        'series': series,
+        'year': year,
+        'total_count': total_count,
+        'current_series': current_series,
+        'months_with_series': month_names,
+        'prev_year': year - 1,
+        'next_year': year + 1,
+        'current_year': datetime.now().year
+    }
+    
+    return render(request, 'Assessment_series/year_detail.html', context)
+
+
+@login_required
+def assessment_series_create_for_year(request, year=None):
+    """Create a new assessment series, optionally pre-filled for a specific year"""
+    if request.method == 'POST':
+        form = AssessmentSeriesForm(request.POST)
+        if form.is_valid():
+            series = form.save()
+            messages.success(request, f'Assessment Series "{series.name}" created successfully!')
+            # Redirect to the year detail page
+            series_year = series.start_date.year
+            return redirect('assessment_series_year_detail', year=series_year)
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AssessmentSeriesForm()
+        # If year is provided, pre-fill the form with January 1st of that year
+        if year:
+            from datetime import date
+            form.initial = {
+                'start_date': date(year, 1, 1),
+                'end_date': date(year, 1, 31),
+                'date_of_release': date(year, 2, 1)
+            }
+    
+    context = {
+        'form': form,
+        'title': f'Create Assessment Series{f" for {year}" if year else ""}',
+        'year': year
+    }
+    
+    return render(request, 'Assessment_series/create.html', context)
+
+@login_required
+def assessment_series_toggle_results(request, pk):
+    """Toggle the results release status for an assessment series"""
+    series = get_object_or_404(AssessmentSeries, pk=pk)
+    
+    if request.method == 'POST':
+        # Toggle the results_released status
+        series.results_released = not series.results_released
+        series.save()
+        
+        status = "released" if series.results_released else "hidden"
+        messages.success(request, f'Results for "{series.name}" have been {status}.')
+        
+        return redirect('assessment_series_view', pk=pk)
+    
+    # If not POST, redirect back to view
+    return redirect('assessment_series_view', pk=pk)
+
+@login_required
+def assessment_series_statistical_report(request, pk):
+    """Generate a statistical PDF report for a specific Assessment Series"""
+    series = get_object_or_404(AssessmentSeries, pk=pk)
+    
+    # Get candidates enrolled during this series period
+    candidates = Candidate.objects.filter(
+        assessment_date__gte=series.start_date,
+        assessment_date__lte=series.end_date
+    )
+    
+    # Create the HttpResponse object with PDF headers
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Assessment_Series_Report_{series.name.replace(" ", "_")}.pdf"'
+    
+    # Create the PDF object
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    # Container for the 'Flowable' objects
+    elements = []
+    
+    # Define styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#4A5568')
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=12,
+        spaceBefore=20,
+        textColor=colors.HexColor('#2D3748')
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6,
+    )
+    
+    # Title
+    title = Paragraph(f"Assessment Series Statistical Report<br/>{series.name}", title_style)
+    elements.append(title)
+    
+    # Series Information
+    series_info = f"""
+    <b>Series Period:</b> {series.start_date.strftime('%B %d, %Y')} - {series.end_date.strftime('%B %d, %Y')}<br/>
+    <b>Results Release Date:</b> {series.date_of_release.strftime('%B %d, %Y')}<br/>
+    <b>Report Generated:</b> {datetime.now().strftime('%B %d, %Y at %I:%M %p')}<br/>
+    <b>Total Enrolled Candidates:</b> {candidates.count()}
+    """
+    elements.append(Paragraph(series_info, normal_style))
+    elements.append(Spacer(1, 20))
+    
+    # 1. GENDER DISTRIBUTION
+    elements.append(Paragraph("1. GENDER DISTRIBUTION", heading_style))
+    
+    gender_stats = candidates.values('gender').annotate(count=Count('gender')).order_by('gender')
+    gender_data = [['Gender', 'Count', 'Percentage']]
+    
+    total_candidates = candidates.count()
+    for stat in gender_stats:
+        gender_name = 'Male' if stat['gender'] == 'M' else 'Female'
+        percentage = (stat['count'] / total_candidates * 100) if total_candidates > 0 else 0
+        gender_data.append([gender_name, str(stat['count']), f"{percentage:.1f}%"])
+    
+    if total_candidates == 0:
+        gender_data.append(['No candidates enrolled', '-', '-'])
+    
+    gender_table = Table(gender_data, colWidths=[2*inch, 1*inch, 1*inch])
+    gender_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A5568')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(gender_table)
+    elements.append(Spacer(1, 20))
+    
+    # 2. SPECIAL NEEDS DISTRIBUTION
+    elements.append(Paragraph("2. SPECIAL NEEDS DISTRIBUTION", heading_style))
+    
+    special_needs_count = candidates.filter(disability=True).count()
+    no_special_needs_count = candidates.filter(disability=False).count()
+    
+    special_needs_data = [['Category', 'Count', 'Percentage']]
+    
+    if total_candidates > 0:
+        special_needs_percentage = (special_needs_count / total_candidates * 100)
+        no_special_needs_percentage = (no_special_needs_count / total_candidates * 100)
+        
+        special_needs_data.append(['Candidates with Special Needs', str(special_needs_count), f"{special_needs_percentage:.1f}%"])
+        special_needs_data.append(['Candidates without Special Needs', str(no_special_needs_count), f"{no_special_needs_percentage:.1f}%"])
+    else:
+        special_needs_data.append(['No candidates enrolled', '-', '-'])
+    
+    special_needs_table = Table(special_needs_data, colWidths=[3*inch, 1*inch, 1*inch])
+    special_needs_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A5568')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(special_needs_table)
+    
+    # Nature of Disabilities breakdown (if any special needs candidates exist)
+    if special_needs_count > 0:
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph("2.1 Nature of Disabilities", ParagraphStyle('SubHeading', parent=styles['Heading3'], fontSize=12, spaceAfter=8)))
+        
+        # Get all disability natures for candidates in this series
+        disability_stats = []
+        special_needs_candidates = candidates.filter(disability=True)
+        
+        for candidate in special_needs_candidates:
+            for disability in candidate.nature_of_disability.all():
+                disability_stats.append(disability.name)
+        
+        # Count occurrences
+        disability_counts = Counter(disability_stats)
+        
+        disability_data = [['Nature of Disability', 'Count']]
+        for disability_name, count in disability_counts.most_common():
+            disability_data.append([disability_name, str(count)])
+        
+        if not disability_counts:
+            disability_data.append(['No specific disabilities recorded', '-'])
+        
+        disability_table = Table(disability_data, colWidths=[3*inch, 1*inch])
+        disability_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A5568')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        elements.append(disability_table)
+    
+    elements.append(Spacer(1, 20))
+    
+    # 3. OCCUPATIONS ENROLLED
+    elements.append(Paragraph("3. OCCUPATIONS ENROLLED", heading_style))
+    
+    occupation_stats = candidates.values(
+        'occupation__name', 
+        'occupation__category__name'
+    ).annotate(
+        count=Count('occupation')
+    ).order_by('occupation__category__name', 'occupation__name')
+    
+    occupation_data = [['Occupation Category', 'Occupation', 'Count', 'Percentage']]
+    
+    for stat in occupation_stats:
+        if stat['occupation__name']:  # Only include if occupation is not null
+            percentage = (stat['count'] / total_candidates * 100) if total_candidates > 0 else 0
+            occupation_data.append([
+                stat['occupation__category__name'] or 'Uncategorized',
+                stat['occupation__name'],
+                str(stat['count']),
+                f"{percentage:.1f}%"
+            ])
+    
+    if len(occupation_data) == 1:  # Only header row
+        occupation_data.append(['No occupations recorded', '-', '-', '-'])
+    
+    occupation_table = Table(occupation_data, colWidths=[1.5*inch, 2.5*inch, 0.8*inch, 0.8*inch])
+    occupation_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A5568')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(occupation_table)
+    
+    # Summary section
+    elements.append(Spacer(1, 30))
+    elements.append(Paragraph("SUMMARY", heading_style))
+    
+    # Calculate special needs percentage safely
+    special_needs_percentage = (special_needs_count/total_candidates*100) if total_candidates > 0 else 0
+    
+    summary_text = f"""
+    This report provides a comprehensive statistical analysis of the {series.name} assessment series.
+    The data shows enrollment patterns across gender, special needs requirements, and occupational categories.
+    
+    <b>Key Highlights:</b><br/>
+    - Total candidates enrolled: {total_candidates}<br/>
+    - Candidates with special needs: {special_needs_count} ({special_needs_percentage:.1f}% of total)<br/>
+    - Number of different occupations: {len([stat for stat in occupation_stats if stat['occupation__name']])}<br/>
+    - Series duration: {(series.end_date - series.start_date).days + 1} days
+    """
+    
+    elements.append(Paragraph(summary_text, normal_style))
+    
+    # Build PDF
+    doc.build(elements)
+    
+    # Get the value of the BytesIO buffer and write it to the response
+    pdf = buffer.getvalue()
+    buffer.close()
+    response.write(pdf)
+    
+    return response
+
+
+@login_required
+def statistical_reports_home(request):
+    """Home page for statistical reports - shows available assessment series"""
+    series_list = AssessmentSeries.objects.all().order_by('-start_date')
+    
+    context = {
+        'series_list': series_list,
+        'title': 'Statistical Reports'
+    }
+    
+    return render(request, 'statistical_reports/home.html', context)

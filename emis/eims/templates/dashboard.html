@@ -170,6 +170,16 @@
         <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Statistics</div>
       </a>
 
+      <a href="{% url 'assessment_series_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+        <div class="bg-purple-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+          <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2v1a1 1 0 001 1h6a1 1 0 001-1V3a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm8 8a1 1 0 01-1-1V8a1 1 0 112 0v4a1 1 0 01-1 1zm-3-1a1 1 0 100-2 1 1 0 000 2zm-2-1a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Assessment Series</div>
+      </a>
+
       <!-- Users module - only for admin/non-staff users -->
       <a href="{% url 'user_home' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
         <div class="bg-sky-400 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">

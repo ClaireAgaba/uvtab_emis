@@ -100,13 +100,21 @@ urlpatterns = [
     path('users/staff/', views.staff_list, name='staff_list'),
     path('users/staff/create/', views.staff_create, name='staff_create'),
     path('users/staff/<int:pk>/', views.staff_detail, name='staff_detail'),
-    path('users/staff/<int:pk>/edit/', views.staff_edit, name='staff_edit')
+    path('users/staff/<int:pk>/edit/', views.staff_edit, name='staff_edit'),
+    
+    # Assessment Series URLs - Year-based organization
+    path('assessment-series/', views.assessment_series_years, name='assessment_series_list'),  # Main entry point - shows years
+    path('assessment-series/years/', views.assessment_series_years, name='assessment_series_years'),  # Alternative URL
+    path('assessment-series/year/<int:year>/', views.assessment_series_year_detail, name='assessment_series_year_detail'),  # Year detail
+    path('assessment-series/create/<int:year>/', views.assessment_series_create_for_year, name='assessment_series_create_for_year'),  # Create for specific year
+    path('assessment-series/create/', views.assessment_series_create, name='assessment_series_create'),  # Create without year
+    path('assessment-series/<int:pk>/', views.assessment_series_view, name='assessment_series_view'),
+    path('assessment-series/<int:pk>/edit/', views.assessment_series_edit, name='assessment_series_edit'),
+    path('assessment-series/<int:pk>/delete/', views.assessment_series_delete, name='assessment_series_delete'),
+    path('assessment-series/<int:pk>/set-current/', views.assessment_series_set_current, name='assessment_series_set_current'),
+    path('assessment-series/<int:pk>/toggle-results/', views.assessment_series_toggle_results, name='assessment_series_toggle_results'),
 
-
-
-
- ]    
-
-
-
-  
+    # Statistical Reports URLs
+    path('statistical-reports/', views.statistical_reports_home, name='statistical_reports'),
+    path('statistical-reports/series/<int:pk>/', views.assessment_series_statistical_report, name='assessment_series_statistical_report'),
+ ]
