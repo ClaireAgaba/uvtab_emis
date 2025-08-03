@@ -398,6 +398,7 @@ class EnrollmentForm(forms.Form):
         occupation = getattr(candidate, 'occupation', None)
         reg_cat = getattr(candidate, 'registration_category', '').strip().lower() if candidate else None
         self.is_informal = reg_cat in ["worker's pas", 'workers pas', 'informal']
+        self.is_modular = reg_cat == 'modular'
 
         # Filter Assessment Series by candidate's entry year
         if candidate and hasattr(candidate, 'entry_year') and candidate.entry_year:
@@ -436,6 +437,17 @@ class EnrollmentForm(forms.Form):
                 level = Level.objects.get(pk=level_id)
             except Level.DoesNotExist:
                 pass
+
+        # For Modular candidates: hide level field and auto-select Level 1
+        if self.is_modular:
+            # Hide level field for modular candidates
+            self.fields['level'].widget = forms.HiddenInput()
+            self.fields['level'].required = False
+            # Auto-select Level 1 for modular candidates
+            level_1 = Level.objects.filter(name__icontains='1').first()
+            if level_1:
+                self.fields['level'].initial = level_1.id
+                level = level_1  # Use Level 1 for module filtering below
 
         # For informal/worker's PAS: dynamically add paper fields per module
         if self.is_informal and occupation and level:

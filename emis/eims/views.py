@@ -4426,16 +4426,10 @@ def enroll_candidate_view(request, id):
                         'form': form,
                         'candidate': candidate,
                     })
-                # Not already enrolled: clear previous enrollments and enroll
+                # Not already enrolled: enroll the candidate
                 CandidateLevel.objects.create(candidate=candidate, level=level)
-                CandidateLevel.objects.filter(candidate=candidate).delete()
-                CandidateModule.objects.filter(candidate=candidate).delete()
-                CandidatePaper.objects.filter(candidate=candidate).delete()
-                # Also clear the assessment series assignment
-                candidate.assessment_series = None
-                candidate.save()
-                messages.success(request, 'All enrollment records and assessment series assignment for this candidate have been cleared.')
-
+                messages.success(request, f'{candidate.full_name} successfully enrolled in {level.name}.')
+            
             # Handle modular registration (must select 1–2 modules, Level 1 only)
             elif registration_category == 'Modular':
                 modules = form.cleaned_data['modules']
@@ -4495,7 +4489,10 @@ def clear_enrollment(request, id):
     CandidateLevel.objects.filter(candidate=candidate).delete()
     CandidateModule.objects.filter(candidate=candidate).delete()
     CandidatePaper.objects.filter(candidate=candidate).delete()
-    messages.success(request, 'All enrollment records for this candidate have been cleared.')
+    # Also clear the assessment series assignment
+    candidate.assessment_series = None
+    candidate.save()
+    messages.success(request, 'All enrollment records and assessment series assignment for this candidate have been cleared.')
     return redirect('candidate_view', id=id)
 
 
