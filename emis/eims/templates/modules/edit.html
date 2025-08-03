@@ -1,55 +1,133 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto mt-10 px-4">
-  <!-- Header Section -->
-  <div class="mb-8">
-    <a href="{% url 'module_list' %}" class="text-blue-600 hover:underline mb-4 inline-block">
-      ← Back to Modules
-    </a>
-    <h1 class="text-3xl font-bold mt-4">Edit Module</h1>
-    <p class="text-gray-600 mt-2">Edit a training module</p>
-  </div>
+<div class="min-h-screen bg-gray-50 px-6 py-8">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header Section -->
+    <div class="mb-8">
+      <nav class="flex" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+          <li>
+            <a href="{% url 'module_list' %}" class="text-gray-400 hover:text-gray-500 text-sm font-medium">
+              ← Back to Modules
+            </a>
+          </li>
+        </ol>
+      </nav>
+      <div class="mt-4">
+        <h1 class="text-3xl font-bold text-gray-900">Edit Module</h1>
+        <p class="mt-2 text-sm text-gray-600">Update module information</p>
+      </div>
+    </div>
 
-  <!-- Form Card -->
-  <div class="bg-white rounded-lg shadow-sm p-6">
-    <form method="post" class="space-y-6">
-      {% csrf_token %}
+    <!-- Form Card -->
+    <div class="bg-white shadow-sm rounded-lg">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-medium text-gray-900">Module Information</h2>
+      </div>
       
-      <!-- Module Details -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label class="block font-medium mb-1">Module Code</label>
-          {{ form.code }}
-        </div>
-        <div>
-          <label class="block font-medium mb-1">Module Name</label>
-          {{ form.name }}
-        </div>
-      </div>
+      <form method="post" class="px-6 py-6 space-y-6">
+        {% csrf_token %}
+        
+        <!-- Display form errors if any -->
+        {% if form.non_field_errors %}
+          <div class="bg-red-50 border border-red-200 rounded-md p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">Please correct the following errors:</h3>
+                <div class="mt-2 text-sm text-red-700">
+                  {{ form.non_field_errors }}
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
 
-      <!-- Level & Occupation Selection -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label class="block font-medium mb-1">Level</label>
-          {{ form.level }}
+        <!-- Basic Information -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="{{ form.code.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+              Module Code <span class="text-red-500">*</span>
+            </label>
+            {{ form.code }}
+            {% if form.code.errors %}
+              <p class="mt-1 text-sm text-red-600">{{ form.code.errors.0 }}</p>
+            {% endif %}
+            <p class="mt-1 text-sm text-gray-500">Enter a unique code for this module</p>
+          </div>
+          
+          <div>
+            <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+              Module Name <span class="text-red-500">*</span>
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}
+              <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+            {% endif %}
+            <p class="mt-1 text-sm text-gray-500">Enter the full name of the module</p>
+          </div>
         </div>
-        <div>
-          <label class="block font-medium mb-1">Occupation</label>
-          {{ form.occupation }}
-        </div>
-      </div>
 
-      <!-- Form Actions -->
-      <div class="flex items-center justify-end space-x-4 pt-6 border-t">
-        <a href="{% url 'module_list' %}" class="text-gray-600 hover:text-gray-800">
-          Cancel
-        </a>
-        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md">
-          Update Module
-        </button>
-      </div>
-    </form>
+        <!-- Occupation & Level Selection -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="{{ form.occupation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+              Occupation <span class="text-red-500">*</span>
+            </label>
+            {{ form.occupation }}
+            {% if form.occupation.errors %}
+              <p class="mt-1 text-sm text-red-600">{{ form.occupation.errors.0 }}</p>
+            {% endif %}
+            <p class="mt-1 text-sm text-gray-500">Select the occupation this module belongs to</p>
+          </div>
+          
+          <div>
+            <label for="{{ form.level.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+              Level <span class="text-red-500">*</span>
+            </label>
+            {{ form.level }}
+            {% if form.level.errors %}
+              <p class="mt-1 text-sm text-red-600">{{ form.level.errors.0 }}</p>
+            {% endif %}
+            <p class="mt-1 text-sm text-gray-500">Select the level for this module</p>
+          </div>
+        </div>
+
+        <!-- Description -->
+        {% if form.description %}
+          <div>
+            <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            {{ form.description }}
+            {% if form.description.errors %}
+              <p class="mt-1 text-sm text-red-600">{{ form.description.errors.0 }}</p>
+            {% endif %}
+            <p class="mt-1 text-sm text-gray-500">Optional description of the module content and objectives</p>
+          </div>
+        {% endif %}
+
+        <!-- Form Actions -->
+        <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+          <a href="{% url 'module_list' %}" 
+             class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Cancel
+          </a>
+          <button type="submit" 
+                  class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Update Module
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

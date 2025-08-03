@@ -2687,53 +2687,106 @@ def api_modules(request):
     return JsonResponse({'modules': data})
 
 def module_list(request):
+    from django.core.paginator import Paginator
+    from django.db.models import Q
+    
+    # Get current filters from session
     current_filters = request.session.get('module_filters', {})
-
+    
+    # Handle filter actions
     if 'apply_filters' in request.GET:
         current_filters = {
             'occupation': request.GET.get('occupation', '').strip(),
             'level': request.GET.get('level', '').strip(),
+            'search': request.GET.get('search', '').strip(),
         }
         request.session['module_filters'] = current_filters
     elif 'clear_filters' in request.GET:
         current_filters = {}
         request.session['module_filters'] = {}
-
-    modules = Module.objects.all()
+    
+    # Get items per page from request or default to 25
+    items_per_page = int(request.GET.get('items_per_page', 25))
+    
+    # Base queryset
+    modules = Module.objects.select_related('occupation', 'level').all()
     occupations = Occupation.objects.all()
     levels = Level.objects.all()
-
+    
+    # Apply filters
     if current_filters.get('occupation'):
         modules = modules.filter(occupation_id=current_filters['occupation'])
-
+    
     if current_filters.get('level'):
         modules = modules.filter(level_id=current_filters['level'])
-
+    
+    if current_filters.get('search'):
+        search_term = current_filters['search']
+        modules = modules.filter(
+            Q(name__icontains=search_term) | 
+            Q(code__icontains=search_term) |
+            Q(description__icontains=search_term)
+        )
+    
+    # Order by occupation, level, then name
+    modules = modules.order_by('occupation__name', 'level__name', 'name')
+    
+    # Add filter display names for template
+    filter_names = {}
+    if current_filters.get('level'):
+        try:
+            level_obj = Level.objects.get(id=current_filters['level'])
+            filter_names['level_name'] = level_obj.name
+        except Level.DoesNotExist:
+            pass
+    
+    if current_filters.get('occupation'):
+        try:
+            occupation_obj = Occupation.objects.get(id=current_filters['occupation'])
+            filter_names['occupation_name'] = f"{occupation_obj.code} - {occupation_obj.name}"
+        except Occupation.DoesNotExist:
+            pass
+    
+    # Pagination
+    paginator = Paginator(modules, items_per_page)
+    page_number = request.GET.get('page', 1)
+    
+    try:
+        modules_page = paginator.page(page_number)
+    except:
+        modules_page = paginator.page(1)
+    
+    # Merge filters with display names
+    current_filters.update(filter_names)
+    
     context = {
-        'modules': modules,
+        'modules': modules_page,
         'occupations': occupations,
         'levels': levels,
         'filters': current_filters,
+        'items_per_page': items_per_page,
     }
-
+    
     return render(request, 'modules/list.html', context)
 
+@login_required
 def module_create(request):
     if request.method == 'POST':
         form = ModuleForm(request.POST)
         if form.is_valid():
-            form.save()
+            module = form.save()
+            messages.success(request, f'Module "{module.name}" was created successfully.')
             return redirect('module_list')
     else:
         form = ModuleForm()
     return render(request, 'modules/create.html', {'form': form})
 
-
+@login_required
 def module_detail(request, pk):
     module = get_object_or_404(Module, pk=pk)
     return render(request, 'modules/detail.html', {'module': module})
 
-
+@login_required
 def module_edit(request, pk):
     module = get_object_or_404(Module, pk=pk)
     if request.method == 'POST':
@@ -2767,8 +2820,13 @@ def module_delete(request, pk):
 
 
 def paper_list(request):
+    from django.core.paginator import Paginator
+    from django.db.models import Q
+    
+    # Get current filters from session
     current_filters = request.session.get('paper_filters', {})
-
+    
+    # Handle filter actions
     if 'apply_filters' in request.GET:
         current_filters = {
             'search': request.GET.get('search', '').strip(),
@@ -2779,27 +2837,69 @@ def paper_list(request):
     elif 'clear_filters' in request.GET:
         current_filters = {}
         request.session['paper_filters'] = {}
-
-    papers = Paper.objects.select_related('level', 'occupation').all()
+    
+    # Get items per page from request or default to 25
+    items_per_page = int(request.GET.get('items_per_page', 25))
+    
+    # Base queryset
+    papers = Paper.objects.select_related('level', 'occupation', 'module').all()
     occupations = Occupation.objects.all()
     levels = Level.objects.all()
-
+    
+    # Apply filters
     if current_filters.get('search'):
-        papers = papers.filter(name__icontains=current_filters['search'])
-
+        search_term = current_filters['search']
+        papers = papers.filter(
+            Q(name__icontains=search_term) | 
+            Q(code__icontains=search_term) |
+            Q(description__icontains=search_term)
+        )
+    
     if current_filters.get('occupation'):
         papers = papers.filter(occupation_id=current_filters['occupation'])
-
+    
     if current_filters.get('level'):
         papers = papers.filter(level_id=current_filters['level'])
-
+    
+    # Order by occupation, level, then name
+    papers = papers.order_by('occupation__name', 'level__name', 'name')
+    
+    # Add filter display names for template
+    filter_names = {}
+    if current_filters.get('level'):
+        try:
+            level_obj = Level.objects.get(id=current_filters['level'])
+            filter_names['level_name'] = level_obj.name
+        except Level.DoesNotExist:
+            pass
+    
+    if current_filters.get('occupation'):
+        try:
+            occupation_obj = Occupation.objects.get(id=current_filters['occupation'])
+            filter_names['occupation_name'] = f"{occupation_obj.code} - {occupation_obj.name}"
+        except Occupation.DoesNotExist:
+            pass
+    
+    # Pagination
+    paginator = Paginator(papers, items_per_page)
+    page_number = request.GET.get('page', 1)
+    
+    try:
+        papers_page = paginator.page(page_number)
+    except:
+        papers_page = paginator.page(1)
+    
+    # Merge filters with display names
+    current_filters.update(filter_names)
+    
     context = {
-        'papers': papers,
+        'papers': papers_page,
         'occupations': occupations,
         'levels': levels,
         'filters': current_filters,
+        'items_per_page': items_per_page,
     }
-
+    
     return render(request, 'papers/list.html', context)
 
 def paper_create(request):

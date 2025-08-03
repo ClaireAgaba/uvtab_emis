@@ -1,179 +1,258 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto mt-10 px-4">
-  <div class="mb-8">
-    <h1 class="text-3xl font-bold">Create New Paper</h1>
-    <p class="text-gray-600 mt-2">Add a new assessment paper to the system</p>
+<div class="min-h-screen bg-gray-50 px-6 py-8">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header Section -->
+    <div class="mb-8">
+      <nav class="flex" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+          <li>
+            <a href="{% url 'paper_list' %}" class="text-gray-400 hover:text-gray-500 text-sm font-medium">
+              ← Back to Papers
+            </a>
+          </li>
+        </ol>
+      </nav>
+      <div class="mt-4">
+        <h1 class="text-3xl font-bold text-gray-900">Create New Paper</h1>
+        <p class="mt-2 text-sm text-gray-600">Add a new assessment paper to the system</p>
+      </div>
+    </div>
+
+    <!-- Form Card -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div class="px-6 py-8">
+        <form method="post" class="space-y-6">
+          {% csrf_token %}
+          
+          <!-- Error Messages -->
+          {% if form.non_field_errors %}
+            <div class="rounded-md bg-red-50 p-4 border border-red-200">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <h3 class="text-sm font-medium text-red-800">Please correct the following errors:</h3>
+                  <div class="mt-2 text-sm text-red-700">
+                    {{ form.non_field_errors }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endif %}
+
+          <!-- Paper Information Section -->
+          <div class="space-y-6">
+            <div class="border-b border-gray-200 pb-4">
+              <h3 class="text-lg font-medium text-gray-900">Paper Information</h3>
+              <p class="mt-1 text-sm text-gray-500">Basic details about the assessment paper</p>
+            </div>
+
+            <!-- Occupation & Level Selection -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label for="id_occupation" class="block text-sm font-medium text-gray-700 mb-2">
+                  Occupation <span class="text-red-500">*</span>
+                </label>
+                <select id="id_occupation" name="occupation" required 
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                  <option value="">Select an occupation...</option>
+                  {% for occ in form.fields.occupation.queryset %}
+                    <option value="{{ occ.id }}">{{ occ.code }} - {{ occ.name }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.occupation.errors %}
+                  <p class="mt-1 text-sm text-red-600">{{ form.occupation.errors.0 }}</p>
+                {% endif %}
+                <p class="mt-1 text-sm text-gray-500">Select the occupation this paper belongs to</p>
+              </div>
+
+              <div>
+                <label for="id_level" class="block text-sm font-medium text-gray-700 mb-2">
+                  Level <span class="text-red-500">*</span>
+                </label>
+                <select id="id_level" name="level" required 
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                  <option value="">Select occupation first</option>
+                </select>
+                {% if form.level.errors %}
+                  <p class="mt-1 text-sm text-red-600">{{ form.level.errors.0 }}</p>
+                {% endif %}
+                <p class="mt-1 text-sm text-gray-500">Select the level for this paper</p>
+              </div>
+            </div>
+
+            <!-- Module Selection (Dynamic) -->
+            <div id="module-field" style="display: none;">
+              <label for="id_module" class="block text-sm font-medium text-gray-700 mb-2">
+                Module
+              </label>
+              <select id="id_module" name="module" 
+                      class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                <option value="">Select a module...</option>
+                {% for mod in form.fields.module.queryset %}
+                  <option value="{{ mod.id }}">{{ mod.code }} - {{ mod.name }}</option>
+                {% endfor %}
+              </select>
+              {% if form.module.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.module.errors.0 }}</p>
+              {% endif %}
+              <p class="mt-1 text-sm text-gray-500">Select the module this paper belongs to (for module-based structures)</p>
+            </div>
+
+            <!-- Paper Code and Name -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label for="id_code" class="block text-sm font-medium text-gray-700 mb-2">
+                  Paper Code <span class="text-red-500">*</span>
+                </label>
+                {{ form.code }}
+                {% if form.code.errors %}
+                  <p class="mt-1 text-sm text-red-600">{{ form.code.errors.0 }}</p>
+                {% endif %}
+                <p class="mt-1 text-sm text-gray-500">Enter a unique code for this paper</p>
+              </div>
+
+              <div>
+                <label for="id_name" class="block text-sm font-medium text-gray-700 mb-2">
+                  Paper Name <span class="text-red-500">*</span>
+                </label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                  <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+                {% endif %}
+                <p class="mt-1 text-sm text-gray-500">Enter the name of the assessment paper</p>
+              </div>
+            </div>
+
+            <!-- Paper Type -->
+            <div>
+              <label for="id_grade_type" class="block text-sm font-medium text-gray-700 mb-2">
+                Paper Type <span class="text-red-500">*</span>
+              </label>
+              {{ form.grade_type }}
+              {% if form.grade_type.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.grade_type.errors.0 }}</p>
+              {% endif %}
+              <p class="mt-1 text-sm text-gray-500">Select the type of assessment paper</p>
+            </div>
+          </div>
+
+          <!-- Form Actions -->
+          <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+            <a href="{% url 'paper_list' %}" 
+               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150">
+              Cancel
+            </a>
+            <button type="submit" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Create Paper
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
+</div>
 
-  <div class="bg-white rounded-lg shadow-sm p-6">
-    <form method="post" class="space-y-6">
-      {% csrf_token %}
-      
-      <div class="grid grid-cols-1 gap-6">
-        <!-- Occupation Field -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
-          <select id="id_occupation" name="occupation" required class="border rounded px-2 py-1 w-full">
-  <option value="">---------</option>
-  {% for occ in form.fields.occupation.queryset %}
-    <option value="{{ occ.id }}">{{ occ.code }} - {{ occ.name }}</option>
-  {% endfor %}
-</select>
-          {% if form.occupation.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.occupation.errors.0 }}</p>
-          {% endif %}
-        </div>
+<!-- Enhanced JavaScript for Dynamic Form Behavior -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const occupationSelect = document.getElementById('id_occupation');
+  const levelSelect = document.getElementById('id_level');
+  const moduleField = document.getElementById('module-field');
+  const moduleSelect = document.getElementById('id_module');
 
-        <!-- Level Field -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
-          <select id="id_level" name="level" required class="border rounded px-2 py-1 w-full">
-  <option value="">Select occupation first</option>
-</select>
-          {% if form.level.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.level.errors.0 }}</p>
-          {% endif %}
-        </div>
-        <script>
-  document.getElementById('id_occupation').addEventListener('change', function() {
-    var occId = this.value;
-    var levelSelect = document.getElementById('id_level');
+  // Load levels when occupation changes
+  occupationSelect.addEventListener('change', function() {
+    const occupationId = this.value;
     levelSelect.innerHTML = '<option value="">Loading...</option>';
     levelSelect.disabled = true;
-    if (occId) {
-      fetch('/eims/api/levels-for-occupation/?occupation_id=' + occId)
+    
+    // Hide module field when occupation changes
+    moduleField.style.display = 'none';
+    moduleSelect.required = false;
+    
+    if (occupationId) {
+      fetch(`/eims/api/levels-for-occupation/?occupation_id=${occupationId}`)
         .then(response => response.json())
         .then(data => {
-          levelSelect.innerHTML = '<option value="">Select level</option>';
+          levelSelect.innerHTML = '<option value="">Select a level...</option>';
           data.levels.forEach(function(level) {
-            levelSelect.innerHTML += `<option value="${level.id}">${level.name}</option>`;
+            const option = document.createElement('option');
+            option.value = level.id;
+            option.textContent = level.name;
+            levelSelect.appendChild(option);
           });
+          levelSelect.disabled = false;
+        })
+        .catch(error => {
+          console.error('Error loading levels:', error);
+          levelSelect.innerHTML = '<option value="">Error loading levels</option>';
           levelSelect.disabled = false;
         });
     } else {
       levelSelect.innerHTML = '<option value="">Select occupation first</option>';
-      levelSelect.disabled = true;
+      levelSelect.disabled = false;
     }
   });
-</script>
 
-        <!-- Module Field (dynamic) -->
-        <div id="module-field-wrapper" style="display: block;">
-          <label for="id_module" class="block text-sm font-medium text-gray-700 mb-1">Module</label>
-          <select id="id_module" name="module" class="border rounded px-2 py-1 w-full">
-            <option value="">---------</option>
-            {% for mod in form.fields.module.queryset %}
-              <option value="{{ mod.id }}">{{ mod.code }} - {{ mod.name }}</option>
-            {% endfor %}
-          </select>
-          {% if form.module.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.module.errors.0 }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Code Field -->
-        <div>
-          <label for="{{ form.code.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Paper Code</label>
-          {{ form.code }}
-          {% if form.code.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.code.errors.0 }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Name Field -->
-        <div>
-          <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Paper Name</label>
-          {{ form.name }}
-          {% if form.name.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Grade Type Field -->
-        <div>
-          <label for="{{ form.grade_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Paper Type</label>
-          {{ form.grade_type }}
-          {% if form.grade_type.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.grade_type.errors.0 }}</p>
-          {% endif %}
-        </div>
-      </div>
-
-      <script>
-        // Helper: get structure type for occupation/level
-        async function fetchStructureType(occupationId, levelId) {
-          if (!occupationId || !levelId) return null;
-          // You may need to adjust this endpoint to match your API for occupation-level
-          const resp = await fetch(`/eims/api/occupation-level-structure/?occupation_id=${occupationId}&level_id=${levelId}`);
-          if (!resp.ok) return null;
-          const data = await resp.json();
-          return data.structure_type;
-        }
-        // Helper: get modules for occupation/level
-        async function fetchModules(occupationId, levelId) {
-          if (!occupationId || !levelId) return [];
-          // You may need to adjust this endpoint to match your API for modules
-          const resp = await fetch(`/eims/api/modules/?occupation_id=${occupationId}&level_id=${levelId}`);
-          if (!resp.ok) return [];
-          const data = await resp.json();
-          return data.modules || [];
-        }
-        const occupationField = document.getElementById('id_occupation');
-        const levelField = document.getElementById('id_level');
-        const moduleFieldWrapper = document.getElementById('module-field-wrapper');
-        const moduleField = document.getElementById('id_module');
-        const gradeTypeField = document.getElementById('id_grade_type');
-        async function updateModuleField() {
-          const occupationId = occupationField.value;
-          const levelId = levelField.value;
-          const structureType = await fetchStructureType(occupationId, levelId);
-          // Always show module field for worker's PAS/informal occupations
-          const selectedOcc = occupationField.options[occupationField.selectedIndex];
-          const occText = selectedOcc ? selectedOcc.textContent.toLowerCase() : '';
-          const isInformal = occText.includes("worker's pas") || occText.includes('informal');
-          if (structureType === 'modules' || isInformal) {
-            moduleFieldWrapper.style.display = '';
-            const modules = await fetchModules(occupationId, levelId);
-            moduleField.innerHTML = '<option value="">---------</option>';
-            for (const mod of modules) {
-              const opt = document.createElement('option');
-              opt.value = mod.id;
-              opt.textContent = `${mod.code} - ${mod.name}`;
-              moduleField.appendChild(opt);
-            }
-            // For informal/worker's PAS, force grade_type to practical
-            if (isInformal && gradeTypeField) {
-              gradeTypeField.value = 'practical';
-              gradeTypeField.setAttribute('readonly', 'readonly');
-            } else if (gradeTypeField) {
-              gradeTypeField.removeAttribute('readonly');
-            }
+  // Load modules and check structure when level changes
+  levelSelect.addEventListener('change', function() {
+    const occupationId = occupationSelect.value;
+    const levelId = this.value;
+    
+    if (occupationId && levelId) {
+      // Check structure type and load modules if needed
+      fetch(`/eims/api/occupation-level-structure/?occupation_id=${occupationId}&level_id=${levelId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.structure_type === 'module-based') {
+            // Show module field for module-based structure
+            moduleField.style.display = 'block';
+            moduleSelect.required = true;
+            
+            // Load modules for this occupation and level
+            fetch(`/eims/api/modules-for-level/?occupation_id=${occupationId}&level_id=${levelId}`)
+              .then(response => response.json())
+              .then(modules => {
+                moduleSelect.innerHTML = '<option value="">Select a module...</option>';
+                modules.forEach(module => {
+                  const option = document.createElement('option');
+                  option.value = module.id;
+                  option.textContent = `${module.code} - ${module.name}`;
+                  moduleSelect.appendChild(option);
+                });
+              })
+              .catch(error => {
+                console.error('Error loading modules:', error);
+                moduleSelect.innerHTML = '<option value="">Error loading modules</option>';
+              });
           } else {
-            moduleFieldWrapper.style.display = 'none';
-            moduleField.innerHTML = '<option value="">---------</option>';
-            if (gradeTypeField) {
-              gradeTypeField.removeAttribute('readonly');
-            }
+            // Hide module field for paper-based structure
+            moduleField.style.display = 'none';
+            moduleSelect.required = false;
+            moduleSelect.value = '';
           }
-        }
-        if (occupationField && levelField) {
-          occupationField.addEventListener('change', updateModuleField);
-          levelField.addEventListener('change', updateModuleField);
-          document.addEventListener('DOMContentLoaded', updateModuleField);
-        }
-      </script>
-
-      <div class="flex justify-end space-x-4 pt-6 border-t">
-        <a href="{% url 'paper_list' %}" class="px-4 py-2 text-gray-700 hover:text-gray-900">
-          Cancel
-        </a>
-        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
-          Create Paper
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+        })
+        .catch(error => {
+          console.error('Error checking structure type:', error);
+          // Default to hiding module field on error
+          moduleField.style.display = 'none';
+          moduleSelect.required = false;
+        });
+    } else {
+      moduleField.style.display = 'none';
+      moduleSelect.required = false;
+    }
+  });
+});
+</script>
 {% endblock %}
