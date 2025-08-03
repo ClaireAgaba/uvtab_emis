@@ -2761,8 +2761,7 @@ def module_list(request):
         search_term = current_filters['search']
         modules = modules.filter(
             Q(name__icontains=search_term) | 
-            Q(code__icontains=search_term) |
-            Q(description__icontains=search_term)
+            Q(code__icontains=search_term)
         )
     
     # Order by occupation, level, then name
@@ -2888,8 +2887,7 @@ def paper_list(request):
         search_term = current_filters['search']
         papers = papers.filter(
             Q(name__icontains=search_term) | 
-            Q(code__icontains=search_term) |
-            Q(description__icontains=search_term)
+            Q(code__icontains=search_term)
         )
     
     if current_filters.get('occupation'):
