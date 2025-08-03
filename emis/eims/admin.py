@@ -4,7 +4,7 @@ from django import forms  # ✅ this is the missing line
 from .models import (
     SupportStaff, CenterRepresentative, Occupation, Module, Paper, Grade, AssessmentCenter,
     District, Village, AssessmentCenterCategory, OccupationCategory,
-    RegistrationCategory, Level, Candidate, NatureOfDisability
+    RegistrationCategory, Level, Candidate, NatureOfDisability, AssessmentSeries
 )
 
 # Paper form limited to occupations with structure_type='papers'
@@ -109,6 +109,7 @@ admin.site.register(Village)
 admin.site.register(AssessmentCenterCategory)
 admin.site.register(OccupationCategory)
 admin.site.register(RegistrationCategory)
+admin.site.register(AssessmentSeries)
 from .models import OccupationLevel
 from .forms import LevelForm, OccupationLevelForm
 
