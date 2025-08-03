@@ -475,11 +475,12 @@ class EnrollmentForm(forms.Form):
             self.module_field_names = [f"paper_module_{m.id}" for m in modules]
             self.module_fields = [self[name] for name in self.module_field_names]
         else:
-            self.module_fields = []
+            self.module_fields = [] 
             # Modular: modules field as checkboxes
-            if reg_cat == 'modular' and occupation and level:
+            if self.is_modular and occupation and level:
                 self.fields['modules'].queryset = Module.objects.filter(occupation=occupation, level=level)
                 self.fields['modules'].required = True
+            
             # Formal: no modules field
             elif reg_cat == 'formal':
                 if 'modules' in self.fields:
