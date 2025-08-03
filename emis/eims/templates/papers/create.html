@@ -210,44 +210,80 @@ document.addEventListener('DOMContentLoaded', function() {
     const levelId = this.value;
     
     if (occupationId && levelId) {
-      // Check structure type and load modules if needed
-      fetch(`/eims/api/occupation-level-structure/?occupation_id=${occupationId}&level_id=${levelId}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.structure_type === 'module-based') {
-            // Show module field for module-based structure
-            moduleField.style.display = 'block';
-            moduleSelect.required = true;
-            
-            // Load modules for this occupation and level
-            fetch(`/eims/api/modules-for-level/?occupation_id=${occupationId}&level_id=${levelId}`)
-              .then(response => response.json())
-              .then(modules => {
-                moduleSelect.innerHTML = '<option value="">Select a module...</option>';
-                modules.forEach(module => {
-                  const option = document.createElement('option');
-                  option.value = module.id;
-                  option.textContent = `${module.code} - ${module.name}`;
-                  moduleSelect.appendChild(option);
-                });
-              })
-              .catch(error => {
-                console.error('Error loading modules:', error);
-                moduleSelect.innerHTML = '<option value="">Error loading modules</option>';
+      // Check if this is an informal/worker's pas occupation
+      const selectedOccupation = occupationSelect.options[occupationSelect.selectedIndex];
+      const occupationText = selectedOccupation ? selectedOccupation.textContent.toLowerCase() : '';
+      const isInformal = occupationText.includes("worker's pas") || occupationText.includes('informal') || occupationText.includes('workers pas');
+      
+      if (isInformal) {
+        // For informal/worker's pas, always show module field and load modules
+        moduleField.style.display = 'block';
+        moduleSelect.required = true;
+        
+        // Load modules for this occupation and level
+        fetch(`/eims/api/modules/?occupation_id=${occupationId}&level_id=${levelId}`)
+          .then(response => response.json())
+          .then(data => {
+            moduleSelect.innerHTML = '<option value="">Select a module...</option>';
+            if (data.modules && data.modules.length > 0) {
+              data.modules.forEach(module => {
+                const option = document.createElement('option');
+                option.value = module.id;
+                option.textContent = `${module.code} - ${module.name}`;
+                moduleSelect.appendChild(option);
               });
-          } else {
-            // Hide module field for paper-based structure
+            } else {
+              moduleSelect.innerHTML = '<option value="">No modules available</option>';
+            }
+          })
+          .catch(error => {
+            console.error('Error loading modules:', error);
+            moduleSelect.innerHTML = '<option value="">Error loading modules</option>';
+          });
+      } else {
+        // For formal occupations, check structure type
+        fetch(`/eims/api/occupation-level-structure/?occupation_id=${occupationId}&level_id=${levelId}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.structure_type === 'module-based') {
+              // Show module field for module-based structure
+              moduleField.style.display = 'block';
+              moduleSelect.required = true;
+              
+              // Load modules for this occupation and level
+              fetch(`/eims/api/modules/?occupation_id=${occupationId}&level_id=${levelId}`)
+                .then(response => response.json())
+                .then(data => {
+                  moduleSelect.innerHTML = '<option value="">Select a module...</option>';
+                  if (data.modules && data.modules.length > 0) {
+                    data.modules.forEach(module => {
+                      const option = document.createElement('option');
+                      option.value = module.id;
+                      option.textContent = `${module.code} - ${module.name}`;
+                      moduleSelect.appendChild(option);
+                    });
+                  } else {
+                    moduleSelect.innerHTML = '<option value="">No modules available</option>';
+                  }
+                })
+                .catch(error => {
+                  console.error('Error loading modules:', error);
+                  moduleSelect.innerHTML = '<option value="">Error loading modules</option>';
+                });
+            } else {
+              // Hide module field for paper-based structure
+              moduleField.style.display = 'none';
+              moduleSelect.required = false;
+              moduleSelect.value = '';
+            }
+          })
+          .catch(error => {
+            console.error('Error checking structure type:', error);
+            // Default to hiding module field on error
             moduleField.style.display = 'none';
             moduleSelect.required = false;
-            moduleSelect.value = '';
-          }
-        })
-        .catch(error => {
-          console.error('Error checking structure type:', error);
-          // Default to hiding module field on error
-          moduleField.style.display = 'none';
-          moduleSelect.required = false;
-        });
+          });
+      }
     } else {
       moduleField.style.display = 'none';
       moduleSelect.required = false;
