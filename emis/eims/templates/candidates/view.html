@@ -171,9 +171,16 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     <!-- Info -->
     <div class="md:col-span-2 space-y-2">
       <div class="grid grid-cols-2 gap-x-8 gap-y-2">
-        <p><span class="font-semibold text-gray-700">Gender:</span> {{ candidate.gender }}</p>
+        <p><span class="font-semibold text-gray-700">Gender:</span> 
+          {% if candidate.gender == 'M' %}
+            Male
+          {% elif candidate.gender == 'F' %}
+            Female
+          {% else %}
+            {{ candidate.gender }}
+          {% endif %}
+        </p>
         <p><span class="font-semibold text-gray-700">Date of Birth:</span> {{ candidate.date_of_birth }}</p>
-        <p><span class="font-semibold text-gray-700">Nationality:</span> {{ candidate.nationality|country_name }}</p>
         <p><span class="font-semibold text-gray-700">Nationality:</span> {{ candidate.nationality|country_name }}</p>
         <p><span class="font-semibold text-gray-700">Contact:</span> {{ candidate.contact }}</p>
         <p><span class="font-semibold text-gray-700">Assessment Center:</span> <span data-field="assessment_center">{{ candidate.assessment_center.center_name }}</span></p>
@@ -189,6 +196,39 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
           <span class="{% if candidate.fees_balance > 0 %}text-red-600 font-semibold{% else %}text-green-600{% endif %}">
             UGX {{ candidate.get_formatted_fees_balance }}
           </span>
+        </p>
+        <p><span class="font-semibold text-gray-700">Invoice Status:</span> 
+          {% comment %}
+          Logic: 
+          - If candidate has level enrollments and fees were calculated, they have an invoice
+          - If fees_balance = 0 and they were enrolled = Paid Invoice
+          - If fees_balance > 0 = Unpaid Invoice  
+          - If no enrollments or no fees = No Invoice Set
+          {% endcomment %}
+          {% if level_enrollment %}
+            {% if candidate.fees_balance == 0 %}
+              <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                <svg class="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                </svg>
+                Paid Invoice
+              </span>
+            {% else %}
+              <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                <svg class="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                </svg>
+                Unpaid Invoice
+              </span>
+            {% endif %}
+          {% else %}
+            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
+              <svg class="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+              No Invoice Set
+            </span>
+          {% endif %}
         </p>
       </div>
     </div>

@@ -1,0 +1,722 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- Header Section -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex-1">
+        <div class="flex items-center space-x-3 mb-2">
+          <div class="flex-shrink-0">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900">Center Fees</h1>
+            <p class="text-xl text-gray-600 font-medium">{{ total_centers }} unique centers, {{ total_entries }} billed entries</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-3 mt-4 lg:mt-0">
+        <a href="{% url 'uvtab_fees_home' %}" 
+           class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+          </svg>
+          Back to UVTAB Fees
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Summary -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="text-center">
+        <p class="text-sm font-medium text-gray-500">Unique Centers</p>
+        <p class="text-3xl font-bold text-gray-900">{{ total_centers }}</p>
+      </div>
+      <div class="text-center">
+        <p class="text-sm font-medium text-gray-500">Billed Entries</p>
+        <p class="text-3xl font-bold text-blue-600">{{ total_entries }}</p>
+      </div>
+      <div class="text-center">
+        <p class="text-sm font-medium text-gray-500">Total Candidate Fees</p>
+        <p class="text-3xl font-bold text-red-600">UGX {{ total_system_fees|floatformat:2 }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search and Filters -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+    <form method="GET" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Search -->
+        <div>
+          <label for="search" class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+          <input type="text" 
+                 id="search" 
+                 name="search" 
+                 value="{{ search_query }}"
+                 placeholder="Center name, number, district..."
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+        </div>
+        
+        <!-- Assessment Series Filter -->
+        <div>
+          <label for="series" class="block text-sm font-medium text-gray-700 mb-2">Assessment Series</label>
+          <select id="series" 
+                  name="series"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+            <option value="">All Series</option>
+            {% for series in assessment_series %}
+              <option value="{{ series.id }}" {% if series.id|stringformat:"s" == series_filter %}selected{% endif %}>
+                {{ series.name }}
+                {% if series.is_current %} (Current){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <!-- Filter Button -->
+        <div class="flex items-end">
+          <button type="submit" 
+                  class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z"></path>
+            </svg>
+            Filter
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Centers Table -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    
+    <!-- Bulk Actions Bar (hidden by default) -->
+    <div id="bulkActionsBar" class="hidden bg-blue-50 border-b border-blue-200 px-6 py-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center">
+          <span id="selectedCount" class="text-sm font-medium text-blue-900">0 centers selected</span>
+        </div>
+        <div class="flex space-x-3">
+          <button id="markAsPaidBtn" 
+                  class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Mark As Paid
+          </button>
+          <button id="clearSelectionBtn" 
+                  class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+            Clear Selection
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-3 py-3 text-left">
+              <input type="checkbox" id="selectAll" 
+                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+            </th>
+            <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Center
+            </th>
+            <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Number
+            </th>
+            <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              District
+            </th>
+            <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Series
+            </th>
+            <th scope="col" class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Candidates
+            </th>
+            <th scope="col" class="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Total Fees
+            </th>
+            <th scope="col" class="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Paid
+            </th>
+            <th scope="col" class="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Due
+            </th>
+            <th scope="col" class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for data in page_obj %}
+            <tr class="hover:bg-gray-50 transition-colors duration-150">
+              <td class="px-3 py-3 whitespace-nowrap">
+                <input type="checkbox" 
+                       class="center-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                       data-center-id="{{ data.center.id }}"
+                       data-series-id="{% if data.assessment_series %}{{ data.assessment_series.id }}{% else %}none{% endif %}"
+                       value="{{ data.center.id }}_{% if data.assessment_series %}{{ data.assessment_series.id }}{% else %}none{% endif %}">
+              </td>
+              <td class="px-3 py-3 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">{{ data.center.center_name|truncatechars:25 }}</div>
+                <div class="text-xs text-gray-500">{{ data.center.village.name }}</div>
+              </td>
+              <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                {{ data.center.center_number }}
+              </td>
+              <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                {{ data.center.district.name }}
+              </td>
+              <td class="px-3 py-3 whitespace-nowrap">
+                {% if data.assessment_series %}
+                  <div class="text-sm text-gray-900">{{ data.assessment_series.name|truncatechars:15 }}</div>
+                  <div class="text-xs">
+                    {% if data.assessment_series.is_current %}
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Current
+                      </span>
+                    {% else %}
+                      <span class="text-gray-500">{{ data.assessment_series.start_date|date:"M Y" }}</span>
+                    {% endif %}
+                  </div>
+                {% else %}
+                  <span class="text-gray-400 text-xs">No series</span>
+                {% endif %}
+              </td>
+              <td class="px-2 py-3 whitespace-nowrap text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {{ data.candidate_count }}
+                </span>
+              </td>
+              <td class="px-2 py-3 whitespace-nowrap text-right text-sm">
+                <span class="text-red-600 font-semibold text-xs">
+                  {{ data.total_fees|floatformat:0|floatformat:0 }}
+                </span>
+              </td>
+              <td class="px-2 py-3 whitespace-nowrap text-right text-sm">
+                <span class="text-green-600 font-semibold text-xs">
+                  {{ data.amount_paid|floatformat:0|floatformat:0 }}
+                </span>
+              </td>
+              <td class="px-2 py-3 whitespace-nowrap text-right text-sm">
+                <span class="text-red-600 font-semibold text-xs">
+                  {{ data.amount_due|floatformat:0|floatformat:0 }}
+                </span>
+              </td>
+              <td class="px-2 py-3 whitespace-nowrap text-center text-sm font-medium">
+                <div class="flex flex-col space-y-1">
+                  <button onclick="showInvoice({{ data.center.id }}, '{% if data.assessment_series %}{{ data.assessment_series.id }}{% else %}none{% endif %}')" 
+                          class="text-blue-600 hover:text-blue-900 transition-colors duration-150 text-xs">
+                    Invoice
+                  </button>
+                  <a href="{% url 'assessment_center_view' data.center.id %}" 
+                     class="text-green-600 hover:text-green-900 transition-colors duration-150 text-xs">
+                    Details
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="10" class="px-6 py-12 text-center">
+                <div class="flex flex-col items-center">
+                  <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                  </svg>
+                  <p class="text-gray-500 text-lg font-medium">No billed centers found</p>
+                  <p class="text-gray-400 text-sm">Try adjusting your search or filter criteria.</p>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-8 rounded-lg shadow-sm">
+      <div class="flex-1 flex justify-between sm:hidden">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}" 
+             class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            Previous
+          </a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}" 
+             class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            Next
+          </a>
+        {% endif %}
+      </div>
+      <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm text-gray-700">
+            Showing
+            <span class="font-medium">{{ page_obj.start_index }}</span>
+            to
+            <span class="font-medium">{{ page_obj.end_index }}</span>
+            of
+            <span class="font-medium">{{ page_obj.paginator.count }}</span>
+            results
+          </p>
+        </div>
+        <div>
+          <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            {% if page_obj.has_previous %}
+              <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}" 
+                 class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                <span class="sr-only">Previous</span>
+                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              </a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+              {% if page_obj.number == num %}
+                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-green-50 text-sm font-medium text-green-600">
+                  {{ num }}
+                </span>
+              {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}" 
+                   class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  {{ num }}
+                </a>
+              {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+              <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}" 
+                 class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                <span class="sr-only">Next</span>
+                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                </svg>
+              </a>
+            {% endif %}
+          </nav>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Center Invoice Modal -->
+<div id="invoiceModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+  <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white">
+    <div class="mt-3">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-gray-200 no-print">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Center Invoice</h3>
+          <p class="text-sm text-gray-600">Generate and print invoice for assessment center</p>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="printInvoice('summary')" 
+                  class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+            </svg>
+            Download Summary
+          </button>
+          <button onclick="printInvoice('detailed')" 
+                  class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+            </svg>
+            Download Detailed
+          </button>
+          <button onclick="closeInvoiceModal()" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="py-4">
+        <!-- Loading State -->
+        <div id="invoiceLoadingState" class="text-center py-8">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p class="mt-2 text-gray-600">Generating invoice...</p>
+        </div>
+
+        <!-- Invoice Content -->
+        <div id="invoiceContent" class="hidden">
+          <!-- Invoice Header -->
+          <div class="flex justify-between items-start mb-8 print-section">
+            <div>
+              <div class="flex items-center mb-4">
+                <div class="h-16 w-16 mr-4 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                  </svg>
+                </div>
+                <div>
+                  <h2 class="text-lg font-bold text-gray-900">UVTAB</h2>
+                  <p class="text-sm text-gray-600">UGANDA VOCATIONAL AND</p>
+                  <p class="text-sm text-gray-600">TECHNICAL ASSESSMENT BOARD</p>
+                </div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm text-gray-600 mb-2">
+                <p><strong>UVTAB EIMS</strong></p>
+                <p>P.O.Box 1499</p>
+                <p>Plot 7, Valley Drive, Ntinda-Kyambogo Road</p>
+                <p>Kampala</p>
+                <p>Uganda</p>
+                <p class="mt-2">+256 414 289786</p>
+                <p>info@uvtab.go.ug</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Invoice Title -->
+          <div class="text-center mb-8 print-section">
+            <h1 class="text-2xl font-bold text-gray-900" id="invoiceTitle">CENTER INVOICE: <span id="invoiceNumber"></span></h1>
+          </div>
+
+          <!-- Center and Exam Details -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print-section">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">Center Details</h3>
+              <div class="space-y-2">
+                <p><strong>Center No.:</strong> <span id="centerNumber"></span></p>
+                <p><strong>Center Name:</strong> <span id="centerName"></span></p>
+                <p><strong>Location:</strong> <span id="centerLocation"></span></p>
+              </div>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">Assessment Series</h3>
+              <p class="text-lg" id="examSeries"></p>
+            </div>
+          </div>
+
+          <!-- Summary Table -->
+          <div class="mb-8 print-section">
+            <div class="overflow-x-auto">
+              <table class="min-w-full border-collapse border border-gray-300">
+                <thead>
+                  <tr class="bg-gray-50">
+                    <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-900">Description</th>
+                    <th class="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-900">Amount (UGX)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="border border-gray-300 px-4 py-3 text-sm text-gray-900">Number of Candidates</td>
+                    <td class="border border-gray-300 px-4 py-3 text-center text-sm text-gray-900" id="totalCandidates">0</td>
+                  </tr>
+                  <tr>
+                    <td class="border border-gray-300 px-4 py-3 text-sm text-gray-900">Total Bill</td>
+                    <td class="border border-gray-300 px-4 py-3 text-center text-sm text-gray-900" id="totalBill">0</td>
+                  </tr>
+                  <tr>
+                    <td class="border border-gray-300 px-4 py-3 text-sm text-gray-900">Amount Paid</td>
+                    <td class="border border-gray-300 px-4 py-3 text-center text-sm text-gray-900" id="amountPaid">0</td>
+                  </tr>
+                  <tr class="bg-gray-50 font-semibold">
+                    <td class="border border-gray-300 px-4 py-3 text-sm text-gray-900">Amount Due</td>
+                    <td class="border border-gray-300 px-4 py-3 text-center text-sm text-gray-900" id="amountDue">0</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Detailed Candidates Table (only shown for detailed invoice) -->
+          <div id="detailedSection" class="mb-8 print-section hidden">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Candidate Details</h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full border-collapse border border-gray-300">
+                <thead>
+                  <tr class="bg-gray-50">
+                    <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-900">Registration Number</th>
+                    <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-900">Name</th>
+                    <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-900">Occupation</th>
+                    <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-900">Level</th>
+                    <th class="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-900">Amount (UGX)</th>
+                  </tr>
+                </thead>
+                <tbody id="candidatesTableBody">
+                  <!-- Candidates will be populated here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Invoice Footer -->
+          <div class="mt-8 pt-4 border-t border-gray-200 print-section">
+            <div class="flex justify-between items-center text-sm text-gray-600">
+              <p>Generated on: <span id="generatedDate"></span> at <span id="generatedTime"></span></p>
+              <p>UVTAB EIMS - Education Information Management System</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="invoiceErrorState" class="hidden text-center py-8">
+          <svg class="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+          </svg>
+          <p class="mt-2 text-gray-600" id="invoiceErrorMessage">Failed to generate invoice.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showInvoice(centerId, seriesId) {
+  // Store current invoice data for PDF download
+  window.currentInvoiceCenterId = centerId;
+  window.currentInvoiceSeriesId = seriesId;
+  
+  // Show modal
+  document.getElementById('invoiceModal').classList.remove('hidden');
+  
+  // Show loading state
+  document.getElementById('invoiceLoadingState').classList.remove('hidden');
+  document.getElementById('invoiceContent').classList.add('hidden');
+  document.getElementById('invoiceErrorState').classList.add('hidden');
+  
+  // Fetch data
+  const url = `/eims/fees/centers/${centerId}/candidates/${seriesId}/`;
+  
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        showInvoiceError(data.error);
+        return;
+      }
+      
+      // Populate invoice data - using correct property names from backend
+      document.getElementById('invoiceNumber').textContent = data.invoice_number;
+      document.getElementById('centerNumber').textContent = data.center.center_number;
+      document.getElementById('centerName').textContent = data.center.center_name;
+      document.getElementById('centerLocation').textContent = `${data.center.village}, ${data.center.district}`;
+      document.getElementById('examSeries').textContent = data.assessment_series.name;
+      
+      // Populate summary table
+      document.getElementById('totalCandidates').textContent = data.summary.total_candidates;
+      document.getElementById('totalBill').textContent = data.summary.total_bill.toLocaleString();
+      document.getElementById('amountPaid').textContent = data.summary.amount_paid.toLocaleString();
+      document.getElementById('amountDue').textContent = data.summary.amount_due.toLocaleString();
+      
+      // Populate detailed candidates table
+      const tbody = document.getElementById('candidatesTableBody');
+      tbody.innerHTML = '';
+      
+      data.candidates.forEach(candidate => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="border border-gray-300 px-4 py-3 text-sm text-gray-900">${candidate.reg_number}</td>
+          <td class="border border-gray-300 px-4 py-3 text-sm text-gray-900">${candidate.full_name}</td>
+          <td class="border border-gray-300 px-4 py-3 text-sm text-gray-900">${candidate.occupation}</td>
+          <td class="border border-gray-300 px-4 py-3 text-sm text-gray-900">${candidate.registration_category}</td>
+          <td class="border border-gray-300 px-4 py-3 text-center text-sm text-gray-900">${candidate.fees_balance.toLocaleString()}</td>
+        `;
+        tbody.appendChild(row);
+      });
+      
+      // Set generation date and time
+      document.getElementById('generatedDate').textContent = data.generated_date;
+      document.getElementById('generatedTime').textContent = data.generated_time;
+      
+      // Hide loading, show content
+      document.getElementById('invoiceLoadingState').classList.add('hidden');
+      document.getElementById('invoiceContent').classList.remove('hidden');
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      showInvoiceError('Failed to generate invoice. Please try again.');
+    });
+}
+
+function printInvoice(type) {
+  // Get the current invoice data from the modal
+  const centerId = window.currentInvoiceCenterId;
+  const seriesId = window.currentInvoiceSeriesId;
+  
+  if (!centerId || !seriesId) {
+    alert('Error: Invoice data not available');
+    return;
+  }
+  
+  // Create download URL for PDF
+  const downloadUrl = `/eims/fees/centers/${centerId}/invoice/${seriesId}/?type=${type}`;
+  
+  // Create a temporary link and trigger download
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = ''; // Let the server set the filename
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function showInvoiceError(message) {
+  document.getElementById('invoiceLoadingState').classList.add('hidden');
+  document.getElementById('invoiceContent').classList.add('hidden');
+  document.getElementById('invoiceErrorState').classList.remove('hidden');
+  document.getElementById('invoiceErrorMessage').textContent = message;
+}
+
+function closeInvoiceModal() {
+  document.getElementById('invoiceModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+document.getElementById('invoiceModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeInvoiceModal();
+  }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeInvoiceModal();
+  }
+});
+
+// Checkbox management and bulk actions
+const centerCheckboxes = document.querySelectorAll('.center-checkbox');
+const selectAllCheckbox = document.getElementById('selectAll');
+const bulkActionsBar = document.getElementById('bulkActionsBar');
+const selectedCount = document.getElementById('selectedCount');
+const markAsPaidBtn = document.getElementById('markAsPaidBtn');
+const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+
+let selectedCenterSeries = [];
+
+centerCheckboxes.forEach(checkbox => {
+  checkbox.addEventListener('change', function() {
+    const centerSeriesId = this.value;
+    if (this.checked) {
+      selectedCenterSeries.push(centerSeriesId);
+    } else {
+      selectedCenterSeries = selectedCenterSeries.filter(id => id !== centerSeriesId);
+      selectAllCheckbox.checked = false;
+    }
+    
+    updateBulkActionsBar();
+    updateSelectAllCheckbox();
+  });
+});
+
+function updateBulkActionsBar() {
+  if (selectedCenterSeries.length > 0) {
+    bulkActionsBar.classList.remove('hidden');
+    selectedCount.textContent = `${selectedCenterSeries.length} center${selectedCenterSeries.length > 1 ? 's' : ''} selected`;
+  } else {
+    bulkActionsBar.classList.add('hidden');
+  }
+}
+
+function updateSelectAllCheckbox() {
+  const totalCheckboxes = centerCheckboxes.length;
+  const checkedCheckboxes = selectedCenterSeries.length;
+  
+  if (checkedCheckboxes === 0) {
+    selectAllCheckbox.checked = false;
+    selectAllCheckbox.indeterminate = false;
+  } else if (checkedCheckboxes === totalCheckboxes) {
+    selectAllCheckbox.checked = true;
+    selectAllCheckbox.indeterminate = false;
+  } else {
+    selectAllCheckbox.checked = false;
+    selectAllCheckbox.indeterminate = true;
+  }
+}
+
+markAsPaidBtn.addEventListener('click', function() {
+  if (selectedCenterSeries.length === 0) {
+    alert('Please select at least one center to mark as paid.');
+    return;
+  }
+  
+  if (!confirm(`Are you sure you want to mark ${selectedCenterSeries.length} center${selectedCenterSeries.length > 1 ? 's' : ''} as paid? This will clear all candidate fees for the selected centers.`)) {
+    return;
+  }
+  
+  // Disable button and show loading
+  markAsPaidBtn.disabled = true;
+  markAsPaidBtn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Processing...';
+  
+  // Send AJAX request to mark centers as paid
+  fetch('/eims/fees/centers/mark-as-paid/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    },
+    body: JSON.stringify({
+      center_series_ids: selectedCenterSeries
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Show success message
+      alert(`Successfully processed payments for ${data.updated_centers.length} center${data.updated_centers.length > 1 ? 's' : ''}. Total amount: UGX ${data.total_amount.toLocaleString()}`);
+      
+      // Reload the page to show updated data
+      window.location.reload();
+    } else {
+      alert('Error: ' + (data.error || 'Failed to process payments'));
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('An error occurred while processing payments. Please try again.');
+  })
+  .finally(() => {
+    // Re-enable button
+    markAsPaidBtn.disabled = false;
+    markAsPaidBtn.innerHTML = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>Mark As Paid';
+  });
+});
+
+clearSelectionBtn.addEventListener('click', function() {
+  centerCheckboxes.forEach(checkbox => {
+    checkbox.checked = false;
+  });
+  selectedCenterSeries = [];
+  selectAllCheckbox.checked = false;
+  selectAllCheckbox.indeterminate = false;
+  updateBulkActionsBar();
+});
+
+selectAllCheckbox.addEventListener('change', function() {
+  centerCheckboxes.forEach(checkbox => {
+    checkbox.checked = this.checked;
+  });
+  
+  if (this.checked) {
+    selectedCenterSeries = Array.from(centerCheckboxes).map(checkbox => checkbox.value);
+  } else {
+    selectedCenterSeries = [];
+  }
+  
+  updateBulkActionsBar();
+});
+</script>
+
+{% endblock %}

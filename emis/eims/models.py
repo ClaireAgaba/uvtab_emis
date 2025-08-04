@@ -714,3 +714,24 @@ class AssessmentSeries(models.Model):
         verbose_name = "Assessment Series"
         verbose_name_plural = "Assessment Series"
         ordering = ['-is_current', '-start_date']
+
+class CenterSeriesPayment(models.Model):
+    """
+    Track payment status for each center-series combination
+    This allows us to mark specific center-series combinations as paid
+    without affecting other series for the same center
+    """
+    assessment_center = models.ForeignKey('AssessmentCenter', on_delete=models.CASCADE)
+    assessment_series = models.ForeignKey('AssessmentSeries', on_delete=models.CASCADE, null=True, blank=True)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    payment_date = models.DateTimeField(auto_now_add=True)
+    paid_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        unique_together = ('assessment_center', 'assessment_series')
+        verbose_name = 'Center Series Payment'
+        verbose_name_plural = 'Center Series Payments'
+    
+    def __str__(self):
+        series_name = self.assessment_series.name if self.assessment_series else 'No series'
+        return f"{self.assessment_center.center_name} - {series_name}: {self.amount_paid}"

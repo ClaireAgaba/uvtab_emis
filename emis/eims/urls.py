@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import views_api
+from . import views_fees
 from django.contrib.auth import views as auth_views
 
 
@@ -24,6 +25,15 @@ urlpatterns = [
     path('occupations/<int:pk>/update-fees/', views.update_occupation_fees, name='update_occupation_fees'),
     path('occupations/<int:pk>/edit/', views.occupation_edit, name='occupation_edit'),
     path('occupations/<int:occupation_id>/add-level/', views.add_level, name='add_level'),
+    
+    # UVTAB Fees Module
+    path('fees/', views_fees.uvtab_fees_home, name='uvtab_fees_home'),
+    path('fees/candidates/', views_fees.candidate_fees_list, name='candidate_fees_list'),
+    path('fees/centers/', views_fees.center_fees_list, name='center_fees_list'),
+    path('fees/centers/<int:center_id>/candidates/<str:series_id>/', views_fees.center_candidates_report, name='center_candidates_report'),
+    path('fees/centers/<int:center_id>/invoice/<str:series_id>/', views_fees.generate_pdf_invoice, name='generate_pdf_invoice'),
+    path('fees/centers/mark-as-paid/', views_fees.mark_centers_as_paid, name='mark_centers_as_paid'),
+    
     path('modules/add/<int:level_id>/', views.add_module, name='add_module'),
     path('papers/add/<int:level_id>/', views.add_paper, name='add_paper'),
     path('candidates/', views.candidate_list, name='candidate_list'),
