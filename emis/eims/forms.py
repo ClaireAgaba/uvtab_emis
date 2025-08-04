@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, FeesType, Result, NatureOfDisability, Staff, AssessmentSeries
+from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, Result, NatureOfDisability, Staff, AssessmentSeries
 from datetime import datetime   
 
 from django_countries.fields import CountryField
@@ -169,23 +169,6 @@ class PaperForm(forms.ModelForm):
                 if grade_type != 'practical':
                     self.add_error('grade_type', 'Only practical papers are allowed for this occupation/level.')
         return cleaned_data
-
-class FeesTypeForm(forms.ModelForm):
-    class Meta:
-        model = FeesType
-        fields = ['name', 'fee']
-        widgets = {
-            'name': forms.TextInput(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-                'placeholder': 'Enter fee type name'
-            }),
-            'fee': forms.NumberInput(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-                'placeholder': '0.00',
-                'step': '0.01',
-                'min': '0',
-            }),
-        }
 
 
 class CandidateForm(forms.ModelForm):

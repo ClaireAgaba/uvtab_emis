@@ -2973,37 +2973,6 @@ def paper_edit(request, pk):
         form.fields['module'].widget.attrs['data-initial'] = str(paper.module.id)
     return render(request, 'papers/edit.html', {'form': form, 'paper': paper})
 
-# --- Fees Type Views ---
-from .models import FeesType
-from .forms import FeesTypeForm
-from django.contrib import messages
-
-def fees_type_list(request):
-    fees_types = FeesType.objects.all()
-    return render(request, 'fees_type/list.html', {'fees_types': fees_types})
-
-def fees_type_create(request):
-    if request.method == 'POST':
-        form = FeesTypeForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Fees Type created successfully.')
-            return redirect('fees_type_list')
-    else:
-        form = FeesTypeForm()
-    return render(request, 'fees_type/create.html', {'form': form})
-
-def fees_type_edit(request, pk):
-    fees_type = get_object_or_404(FeesType, pk=pk)
-    if request.method == 'POST':
-        form = FeesTypeForm(request.POST, instance=fees_type)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Fees Type updated successfully.')
-            return redirect('fees_type_list')
-    else:
-        form = FeesTypeForm(instance=fees_type)
-    return render(request, 'fees_type/edit.html', {'form': form, 'fees_type': fees_type})
 
 def report_list(request):
     """Main reports dashboard showing available reports"""

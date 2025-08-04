@@ -72,18 +72,6 @@ class RegistrationCategory(models.Model):
         verbose_name = "Registration Category"
         verbose_name_plural = "Registration Categories"
 
-class FeesType(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    fee = models.DecimalField(max_digits=10, decimal_places=2)
-
-    def __str__(self):
-        return f"{self.name} ({self.fee})"
-
-    class Meta:
-        verbose_name = "Fees Type"
-        verbose_name_plural = "Fees Types"
-
-
 
 class Grade(models.Model):
     GRADE_TYPE_CHOICES = [
