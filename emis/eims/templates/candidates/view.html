@@ -185,6 +185,11 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         <p><span class="font-semibold text-gray-700">Entry Year:</span> {{ candidate.entry_year }}</p>
         <p><span class="font-semibold text-gray-700">Intake:</span> {{ candidate.intake }}</p>
         <p><span class="font-semibold text-gray-700">Registration Number:</span> <span data-field="reg_number">{{ candidate.reg_number }}</span></p>
+        <p><span class="font-semibold text-gray-700">Fees Balance:</span> 
+          <span class="{% if candidate.fees_balance > 0 %}text-red-600 font-semibold{% else %}text-green-600{% endif %}">
+            UGX {{ candidate.get_formatted_fees_balance }}
+          </span>
+        </p>
       </div>
     </div>
     <!-- Image + Badge -->
@@ -752,6 +757,22 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     };
   }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Simple and reliable fee formatting
+    var feesBalance = document.getElementById('fees-balance');
+    if (feesBalance && feesBalance.textContent) {
+        var amount = parseFloat(feesBalance.textContent.trim());
+        if (!isNaN(amount)) {
+            feesBalance.textContent = amount.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+    }
 });
 </script>
 

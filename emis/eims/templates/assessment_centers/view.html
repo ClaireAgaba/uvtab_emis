@@ -1,85 +1,388 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="max-w-6xl mx-auto mt-6">
-  <!-- Header -->
-  <div class="flex justify-between items-center mb-6">
-    <div>
-      <h1 class="text-2xl font-bold"> {{ center.center_number }} {{ center.center_name }}</h1>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- Header Section -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex-1">
+        <div class="flex items-center space-x-3 mb-2">
+          <div class="flex-shrink-0">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900">{{ center.center_number }}</h1>
+            <p class="text-xl text-gray-600 font-medium">{{ center.center_name }}</p>
+          </div>
+        </div>
+      </div>
       
+      <div class="flex items-center space-x-3 mt-4 lg:mt-0">
+        <a href="{% url 'assessment_center_list' %}" 
+           class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+          </svg>
+          Back to Centers
+        </a>
+        <a href="{% url 'edit_assessment_center' center.id %}" 
+           class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+          </svg>
+          Edit Center
+        </a>
+      </div>
     </div>
-   
-    <div>
-      <a href="{% url 'assessment_center_list' %}" class="text-blue-600 hover:underline">← Back to Centers </a>
-      <a href="{% url 'edit_assessment_center' center.id %}" class="ml-4 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">Edit</a>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Candidates -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-500">Total Candidates</p>
+          <p class="text-2xl font-bold text-gray-900">{{ candidates.count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enrolled Candidates -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-500">Enrolled & Billed</p>
+          <p class="text-2xl font-bold text-gray-900">{{ center.get_enrolled_candidates_count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Occupations -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0H8m8 0v2a2 2 0 01-2 2H10a2 2 0 01-2-2V6m8 0H8"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-500">Occupations</p>
+          <p class="text-2xl font-bold text-gray-900">{{ occupations.count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Fees Balance -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-500">Total Fees Balance</p>
+          <p class="text-2xl font-bold text-red-600">UGX {{ center.get_formatted_total_fees_balance }}</p>
+        </div>
+      </div>
     </div>
   </div>
-  <div>
-    <p class="text-sm text-gray-600">Center Number: {{ center.center_number }}</p>
-    <p class="text-sm text-gray-600">Center Name: {{ center.center_name }}</p>
-    <p class="text-sm text-gray-600">Assessment Category: {{ center.category.name }}</p>
-    <p class="text-sm text-gray-600">District: {{ center.district.name }}</p>
-    <p class="text-sm text-gray-600">Village: {{ center.village.name }}</p>
+
+  <!-- Center Information -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Center Information</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="flex items-center space-x-3">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-500">Center Number</p>
+          <p class="text-sm text-gray-900">{{ center.center_number }}</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-3">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-500">Center Name</p>
+          <p class="text-sm text-gray-900">{{ center.center_name }}</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-3">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-500">Assessment Category</p>
+          <p class="text-sm text-gray-900">{{ center.category.name }}</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-3">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-500">District</p>
+          <p class="text-sm text-gray-900">{{ center.district.name }}</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-3">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-500">Village</p>
+          <p class="text-sm text-gray-900">{{ center.village.name }}</p>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Tabs -->
-  <div class="border-b flex space-x-4 mb-4">
-    <button class="tab-btn px-4 py-2 font-semibold text-blue-600 border-b-2 border-blue-600" onclick="showTab('candidates')">Candidates</button>
-    <button class="tab-btn px-4 py-2 font-semibold text-gray-600 hover:text-blue-600" onclick="showTab('occupations')">Occupations</button>
-  </div>
+  <!-- Tabs Navigation -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="border-b border-gray-200">
+      <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+        <button onclick="showTab('candidates')" 
+                class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 border-blue-500 text-blue-600">
+          <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+            </svg>
+            <span>Candidates ({{ candidates.count }})</span>
+          </div>
+        </button>
+        <button onclick="showTab('occupations')" 
+                class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+          <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0H8m8 0v2a2 2 0 01-2 2H10a2 2 0 01-2-2V6m8 0H8"></path>
+            </svg>
+            <span>Occupations ({{ occupations.count }})</span>
+          </div>
+        </button>
+      </nav>
+    </div>
 
-  <!-- Tab Content -->
-  <div id="candidates" class="tab-content block">
-    <table class="w-full table-auto bg-white shadow rounded">
-      <thead class="bg-gray-100">
-        <tr>
-          <th class="px-4 py-2 text-left">Registration Number</th>
-          <th class="px-4 py-2 text-left">Full Name</th>
-          <th class="px-4 py-2 text-left">Occupation</th>
-          <th class="px-4 py-2 text-left">Registration Type</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for candidate in candidates %}
-          <tr class="border-b">
-            <td class="px-4 py-2">{{ candidate.reg_number }}</td>
-            <td class="px-4 py-2">{{ candidate.full_name }}</td>
-            <td class="px-4 py-2">{{ candidate.occupation.name }}</td>
-            <td class="px-4 py-2">{{ candidate.registration_category }}</td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="4" class="text-center py-4 text-gray-500">No candidates available.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+    <!-- Tab Content -->
+    <div class="p-6">
+      <!-- Candidates Tab -->
+      <div id="candidates" class="tab-content">
+        <div class="overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Registration Number
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Full Name
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Occupation
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Registration Type
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fees Balance
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {% for candidate in candidates %}
+                  <tr class="hover:bg-gray-50 transition-colors duration-150">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {{ candidate.reg_number }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {{ candidate.full_name }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {{ candidate.occupation.name }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                        {% if candidate.registration_category == 'Formal' %}bg-blue-100 text-blue-800
+                        {% elif candidate.registration_category == 'Modular' %}bg-green-100 text-green-800
+                        {% elif candidate.registration_category == 'Informal' %}bg-purple-100 text-purple-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ candidate.registration_category }}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                      <span class="{% if candidate.fees_balance > 0 %}text-red-600 font-semibold{% else %}text-green-600{% endif %}">
+                        UGX {{ candidate.get_formatted_fees_balance }}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <a href="{% url 'candidate_view' candidate.id %}" 
+                         class="text-blue-600 hover:text-blue-900 transition-colors duration-150">
+                        View Details
+                      </a>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="6" class="px-6 py-12 text-center">
+                      <div class="flex flex-col items-center">
+                        <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                        </svg>
+                        <p class="text-gray-500 text-lg font-medium">No candidates registered</p>
+                        <p class="text-gray-400 text-sm">Candidates will appear here once they are registered at this center.</p>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-  <div id="occupations" class="tab-content hidden">
-    <table class="w-full table-auto bg-white shadow rounded">
-      <thead class="bg-gray-100">
-        <tr>
-          <th class="px-4 py-2 text-left">Occupation Name</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for occupation in occupations %}
-          <tr class="border-b">
-            <td class="px-4 py-2">{{ occupation.name }}</td>
-          </tr>
-        {% empty %}
-          <tr><td class="text-center py-4 text-gray-500">No occupations assigned to this center.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+      <!-- Occupations Tab -->
+      <div id="occupations" class="tab-content hidden">
+        <div class="overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Occupation Name
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Candidates Count
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {% for occupation in occupations %}
+                  <tr class="hover:bg-gray-50 transition-colors duration-150">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {{ occupation.name }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {{ occupation.category }}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {{ occupation.candidate_set.count }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <a href="{% url 'occupation_detail' occupation.id %}" 
+                         class="text-blue-600 hover:text-blue-900 transition-colors duration-150">
+                        View Details
+                      </a>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="4" class="px-6 py-12 text-center">
+                      <div class="flex flex-col items-center">
+                        <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0H8m8 0v2a2 2 0 01-2 2H10a2 2 0 01-2-2V6m8 0H8"></path>
+                        </svg>
+                        <p class="text-gray-500 text-lg font-medium">No occupations available</p>
+                        <p class="text-gray-400 text-sm">Occupations will appear here once they are assigned to this center.</p>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-  function showTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.getElementById(tabId).classList.remove('hidden');
-    
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('text-blue-600', 'border-blue-600'));
-    event.target.classList.add('text-blue-600', 'border-blue-600');
+function showTab(tabId) {
+  // Hide all tab content
+  const tabContents = document.querySelectorAll('.tab-content');
+  tabContents.forEach(content => {
+    content.classList.add('hidden');
+  });
+  
+  // Remove active styles from all tab buttons
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  tabButtons.forEach(button => {
+    button.classList.remove('border-blue-500', 'text-blue-600');
+    button.classList.add('border-transparent', 'text-gray-500');
+  });
+  
+  // Show selected tab content
+  const selectedTab = document.getElementById(tabId);
+  if (selectedTab) {
+    selectedTab.classList.remove('hidden');
   }
+  
+  // Add active styles to clicked tab button
+  const clickedButton = event.target.closest('.tab-btn');
+  if (clickedButton) {
+    clickedButton.classList.remove('border-transparent', 'text-gray-500');
+    clickedButton.classList.add('border-blue-500', 'text-blue-600');
+  }
+}
+
+// Initialize first tab as active
+document.addEventListener('DOMContentLoaded', function() {
+  const firstTabButton = document.querySelector('.tab-btn');
+  if (firstTabButton) {
+    firstTabButton.classList.remove('border-transparent', 'text-gray-500');
+    firstTabButton.classList.add('border-blue-500', 'text-blue-600');
+  }
+});
 </script>
 {% endblock %}

@@ -46,9 +46,45 @@ class OccupationForm(forms.ModelForm):
 class LevelForm(forms.ModelForm):
     class Meta:
         model = Level
-        fields = ['name']
+        fields = ['name', 'formal_fee', 'workers_pas_fee', 'workers_pas_module_fee', 'modular_fee_single', 'modular_fee_double']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'name': forms.TextInput(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'placeholder': 'Enter level name'
+            }),
+            'formal_fee': forms.NumberInput(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'step': '0.01',
+                'min': '0'
+            }),
+            'workers_pas_fee': forms.NumberInput(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'step': '0.01',
+                'min': '0'
+            }),
+            'workers_pas_module_fee': forms.NumberInput(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'step': '0.01',
+                'min': '0'
+            }),
+            'modular_fee_single': forms.NumberInput(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'step': '0.01',
+                'min': '0'
+            }),
+            'modular_fee_double': forms.NumberInput(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'step': '0.01',
+                'min': '0'
+            })
+        }
+        labels = {
+            'name': 'Level Name',
+            'formal_fee': 'Formal Fee (UGX)',
+            'workers_pas_fee': 'Worker\'s PAS Base Fee (UGX)',
+            'workers_pas_module_fee': 'Worker\'s PAS Per-Module Fee (UGX)',
+            'modular_fee_single': 'Modular Fee - Single Module (UGX)',
+            'modular_fee_double': 'Modular Fee - Double Module (UGX)'
         }
 
 class OccupationLevelForm(forms.ModelForm):
@@ -193,9 +229,7 @@ class CandidateForm(forms.ModelForm):
         help_text="Select nature(s) of disability if applicable"
     )
 
-    def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
-        edit = kwargs.pop('edit', False)
+    def __init__(self, *args, user=None, edit=False, **kwargs):
         super().__init__(*args, **kwargs)
         # Accept DD/MM/YYYY for all date fields
         for field in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']:
@@ -290,7 +324,7 @@ class CandidateForm(forms.ModelForm):
         # JavaScript will populate it on district change.
     class Meta:
         model = Candidate
-        exclude = ['status']
+        exclude = ['status', 'fees_balance']
         widgets = {
             'date_of_birth': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
             'start_date': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
@@ -426,19 +460,31 @@ class EnrollmentForm(forms.Form):
             # Hide level field for modular candidates
             self.fields['level'].widget = forms.HiddenInput()
             self.fields['level'].required = False
-            # Auto-select Level 1 for modular candidates
-            level_1 = Level.objects.filter(name__icontains='1').first()
-            if level_1:
-                self.fields['level'].initial = level_1.id
-                level = level_1  # Use Level 1 for module filtering below
-
+            # Auto-select Level 1 for modular candidates - filter by occupation
+            if occupation:
+                from .models import OccupationLevel
+                occupation_levels = OccupationLevel.objects.filter(occupation=occupation)
+                level_1 = None
+                for ol in occupation_levels:
+                    if '1' in ol.level.name:
+                        level_1 = ol.level
+                        break
+                if level_1:
+                    self.fields['level'].initial = level_1.id
+                    level = level_1  # Use Level 1 for module filtering below
+                    print(f"[DEBUG] Auto-selected level for modular: {level}")
         # Add this around line 480 for debugging
         if self.is_modular:
             print(f"[DEBUG] Modular form - occupation: {occupation}, level: {level}")
             if occupation and level:
-                modules_count = Module.objects.filter(occupation=occupation, level=level).count()
+                modules = Module.objects.filter(occupation=occupation, level=level)
+                modules_count = modules.count()
                 print(f"[DEBUG] Found {modules_count} modules for modular candidate")
-
+                
+                # Populate the modules field with available modules
+                if 'modules' in self.fields:
+                    self.fields['modules'].queryset = modules
+                    print(f"[DEBUG] Populated modules field with {modules_count} modules")
         # For informal/worker's PAS: dynamically add paper fields per module
         if self.is_informal and occupation and level:
             print("[DEBUG] EnrollmentForm: occupation=", occupation)

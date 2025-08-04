@@ -104,6 +104,34 @@ class AssessmentCenter(models.Model):
     def __str__(self):
         return f"{self.center_number} - {self.center_name}"
 
+    def get_total_fees_balance(self):
+        """
+        Calculate the total fees balance for all enrolled candidates in this center
+        """
+        from decimal import Decimal
+        total_balance = Decimal('0.00')
+        
+        # Get all candidates registered at this center who have enrollment
+        candidates = self.candidate_set.filter(fees_balance__gt=0)
+        
+        for candidate in candidates:
+            total_balance += candidate.fees_balance
+            
+        return total_balance
+    
+    def get_formatted_total_fees_balance(self):
+        """
+        Get the total fees balance formatted with commas (e.g., 1,250,000.00)
+        """
+        total_balance = self.get_total_fees_balance()
+        return f"{total_balance:,.2f}"
+    
+    def get_enrolled_candidates_count(self):
+        """
+        Get the count of candidates who are enrolled and have fees balance > 0
+        """
+        return self.candidate_set.filter(fees_balance__gt=0).count()
+
     class Meta:
         ordering = ['center_number']
         verbose_name = "Assessment Center"
@@ -139,6 +167,56 @@ class Occupation(models.Model):
 class Level(models.Model):
     name = models.CharField(max_length=100)
     occupation = models.ForeignKey('Occupation', on_delete=models.CASCADE, related_name='levels')
+    
+    # Fees fields for different registration types
+    formal_fee = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0.00,
+        help_text="Fee for Formal registration (varies by level)"
+    )
+    workers_pas_fee = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0.00,
+        help_text="Fee for Worker's PAS registration (flat rate across levels)"
+    )
+    workers_pas_module_fee = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0.00,
+        help_text="Fee per module for Worker's PAS registration (multiplied by modules enrolled)"
+    )
+    modular_fee_single = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0.00,
+        help_text="Fee for Modular registration with 1 module"
+    )
+    modular_fee_double = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0.00,
+        help_text="Fee for Modular registration with 2 modules"
+    )
+
+    def get_fee_for_registration(self, registration_category, module_count=1):
+        """
+        Get the appropriate fee based on registration category and module count
+        """
+        if registration_category == 'Formal':
+            return self.formal_fee
+        elif registration_category == 'Informal':  # Informal = Worker's PAS
+            if self.workers_pas_module_fee > 0:
+                return self.workers_pas_module_fee * module_count
+            else:
+                return self.workers_pas_fee
+        elif registration_category == 'Modular':
+            if module_count >= 2:
+                return self.modular_fee_double
+            else:
+                return self.modular_fee_single
+        return 0.00
 
     def __str__(self):
         return f"{self.name} ({self.occupation.code})"
@@ -320,6 +398,64 @@ class Candidate(models.Model):
         default='Active',
         help_text="Account status - Active users can login, Inactive users cannot login"
     )
+    
+    # Fees balance field
+    fees_balance = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text="Outstanding fees balance for this candidate"
+    )
+
+    def calculate_fees_balance(self):
+        """
+        Calculate the fees balance for this candidate based on their enrollment
+        """
+        from decimal import Decimal
+        total_fees = Decimal('0.00')
+        
+        if self.registration_category == 'Modular':
+            # For modular candidates: calculate based on modules enrolled (no level enrollment)
+            module_count = self.candidatemodule_set.count()
+            if module_count > 0:
+                # Get the level from the first module (all modules should be from same level)
+                first_module = self.candidatemodule_set.first()
+                if first_module and first_module.module:
+                    level = first_module.module.level
+                    total_fees = level.get_fee_for_registration('Modular', module_count)
+                    
+        elif self.registration_category == 'Formal':
+            # For formal candidates: calculate based on level enrolled
+            enrolled_levels = self.candidatelevel_set.all()
+            for candidate_level in enrolled_levels:
+                level = candidate_level.level
+                fee = level.get_fee_for_registration('Formal', 1)
+                total_fees += fee
+                
+        elif self.registration_category in ['Informal', "Worker's PAS", 'Workers PAS', 'informal', "worker's pas"]:
+            # For Worker's PAS candidates: calculate based on modules enrolled (charged per module)
+            module_count = self.candidatemodule_set.count()
+            if module_count > 0:
+                # Get the level from the first module
+                first_module = self.candidatemodule_set.first()
+                if first_module and first_module.module:
+                    level = first_module.module.level
+                    total_fees = level.get_fee_for_registration('Informal', module_count)
+        
+        return total_fees
+
+    def update_fees_balance(self):
+        """
+        Update the fees_balance field with the calculated balance
+        """
+        self.fees_balance = self.calculate_fees_balance()
+        self.save(update_fields=['fees_balance'])
+    
+    def get_formatted_fees_balance(self):
+        """
+        Get the fees balance formatted with commas (e.g., 75,000.00)
+        """
+        return f"{self.fees_balance:,.2f}"
 
     def build_reg_number(self):
         """

@@ -21,6 +21,7 @@ urlpatterns = [
     path('occupations/create/', views.occupation_create, name='occupation_create'),
     path('occupations/<int:pk>/', views.occupation_view, name='occupation_view'),
     path('occupations/<int:pk>/detail/', views.occupation_detail, name='occupation_detail'),
+    path('occupations/<int:pk>/update-fees/', views.update_occupation_fees, name='update_occupation_fees'),
     path('occupations/<int:pk>/edit/', views.occupation_edit, name='occupation_edit'),
     path('occupations/<int:occupation_id>/add-level/', views.add_level, name='add_level'),
     path('modules/add/<int:level_id>/', views.add_module, name='add_module'),

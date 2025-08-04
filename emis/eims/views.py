@@ -2602,6 +2602,91 @@ def occupation_detail(request, pk):
         'level_data': level_data
     })
 
+@login_required
+def update_occupation_fees(request, pk):
+    """Update fees for all levels in an occupation via AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'})
+    
+    try:
+        occupation = get_object_or_404(Occupation, pk=pk)
+        from .models import OccupationLevel, Level
+        from decimal import Decimal, InvalidOperation
+        
+        # Get all levels for this occupation
+        occupation_levels = OccupationLevel.objects.filter(occupation=occupation).select_related('level')
+        levels = [ol.level for ol in occupation_levels]
+        
+        updated_count = 0
+        
+        # Update modular fees (if occupation supports modular)
+        if occupation.has_modular and levels:
+            # All levels in an occupation share the same modular fees
+            try:
+                modular_single = request.POST.get('modular_fee_single')
+                modular_double = request.POST.get('modular_fee_double')
+                
+                if modular_single is not None:
+                    modular_single = Decimal(str(modular_single))
+                if modular_double is not None:
+                    modular_double = Decimal(str(modular_double))
+                
+                # Update modular fees for all levels in this occupation
+                for level in levels:
+                    if modular_single is not None:
+                        level.modular_fee_single = modular_single
+                    if modular_double is not None:
+                        level.modular_fee_double = modular_double
+                    level.save()
+                    updated_count += 1
+            except (InvalidOperation, ValueError) as e:
+                return JsonResponse({'success': False, 'error': f'Invalid modular fee amount: {e}'})
+        
+        # Check occupation category to determine fee structure
+        if occupation.category.name == 'Formal':
+            # Update individual level fees for Formal occupations
+            for level in levels:
+                try:
+                    formal_fee = request.POST.get(f'formal_fee_{level.id}')
+                    
+                    if formal_fee is not None:
+                        level.formal_fee = Decimal(str(formal_fee))
+                    
+                    level.save()
+                    
+                except (InvalidOperation, ValueError) as e:
+                    return JsonResponse({'success': False, 'error': f'Invalid fee amount for {level.name}: {e}'})
+        
+        elif occupation.category.name == 'Informal' or 'Worker' in occupation.category.name or 'PAS' in occupation.category.name:
+            # Update single per-module fee for Worker's PAS occupations
+            try:
+                workers_pas_module_fee = request.POST.get('workers_pas_module_fee')
+                
+                if workers_pas_module_fee is not None:
+                    module_fee = Decimal(str(workers_pas_module_fee))
+                    # Apply the same per-module fee to all levels in this occupation
+                    for level in levels:
+                        level.workers_pas_module_fee = module_fee
+                        level.save()
+                        
+            except (InvalidOperation, ValueError) as e:
+                return JsonResponse({'success': False, 'error': f'Invalid per-module fee amount: {e}'})
+        
+        # Update candidate fees balances for all candidates in this occupation
+        from .models import Candidate
+        candidates_updated = 0
+        for candidate in Candidate.objects.filter(occupation=occupation, candidatelevel__isnull=False).distinct():
+            candidate.update_fees_balance()
+            candidates_updated += 1
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Successfully updated fees for {len(levels)} levels and {candidates_updated} candidate balances'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
 
 #Add Module View
 
@@ -4547,6 +4632,8 @@ def enroll_candidate_view(request, id):
                     })
                 # Not already enrolled: enroll the candidate
                 CandidateLevel.objects.create(candidate=candidate, level=level)
+                # Update fees balance after enrollment
+                candidate.update_fees_balance()
                 messages.success(request, f'{candidate.full_name} successfully enrolled in {level.name}.')
             
             # Handle modular registration (must select 1–2 modules, Level 1 only)
@@ -4555,8 +4642,17 @@ def enroll_candidate_view(request, id):
                 if len(modules) > 2:
                     messages.error(request, "You can only select up to 2 modules.")
                 else:
+                    # For modular candidates: enroll in modules only (NO level enrollment)
+                    # Clear any existing enrollments first
+                    CandidateModule.objects.filter(candidate=candidate).delete()
+                    
+                    # Enroll candidate in selected modules
                     for module in modules:
                         CandidateModule.objects.create(candidate=candidate, module=module)
+                    
+                    # Update fees balance after enrollment
+                    candidate.update_fees_balance()
+                    
                     messages.success(request, f"{candidate.full_name} enrolled for {len(modules)} module(s)")
 
             # Handle informal registration (level + one paper per module)
@@ -4575,6 +4671,8 @@ def enroll_candidate_view(request, id):
                     module = paper.module
                     CandidateModule.objects.create(candidate=candidate, module=module)
                     CandidatePaper.objects.create(candidate=candidate, module=module, paper=paper, level=level)
+                # Update fees balance after enrollment
+                candidate.update_fees_balance()
                 messages.success(request, f"{candidate.full_name} enrolled in {level.name} and selected {len(selected_papers)} paper(s)")
 
             messages.success(request, "Candidate enrolled successfully.")
@@ -4610,6 +4708,8 @@ def clear_enrollment(request, id):
     CandidatePaper.objects.filter(candidate=candidate).delete()
     # Also clear the assessment series assignment
     candidate.assessment_series = None
+    # Reset fees balance to zero after clearing enrollment
+    candidate.fees_balance = 0.00
     candidate.save()
     messages.success(request, 'All enrollment records and assessment series assignment for this candidate have been cleared.')
     return redirect('candidate_view', id=id)
