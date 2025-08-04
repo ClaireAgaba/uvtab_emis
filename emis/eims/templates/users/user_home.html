@@ -1,29 +1,43 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<div class="max-w-6xl mx-auto mt-8">
-  <h1 class="text-2xl font-bold mb-8">User Management</h1>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-    <!-- Center Representatives Card -->
-    <a href="{% url 'view_center_reps' %}" class="block bg-white hover:shadow-lg transition-shadow rounded-xl p-8 text-center border border-gray-100">
-      <div class="flex flex-col items-center">
-        <div class="text-5xl mb-4">🏢</div>
-        <div class="text-lg font-semibold mb-2">Center Representatives</div>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8">
+  <div class="container mx-auto">
+    <h1 class="text-3xl font-bold text-gray-900 mb-12">User Management</h1>
+
+    <div class="flex justify-center">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl">
+        <!-- Center Representatives Card -->
+        <a href="{% url 'view_center_reps' %}" class="group">
+          <div class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-3 min-h-[80px]">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            <span class="text-lg font-semibold">Center Representatives</span>
+          </div>
+        </a>
+
+        <!-- Support Staff Card -->
+        <a href="{% url 'view_support_staff' %}" class="group">
+          <div class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-4 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-3 min-h-[80px]">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <span class="text-lg font-semibold">Support Staff</span>
+          </div>
+        </a>
+
+        <!-- Staff Card -->
+        <a href="{% url 'staff_list' %}" class="group">
+          <div class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-3 min-h-[80px]">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m3 5.197v0M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <span class="text-lg font-semibold">Staff</span>
+          </div>
+        </a>
       </div>
-    </a>
-    <!-- Support Staff Card -->
-    <a href="{% url 'view_support_staff' %}" class="block bg-white hover:shadow-lg transition-shadow rounded-xl p-8 text-center border border-gray-100">
-      <div class="flex flex-col items-center">
-        <div class="text-5xl mb-4">🧑‍💼</div>
-        <div class="text-lg font-semibold mb-2">Support Staff</div>
-      </div>
-    </a>
-    <!-- Staff Card -->
-    <a href="{% url 'staff_list' %}" class="block bg-white hover:shadow-lg transition-shadow rounded-xl p-8 text-center border border-gray-100">
-      <div class="flex flex-col items-center">
-        <div class="text-5xl mb-4">👥</div>
-        <div class="text-lg font-semibold mb-2">Staff</div>
-      </div>
-    </a>
+    </div>
   </div>
 </div>
 {% endblock %}
