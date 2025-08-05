@@ -148,7 +148,7 @@ class Occupation(models.Model):
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey('OccupationCategory', on_delete=models.CASCADE)
-    sector = models.ForeignKey('Sector', on_delete=models.CASCADE, help_text="Industry sector this occupation belongs to")
+    sector = models.ForeignKey('Sector', null=True, blank=True, on_delete=models.CASCADE, help_text="Industry sector this occupation belongs to")
     has_modular = models.BooleanField(
         default=False,
         help_text="Tick if this occupation allows Modular registration (Level 1 only)"
