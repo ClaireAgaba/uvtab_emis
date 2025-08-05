@@ -6340,23 +6340,23 @@ def statistics_home(request):
     # Assessment Series breakdown (grouped by month and year from CANDIDATE assessment_date)
     assessment_series = []
     
-    # Get distinct assessment periods from CANDIDATES (not results)
-    assessment_periods = Candidate.objects.values(
-        'assessment_date__year', 
-        'assessment_date__month'
+    # Get distinct enrollment periods from CANDIDATES based on enrollment dates
+    enrollment_periods = Candidate.objects.values(
+        'created_at__year', 
+        'created_at__month'
     ).annotate(
         total_candidates=Count('id')
-    ).order_by('-assessment_date__year', '-assessment_date__month')
+    ).order_by('-created_at__year', '-created_at__month')
     
-    for period in assessment_periods:
-        year = period['assessment_date__year']
-        month = period['assessment_date__month']
+    for period in enrollment_periods:
+        year = period['created_at__year']
+        month = period['created_at__month']
         
         if year and month:
             # Get candidates who have assessment_date in this period
             candidates_in_period = Candidate.objects.filter(
-                assessment_date__year=year,
-                assessment_date__month=month
+                created_at__year=year,
+                created_at__month=month
             )
             
             # Count by gender
@@ -6405,8 +6405,8 @@ def assessment_series_detail(request, year, month):
     
     # Get candidates who have assessment_date in this period (not result assessment_date)
     candidates_in_period = Candidate.objects.filter(
-        assessment_date__year=year,
-        assessment_date__month=month
+        created_at__year=year,
+        created_at__month=month
     )
     
     total_candidates = candidates_in_period.count()
