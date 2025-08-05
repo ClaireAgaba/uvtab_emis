@@ -41,6 +41,12 @@
         <p class="mt-1 text-sm text-gray-500">Detailed breakdown of candidates assessed in {{ period_name }}</p>
       </div>
       <div class="flex items-center space-x-3">
+        <button onclick="openReportModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+          <svg class="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          Generate Performance Report
+        </button>
         <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
           {{ total_candidates }} Total Candidates
         </span>
@@ -294,6 +300,153 @@
       </div>
     </div>
 
+    <!-- Sector-Based Analytics -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-gray-900 mb-6">Sector-Based Analytics</h2>
+      
+      <!-- 1. Occupation by Sector Analysis -->
+      <div class="bg-white shadow rounded-lg mb-6">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Candidates by Sector</h3>
+          <div class="space-y-4">
+            {% for sector in sector_occupation_analysis %}
+            <div class="border-l-4 border-purple-500 pl-4">
+              <div class="flex justify-between items-center mb-2">
+                <h4 class="text-md font-semibold text-gray-800">{{ sector.sector_name }}</h4>
+                <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-sm">
+                  {{ sector.total_candidates }} candidates ({{ sector.percentage }}%)
+                </span>
+              </div>
+              <p class="text-sm text-gray-600 mb-3">{{ sector.occupation_count }} occupation{{ sector.occupation_count|pluralize }}</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {% for occupation in sector.occupations %}
+                <div class="bg-gray-50 px-3 py-2 rounded text-sm">
+                  <span class="font-medium">{{ occupation.occupation__name }}</span>
+                  <span class="text-gray-500 ml-2">({{ occupation.count }})</span>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% empty %}
+            <p class="text-gray-500 text-sm">No sector data available</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      
+      <!-- 2. Gender by Occupation by Sector -->
+      <div class="bg-white shadow rounded-lg mb-6">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Gender Distribution by Occupation by Sector</h3>
+          {% for sector in gender_occupation_sector_analysis %}
+          <div class="mb-6">
+            <h4 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">{{ sector.sector_name }}</h4>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Occupation</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Male</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Female</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  {% for occupation in sector.occupations %}
+                  <tr>
+                    <td class="px-4 py-2 text-sm font-medium text-gray-900">{{ occupation.occupation__name }}</td>
+                    <td class="px-4 py-2 text-sm text-blue-600">{{ occupation.male_count }}</td>
+                    <td class="px-4 py-2 text-sm text-pink-600">{{ occupation.female_count }}</td>
+                    <td class="px-4 py-2 text-sm font-semibold text-gray-900">{{ occupation.total_count }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-gray-500 text-sm">No gender by sector data available</p>
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- 3. Special Needs by Occupation by Sector -->
+      <div class="bg-white shadow rounded-lg mb-6">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Special Needs by Occupation by Sector</h3>
+          {% for sector in special_needs_occupation_sector_analysis %}
+          <div class="mb-6">
+            <h4 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">{{ sector.sector_name }}</h4>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Occupation</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">With Special Needs</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Without Special Needs</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  {% for occupation in sector.occupations %}
+                  <tr>
+                    <td class="px-4 py-2 text-sm font-medium text-gray-900">{{ occupation.occupation__name }}</td>
+                    <td class="px-4 py-2 text-sm text-red-600">{{ occupation.with_special_needs }}</td>
+                    <td class="px-4 py-2 text-sm text-green-600">{{ occupation.without_special_needs }}</td>
+                    <td class="px-4 py-2 text-sm font-semibold text-gray-900">{{ occupation.total_count }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-gray-500 text-sm">No special needs by sector data available</p>
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- 4. Granular Analysis: Special Needs by Gender by Occupation by Sector -->
+      <div class="bg-white shadow rounded-lg mb-6">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Comprehensive Analysis: Special Needs by Gender by Occupation by Sector</h3>
+          {% for sector in granular_sector_analysis %}
+          <div class="mb-6">
+            <h4 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">{{ sector.sector_name }}</h4>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Occupation</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-blue-600 uppercase">Male w/ Special Needs</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-blue-600 uppercase">Male w/o Special Needs</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-pink-600 uppercase">Female w/ Special Needs</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-pink-600 uppercase">Female w/o Special Needs</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  {% for occupation in sector.occupations %}
+                  <tr>
+                    <td class="px-3 py-2 text-sm font-medium text-gray-900">{{ occupation.occupation__name }}</td>
+                    <td class="px-3 py-2 text-sm text-blue-800 bg-red-50">{{ occupation.male_with_special_needs }}</td>
+                    <td class="px-3 py-2 text-sm text-blue-600">{{ occupation.male_without_special_needs }}</td>
+                    <td class="px-3 py-2 text-sm text-pink-800 bg-red-50">{{ occupation.female_with_special_needs }}</td>
+                    <td class="px-3 py-2 text-sm text-pink-600">{{ occupation.female_without_special_needs }}</td>
+                    <td class="px-3 py-2 text-sm font-semibold text-gray-900 bg-gray-50">{{ occupation.total_count }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-gray-500 text-sm">No granular sector analysis data available</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
     <!-- Back to Statistics Button -->
     <div class="flex justify-center">
       <a href="{% url 'statistics_home' %}" 
@@ -306,4 +459,174 @@
     </div>
   </div>
 </div>
+
+<!-- Report Generation Modal -->
+<div id="reportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+  <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="mt-3">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-medium text-gray-900">Generate Performance Report</h3>
+        <button onclick="closeReportModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Step 1: Registration Category Selection -->
+      <div id="step1" class="">
+        <p class="text-sm text-gray-600 mb-4">Select a registration category to generate the performance report:</p>
+        <div class="space-y-3">
+          <button onclick="selectCategory('Modular')" class="w-full text-left px-4 py-3 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+            <div class="font-medium text-gray-900">Modular</div>
+            <div class="text-sm text-gray-500">Direct report generation</div>
+          </button>
+          <button onclick="selectCategory('Formal')" class="w-full text-left px-4 py-3 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+            <div class="font-medium text-gray-900">Formal</div>
+            <div class="text-sm text-gray-500">Select level first</div>
+          </button>
+          <button onclick="selectCategory('Worker\'s PAS')" class="w-full text-left px-4 py-3 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+            <div class="font-medium text-gray-900">Worker's PAS</div>
+            <div class="text-sm text-gray-500">Select level first</div>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Step 2: Level Selection (for Formal and Worker's PAS) -->
+      <div id="step2" class="hidden">
+        <div class="flex items-center mb-4">
+          <button onclick="backToStep1()" class="mr-3 text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h4 class="text-md font-medium text-gray-900">Select Level for <span id="selectedCategory"></span></h4>
+        </div>
+        <div class="space-y-3">
+          <button onclick="selectLevel('1')" class="w-full text-left px-4 py-3 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+            <div class="font-medium text-gray-900">Level 1</div>
+          </button>
+          <button onclick="selectLevel('2')" class="w-full text-left px-4 py-3 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+            <div class="font-medium text-gray-900">Level 2</div>
+          </button>
+          <button onclick="selectLevel('3')" class="w-full text-left px-4 py-3 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+            <div class="font-medium text-gray-900">Level 3</div>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Step 3: Preview -->
+      <div id="step3" class="hidden">
+        <div class="flex items-center mb-4">
+          <button onclick="backToStep2()" class="mr-3 text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h4 class="text-md font-medium text-gray-900">Report Preview</h4>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md mb-4">
+          <p class="text-sm font-medium text-gray-900">Report Configuration:</p>
+          <p class="text-sm text-gray-600">Category: <span id="previewCategory"></span></p>
+          <p class="text-sm text-gray-600" id="previewLevel" style="display: none;">Level: <span id="previewLevelValue"></span></p>
+          <p class="text-sm text-gray-600">Assessment Series: {{ period_name }}</p>
+        </div>
+        <div class="flex space-x-3">
+          <button onclick="generateReport()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+            Generate Report
+          </button>
+          <button onclick="closeReportModal()" class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedReportCategory = '';
+let selectedReportLevel = '';
+
+function openReportModal() {
+  document.getElementById('reportModal').classList.remove('hidden');
+  showStep1();
+}
+
+function closeReportModal() {
+  document.getElementById('reportModal').classList.add('hidden');
+  selectedReportCategory = '';
+  selectedReportLevel = '';
+}
+
+function showStep1() {
+  document.getElementById('step1').classList.remove('hidden');
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step3').classList.add('hidden');
+}
+
+function showStep2() {
+  document.getElementById('step1').classList.add('hidden');
+  document.getElementById('step2').classList.remove('hidden');
+  document.getElementById('step3').classList.add('hidden');
+}
+
+function showStep3() {
+  document.getElementById('step1').classList.add('hidden');
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step3').classList.remove('hidden');
+}
+
+function backToStep1() {
+  showStep1();
+  selectedReportCategory = '';
+  selectedReportLevel = '';
+}
+
+function backToStep2() {
+  showStep2();
+  selectedReportLevel = '';
+}
+
+function selectCategory(category) {
+  selectedReportCategory = category;
+  
+  if (category === 'Modular') {
+    // Modular goes directly to preview
+    document.getElementById('previewCategory').textContent = category;
+    document.getElementById('previewLevel').style.display = 'none';
+    showStep3();
+  } else {
+    // Formal and Worker's PAS need level selection
+    document.getElementById('selectedCategory').textContent = category;
+    showStep2();
+  }
+}
+
+function selectLevel(level) {
+  selectedReportLevel = level;
+  
+  // Show preview
+  document.getElementById('previewCategory').textContent = selectedReportCategory;
+  document.getElementById('previewLevel').style.display = 'block';
+  document.getElementById('previewLevelValue').textContent = level;
+  showStep3();
+}
+
+function generateReport() {
+  // Build the URL for report generation
+  let url = `/eims/statistics/assessment-series/{{ year }}/{{ month }}/report/?category=${encodeURIComponent(selectedReportCategory)}`;
+  
+  if (selectedReportLevel) {
+    url += `&level=${selectedReportLevel}`;
+  }
+  
+  // Open report in new window/tab
+  window.open(url, '_blank');
+  
+  // Close modal
+  closeReportModal();
+}
+</script>
+
 {% endblock %}

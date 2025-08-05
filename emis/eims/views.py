@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from reportlab.platypus import Image as RLImage
 import calendar
 import logging
-from django.db.models import Count
+from django.db.models import Count, Q
 from .models import Candidate, Occupation, AssessmentCenter, Result
 from .models import SupportStaff
 from .forms import SupportStaffForm
@@ -2066,9 +2066,13 @@ def bulk_candidate_action(request):
                 CandidateLevel.objects.get_or_create(candidate=c, level=level)
                 # Update candidate's assessment series
                 c.assessment_series = assessment_series
+                # Calculate and set billing fees
+                if hasattr(c, 'calculate_fees_balance'):
+                    calculated_fees = c.calculate_fees_balance()
+                    c.fees_balance = calculated_fees
                 c.save()
                 enrolled += 1
-            return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in {level.name}.'})
+            return JsonResponse({'success': True, 'message': f'Enrolled and billed {enrolled} candidates in {level.name}.'})
         
         # --- WORKER'S PAS / INFORMAL ---
         elif regcat in ['informal', "worker's pas", "workers pas"]:
@@ -2090,8 +2094,19 @@ def bulk_candidate_action(request):
                     for paper in papers:
                         CandidateModule.objects.get_or_create(candidate=c, module=paper.module)
                         CandidatePaper.objects.get_or_create(candidate=c, module=paper.module, paper=paper, level=level)
-                return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in {level.name} and assigned selected papers.'})
-            return JsonResponse({'success': True, 'message': f'Enrolled {enrolled} candidates in {level.name}.'})
+                    # Calculate and set billing fees after module enrollment
+                    if hasattr(c, 'calculate_fees_balance'):
+                        calculated_fees = c.calculate_fees_balance()
+                        c.fees_balance = calculated_fees
+                    c.save()
+                return JsonResponse({'success': True, 'message': f'Enrolled and billed {enrolled} candidates in {level.name} and assigned selected papers.'})
+            # If no papers selected, still need to bill based on level enrollment
+            for c in candidates:
+                if hasattr(c, 'calculate_fees_balance'):
+                    calculated_fees = c.calculate_fees_balance()
+                    c.fees_balance = calculated_fees
+                c.save()
+            return JsonResponse({'success': True, 'message': f'Enrolled and billed {enrolled} candidates in {level.name}.'})
         
         # --- MODULAR ---
         elif regcat == 'modular':
@@ -2110,9 +2125,13 @@ def bulk_candidate_action(request):
                     CandidateModule.objects.create(candidate=c, module=m)
                 # Update candidate's assessment series
                 c.assessment_series = assessment_series
+                # Calculate and set billing fees after module enrollment
+                if hasattr(c, 'calculate_fees_balance'):
+                    calculated_fees = c.calculate_fees_balance()
+                    c.fees_balance = calculated_fees
                 c.save()
                 enrolled += 1
-            return JsonResponse({'success': True, 'message': f'Successfully enrolled {enrolled} candidates in {modules.count()} module(s).'})
+            return JsonResponse({'success': True, 'message': f'Successfully enrolled and billed {enrolled} candidates in {modules.count()} module(s).'})
         else:
             return JsonResponse({'success': False, 'error': 'Bulk enroll only supported for Formal, Modular, or Worker\'s PAS/Informal registration categories.'}, status=400)
     if action == 'add_regno_photo':
@@ -3453,6 +3472,19 @@ def candidate_list(request):
             'registration_category': request.GET.get('registration_category', '').strip(),
             'assessment_center': request.GET.get('assessment_center', '').strip(),
         }
+        
+        # IMPORTANT: Preserve assessment series context from existing session or URL
+        if current_filters.get('assessment_year'):
+            current_filters['assessment_year'] = current_filters.get('assessment_year')
+        if current_filters.get('assessment_month'):
+            current_filters['assessment_month'] = current_filters.get('assessment_month')
+        
+        # Also check if assessment series parameters are in the current request
+        if request.GET.get('assessment_year'):
+            current_filters['assessment_year'] = request.GET.get('assessment_year')
+        if request.GET.get('assessment_month'):
+            current_filters['assessment_month'] = request.GET.get('assessment_month')
+            
         # Remove empty values so they don't clutter the URL
         current_filters = {k: v for k, v in current_filters.items() if v}
         request.session['candidate_filters'] = current_filters
@@ -3495,10 +3527,24 @@ def candidate_list(request):
         # Convert string to boolean
         disability_filter = current_filters.get('disability').lower() == 'true'
         candidates = candidates.filter(disability=disability_filter)
-    if current_filters.get('assessment_year'):
-        candidates = candidates.filter(assessment_date__year=current_filters.get('assessment_year'))
-    if current_filters.get('assessment_month'):
-        candidates = candidates.filter(assessment_date__month=current_filters.get('assessment_month'))
+    
+    # Fix: Use assessment_series filtering instead of assessment_date for consistency
+    if current_filters.get('assessment_year') and current_filters.get('assessment_month'):
+        try:
+            # Find the assessment series for the given year/month
+            from .models import AssessmentSeries
+            assessment_series = AssessmentSeries.objects.filter(
+                start_date__year=current_filters.get('assessment_year'),
+                start_date__month=current_filters.get('assessment_month')
+            ).first()
+            
+            if assessment_series:
+                candidates = candidates.filter(assessment_series=assessment_series)
+            else:
+                # If no series found, return empty queryset to match statistics behavior
+                candidates = candidates.none()
+        except (ValueError, AssessmentSeries.DoesNotExist):
+            candidates = candidates.none()
 
     def build_candidate_filter_url(base_filters=None, **additional_filters):
         """Build a URL for filtering candidates with given parameters"""
@@ -6500,6 +6546,84 @@ def assessment_series_detail(request, year, month):
             'count': count,
             'percentage': round(percentage, 1)
         })
+    # Sector-based analytics
+    # 1. Occupation by Sector analysis
+    sector_occupation_analysis = []
+    sectors_with_candidates = candidates_in_period.values('occupation__sector__name').annotate(
+        total_candidates=Count('id'),
+        occupation_count=Count('occupation', distinct=True)
+    ).filter(total_candidates__gt=0).order_by('-total_candidates')
+    
+    for sector_data in sectors_with_candidates:
+        sector_name = sector_data['occupation__sector__name'] or 'Unknown Sector'
+        sector_candidates = candidates_in_period.filter(occupation__sector__name=sector_name)
+        
+        # Get occupations within this sector
+        sector_occupations = sector_candidates.values('occupation__name').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        sector_occupation_analysis.append({
+            'sector_name': sector_name,
+            'total_candidates': sector_data['total_candidates'],
+            'occupation_count': sector_data['occupation_count'],
+            'percentage': round((sector_data['total_candidates'] / total_candidates_for_percentage) * 100, 1),
+            'occupations': list(sector_occupations)
+        })
+    
+    # 2. Gender by Occupation by Sector analysis
+    gender_occupation_sector_analysis = []
+    for sector_data in sectors_with_candidates:
+        sector_name = sector_data['occupation__sector__name'] or 'Unknown Sector'
+        sector_candidates = candidates_in_period.filter(occupation__sector__name=sector_name)
+        
+        sector_occupations = sector_candidates.values('occupation__name').annotate(
+            total_count=Count('id'),
+            male_count=Count('id', filter=Q(gender='M')),
+            female_count=Count('id', filter=Q(gender='F'))
+        ).order_by('-total_count')
+        
+        gender_occupation_sector_analysis.append({
+            'sector_name': sector_name,
+            'occupations': list(sector_occupations)
+        })
+    
+    # 3. Special Needs by Occupation by Sector analysis
+    special_needs_occupation_sector_analysis = []
+    for sector_data in sectors_with_candidates:
+        sector_name = sector_data['occupation__sector__name'] or 'Unknown Sector'
+        sector_candidates = candidates_in_period.filter(occupation__sector__name=sector_name)
+        
+        sector_occupations = sector_candidates.values('occupation__name').annotate(
+            total_count=Count('id'),
+            with_special_needs=Count('id', filter=Q(disability=True)),
+            without_special_needs=Count('id', filter=Q(disability=False))
+        ).order_by('-total_count')
+        
+        special_needs_occupation_sector_analysis.append({
+            'sector_name': sector_name,
+            'occupations': list(sector_occupations)
+        })
+    
+    # 4. Most granular: Special Needs by Gender by Occupation by Sector
+    granular_sector_analysis = []
+    for sector_data in sectors_with_candidates:
+        sector_name = sector_data['occupation__sector__name'] or 'Unknown Sector'
+        sector_candidates = candidates_in_period.filter(occupation__sector__name=sector_name)
+        
+        sector_occupations = sector_candidates.values('occupation__name').annotate(
+            total_count=Count('id'),
+            male_with_special_needs=Count('id', filter=Q(gender='M', disability=True)),
+            male_without_special_needs=Count('id', filter=Q(gender='M', disability=False)),
+            female_with_special_needs=Count('id', filter=Q(gender='F', disability=True)),
+            female_without_special_needs=Count('id', filter=Q(gender='F', disability=False))
+        ).order_by('-total_count')
+        
+        granular_sector_analysis.append({
+            'sector_name': sector_name,
+            'occupations': list(sector_occupations)
+        })
+    
     # Add this debug line right before the context = { line
     print(f"DEBUG: reg_cat_breakdown = {reg_cat_breakdown}")
     
@@ -6514,9 +6638,801 @@ def assessment_series_detail(request, year, month):
         'special_needs_breakdown': special_needs_breakdown,
         'occupation_breakdown': occupation_breakdown,
         'assessment_series': assessment_series,  # Pass the series object for template use
+        # Sector-based analytics
+        'sector_occupation_analysis': sector_occupation_analysis,
+        'gender_occupation_sector_analysis': gender_occupation_sector_analysis,
+        'special_needs_occupation_sector_analysis': special_needs_occupation_sector_analysis,
+        'granular_sector_analysis': granular_sector_analysis,
     }
     
     return render(request, 'statistics/assessment_series_detail.html', context)
+
+@login_required
+def generate_performance_report(request, year, month):
+    """Generate performance report PDF for assessment series"""
+    from reportlab.lib.pagesizes import landscape, A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+    from reportlab.lib.units import inch
+    from django.http import HttpResponse
+    from django.conf import settings
+    from io import BytesIO
+    import os
+    
+    # Get parameters
+    category = request.GET.get('category')
+    level = request.GET.get('level')
+    
+    # Get assessment series
+    assessment_series = AssessmentSeries.objects.filter(
+        start_date__year=year,
+        start_date__month=month
+    ).first()
+    
+    if not assessment_series:
+        return HttpResponse("Assessment series not found", status=404)
+    
+    # Filter candidates
+    filtered_candidates = Candidate.objects.filter(
+        assessment_series=assessment_series,
+        registration_category=category
+    )
+    if level and category in ['Formal', "Worker's PAS"]:
+        filtered_candidates = filtered_candidates.filter(level=level)
+    
+    # Create PDF document
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=0.5*inch)
+    elements = []
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=14,
+        spaceAfter=10,
+        alignment=1,  # Center alignment
+        fontName='Helvetica-Bold'
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=12,
+        spaceAfter=20,
+        alignment=1,  # Center alignment
+        fontName='Helvetica-Bold'
+    )
+    
+    # Add logo if available
+    logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab_logo.png')
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab_logo.png')
+    
+    if os.path.exists(logo_path):
+        logo = Image(logo_path, width=1*inch, height=1*inch)
+        logo.hAlign = 'CENTER'
+        elements.append(logo)
+        elements.append(Spacer(1, 10))
+    
+    # Header
+    elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD (UVTAB)", title_style))
+    elements.append(Paragraph("PERFORMANCE SUMMARY, BY PERFORMANCE AND GENDER PER OCCUPATION", subtitle_style))
+    elements.append(Paragraph(f"ASSESSMENT PERIOD: {assessment_series.name}", styles['Heading3']))
+    elements.append(Paragraph(f"Category: {category}", styles['Normal']))
+    if level:
+        elements.append(Paragraph(f"Level: {level}", styles['Normal']))
+    elements.append(Spacer(1, 20))
+    
+    # Page 1: Candidate breakdown by occupation
+    elements.append(Paragraph("Candidates Performance Details", styles['Heading3']))
+    
+    # Get occupation data with results using occupation codes
+    occupation_data = []
+    occupations = filtered_candidates.values('occupation__code', 'occupation__name').annotate(
+        registered=Count('id'),
+        # Add result-based counts - adjust field names based on your Result model
+        # missing=Count('id', filter=Q(result__isnull=True)),
+        # normal_progress=Count('id', filter=Q(result__status='passed')),
+        # probationary=Count('id', filter=Q(result__status='failed'))
+    ).order_by('occupation__code')
+    
+    # Create table with gender breakdown columns
+    table_data = [[
+        'S/N', 'Program code', 
+        # Registered columns
+        'Registered', '', '', '',
+        # Missing columns  
+        'Missing', '', '', '',
+        # Sat For Exams columns
+        'Sat For Exams', '', '', '',
+        # Normal Progress columns
+        'Normal Progress (NP)', '', '', '',
+        # Probationary Pass columns
+        'Probationary Pass (PP)', '', '', ''
+    ]]
+    
+    # Add sub-header row for gender breakdown
+    table_data.append([
+        '', '',
+        'F', 'M', 'TT', '%',  # Registered
+        'F', 'M', 'TT', '%',  # Missing
+        'F', 'M', 'TT', '%',  # Sat For Exams
+        'F', 'M', 'TT', '%',  # Normal Progress
+        'F', 'M', 'TT', '%'   # Probationary Pass
+    ])
+    
+    for i, occ in enumerate(occupations, 1):
+        # Get candidates for this occupation
+        occupation_candidates = filtered_candidates.filter(
+            occupation__code=occ['occupation__code']
+        )
+        
+        # Calculate gender breakdowns for registered
+        registered_total = occupation_candidates.count()
+        registered_female = occupation_candidates.filter(gender='F').count()
+        registered_male = occupation_candidates.filter(gender='M').count()
+        registered_pct = 100.0 if registered_total > 0 else 0.0
+        
+        # Calculate missing (enrolled but no results) by gender
+        candidates_with_results = occupation_candidates.filter(
+            result__isnull=False
+        ).distinct()
+        candidates_without_results = occupation_candidates.exclude(
+            id__in=candidates_with_results.values_list('id', flat=True)
+        )
+        
+        missing_total = candidates_without_results.count()
+        missing_female = candidates_without_results.filter(gender='F').count()
+        missing_male = candidates_without_results.filter(gender='M').count()
+        missing_pct = (missing_total / registered_total * 100) if registered_total > 0 else 0.0
+        
+        # Calculate sat for exams by gender
+        sat_total = candidates_with_results.count()
+        sat_female = candidates_with_results.filter(gender='F').count()
+        sat_male = candidates_with_results.filter(gender='M').count()
+        sat_pct = (sat_total / registered_total * 100) if registered_total > 0 else 0.0
+        
+        # Calculate Normal Progress (NP) and Probationary Pass (PP) by gender
+        normal_progress_candidates = []
+        probationary_candidates = []
+        
+        for candidate in candidates_with_results:
+            # Get all results for this candidate
+            candidate_results = candidate.result_set.all()
+            
+            if not candidate_results.exists():
+                continue
+            
+            # Check if candidate has multiple papers
+            practical_results = candidate_results.filter(assessment_type='practical')
+            
+            if practical_results.exists():
+                # For candidates with multiple papers, practical is important
+                practical_comments = [r.comment.lower() for r in practical_results]
+                
+                # If any practical contains "unsuccessful", "ctr", or "fail" -> probationary
+                if any(comment in ['unsuccessful', 'ctr', 'fail'] for comment in practical_comments):
+                    probationary_candidates.append(candidate)
+                elif all(comment == 'successful' for comment in practical_comments):
+                    normal_progress_candidates.append(candidate)
+                else:
+                    probationary_candidates.append(candidate)
+            else:
+                # No practical results, check all results
+                all_comments = [r.comment.lower() for r in candidate_results]
+                
+                if all(comment == 'successful' for comment in all_comments):
+                    normal_progress_candidates.append(candidate)
+                else:
+                    probationary_candidates.append(candidate)
+        
+        # Calculate gender breakdowns for Normal Progress
+        np_total = len(normal_progress_candidates)
+        np_female = sum(1 for c in normal_progress_candidates if c.gender == 'F')
+        np_male = sum(1 for c in normal_progress_candidates if c.gender == 'M')
+        np_pct = (np_total / registered_total * 100) if registered_total > 0 else 0.0
+        
+        # Calculate gender breakdowns for Probationary Pass
+        pp_total = len(probationary_candidates)
+        pp_female = sum(1 for c in probationary_candidates if c.gender == 'F')
+        pp_male = sum(1 for c in probationary_candidates if c.gender == 'M')
+        pp_pct = (pp_total / registered_total * 100) if registered_total > 0 else 0.0
+        
+        table_data.append([
+            str(i),
+            occ['occupation__code'] or 'Unknown',
+            # Registered: F, M, TT, %
+            str(registered_female),
+            str(registered_male), 
+            str(registered_total),
+            f"{registered_pct:.1f}",
+            # Missing: F, M, TT, %
+            str(missing_female),
+            str(missing_male),
+            str(missing_total),
+            f"{missing_pct:.1f}",
+            # Sat For Exams: F, M, TT, %
+            str(sat_female),
+            str(sat_male),
+            str(sat_total),
+            f"{sat_pct:.1f}",
+            # Normal Progress: F, M, TT, %
+            str(np_female),
+            str(np_male),
+            str(np_total),
+            f"{np_pct:.1f}",
+            # Probationary Pass: F, M, TT, %
+            str(pp_female),
+            str(pp_male),
+            str(pp_total),
+            f"{pp_pct:.1f}"
+        ])
+    
+    # Add totals row with actual calculations and gender breakdown
+    total_registered = filtered_candidates.count()
+    total_registered_female = filtered_candidates.filter(gender='F').count()
+    total_registered_male = filtered_candidates.filter(gender='M').count()
+    total_registered_pct = 100.0 if total_registered > 0 else 0.0
+    
+    # Calculate totals across all occupations
+    total_candidates_with_results = filtered_candidates.filter(
+        result__isnull=False
+    ).distinct()
+    total_candidates_without_results = filtered_candidates.exclude(
+        id__in=total_candidates_with_results.values_list('id', flat=True)
+    )
+    
+    total_missing = total_candidates_without_results.count()
+    total_missing_female = total_candidates_without_results.filter(gender='F').count()
+    total_missing_male = total_candidates_without_results.filter(gender='M').count()
+    total_missing_pct = (total_missing / total_registered * 100) if total_registered > 0 else 0.0
+    
+    total_sat_for_exams = total_candidates_with_results.count()
+    total_sat_female = total_candidates_with_results.filter(gender='F').count()
+    total_sat_male = total_candidates_with_results.filter(gender='M').count()
+    total_sat_pct = (total_sat_for_exams / total_registered * 100) if total_registered > 0 else 0.0
+    
+    # Calculate total Normal Progress (NP) and Probationary Pass (PP) with gender breakdown
+    total_normal_progress_candidates = []
+    total_probationary_candidates = []
+    
+    for candidate in total_candidates_with_results:
+        candidate_results = candidate.result_set.all()
+        
+        if not candidate_results.exists():
+            continue
+        
+        practical_results = candidate_results.filter(assessment_type='practical')
+        
+        if practical_results.exists():
+            practical_comments = [r.comment.lower() for r in practical_results]
+            
+            if any(comment in ['unsuccessful', 'ctr', 'fail'] for comment in practical_comments):
+                total_probationary_candidates.append(candidate)
+            elif all(comment == 'successful' for comment in practical_comments):
+                total_normal_progress_candidates.append(candidate)
+            else:
+                total_probationary_candidates.append(candidate)
+        else:
+            all_comments = [r.comment.lower() for r in candidate_results]
+            
+            if all(comment == 'successful' for comment in all_comments):
+                total_normal_progress_candidates.append(candidate)
+            else:
+                total_probationary_candidates.append(candidate)
+    
+    # Calculate gender breakdowns for totals
+    total_np = len(total_normal_progress_candidates)
+    total_np_female = sum(1 for c in total_normal_progress_candidates if c.gender == 'F')
+    total_np_male = sum(1 for c in total_normal_progress_candidates if c.gender == 'M')
+    total_np_pct = (total_np / total_registered * 100) if total_registered > 0 else 0.0
+    
+    total_pp = len(total_probationary_candidates)
+    total_pp_female = sum(1 for c in total_probationary_candidates if c.gender == 'F')
+    total_pp_male = sum(1 for c in total_probationary_candidates if c.gender == 'M')
+    total_pp_pct = (total_pp / total_registered * 100) if total_registered > 0 else 0.0
+    
+    table_data.append([
+        'Total',
+        '',
+        # Registered: F, M, TT, %
+        str(total_registered_female),
+        str(total_registered_male),
+        str(total_registered),
+        f"{total_registered_pct:.1f}",
+        # Missing: F, M, TT, %
+        str(total_missing_female),
+        str(total_missing_male),
+        str(total_missing),
+        f"{total_missing_pct:.1f}",
+        # Sat For Exams: F, M, TT, %
+        str(total_sat_female),
+        str(total_sat_male),
+        str(total_sat_for_exams),
+        f"{total_sat_pct:.1f}",
+        # Normal Progress: F, M, TT, %
+        str(total_np_female),
+        str(total_np_male),
+        str(total_np),
+        f"{total_np_pct:.1f}",
+        # Probationary Pass: F, M, TT, %
+        str(total_pp_female),
+        str(total_pp_male),
+        str(total_pp),
+        f"{total_pp_pct:.1f}"
+    ])
+    
+    # Create table with blue color scheme and proper column widths
+    # Column widths: S/N, Program, then 4 columns each for 5 metrics = 22 total columns
+    col_widths = [
+        0.8*inch,  # S/N
+        1.2*inch,  # Program code
+        # Registered: F, M, TT, %
+        0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
+        # Missing: F, M, TT, %
+        0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
+        # Sat For Exams: F, M, TT, %
+        0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
+        # Normal Progress: F, M, TT, %
+        0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
+        # Probationary Pass: F, M, TT, %
+        0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch
+    ]
+    
+    table = Table(table_data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.2, 0.4, 0.8)),  # Blue header
+        ('BACKGROUND', (0, 1), (-1, 1), colors.Color(0.3, 0.5, 0.9)),  # Blue sub-header
+        ('TEXTCOLOR', (0, 0), (-1, 1), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, 1), 8),
+        ('FONTSIZE', (0, 2), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
+        ('BACKGROUND', (0, 2), (-1, -2), colors.Color(0.9, 0.95, 1.0)),  # Light blue rows
+        ('BACKGROUND', (0, -1), (-1, -1), colors.Color(0.7, 0.85, 0.95)),  # Darker blue for totals
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),  # Bold totals row
+        ('BOX', (0, 0), (-1, -1), 1, colors.Color(0.3, 0.5, 0.9)),  # Blue outer border only
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 2), (-1, -2), [colors.Color(0.95, 0.98, 1.0), colors.Color(0.9, 0.95, 1.0)])
+    ]))
+    
+    elements.append(table)
+    elements.append(PageBreak())
+    
+    # Page 2: Stats by occupation by sector
+    elements.append(Paragraph("Performance by Occupation by Sector", title_style))
+    elements.append(Spacer(1, 20))
+    
+    # Get sector data with gender breakdown
+    sectors = filtered_candidates.values('occupation__sector__name').distinct()
+    
+    # Create sector table with gender breakdown columns
+    sector_table_data = [[
+        'Sector',
+        # Total Candidates columns
+        'Total Candidates', '', '', '',
+        # Successful columns
+        'Successful', '', '', '',
+        # Unsuccessful columns
+        'Unsuccessful', '', '', ''
+    ]]
+    
+    # Add sub-header row for gender breakdown
+    sector_table_data.append([
+        '',
+        'F', 'M', 'TT', '%',  # Total Candidates
+        'F', 'M', 'TT', '%',  # Successful
+        'F', 'M', 'TT', '%'   # Unsuccessful
+    ])
+    
+    for sector in sectors:
+        sector_name = sector['occupation__sector__name'] or 'Unknown Sector'
+        
+        # Get candidates for this sector
+        sector_candidates = filtered_candidates.filter(
+            occupation__sector__name=sector_name
+        )
+        
+        # Calculate total candidates by gender
+        total_candidates = sector_candidates.count()
+        total_female = sector_candidates.filter(gender='F').count()
+        total_male = sector_candidates.filter(gender='M').count()
+        total_pct = 100.0 if total_candidates > 0 else 0.0
+        
+        # Calculate successful candidates (Normal Progress) by gender
+        successful_candidates = []
+        unsuccessful_candidates = []
+        
+        candidates_with_results = sector_candidates.filter(
+            result__isnull=False
+        ).distinct()
+        
+        for candidate in candidates_with_results:
+            candidate_results = candidate.result_set.all()
+            
+            if not candidate_results.exists():
+                continue
+            
+            practical_results = candidate_results.filter(assessment_type='practical')
+            
+            if practical_results.exists():
+                practical_comments = [r.comment.lower() for r in practical_results]
+                
+                if any(comment in ['unsuccessful', 'ctr', 'fail'] for comment in practical_comments):
+                    unsuccessful_candidates.append(candidate)
+                elif all(comment == 'successful' for comment in practical_comments):
+                    successful_candidates.append(candidate)
+                else:
+                    unsuccessful_candidates.append(candidate)
+            else:
+                all_comments = [r.comment.lower() for r in candidate_results]
+                
+                if all(comment == 'successful' for comment in all_comments):
+                    successful_candidates.append(candidate)
+                else:
+                    unsuccessful_candidates.append(candidate)
+        
+        # Calculate successful by gender
+        successful_total = len(successful_candidates)
+        successful_female = sum(1 for c in successful_candidates if c.gender == 'F')
+        successful_male = sum(1 for c in successful_candidates if c.gender == 'M')
+        successful_pct = (successful_total / total_candidates * 100) if total_candidates > 0 else 0.0
+        
+        # Calculate unsuccessful by gender
+        unsuccessful_total = len(unsuccessful_candidates)
+        unsuccessful_female = sum(1 for c in unsuccessful_candidates if c.gender == 'F')
+        unsuccessful_male = sum(1 for c in unsuccessful_candidates if c.gender == 'M')
+        unsuccessful_pct = (unsuccessful_total / total_candidates * 100) if total_candidates > 0 else 0.0
+        
+        sector_table_data.append([
+            sector_name,
+            # Total Candidates: F, M, TT, %
+            str(total_female),
+            str(total_male),
+            str(total_candidates),
+            f"{total_pct:.1f}",
+            # Successful: F, M, TT, %
+            str(successful_female),
+            str(successful_male),
+            str(successful_total),
+            f"{successful_pct:.1f}",
+            # Unsuccessful: F, M, TT, %
+            str(unsuccessful_female),
+            str(unsuccessful_male),
+            str(unsuccessful_total),
+            f"{unsuccessful_pct:.1f}"
+        ])
+    
+    # Column widths for sector table: Sector name + 3 metrics × 4 columns each = 13 total columns
+    sector_col_widths = [
+        2.0*inch,  # Sector name
+        # Total Candidates: F, M, TT, %
+        0.5*inch, 0.5*inch, 0.6*inch, 0.6*inch,
+        # Successful: F, M, TT, %
+        0.5*inch, 0.5*inch, 0.6*inch, 0.6*inch,
+        # Unsuccessful: F, M, TT, %
+        0.5*inch, 0.5*inch, 0.6*inch, 0.6*inch
+    ]
+    
+    sector_table = Table(sector_table_data, colWidths=sector_col_widths)
+    sector_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.2, 0.4, 0.8)),  # Blue header
+        ('BACKGROUND', (0, 1), (-1, 1), colors.Color(0.3, 0.5, 0.9)),  # Blue sub-header
+        ('TEXTCOLOR', (0, 0), (-1, 1), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, 1), 8),
+        ('FONTSIZE', (0, 2), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
+        ('BACKGROUND', (0, 2), (-1, -1), colors.Color(0.9, 0.95, 1.0)),  # Light blue rows
+        ('BOX', (0, 0), (-1, -1), 1, colors.Color(0.3, 0.5, 0.9)),  # Blue outer border only
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 2), (-1, -1), [colors.Color(0.95, 0.98, 1.0), colors.Color(0.9, 0.95, 1.0)])
+    ]))
+    
+    elements.append(sector_table)
+    elements.append(PageBreak())
+    
+    # Page 3+: Center summary pages
+    centers = filtered_candidates.values('assessment_center__center_number', 'assessment_center__center_name').annotate(
+        total_candidates=Count('id')
+    ).filter(total_candidates__gt=0).order_by('assessment_center__center_number')
+    
+    for center_data in centers:
+        center_number = center_data['assessment_center__center_number'] or 'Unknown'
+        center_name = center_data['assessment_center__center_name'] or 'Unknown Center'
+        center_candidates = filtered_candidates.filter(assessment_center__center_number=center_number)
+        
+        elements.append(Paragraph(f"Performance by Exam Center", title_style))
+        elements.append(Paragraph(f"Center: {center_number} - {center_name}", styles['Heading3']))
+        elements.append(Spacer(1, 20))
+        
+        # Center-specific occupation breakdown
+        center_occupations = center_candidates.values('occupation__code', 'occupation__name').annotate(
+            registered=Count('id')
+        ).order_by('occupation__code')
+        
+        # Create center table with gender breakdown columns
+        center_table_data = [[
+            'S/N', 'Program',
+            # Registered columns
+            'Registered', '', '', '',
+            # Missing columns  
+            'Missing', '', '', '',
+            # Sat For Exams columns
+            'Sat For Exams', '', '', '',
+            # Normal Progress columns
+            'Normal Progress (NP)', '', '', '',
+            # Probationary Pass columns
+            'Probationary Pass (PP)', '', '', ''
+        ]]
+        
+        # Add sub-header row for gender breakdown
+        center_table_data.append([
+            '', '',
+            'F', 'M', 'TT', '%',  # Registered
+            'F', 'M', 'TT', '%',  # Missing
+            'F', 'M', 'TT', '%',  # Sat For Exams
+            'F', 'M', 'TT', '%',  # Normal Progress
+            'F', 'M', 'TT', '%'   # Probationary Pass
+        ])
+        
+        for i, occ in enumerate(center_occupations, 1):
+            # Get candidates for this occupation in this center
+            center_occupation_candidates = center_candidates.filter(
+                occupation__code=occ['occupation__code']
+            )
+            
+            # Calculate gender breakdowns for registered
+            registered_total = center_occupation_candidates.count()
+            registered_female = center_occupation_candidates.filter(gender='F').count()
+            registered_male = center_occupation_candidates.filter(gender='M').count()
+            registered_pct = 100.0 if registered_total > 0 else 0.0
+            
+            # Calculate missing (enrolled but no results) by gender
+            center_candidates_with_results = center_occupation_candidates.filter(
+                result__isnull=False
+            ).distinct()
+            center_candidates_without_results = center_occupation_candidates.exclude(
+                id__in=center_candidates_with_results.values_list('id', flat=True)
+            )
+            
+            missing_total = center_candidates_without_results.count()
+            missing_female = center_candidates_without_results.filter(gender='F').count()
+            missing_male = center_candidates_without_results.filter(gender='M').count()
+            missing_pct = (missing_total / registered_total * 100) if registered_total > 0 else 0.0
+            
+            # Calculate sat for exams by gender
+            sat_total = center_candidates_with_results.count()
+            sat_female = center_candidates_with_results.filter(gender='F').count()
+            sat_male = center_candidates_with_results.filter(gender='M').count()
+            sat_pct = (sat_total / registered_total * 100) if registered_total > 0 else 0.0
+            
+            # Calculate Normal Progress (NP) and Probationary Pass (PP) by gender
+            normal_progress_candidates = []
+            probationary_candidates = []
+            
+            for candidate in center_candidates_with_results:
+                candidate_results = candidate.result_set.all()
+                
+                if not candidate_results.exists():
+                    continue
+                
+                practical_results = candidate_results.filter(assessment_type='practical')
+                
+                if practical_results.exists():
+                    practical_comments = [r.comment.lower() for r in practical_results]
+                    
+                    if any(comment in ['unsuccessful', 'ctr', 'fail'] for comment in practical_comments):
+                        probationary_candidates.append(candidate)
+                    elif all(comment == 'successful' for comment in practical_comments):
+                        normal_progress_candidates.append(candidate)
+                    else:
+                        probationary_candidates.append(candidate)
+                else:
+                    all_comments = [r.comment.lower() for r in candidate_results]
+                    
+                    if all(comment == 'successful' for comment in all_comments):
+                        normal_progress_candidates.append(candidate)
+                    else:
+                        probationary_candidates.append(candidate)
+            
+            # Calculate gender breakdowns for Normal Progress
+            np_total = len(normal_progress_candidates)
+            np_female = sum(1 for c in normal_progress_candidates if c.gender == 'F')
+            np_male = sum(1 for c in normal_progress_candidates if c.gender == 'M')
+            np_pct = (np_total / registered_total * 100) if registered_total > 0 else 0.0
+            
+            # Calculate gender breakdowns for Probationary Pass
+            pp_total = len(probationary_candidates)
+            pp_female = sum(1 for c in probationary_candidates if c.gender == 'F')
+            pp_male = sum(1 for c in probationary_candidates if c.gender == 'M')
+            pp_pct = (pp_total / registered_total * 100) if registered_total > 0 else 0.0
+            
+            center_table_data.append([
+                str(i),
+                occ['occupation__code'] or 'Unknown',
+                # Registered: F, M, TT, %
+                str(registered_female),
+                str(registered_male),
+                str(registered_total),
+                f"{registered_pct:.1f}",
+                # Missing: F, M, TT, %
+                str(missing_female),
+                str(missing_male),
+                str(missing_total),
+                f"{missing_pct:.1f}",
+                # Sat For Exams: F, M, TT, %
+                str(sat_female),
+                str(sat_male),
+                str(sat_total),
+                f"{sat_pct:.1f}",
+                # Normal Progress: F, M, TT, %
+                str(np_female),
+                str(np_male),
+                str(np_total),
+                f"{np_pct:.1f}",
+                # Probationary Pass: F, M, TT, %
+                str(pp_female),
+                str(pp_male),
+                str(pp_total),
+                f"{pp_pct:.1f}"
+            ])
+        
+        # Center totals with actual calculations and gender breakdown
+        center_total = center_candidates.count()
+        center_total_female = center_candidates.filter(gender='F').count()
+        center_total_male = center_candidates.filter(gender='M').count()
+        center_total_pct = 100.0 if center_total > 0 else 0.0
+        
+        # Calculate center totals
+        center_total_with_results = center_candidates.filter(
+            result__isnull=False
+        ).distinct()
+        center_total_without_results = center_candidates.exclude(
+            id__in=center_total_with_results.values_list('id', flat=True)
+        )
+        
+        center_total_missing = center_total_without_results.count()
+        center_total_missing_female = center_total_without_results.filter(gender='F').count()
+        center_total_missing_male = center_total_without_results.filter(gender='M').count()
+        center_total_missing_pct = (center_total_missing / center_total * 100) if center_total > 0 else 0.0
+        
+        center_total_sat_for_exams = center_total_with_results.count()
+        center_total_sat_female = center_total_with_results.filter(gender='F').count()
+        center_total_sat_male = center_total_with_results.filter(gender='M').count()
+        center_total_sat_pct = (center_total_sat_for_exams / center_total * 100) if center_total > 0 else 0.0
+        
+        # Calculate center total Normal Progress (NP) and Probationary Pass (PP) with gender breakdown
+        center_total_normal_progress_candidates = []
+        center_total_probationary_candidates = []
+        
+        for candidate in center_total_with_results:
+            candidate_results = candidate.result_set.all()
+            
+            if not candidate_results.exists():
+                continue
+            
+            practical_results = candidate_results.filter(assessment_type='practical')
+            
+            if practical_results.exists():
+                practical_comments = [r.comment.lower() for r in practical_results]
+                
+                if any(comment in ['unsuccessful', 'ctr', 'fail'] for comment in practical_comments):
+                    center_total_probationary_candidates.append(candidate)
+                elif all(comment == 'successful' for comment in practical_comments):
+                    center_total_normal_progress_candidates.append(candidate)
+                else:
+                    center_total_probationary_candidates.append(candidate)
+            else:
+                all_comments = [r.comment.lower() for r in candidate_results]
+                
+                if all(comment == 'successful' for comment in all_comments):
+                    center_total_normal_progress_candidates.append(candidate)
+                else:
+                    center_total_probationary_candidates.append(candidate)
+        
+        # Calculate gender breakdowns for center totals
+        center_total_np = len(center_total_normal_progress_candidates)
+        center_total_np_female = sum(1 for c in center_total_normal_progress_candidates if c.gender == 'F')
+        center_total_np_male = sum(1 for c in center_total_normal_progress_candidates if c.gender == 'M')
+        center_total_np_pct = (center_total_np / center_total * 100) if center_total > 0 else 0.0
+        
+        center_total_pp = len(center_total_probationary_candidates)
+        center_total_pp_female = sum(1 for c in center_total_probationary_candidates if c.gender == 'F')
+        center_total_pp_male = sum(1 for c in center_total_probationary_candidates if c.gender == 'M')
+        center_total_pp_pct = (center_total_pp / center_total * 100) if center_total > 0 else 0.0
+        
+        center_table_data.append([
+            'TOTAL',
+            '',
+            # Registered: F, M, TT, %
+            str(center_total_female),
+            str(center_total_male),
+            str(center_total),
+            f"{center_total_pct:.1f}",
+            # Missing: F, M, TT, %
+            str(center_total_missing_female),
+            str(center_total_missing_male),
+            str(center_total_missing),
+            f"{center_total_missing_pct:.1f}",
+            # Sat For Exams: F, M, TT, %
+            str(center_total_sat_female),
+            str(center_total_sat_male),
+            str(center_total_sat_for_exams),
+            f"{center_total_sat_pct:.1f}",
+            # Normal Progress: F, M, TT, %
+            str(center_total_np_female),
+            str(center_total_np_male),
+            str(center_total_np),
+            f"{center_total_np_pct:.1f}",
+            # Probationary Pass: F, M, TT, %
+            str(center_total_pp_female),
+            str(center_total_pp_male),
+            str(center_total_pp),
+            f"{center_total_pp_pct:.1f}"
+        ])
+        
+        # Column widths for center table: S/N, Program, then 4 columns each for 5 metrics = 22 total columns
+        center_col_widths = [
+            0.8*inch,  # S/N
+            1.2*inch,  # Program code
+            # Registered: F, M, TT, %
+            0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
+            # Missing: F, M, TT, %
+            0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
+            # Sat For Exams: F, M, TT, %
+            0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
+            # Normal Progress: F, M, TT, %
+            0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
+            # Probationary Pass: F, M, TT, %
+            0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch
+        ]
+        
+        center_table = Table(center_table_data, colWidths=center_col_widths)
+        center_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.2, 0.4, 0.8)),  # Blue header
+            ('BACKGROUND', (0, 1), (-1, 1), colors.Color(0.3, 0.5, 0.9)),  # Blue sub-header
+            ('TEXTCOLOR', (0, 0), (-1, 1), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('FONTSIZE', (0, 1), (-1, 1), 8),
+            ('FONTSIZE', (0, 2), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
+            ('BACKGROUND', (0, 2), (-1, -2), colors.Color(0.9, 0.95, 1.0)),  # Light blue rows
+            ('BACKGROUND', (0, -1), (-1, -1), colors.Color(0.7, 0.85, 0.95)),  # Darker blue for totals
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),  # Bold totals row
+            ('BOX', (0, 0), (-1, -1), 1, colors.Color(0.3, 0.5, 0.9)),  # Blue outer border only
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 2), (-1, -2), [colors.Color(0.95, 0.98, 1.0), colors.Color(0.9, 0.95, 1.0)])
+        ]))
+        
+        elements.append(center_table)
+        
+        # Add page break if not the last center
+        if center_data != list(centers)[-1]:
+            elements.append(PageBreak())
+    
+    # Build PDF
+    doc.build(elements)
+    
+    # Get the value of the BytesIO buffer and create response
+    pdf = buffer.getvalue()
+    buffer.close()
+    
+    # Create PDF response
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="performance_report_{category}_{year}_{month}.pdf"'
+    response.write(pdf)
+    
+    return response
 
     def get_candidate_filter_urls(assessment_year=None, assessment_month=None):
         """Generate common filter URLs for statistics templates"""

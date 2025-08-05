@@ -124,6 +124,13 @@
         </tr>
         <tr>
           <form method="get">
+            <!-- Hidden fields to preserve assessment series context -->
+            {% if filters.assessment_year %}
+              <input type="hidden" name="assessment_year" value="{{ filters.assessment_year }}" />
+            {% endif %}
+            {% if filters.assessment_month %}
+              <input type="hidden" name="assessment_month" value="{{ filters.assessment_month }}" />
+            {% endif %}
             <th></th> <!-- Checkbox column, no filter -->
             <th></th> <!-- Image column, no filter -->
             <th class="px-3 py-2">
