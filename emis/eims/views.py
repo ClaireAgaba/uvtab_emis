@@ -6337,51 +6337,30 @@ def statistics_home(request):
                 'color': reg_colors.get(reg_cat, '#6B7280')
             })
     
-    # Assessment Series breakdown (grouped by month and year from CANDIDATE assessment_date)
+    # Assessment Series breakdown (using actual assessment series relationships)
     assessment_series = []
-    
-    # Get distinct enrollment periods from CANDIDATES based on enrollment dates
-    enrollment_periods = Candidate.objects.values(
-        'created_at__year', 
-        'created_at__month'
-    ).annotate(
-        total_candidates=Count('id')
-    ).order_by('-created_at__year', '-created_at__month')
-    
-    for period in enrollment_periods:
-        year = period['created_at__year']
-        month = period['created_at__month']
-        
-        if year and month:
-            # Get candidates who have assessment_date in this period
-            candidates_in_period = Candidate.objects.filter(
-                created_at__year=year,
-                created_at__month=month
-            )
-            
-            # Count by gender
-            male_count = candidates_in_period.filter(gender='M').count()
-            female_count = candidates_in_period.filter(gender='F').count()
-            
-            # Count with special needs
-            special_needs_count = candidates_in_period.filter(disability=True).count()
-            
-            # Count distinct occupations
-            occupation_count = candidates_in_period.values('occupation').distinct().count()
-            
-            # Get month name
-            month_name = calendar.month_name[month]
-            
-            assessment_series.append({
-                'year': year,
-                'month': month,
-                'period_name': f"{month_name} {year}",
-                'total_candidates': period['total_candidates'],
-                'male_count': male_count,
-                'female_count': female_count,
-                'special_needs_count': special_needs_count,
-                'occupation_count': occupation_count
-            })
+
+    # Get assessment series with candidate counts using proper relationships
+    from django.db.models import Q
+    series_with_candidates = AssessmentSeries.objects.annotate(
+        total_candidates=Count('candidate'),
+        male_count=Count('candidate', filter=Q(candidate__gender='M')),
+        female_count=Count('candidate', filter=Q(candidate__gender='F')),
+        special_needs_count=Count('candidate', filter=Q(candidate__disability=True)),
+        occupation_count=Count('candidate__occupation', distinct=True)
+    ).filter(total_candidates__gt=0).order_by('-start_date')
+
+    for series in series_with_candidates:
+        assessment_series.append({
+            'year': series.start_date.year,
+            'month': series.start_date.month,
+            'period_name': series.name,
+            'total_candidates': series.total_candidates,
+            'male_count': series.male_count,
+            'female_count': series.female_count,
+            'special_needs_count': series.special_needs_count,
+            'occupation_count': series.occupation_count
+        })
     
     context = {
         'total_candidates': total_candidates,
@@ -6401,20 +6380,39 @@ def statistics_home(request):
 
 @login_required
 def assessment_series_detail(request, year, month):
-    """Detailed breakdown for a specific assessment period (month/year) using CANDIDATE assessment_date"""
+    """Detailed breakdown for a specific assessment series using actual series relationships"""
     
-    # Get candidates who have assessment_date in this period (not result assessment_date)
-    candidates_in_period = Candidate.objects.filter(
-        created_at__year=year,
-        created_at__month=month
-    )
+    # Find the assessment series based on year/month
+    # We'll look for a series that starts in the given year/month
+    try:
+        assessment_series = AssessmentSeries.objects.filter(
+            start_date__year=year,
+            start_date__month=month
+        ).first()
+        
+        if not assessment_series:
+            # If no exact match, try to find by name pattern
+            month_name = calendar.month_name[int(month)]
+            series_name = f"{month_name} {year} Series"
+            assessment_series = AssessmentSeries.objects.filter(name=series_name).first()
+        
+        if not assessment_series:
+            # Create a fallback if no series found
+            month_name = calendar.month_name[int(month)]
+            period_name = f"{month_name} {year}"
+            candidates_in_period = Candidate.objects.none()
+        else:
+            period_name = assessment_series.name
+            # Get candidates enrolled in this specific assessment series
+            candidates_in_period = Candidate.objects.filter(assessment_series=assessment_series)
+            
+    except (ValueError, AssessmentSeries.DoesNotExist):
+        month_name = calendar.month_name[int(month)]
+        period_name = f"{month_name} {year}"
+        candidates_in_period = Candidate.objects.none()
     
     total_candidates = candidates_in_period.count()
     total_candidates_for_percentage = total_candidates if total_candidates > 0 else 1
-    
-    # Month name for display
-    month_name = calendar.month_name[int(month)]
-    period_name = f"{month_name} {year}"
     
     # Gender breakdown
     gender_breakdown = []
@@ -6456,78 +6454,7 @@ def assessment_series_detail(request, year, month):
             'color': reg_colors.get(reg_cat, '#6B7280')
         })
     
-    # Occupation breakdown
-    occupation_breakdown = []
-    occupation_colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316']
-    
-    occupation_data = candidates_in_period.values('occupation__name').annotate(count=Count('id')).order_by('-count')
-    for i, occupation in enumerate(occupation_data):
-        occ_name = occupation['occupation__name']
-        count = occupation['count']
-        percentage = (count / total_candidates_for_percentage) * 100
-        
-        occupation_breakdown.append({
-            'name': occ_name or 'Unknown',
-            'count': count,
-            'percentage': round(percentage, 1),
-            'color': occupation_colors[i % len(occupation_colors)]
-        })
-    
-    # Special needs breakdown
-    special_needs_breakdown = []
-    with_special_needs = candidates_in_period.filter(disability=True).count()
-    without_special_needs = candidates_in_period.filter(disability=False).count()
-    
-    special_needs_breakdown = [
-        {
-            'name': 'With Special Needs',
-            'count': with_special_needs,
-            'percentage': round((with_special_needs / total_candidates_for_percentage) * 100, 1),
-            'color': '#EF4444'
-        },
-        {
-            'name': 'Without Special Needs',
-            'count': without_special_needs,
-            'percentage': round((without_special_needs / total_candidates_for_percentage) * 100, 1),
-            'color': '#10B981'
-        }
-    ]
-    
-    # Special needs by gender
-    special_needs_by_gender = []
-    male_with_special_needs = candidates_in_period.filter(gender='M', disability=True).count()
-    female_with_special_needs = candidates_in_period.filter(gender='F', disability=True).count()
-    male_without_special_needs = candidates_in_period.filter(gender='M', disability=False).count()
-    female_without_special_needs = candidates_in_period.filter(gender='F', disability=False).count()
-    
-    special_needs_by_gender = [
-        {
-            'category': 'Male with Special Needs',
-            'count': male_with_special_needs,
-            'percentage': round((male_with_special_needs / total_candidates_for_percentage) * 100, 1),
-            'color': '#DC2626'
-        },
-        {
-            'category': 'Female with Special Needs',
-            'count': female_with_special_needs,
-            'percentage': round((female_with_special_needs / total_candidates_for_percentage) * 100, 1),
-            'color': '#BE185D'
-        },
-        {
-            'category': 'Male without Special Needs',
-            'count': male_without_special_needs,
-            'percentage': round((male_without_special_needs / total_candidates_for_percentage) * 100, 1),
-            'color': '#2563EB'
-        },
-        {
-            'category': 'Female without Special Needs',
-            'count': female_without_special_needs,
-            'percentage': round((female_without_special_needs / total_candidates_for_percentage) * 100, 1),
-            'color': '#DB2777'
-        }
-    ]
-    
-    # Registration category by gender
+    # Registration category by gender breakdown
     reg_cat_by_gender = []
     for category in reg_cat_data:
         reg_cat = category['registration_category']
@@ -6545,6 +6472,37 @@ def assessment_series_detail(request, year, month):
                 'color': reg_colors.get(reg_cat, '#6B7280')
             })
     
+    # Special needs breakdown
+    special_needs_breakdown = []
+    special_needs_data = candidates_in_period.values('disability').annotate(count=Count('id'))
+    for special_need in special_needs_data:
+        disability = special_need['disability']
+        count = special_need['count']
+        percentage = (count / total_candidates_for_percentage) * 100
+        
+        special_needs_breakdown.append({
+            'name': 'With Special Needs' if disability else 'Without Special Needs',
+            'count': count,
+            'percentage': round(percentage, 1),
+            'color': '#EF4444' if disability else '#10B981'
+        })
+    
+    # Occupation breakdown
+    occupation_breakdown = []
+    occupation_data = candidates_in_period.values('occupation__name').annotate(count=Count('id')).order_by('-count')
+    for occupation in occupation_data:
+        occupation_name = occupation['occupation__name']
+        count = occupation['count']
+        percentage = (count / total_candidates_for_percentage) * 100
+        
+        occupation_breakdown.append({
+            'name': occupation_name or 'Unknown',
+            'count': count,
+            'percentage': round(percentage, 1)
+        })
+    # Add this debug line right before the context = { line
+    print(f"DEBUG: reg_cat_breakdown = {reg_cat_breakdown}")
+    
     context = {
         'period_name': period_name,
         'year': year,
@@ -6552,10 +6510,10 @@ def assessment_series_detail(request, year, month):
         'total_candidates': total_candidates,
         'gender_breakdown': gender_breakdown,
         'reg_cat_breakdown': reg_cat_breakdown,
-        'occupation_breakdown': occupation_breakdown,
-        'special_needs_breakdown': special_needs_breakdown,
-        'special_needs_by_gender': special_needs_by_gender,
         'reg_cat_by_gender': reg_cat_by_gender,
+        'special_needs_breakdown': special_needs_breakdown,
+        'occupation_breakdown': occupation_breakdown,
+        'assessment_series': assessment_series,  # Pass the series object for template use
     }
     
     return render(request, 'statistics/assessment_series_detail.html', context)
