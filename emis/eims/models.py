@@ -148,7 +148,7 @@ class Occupation(models.Model):
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey('OccupationCategory', on_delete=models.CASCADE)
-
+    sector = models.ForeignKey('Sector', on_delete=models.CASCADE, help_text="Industry sector this occupation belongs to")
     has_modular = models.BooleanField(
         default=False,
         help_text="Tick if this occupation allows Modular registration (Level 1 only)"
@@ -274,6 +274,21 @@ class Paper(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name} ({self.grade_type})"
+
+
+class Sector(models.Model):
+    name = models.CharField(max_length=255, unique=True, help_text="Name of the sector")
+    description = models.TextField(blank=True, help_text="Description of the sector")
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, related_name='created_sectors', null=True, blank=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(User, related_name='updated_sectors', null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 
 class Result(models.Model):

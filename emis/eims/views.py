@@ -2464,10 +2464,11 @@ def edit_assessment_center(request, id):
     })
 
 def occupation_list(request):
-    occupations = Occupation.objects.all()
+    occupations = Occupation.objects.select_related('category', 'sector').all()
     code = request.GET.get('code', '').strip()
     name = request.GET.get('name', '').strip()
     category = request.GET.get('category', '').strip()
+    sector = request.GET.get('sector', '').strip()
 
     if code:
         occupations = occupations.filter(code__icontains=code)
@@ -2475,10 +2476,13 @@ def occupation_list(request):
         occupations = occupations.filter(name__icontains=name)
     if category:
         occupations = occupations.filter(category_id=category)
+    if sector:
+        occupations = occupations.filter(sector_id=sector)
 
-    # Get all categories for the filter dropdown
-    from .models import OccupationCategory
+    # Get all categories and sectors for the filter dropdowns
+    from .models import OccupationCategory, Sector
     categories = OccupationCategory.objects.all().order_by('name')
+    sectors = Sector.objects.all().order_by('name')
 
     # Pagination: 100 per page
     from django.core.paginator import Paginator
@@ -2491,6 +2495,7 @@ def occupation_list(request):
         'page_obj': page_obj,
         'paginator': paginator,
         'categories': categories,
+        'sectors': sectors,
     })
 
 def occupation_create(request):

@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import views_api
 from . import views_fees
+from . import sector_views
 from django.contrib.auth import views as auth_views
 
 
@@ -127,6 +128,13 @@ urlpatterns = [
     # Statistical Reports URLs
     path('statistical-reports/', views.statistical_reports_home, name='statistical_reports'),
     path('statistical-reports/series/<int:pk>/', views.assessment_series_statistical_report, name='assessment_series_statistical_report'),
+    
+    # Sector URLs
+    path('sectors/', sector_views.sector_list, name='sector_list'),
+    path('sectors/create/', sector_views.sector_create, name='sector_create'),
+    path('sectors/<int:pk>/', sector_views.sector_detail, name='sector_detail'),
+    path('sectors/<int:pk>/edit/', sector_views.sector_edit, name='sector_edit'),
+    path('sectors/<int:pk>/delete/', sector_views.sector_delete, name='sector_delete'),
     
     # API endpoints
     path('api/assessment-series/', views.api_assessment_series, name='api_assessment_series'),

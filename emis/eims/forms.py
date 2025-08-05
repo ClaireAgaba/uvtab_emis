@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, Result, NatureOfDisability, Staff, AssessmentSeries
+from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, Result, NatureOfDisability, Staff, AssessmentSeries, Sector
 from datetime import datetime   
 
 from django_countries.fields import CountryField
@@ -35,11 +35,12 @@ class AssessmentCenterForm(forms.ModelForm):
 class OccupationForm(forms.ModelForm):
     class Meta:
         model = Occupation
-        fields = ['code', 'name', 'category', 'has_modular']
+        fields = ['code', 'name', 'category', 'sector', 'has_modular']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'name': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'category': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'sector': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'has_modular': forms.CheckboxInput(attrs={'class': 'ml-2'}),
         }
 
@@ -1044,3 +1045,44 @@ class AssessmentSeriesForm(forms.ModelForm):
                 raise forms.ValidationError("Date of release must be on or after the end date.")
         
         return cleaned_data
+
+class SectorForm(forms.ModelForm):
+    """Form for creating and editing sectors"""
+    
+    class Meta:
+        model = Sector
+        fields = ['name', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500',
+                'placeholder': 'Enter sector name'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500',
+                'placeholder': 'Enter sector description (optional)',
+                'rows': 4
+            }),
+        }
+        labels = {
+            'name': 'Sector Name',
+            'description': 'Description',
+        }
+        help_texts = {
+            'name': 'Enter a unique name for this sector (max 100 characters)',
+            'description': 'Provide a brief description of this sector (optional)',
+        }
+
+    def clean_name(self):
+        """Validate sector name uniqueness (case-insensitive)"""
+        name = self.cleaned_data.get('name')
+        if name:
+            # Check for duplicate names (case-insensitive)
+            existing = Sector.objects.filter(name__iexact=name)
+            if self.instance and self.instance.pk:
+                existing = existing.exclude(pk=self.instance.pk)
+            
+            if existing.exists():
+                raise forms.ValidationError(
+                    f'A sector with the name "{name}" already exists. Please choose a different name.'
+                )
+        return name
