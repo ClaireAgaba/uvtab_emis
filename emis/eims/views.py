@@ -6741,7 +6741,7 @@ def generate_performance_report(request, year, month):
     
     # Create table with gender breakdown columns
     table_data = [[
-        'S/N', 'Program code', 
+        'S/N', 'Occupation code', 
         # Registered columns
         'Registered', '', '', '',
         # Missing columns  
@@ -6993,6 +6993,12 @@ def generate_performance_report(request, year, month):
         ('FONTSIZE', (0, 1), (-1, 1), 8),
         ('FONTSIZE', (0, 2), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
+        # Column spanning for main headers to center them over sub-columns
+        ('SPAN', (2, 0), (5, 0)),   # Registered spans 4 columns
+        ('SPAN', (6, 0), (9, 0)),   # Missing spans 4 columns
+        ('SPAN', (10, 0), (13, 0)), # Sat For Exams spans 4 columns
+        ('SPAN', (14, 0), (17, 0)), # Normal Progress spans 4 columns
+        ('SPAN', (18, 0), (21, 0)), # Probationary Pass spans 4 columns
         ('BACKGROUND', (0, 2), (-1, -2), colors.Color(0.9, 0.95, 1.0)),  # Light blue rows
         ('BACKGROUND', (0, -1), (-1, -1), colors.Color(0.7, 0.85, 0.95)),  # Darker blue for totals
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),  # Bold totals row
@@ -7130,6 +7136,10 @@ def generate_performance_report(request, year, month):
         ('FONTSIZE', (0, 1), (-1, 1), 8),
         ('FONTSIZE', (0, 2), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
+        # Column spanning for sector table headers
+        ('SPAN', (1, 0), (4, 0)),   # Total Candidates spans 4 columns
+        ('SPAN', (5, 0), (8, 0)),   # Successful spans 4 columns
+        ('SPAN', (9, 0), (12, 0)),  # Unsuccessful spans 4 columns
         ('BACKGROUND', (0, 2), (-1, -1), colors.Color(0.9, 0.95, 1.0)),  # Light blue rows
         ('BOX', (0, 0), (-1, -1), 1, colors.Color(0.3, 0.5, 0.9)),  # Blue outer border only
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -7149,7 +7159,7 @@ def generate_performance_report(request, year, month):
         center_name = center_data['assessment_center__center_name'] or 'Unknown Center'
         center_candidates = filtered_candidates.filter(assessment_center__center_number=center_number)
         
-        elements.append(Paragraph(f"Performance by Exam Center", title_style))
+        elements.append(Paragraph(f"Performance by Assessment Center", title_style))
         elements.append(Paragraph(f"Center: {center_number} - {center_name}", styles['Heading3']))
         elements.append(Spacer(1, 20))
         
@@ -7160,7 +7170,7 @@ def generate_performance_report(request, year, month):
         
         # Create center table with gender breakdown columns
         center_table_data = [[
-            'S/N', 'Program',
+            'S/N', 'Occupation',
             # Registered columns
             'Registered', '', '', '',
             # Missing columns  
@@ -7406,6 +7416,12 @@ def generate_performance_report(request, year, month):
             ('FONTSIZE', (0, 1), (-1, 1), 8),
             ('FONTSIZE', (0, 2), (-1, -1), 8),
             ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
+            # Column spanning for center table headers
+            ('SPAN', (2, 0), (5, 0)),   # Registered spans 4 columns
+            ('SPAN', (6, 0), (9, 0)),   # Missing spans 4 columns
+            ('SPAN', (10, 0), (13, 0)), # Sat For Exams spans 4 columns
+            ('SPAN', (14, 0), (17, 0)), # Normal Progress spans 4 columns
+            ('SPAN', (18, 0), (21, 0)), # Probationary Pass spans 4 columns
             ('BACKGROUND', (0, 2), (-1, -2), colors.Color(0.9, 0.95, 1.0)),  # Light blue rows
             ('BACKGROUND', (0, -1), (-1, -1), colors.Color(0.7, 0.85, 0.95)),  # Darker blue for totals
             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),  # Bold totals row
