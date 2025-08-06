@@ -3083,6 +3083,16 @@ def paper_edit(request, pk):
     return render(request, 'papers/edit.html', {'form': form, 'paper': paper})
 
 
+@login_required
+def paper_delete(request, pk):
+    paper = get_object_or_404(Paper, pk=pk)
+    if request.method == 'POST':
+        paper.delete()
+        messages.success(request, 'Paper deleted successfully.')
+        return redirect('paper_list')
+    return render(request, 'papers/delete.html', {'paper': paper})
+
+
 def report_list(request):
     """Main reports dashboard showing available reports"""
     group_names = list(request.user.groups.values_list('name', flat=True))
