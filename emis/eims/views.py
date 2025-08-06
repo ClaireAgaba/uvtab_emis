@@ -6678,8 +6678,25 @@ def generate_performance_report(request, year, month):
         assessment_series=assessment_series,
         registration_category=category
     )
+    
+    # Debug logging
+    print(f"[DEBUG] Initial candidates count: {filtered_candidates.count()}")
+    print(f"[DEBUG] Category: {category}, Level: {level}")
+    
     if level and category in ['Formal', "Worker's PAS"]:
-        filtered_candidates = filtered_candidates.filter(level=level)
+        # Convert level parameter to Level object
+        try:
+            from .models import Level
+            level_obj = Level.objects.get(id=level)
+            print(f"[DEBUG] Found level object: {level_obj.name} (ID: {level_obj.id})")
+            filtered_candidates = filtered_candidates.filter(candidatelevel__level=level_obj)
+            print(f"[DEBUG] Candidates after level filter: {filtered_candidates.count()}")
+        except (Level.DoesNotExist, ValueError) as e:
+            print(f"[DEBUG] Level filtering error: {e}")
+            # If level not found, don't filter by level
+            pass
+    
+    print(f"[DEBUG] Final filtered candidates count: {filtered_candidates.count()}")
     
     # Create PDF document
     buffer = BytesIO()
