@@ -2961,7 +2961,23 @@ def module_delete(request, pk):
         messages.success(request, 'Module deleted successfully.')
         return redirect('module_list')
     return render(request, 'modules/delete.html', {'module': module})
-    return render(request, 'modules/edit.html', {'form': form, 'module': module})
+
+
+@login_required
+def module_bulk_delete(request):
+    if request.method == 'POST':
+        selected_modules = request.POST.getlist('selected_modules')
+        if selected_modules:
+            try:
+                modules_to_delete = Module.objects.filter(pk__in=selected_modules)
+                count = modules_to_delete.count()
+                modules_to_delete.delete()
+                messages.success(request, f'Successfully deleted {count} module{"s" if count != 1 else ""}.')
+            except Exception as e:
+                messages.error(request, f'Error deleting modules: {str(e)}')
+        else:
+            messages.warning(request, 'No modules were selected for deletion.')
+    return redirect('module_list')
 
 
 def paper_list(request):
@@ -3091,6 +3107,23 @@ def paper_delete(request, pk):
         messages.success(request, 'Paper deleted successfully.')
         return redirect('paper_list')
     return render(request, 'papers/delete.html', {'paper': paper})
+
+
+@login_required
+def paper_bulk_delete(request):
+    if request.method == 'POST':
+        selected_papers = request.POST.getlist('selected_papers')
+        if selected_papers:
+            try:
+                papers_to_delete = Paper.objects.filter(pk__in=selected_papers)
+                count = papers_to_delete.count()
+                papers_to_delete.delete()
+                messages.success(request, f'Successfully deleted {count} paper{"s" if count != 1 else ""}.')
+            except Exception as e:
+                messages.error(request, f'Error deleting papers: {str(e)}')
+        else:
+            messages.warning(request, 'No papers were selected for deletion.')
+    return redirect('paper_list')
 
 
 def report_list(request):

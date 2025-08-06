@@ -167,11 +167,33 @@
 
     <!-- Papers Table -->
     {% if papers %}
+      <!-- Bulk Actions Bar -->
+      <div id="bulk-actions-bar" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 hidden">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <span id="selected-count" class="text-blue-800 font-medium">0 papers selected</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button type="button" onclick="clearSelection()" class="text-blue-600 hover:text-blue-800 text-sm">
+              Clear Selection
+            </button>
+            <button type="button" onclick="bulkDeletePapers()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+              Delete Selected
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="bg-white rounded-lg shadow-sm">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead>
-            <tr class="bg-gray-50">
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+        <form id="bulk-form" method="post" action="{% url 'paper_bulk_delete' %}">
+          {% csrf_token %}
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr class="bg-gray-50">
+                <th class="px-6 py-3 text-left">
+                  <input type="checkbox" id="select-all" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" onchange="toggleAll()">
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Occupation</th>
@@ -182,6 +204,9 @@
           <tbody class="bg-white divide-y divide-gray-200">
             {% for paper in papers %}
               <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <input type="checkbox" name="selected_papers" value="{{ paper.pk }}" class="paper-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" onchange="updateBulkActions()">
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ paper.code }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ paper.name }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ paper.level.name }}</td>
@@ -217,7 +242,8 @@
               </tr>
             {% endfor %}
           </tbody>
-        </table>
+          </table>
+        </form>
       </div>
 
       <!-- Pagination -->
@@ -268,4 +294,74 @@
     {% endif %}
   </div>
 </div>
+
+<script>
+// Bulk operations functions for papers
+function toggleAll() {
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.paper-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+    
+    updateBulkActions();
+}
+
+function updateBulkActions() {
+    const checkboxes = document.querySelectorAll('.paper-checkbox:checked');
+    const bulkBar = document.getElementById('bulk-actions-bar');
+    const selectedCount = document.getElementById('selected-count');
+    const selectAll = document.getElementById('select-all');
+    
+    if (checkboxes.length > 0) {
+        bulkBar.classList.remove('hidden');
+        selectedCount.textContent = `${checkboxes.length} paper${checkboxes.length !== 1 ? 's' : ''} selected`;
+    } else {
+        bulkBar.classList.add('hidden');
+    }
+    
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.paper-checkbox');
+    if (checkboxes.length === allCheckboxes.length) {
+        selectAll.checked = true;
+        selectAll.indeterminate = false;
+    } else if (checkboxes.length > 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = true;
+    } else {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+    }
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.paper-checkbox');
+    const selectAll = document.getElementById('select-all');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+    
+    updateBulkActions();
+}
+
+function bulkDeletePapers() {
+    const checkboxes = document.querySelectorAll('.paper-checkbox:checked');
+    
+    if (checkboxes.length === 0) {
+        alert('Please select papers to delete.');
+        return;
+    }
+    
+    const count = checkboxes.length;
+    const message = `Are you sure you want to delete ${count} paper${count !== 1 ? 's' : ''}? This action cannot be undone.`;
+    
+    if (confirm(message)) {
+        document.getElementById('bulk-form').submit();
+    }
+}
+</script>
 {% endblock %}
