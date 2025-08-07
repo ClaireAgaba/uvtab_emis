@@ -269,9 +269,11 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         {% endif %}
       </p>
       {% if candidate.disability_specification %}
-        <p><strong>Disability Details:</strong></p>
-        <div class="bg-gray-50 p-3 rounded border-l-4 border-blue-500 text-sm text-gray-700 mt-1">
-          {{ candidate.disability_specification|linebreaks }}
+        <p><strong class="text-gray-800">Disability Details:</strong></p>
+        <div class="bg-purple-50 border-l-4 border-purple-800 p-3 mt-2 rounded-r-md max-w-2xl">
+          <div class="text-sm text-gray-700 break-words">
+            {{ candidate.disability_specification|linebreaks }}
+          </div>
         </div>
       {% endif %}
     {% else %}
