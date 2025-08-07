@@ -311,6 +311,12 @@ class CandidateForm(forms.ModelForm):
                 if fname in self.fields:
                     self.fields[fname].disabled = True
 
+        # Order districts alphabetically for easier searching
+        self.fields['district'].queryset = District.objects.all().order_by('name')
+        
+        # Make village field not mandatory
+        self.fields['village'].required = False
+        
         # Dependent dropdown for village based on district
         self.fields['village'].queryset = Village.objects.none() # Start with an empty queryset
 
