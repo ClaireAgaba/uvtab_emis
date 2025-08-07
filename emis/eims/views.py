@@ -2523,7 +2523,7 @@ def edit_assessment_center(request, id):
     })
 
 def occupation_list(request):
-    occupations = Occupation.objects.select_related('category', 'sector').all()
+    occupations = Occupation.objects.select_related('category', 'sector').all().order_by('code')
     code = request.GET.get('code', '').strip()
     name = request.GET.get('name', '').strip()
     category = request.GET.get('category', '').strip()
