@@ -560,8 +560,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
 <div id="changeOccupationModal"
      class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40 hidden">
   <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
-    <button type="button" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-            onclick="closeOccupationModal()">&times;</button>
+    <button type="button" id="closeOccupationModalBtn" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700">&times;</button>
     <h3 class="text-lg font-semibold mb-4">Change Occupation</h3>
     <form id="changeOccupationForm">
       <label for="occupationSelect" class="block mb-2 font-medium">Select New Occupation</label>
@@ -640,6 +639,12 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   function closeOccupationModal() {
     document.getElementById('changeOccupationModal').classList.add('hidden');
+  }
+  
+  // Add event listener for close button
+  var closeOccupationBtn = document.getElementById('closeOccupationModalBtn');
+  if (closeOccupationBtn) {
+    closeOccupationBtn.addEventListener('click', closeOccupationModal);
   }
   var occForm = document.getElementById('changeOccupationForm');
   if (occForm) {

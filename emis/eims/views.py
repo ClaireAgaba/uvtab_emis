@@ -456,7 +456,7 @@ def generate_result_list(request):
                 centered_result_data[center_name].append(entry)
         # Always include occupations, levels, centers for dropdowns
         from .models import AssessmentCenter
-        occupations = Occupation.objects.all()
+        occupations = Occupation.objects.all().order_by('code')
         levels = Level.objects.all()
         centers = AssessmentCenter.objects.all()
         print(f'[DEBUG] centered_result_data: {centered_result_data}')
@@ -494,7 +494,7 @@ def generate_result_list(request):
     else:
         # GET: show form only
         from .models import AssessmentCenter, Occupation, Level
-        occupations = Occupation.objects.all()
+        occupations = Occupation.objects.all().order_by('code')
         levels = Level.objects.all()
         centers = AssessmentCenter.objects.all()
         context = {
@@ -2896,7 +2896,7 @@ def module_list(request):
     
     # Base queryset
     modules = Module.objects.select_related('occupation', 'level').all()
-    occupations = Occupation.objects.all()
+    occupations = Occupation.objects.all().order_by('code')
     levels = Level.objects.all()
     
     # Apply filters
@@ -3044,7 +3044,7 @@ def paper_list(request):
     
     # Base queryset
     papers = Paper.objects.select_related('level', 'occupation', 'module').all()
-    occupations = Occupation.objects.all()
+    occupations = Occupation.objects.all().order_by('code')
     levels = Level.objects.all()
     
     # Apply filters
@@ -3245,7 +3245,7 @@ def generate_album(request):
     logger.info("generate_album view started.")
 
     centers = AssessmentCenter.objects.all()
-    occupations = Occupation.objects.all()
+    occupations = Occupation.objects.all().order_by('code')
     levels = Level.objects.all() # Though not directly used in this version's header/table structure as per screenshot
 
     if request.method == 'POST':
@@ -3648,7 +3648,7 @@ def candidate_list(request):
 
     
     from .models import Occupation, AssessmentCenter
-    occupations = Occupation.objects.all()
+    occupations = Occupation.objects.all().order_by('code')
     centers = AssessmentCenter.objects.all()
 
     # Pagination: 100 per page
@@ -5037,7 +5037,7 @@ def candidate_view(request, id):
         "level_enrollment":   level_enrollment,
         "module_enrollments": module_enrollments,
         "results":            results,
-        "occupations": Occupation.objects.exclude(pk=candidate.occupation_id),
+        "occupations": Occupation.objects.exclude(pk=candidate.occupation_id).order_by('code'),
         "centers":     AssessmentCenter.objects.exclude(pk=candidate.assessment_center_id),
         "enrollment_summary": enrollment_summary,
         "level_has_results": level_has_results,
