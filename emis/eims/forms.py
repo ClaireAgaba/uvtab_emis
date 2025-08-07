@@ -118,6 +118,11 @@ class ModuleForm(forms.ModelForm):
                 'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
             })
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Order occupations alphabetically by code
+        self.fields['occupation'].queryset = Occupation.objects.all().order_by('code')
 
 class PaperForm(forms.ModelForm):
     class Meta:
@@ -148,6 +153,8 @@ class PaperForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Order occupations alphabetically by code
+        self.fields['occupation'].queryset = Occupation.objects.all().order_by('code')
         self.fields['module'].queryset = Module.objects.none()
         occupation_id = None
         level_id = None
