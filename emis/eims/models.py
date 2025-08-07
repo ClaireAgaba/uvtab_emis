@@ -401,6 +401,11 @@ class Candidate(models.Model):
     # Disability fields
     disability = models.BooleanField(default=False, help_text="Check if candidate has a disability")
     nature_of_disability = models.ManyToManyField('NatureOfDisability', blank=True, help_text="Select nature(s) of disability if applicable")
+    disability_specification = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="Please specify details about the disability and any assistance needed during exams"
+    )
 
     # Account status field
     STATUS_CHOICES = [

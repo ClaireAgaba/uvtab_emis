@@ -75,6 +75,13 @@
     {% if form.nature_of_disability.help_text %}<p class="text-gray-600 text-xs">{{ form.nature_of_disability.help_text }}</p>{% endif %}
     {% for error in form.nature_of_disability.errors %}<p class="text-red-600 text-xs">{{ error }}</p>{% endfor %}
   </div>
+  
+  <div class="md:col-span-2 mb-4" id="disability-specification-group" style="display: none;">
+    <label for="id_disability_specification" class="font-semibold mb-1">{{ form.disability_specification.label_tag }}</label>
+    {{ form.disability_specification }}
+    {% if form.disability_specification.help_text %}<p class="text-gray-600 text-xs">{{ form.disability_specification.help_text }}</p>{% endif %}
+    {% for error in form.disability_specification.errors %}<p class="text-red-600 text-xs">{{ error }}</p>{% endfor %}
+  </div>
   <!-- Assessment Dates -->
   <div>
     <label class="block font-semibold mb-1">Start Date</label>
@@ -195,11 +202,14 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
     const disabilityCheckbox = document.getElementById('id_disability');
     const natureGroup = document.getElementById('nature-of-disability-group');
+    const specificationGroup = document.getElementById('disability-specification-group');
     function updateNatureVisibility() {
         if (disabilityCheckbox && disabilityCheckbox.checked) {
             natureGroup.style.display = 'block';
+            specificationGroup.style.display = 'block';
         } else {
             natureGroup.style.display = 'none';
+            specificationGroup.style.display = 'none';
         }
     }
     if (disabilityCheckbox && natureGroup) {

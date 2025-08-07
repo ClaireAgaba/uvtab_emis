@@ -236,6 +236,16 @@ class CandidateForm(forms.ModelForm):
         label="Nature of Disability",
         help_text="Select nature(s) of disability if applicable"
     )
+    disability_specification = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+            'rows': 3,
+            'placeholder': 'Please specify details about the disability and any assistance needed during exams...'
+        }),
+        label="Specify Details",
+        help_text="Provide additional details about the disability and any assistance needed during exams"
+    )
 
     def __init__(self, *args, user=None, edit=False, **kwargs):
         super().__init__(*args, **kwargs)
@@ -243,7 +253,7 @@ class CandidateForm(forms.ModelForm):
         for field in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']:
             if field in self.fields:
                 self.fields[field].input_formats = ['%d/%m/%Y']
-        # Show/hide nature_of_disability based on disability field value
+        # Show/hide nature_of_disability and disability_specification based on disability field value
         disability_value = False
         if self.data.get('disability') in ['on', 'true', 'True', True]:
             disability_value = True
@@ -251,8 +261,10 @@ class CandidateForm(forms.ModelForm):
             disability_value = getattr(self.instance, 'disability', False)
         if not disability_value:
             self.fields['nature_of_disability'].required = False
+            self.fields['disability_specification'].required = False
         else:
             self.fields['nature_of_disability'].required = True
+            self.fields['disability_specification'].required = False  # Keep optional but show when disability is True
         if user and user.groups.filter(name='CenterRep').exists():
             from .models import CenterRepresentative
             try:
