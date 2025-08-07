@@ -2285,6 +2285,46 @@ def bulk_candidate_action(request):
             c.nature_of_disability.set(natures)
             updated += 1
         return JsonResponse({'success': True, 'message': f'Marked {updated} candidates as disabled with selected nature(s).'})
+    
+    elif action == 'change_occupation':
+        # Bulk change occupation for candidates
+        occupation_id = data.get('occupation_id')
+        if not occupation_id:
+            return JsonResponse({'success': False, 'error': 'Occupation is required.'}, status=400)
+        
+        try:
+            new_occupation = Occupation.objects.get(id=occupation_id)
+        except Occupation.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Invalid occupation selected.'}, status=400)
+        
+        # Check if any candidates are enrolled (cannot change occupation if enrolled)
+        enrolled_candidates = []
+        for candidate in candidates:
+            if candidate.is_enrolled():
+                enrolled_candidates.append(candidate.reg_number or f"ID:{candidate.id}")
+        
+        if enrolled_candidates:
+            enrolled_list = ', '.join(enrolled_candidates[:5])  # Show first 5
+            if len(enrolled_candidates) > 5:
+                enrolled_list += f" and {len(enrolled_candidates) - 5} more"
+            return JsonResponse({
+                'success': False, 
+                'error': f'Cannot change occupation for enrolled candidates: {enrolled_list}'
+            }, status=400)
+        
+        # Update occupation and regenerate registration numbers
+        updated = 0
+        for candidate in candidates:
+            candidate.occupation = new_occupation
+            candidate.build_reg_number()  # Regenerate registration number
+            candidate.save(update_fields=['occupation', 'reg_number'])
+            updated += 1
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Successfully changed occupation for {updated} candidate{"s" if updated != 1 else ""}. Registration numbers have been updated.'
+        })
+    
     else:
         return JsonResponse({'success': False, 'error': 'Unknown action.'}, status=400)
 

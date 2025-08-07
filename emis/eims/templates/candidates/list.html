@@ -21,6 +21,7 @@
           <option value="regenerate">Regenerate Reg. Number</option>
           <option value="add_regno_photo">Add Regno on Photo</option>
           <option value="change_reg_cat">Change Reg Category</option>
+          <option value="change_occupation">Change Occupation</option>
           <option value="mark_disabled">Mark as Disabled</option>
         </select>
         <!-- Assessment Series selector for bulk enroll -->
@@ -62,6 +63,26 @@
         <button id="bulk-regcat-apply" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Apply</button>
       </div>
       <button id="bulk-regcat-close" class="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+    </div>
+  </div>
+
+  <!-- Bulk Change Occupation Modal -->
+  <div id="bulk-change-occupation-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-sm p-6 relative">
+      <h2 class="text-lg font-bold mb-4">Change Occupation</h2>
+      <label for="bulk-occupation-select" class="block mb-2 font-medium">Select New Occupation</label>
+      <select id="bulk-occupation-select" class="w-full border rounded px-3 py-2 mb-4" required>
+        <option value="">-- Select Occupation --</option>
+        {% for occupation in occupations %}
+          <option value="{{ occupation.id }}">{{ occupation.name }} ({{ occupation.code }})</option>
+        {% endfor %}
+      </select>
+      <div id="bulk-occupation-error" class="text-red-600 text-sm mb-2 hidden"></div>
+      <div class="flex justify-between mt-4">
+        <button id="bulk-occupation-cancel" class="text-gray-600 hover:underline">Cancel</button>
+        <button id="bulk-occupation-apply" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Apply</button>
+      </div>
+      <button id="bulk-occupation-close" class="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
     </div>
   </div>
 
@@ -613,9 +634,33 @@ function hideBulkRegcatModal() {
 if (bulkRegcatCancel) bulkRegcatCancel.onclick = hideBulkRegcatModal;
 if (bulkRegcatClose) bulkRegcatClose.onclick = hideBulkRegcatModal;
 
+// Bulk Change Occupation logic
+const bulkOccupationModal = document.getElementById('bulk-change-occupation-modal');
+const bulkOccupationSelect = document.getElementById('bulk-occupation-select');
+const bulkOccupationApply = document.getElementById('bulk-occupation-apply');
+const bulkOccupationCancel = document.getElementById('bulk-occupation-cancel');
+const bulkOccupationClose = document.getElementById('bulk-occupation-close');
+const bulkOccupationError = document.getElementById('bulk-occupation-error');
+
+function showBulkOccupationModal() {
+  bulkOccupationSelect.value = '';
+  bulkOccupationError.textContent = '';
+  bulkOccupationError.classList.add('hidden');
+  bulkOccupationModal.classList.remove('hidden');
+}
+
+function hideBulkOccupationModal() {
+  bulkOccupationModal.classList.add('hidden');
+}
+
+if (bulkOccupationCancel) bulkOccupationCancel.onclick = hideBulkOccupationModal;
+if (bulkOccupationClose) bulkOccupationClose.onclick = hideBulkOccupationModal;
+
 bulkSelect.addEventListener('change', function() {
   if (bulkSelect.value === 'change_reg_cat') {
     showBulkRegcatModal();
+  } else if (bulkSelect.value === 'change_occupation') {
+    showBulkOccupationModal();
   }
 });
 
@@ -660,6 +705,50 @@ bulkRegcatApply && bulkRegcatApply.addEventListener('click', function() {
   .catch(() => {
     bulkRegcatError.textContent = 'Server error.';
     bulkRegcatError.classList.remove('hidden');
+  });
+});
+
+bulkOccupationApply && bulkOccupationApply.addEventListener('click', function() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  const newOccupationId = bulkOccupationSelect.value;
+  if (!newOccupationId) {
+    bulkOccupationError.textContent = 'Please select an occupation.';
+    bulkOccupationError.classList.remove('hidden');
+    return;
+  }
+  if (checked.length === 0) {
+    bulkOccupationError.textContent = 'Please select at least one candidate.';
+    bulkOccupationError.classList.remove('hidden');
+    return;
+  }
+  bulkOccupationError.textContent = '';
+  bulkOccupationError.classList.add('hidden');
+  // AJAX POST to backend
+  fetch("/eims/candidates/bulk-action/", {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      action: 'change_occupation',
+      candidate_ids: checked.map(cb => cb.value),
+      occupation_id: newOccupationId
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(`Successfully changed occupation for ${checked.length} candidate${checked.length>1?'s':''}. Registration numbers have been updated.`);
+      window.location.reload();
+    } else {
+      bulkOccupationError.textContent = data.error || 'An error occurred.';
+      bulkOccupationError.classList.remove('hidden');
+    }
+  })
+  .catch(() => {
+    bulkOccupationError.textContent = 'Server error.';
+    bulkOccupationError.classList.remove('hidden');
   });
 });
 
