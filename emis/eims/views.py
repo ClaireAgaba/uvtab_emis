@@ -2438,7 +2438,7 @@ def district_villages_api(request, district_id):
 
 
 def assessment_center_list(request):
-    centers = AssessmentCenter.objects.all()
+    centers = AssessmentCenter.objects.all().order_by('center_name')
     
     # Get filter parameters
     center_number = request.GET.get('center_number', '').strip()
