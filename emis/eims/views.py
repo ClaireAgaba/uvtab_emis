@@ -3746,6 +3746,7 @@ def candidate_list(request):
             'assessment_center': request.GET.get('assessment_center', '').strip(),
             'assessment_month': request.GET.get('assessment_month', '').strip(),
             'assessment_year': request.GET.get('assessment_year', '').strip(),
+            'disability': request.GET.get('disability', '').strip(),
         }
         
         # IMPORTANT: Preserve assessment series context from existing session or URL
