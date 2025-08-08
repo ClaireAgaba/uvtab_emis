@@ -17,6 +17,7 @@
       <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
         <select id="bulk-action-select" class="border px-3 py-2 rounded text-sm touch-target min-w-0">
           <option value="">Select Action</option>
+          <option value="export">Export to Excel</option>
           <option value="enroll">Enroll</option>
           <option value="regenerate">Regenerate Reg. Number</option>
           <option value="add_regno_photo">Add Regno on Photo</option>
@@ -139,6 +140,7 @@
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Full Name</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Occupation</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Reg. Category</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Assessment Date</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Center</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Status</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Actions</th>
@@ -177,6 +179,31 @@
               </select>
             </th>
             <th class="px-3 py-2">
+              <div class="flex gap-1">
+                <select name="assessment_month" class="border border-gray-300 rounded px-1 py-1 text-xs w-1/2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Month</option>
+                  <option value="1" {% if filters.assessment_month == '1' %}selected{% endif %}>Jan</option>
+                  <option value="2" {% if filters.assessment_month == '2' %}selected{% endif %}>Feb</option>
+                  <option value="3" {% if filters.assessment_month == '3' %}selected{% endif %}>Mar</option>
+                  <option value="4" {% if filters.assessment_month == '4' %}selected{% endif %}>Apr</option>
+                  <option value="5" {% if filters.assessment_month == '5' %}selected{% endif %}>May</option>
+                  <option value="6" {% if filters.assessment_month == '6' %}selected{% endif %}>Jun</option>
+                  <option value="7" {% if filters.assessment_month == '7' %}selected{% endif %}>Jul</option>
+                  <option value="8" {% if filters.assessment_month == '8' %}selected{% endif %}>Aug</option>
+                  <option value="9" {% if filters.assessment_month == '9' %}selected{% endif %}>Sep</option>
+                  <option value="10" {% if filters.assessment_month == '10' %}selected{% endif %}>Oct</option>
+                  <option value="11" {% if filters.assessment_month == '11' %}selected{% endif %}>Nov</option>
+                  <option value="12" {% if filters.assessment_month == '12' %}selected{% endif %}>Dec</option>
+                </select>
+                <select name="assessment_year" class="border border-gray-300 rounded px-1 py-1 text-xs w-1/2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Year</option>
+                  {% for year in assessment_years %}
+                    <option value="{{ year }}" {% if filters.assessment_year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </th>
+            <th class="px-3 py-2">
               <select name="assessment_center" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                 <option value="">All Centers</option>
                 {% for center in centers %}
@@ -195,7 +222,7 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for candidate in candidates %}
-        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'candidate_view' candidate.id %}'">
+        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'candidate_view' candidate.id %}';">
           <td class="px-2 py-3 text-center">
             <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}" onclick="event.stopPropagation();">
           </td>
@@ -215,6 +242,9 @@
           <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.full_name }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.occupation.name }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.get_registration_category_display }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900">
+            {{ candidate.assessment_date|date:"d/m/Y"|default:"—" }}
+          </td>
           <td class="px-3 py-3 text-sm text-gray-900">
             {{ candidate.assessment_center.center_name|default:"—" }}
           </td>
@@ -804,6 +834,41 @@ bulkApply && bulkApply.addEventListener('click', function() {
       return;
     }
   }
+  // Handle export action
+  if (bulkSelect.value === 'export') {
+    // Create a form and submit to export endpoint
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/eims/candidates/export/';
+    form.style.display = 'none';
+    
+    // Add CSRF token
+    const csrfToken = document.createElement('input');
+    csrfToken.type = 'hidden';
+    csrfToken.name = 'csrfmiddlewaretoken';
+    csrfToken.value = (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken');
+    form.appendChild(csrfToken);
+    
+    // Add candidate IDs
+    checked.forEach(cb => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'candidate_ids';
+      input.value = cb.value;
+      form.appendChild(input);
+    });
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    
+    // Clear selection and hide bulk action bar
+    document.querySelectorAll('.candidate-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('bulk-action-bar').classList.add('hidden');
+    bulkSelect.value = '';
+    return;
+  }
+  
   // AJAX POST to backend
   bulkError.textContent = '';
   if (bulkSelect.value === 'add_regno_photo') {

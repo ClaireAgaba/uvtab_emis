@@ -26,6 +26,9 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from io import BytesIO
 from collections import Counter
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
 
 @login_required
 def staff_list(request):
@@ -2328,6 +2331,193 @@ def bulk_candidate_action(request):
     else:
         return JsonResponse({'success': False, 'error': 'Unknown action.'}, status=400)
 
+@login_required
+def export_candidates(request):
+    """Export selected candidates to Excel with comprehensive data"""
+    from django.views.decorators.http import require_POST
+    from datetime import datetime
+    
+    # Get selected candidate IDs from POST data
+    candidate_ids = request.POST.getlist('candidate_ids')
+    
+    if not candidate_ids:
+        return HttpResponse("No candidates selected for export", status=400)
+    
+    # Get candidates with related data
+    candidates = Candidate.objects.filter(
+        id__in=candidate_ids
+    ).select_related(
+        'assessment_center', 'occupation', 'district', 'village', 'created_by', 'updated_by'
+    ).prefetch_related(
+        'nature_of_disability', 'candidatelevel_set__level', 'candidatemodule_set__module',
+        'candidatepaper_set__paper', 'result_set'
+    ).order_by('reg_number')
+    
+    # Create workbook and worksheet
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Candidates Export"
+    
+    # Define styles
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Define headers with all comprehensive fields
+    headers = [
+        # Bio Data
+        "Registration Number", "Full Name", "Date of Birth", "Gender", "Nationality",
+        "Contact", 
+        
+        # Address Information
+        "District", "Village",
+        
+        # Assessment Information
+        "Assessment Center", "Occupation", "Registration Category", "Entry Year", "Intake",
+        "Assessment Date", "Assessment Series", "Start Date", "Finish Date",
+        
+        # Disability Information
+        "Has Disability", "Nature of Disability", "Disability Specification",
+        
+        # Enrollment Information
+        "Enrolled Levels", "Enrolled Modules", "Enrolled Papers",
+        
+        # Financial Information
+        "Fees Balance",
+        
+        # Results Summary
+        "Has Results", "Result Count", "Latest Result Date",
+        
+        # System Information
+        "Status", "Created Date", "Created By", "Updated Date", "Updated By"
+    ]
+    
+    # Write headers
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+    
+    # Write data for each candidate
+    for row, candidate in enumerate(candidates, 2):
+        # Get enrollment information
+        enrolled_levels = list(candidate.candidatelevel_set.all())
+        enrolled_modules = list(candidate.candidatemodule_set.all())
+        enrolled_papers = list(candidate.candidatepaper_set.all())
+        
+        # Get results information
+        results = list(candidate.result_set.all())
+        latest_result = results[0] if results else None
+        
+        # Get nature of disability
+        disabilities = list(candidate.nature_of_disability.all())
+        disability_names = ", ".join([d.name for d in disabilities]) if disabilities else ""
+        
+        # Prepare data row
+        data = [
+            # Bio Data
+            candidate.reg_number or "",
+            candidate.full_name or "",
+            candidate.date_of_birth.strftime('%d/%m/%Y') if candidate.date_of_birth else "",
+            candidate.get_gender_display() if candidate.gender else "",
+            candidate.nationality or "",
+            candidate.contact or "",
+            
+            # Address Information
+            candidate.district.name if candidate.district else "",
+            candidate.village.name if candidate.village else "",
+            
+            # Assessment Information
+            candidate.assessment_center.center_name if candidate.assessment_center else "",
+            candidate.occupation.name if candidate.occupation else "",
+            candidate.registration_category or "",
+            candidate.entry_year or "",
+            candidate.intake or "",
+            candidate.assessment_date.strftime('%d/%m/%Y') if candidate.assessment_date else "",
+            candidate.assessment_series.name if candidate.assessment_series else "",
+            candidate.start_date.strftime('%d/%m/%Y') if candidate.start_date else "",
+            candidate.finish_date.strftime('%d/%m/%Y') if candidate.finish_date else "",
+            
+            # Disability Information
+            "Yes" if candidate.disability else "No",
+            disability_names,
+            candidate.disability_specification or "",
+            
+            # Enrollment Information
+            ", ".join([f"{cl.level.name}" for cl in enrolled_levels]) if enrolled_levels else "",
+            ", ".join([f"{cm.module.name}" for cm in enrolled_modules]) if enrolled_modules else "",
+            ", ".join([f"{cp.paper.name}" for cp in enrolled_papers]) if enrolled_papers else "",
+            
+            # Financial Information
+            float(candidate.fees_balance) if candidate.fees_balance else 0.00,
+            
+            # Results Summary
+            "Yes" if results else "No",
+            len(results),
+            latest_result.assessment_date.strftime('%d/%m/%Y') if latest_result and latest_result.assessment_date else "",
+            
+            # System Information
+            candidate.status or "Active",
+            candidate.created_at.strftime('%d/%m/%Y %H:%M') if candidate.created_at else "",
+            candidate.created_by.username if candidate.created_by else "",
+            candidate.updated_at.strftime('%d/%m/%Y %H:%M') if candidate.updated_at else "",
+            candidate.updated_by.username if candidate.updated_by else ""
+        ]
+        
+        # Write data to worksheet
+        for col, value in enumerate(data, 1):
+            cell = ws.cell(row=row, column=col, value=value)
+            cell.border = border
+            
+            # Format specific columns
+            if col in [3, 10, 12, 13, 18, 20, 22]:  # Date columns (DOB, Assessment Date, Start Date, Finish Date, Latest Result Date, Created Date, Updated Date)
+                cell.alignment = Alignment(horizontal="center")
+            elif col in [17]:  # Numeric columns (Fees Balance)
+                cell.alignment = Alignment(horizontal="right")
+    
+    # Auto-adjust column widths
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        
+        # Set minimum and maximum widths
+        adjusted_width = min(max(max_length + 2, 10), 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Freeze the header row
+    ws.freeze_panes = "A2"
+    
+    # Create response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"EMIS_Candidates_Export_{timestamp}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Save workbook to response
+    wb.save(response)
+    
+    return response
+
 from django.urls import reverse
 from .models import AssessmentCenter, Candidate, Occupation, AssessmentCenterCategory, Level, Module, Paper, CandidateLevel, CandidateModule, Village, District
 from . import views_api
@@ -3554,6 +3744,8 @@ def candidate_list(request):
             'occupation': request.GET.get('occupation', '').strip(),
             'registration_category': request.GET.get('registration_category', '').strip(),
             'assessment_center': request.GET.get('assessment_center', '').strip(),
+            'assessment_month': request.GET.get('assessment_month', '').strip(),
+            'assessment_year': request.GET.get('assessment_year', '').strip(),
         }
         
         # IMPORTANT: Preserve assessment series context from existing session or URL
@@ -3611,23 +3803,20 @@ def candidate_list(request):
         disability_filter = current_filters.get('disability').lower() == 'true'
         candidates = candidates.filter(disability=disability_filter)
     
-    # Fix: Use assessment_series filtering instead of assessment_date for consistency
-    if current_filters.get('assessment_year') and current_filters.get('assessment_month'):
+    # Assessment date filtering by month and year
+    if current_filters.get('assessment_year'):
         try:
-            # Find the assessment series for the given year/month
-            from .models import AssessmentSeries
-            assessment_series = AssessmentSeries.objects.filter(
-                start_date__year=current_filters.get('assessment_year'),
-                start_date__month=current_filters.get('assessment_month')
-            ).first()
-            
-            if assessment_series:
-                candidates = candidates.filter(assessment_series=assessment_series)
-            else:
-                # If no series found, return empty queryset to match statistics behavior
-                candidates = candidates.none()
-        except (ValueError, AssessmentSeries.DoesNotExist):
-            candidates = candidates.none()
+            year = int(current_filters.get('assessment_year'))
+            candidates = candidates.filter(assessment_date__year=year)
+        except (ValueError, TypeError):
+            pass
+    
+    if current_filters.get('assessment_month'):
+        try:
+            month = int(current_filters.get('assessment_month'))
+            candidates = candidates.filter(assessment_date__month=month)
+        except (ValueError, TypeError):
+            pass
 
     def build_candidate_filter_url(base_filters=None, **additional_filters):
         """Build a URL for filtering candidates with given parameters"""
@@ -3650,6 +3839,14 @@ def candidate_list(request):
     from .models import Occupation, AssessmentCenter
     occupations = Occupation.objects.all().order_by('code')
     centers = AssessmentCenter.objects.all()
+    
+    # Get available assessment years for the dropdown
+    from django.db.models import Q
+    import datetime
+    current_year = datetime.datetime.now().year
+    # Get years from existing assessment dates, plus current and next year
+    assessment_years = list(range(current_year - 2, current_year + 3))
+    assessment_years.sort(reverse=True)
 
     # Pagination: 100 per page
     paginator = Paginator(candidates, 100)
@@ -3670,6 +3867,7 @@ def candidate_list(request):
         'filters': current_filters,
         'filter_params': filter_params,
         'nature_of_disabilities': NatureOfDisability.objects.all(),
+        'assessment_years': assessment_years,
     })
 
 
