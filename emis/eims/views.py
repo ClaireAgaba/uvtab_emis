@@ -3465,7 +3465,7 @@ def generate_album(request):
 
             # Candidate Querying
             logger.info("Querying candidates...")
-            candidate_qs = Candidate.objects.select_related('occupation', 'assessment_center').filter(
+            candidate_qs = Candidate.objects.select_related('occupation', 'assessment_center').prefetch_related('nature_of_disability').filter(
                 assessment_center=center,
                 occupation=occupation,
                 registration_category__iexact=reg_category_form, # Use form value for filtering
@@ -3558,12 +3558,28 @@ def generate_album(request):
 
             data = []
             # Table Headers
-            header_row = [Paragraph(h, table_header_style) for h in ['S/N', 'PHOTO', 'REG NO.', 'FULL NAME', 'OCCUPATION', 'REG TYPE', 'SIGNATURE']]
+            header_row = [Paragraph(h, table_header_style) for h in ['S/N', 'PHOTO', 'REG NO.', 'FULL NAME', 'OCCUPATION', 'REG TYPE', 'SPECIAL NEEDS', 'SIGNATURE']]
             data.append(header_row)
 
             for i, cand in enumerate(final_candidates):
                 logger.debug(f"Processing candidate {i+1}: {cand.reg_number}")
                 photo_cell_flowables = _create_photo_cell_content(cand, styles)
+                
+                # Generate Special Needs text
+                if cand.disability:
+                    # Get nature of disability names
+                    nature_names = list(cand.nature_of_disability.values_list('name', flat=True))
+                    nature_text = ', '.join(nature_names) if nature_names else 'Not specified'
+                    
+                    # Add disability specification if available
+                    specification = cand.disability_specification or ''
+                    if specification:
+                        special_needs_text = f"Yes ({nature_text} - {specification})"
+                    else:
+                        special_needs_text = f"Yes ({nature_text})"
+                else:
+                    special_needs_text = "No"
+                
                 row = [
                     Paragraph(str(i + 1), table_cell_center_style),
                     photo_cell_flowables, # This is a list of flowables
@@ -3571,12 +3587,14 @@ def generate_album(request):
                     Paragraph(cand.full_name.upper(), table_cell_style),
                     Paragraph(cand.occupation.name.upper() if cand.occupation else 'N/A', table_cell_style),
                     Paragraph(cand.registration_category.upper() if cand.registration_category else 'N/A', table_cell_style),
+                    Paragraph(special_needs_text, table_cell_style),
                     Paragraph('', table_cell_style) # Empty for signature
                 ]
                 data.append(row)
             
             # Column widths (adjust as needed, total should be around 10.2 inch for landscape letter with 0.4 margins)
-            col_widths = [0.4*inch, 1.3*inch, 1.8*inch, 2.7*inch, 1.5*inch, 1.2*inch, 1.3*inch] 
+            # S/N, PHOTO, REG NO., FULL NAME, OCCUPATION, REG TYPE, SPECIAL NEEDS, SIGNATURE
+            col_widths = [0.4*inch, 1.2*inch, 1.4*inch, 2.2*inch, 1.2*inch, 1.0*inch, 1.8*inch, 1.2*inch] 
 
             candidate_table = Table(data, colWidths=col_widths, repeatRows=1)
             candidate_table.setStyle(TableStyle([
@@ -3601,6 +3619,8 @@ def generate_album(request):
                 ('ALIGN', (3,1), (3,-1), 'LEFT'), # Full Name left
                 ('ALIGN', (4,1), (4,-1), 'LEFT'), # Occupation left
                 ('ALIGN', (5,1), (5,-1), 'CENTER'), # Reg Type center
+                ('ALIGN', (6,1), (6,-1), 'LEFT'), # Special Needs left
+                ('ALIGN', (7,1), (7,-1), 'CENTER'), # Signature center
                 ('TOPPADDING', (0,1), (-1,-1), 2), # Reduced padding
                 ('BOTTOMPADDING', (0,1), (-1,-1), 2), # Reduced padding
             ]))
