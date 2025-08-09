@@ -8361,22 +8361,97 @@ def statistical_reports_home(request):
 @login_required
 def api_assessment_series(request):
     """API endpoint to get Assessment Series data for bulk enrollment"""
-    from django.http import JsonResponse
-    
-    # Get all assessment series, ordered by most recent first
-    series = AssessmentSeries.objects.all().order_by('-start_date')
-    
-    series_data = []
-    for s in series:
-        series_data.append({
-            'id': s.id,
-            'name': s.name,
-            'start_date': s.start_date.strftime('%Y-%m-%d'),
-            'end_date': s.end_date.strftime('%Y-%m-%d'),
-            'is_current': s.is_current,
+    try:
+        # Get all assessment series, ordered by most recent first
+        series_list = AssessmentSeries.objects.all().order_by('-start_date')
+        
+        series_data = []
+        for series in series_list:
+            series_data.append({
+                'id': series.id,
+                'name': series.name,
+                'start_date': series.start_date.strftime('%Y-%m-%d'),
+                'end_date': series.end_date.strftime('%Y-%m-%d'),
+                'is_current': series.is_current,
+                'results_released': series.results_released
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'series': series_data
         })
-    
-    return JsonResponse({
-        'assessment_series': series_data
-    })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 
+# Candidate Verification System
+from django.utils import timezone
+from django.contrib.auth.decorators import user_passes_test
+from django.views.decorators.http import require_POST
+
+def is_admin_or_staff(user):
+    """Check if user is admin or staff (not center representative)"""
+    return user.is_superuser or user.is_staff or hasattr(user, 'staff_profile') or hasattr(user, 'supportstaff')
+
+@login_required
+@user_passes_test(is_admin_or_staff)
+@require_POST
+def verify_candidate(request, id):
+    """Verify a candidate - admin/staff only"""
+    candidate = get_object_or_404(Candidate, id=id)
+    
+    try:
+        # Update candidate verification status
+        candidate.verification_status = 'verified'
+        candidate.verification_date = timezone.now()
+        candidate.verified_by = request.user
+        candidate.decline_reason = None  # Clear any previous decline reason
+        candidate.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Candidate verified successfully',
+            'status': 'verified'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required
+@user_passes_test(is_admin_or_staff)
+@require_POST
+def decline_candidate(request, id):
+    """Decline a candidate with reason - admin/staff only"""
+    candidate = get_object_or_404(Candidate, id=id)
+    
+    try:
+        decline_reason = request.POST.get('decline_reason', '').strip()
+        
+        if not decline_reason:
+            return JsonResponse({
+                'success': False,
+                'error': 'Decline reason is required'
+            })
+        
+        # Update candidate verification status
+        candidate.verification_status = 'declined'
+        candidate.verification_date = timezone.now()
+        candidate.verified_by = request.user
+        candidate.decline_reason = decline_reason
+        candidate.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Candidate declined successfully',
+            'status': 'declined',
+            'decline_reason': decline_reason
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

@@ -70,6 +70,9 @@ urlpatterns = [
     path('candidates/<int:id>/change-registration-category/', views.change_registration_category, name='change_registration_category'), 
     # Secure document serving
     path('candidates/<int:candidate_id>/documents/<str:document_type>/', document_views.serve_candidate_document, name='serve_candidate_document'),
+    # Candidate verification
+    path('candidates/<int:id>/verify/', views.verify_candidate, name='verify_candidate'),
+    path('candidates/<int:id>/decline/', views.decline_candidate, name='decline_candidate'),
     path('api/districts/<int:district_id>/villages/', views.district_villages_api, name='api_district_villages'),
     path('assessment-centers/<int:id>/', views.assessment_center_view, name='assessment_center_view'),
     path('assessment-centers/<int:id>/edit/', views.edit_assessment_center, name='edit_assessment_center'), 

@@ -56,9 +56,25 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       <a href="{% url 'enroll_candidate' candidate.id %}" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition" title="Enroll candidate">
          Enroll
       </a>
-      <a href="{% url 'edit_candidate' candidate.id %}" class="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded shadow transition" title="Edit candidate">
-       Edit
-      </a>
+      <!-- Edit button - conditional based on verification status and user role -->
+      {% if is_center_rep %}
+        {% if candidate.verification_status == 'verified' %}
+          <!-- Verified candidates cannot be edited by center representatives -->
+          <span class="flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded shadow cursor-not-allowed" title="Cannot edit verified candidate">
+            Edit (Locked)
+          </span>
+        {% else %}
+          <!-- Pending or declined candidates can be edited by center representatives -->
+          <a href="{% url 'edit_candidate' candidate.id %}" class="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded shadow transition" title="Edit candidate">
+            Edit
+          </a>
+        {% endif %}
+      {% else %}
+        <!-- Admin/staff can always edit -->
+        <a href="{% url 'edit_candidate' candidate.id %}" class="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded shadow transition" title="Edit candidate">
+          Edit
+        </a>
+      {% endif %}
       {% if not is_center_rep %}
       <form method="post" action="{% url 'regenerate_candidate_reg_number' candidate.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to regenerate the registration number? This cannot be undone.');">
         {% csrf_token %}
@@ -71,6 +87,30 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         Add Regno on Photo
       </button>
       <span id="addRegnoOnPhotoStatus" class="ml-2 text-sm text-gray-500"></span>
+      {% endif %}
+      
+      <!-- Verification Button -->
+      {% if candidate.verification_status == 'pending' %}
+      <button id="verifyBtn" type="button" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded shadow transition" title="Verify candidate">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Verify
+      </button>
+      {% elif candidate.verification_status == 'verified' %}
+      <button id="declineBtn" type="button" class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow transition" title="Decline candidate">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Decline
+      </button>
+      {% elif candidate.verification_status == 'declined' %}
+      <button id="verifyBtn" type="button" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded shadow transition" title="Verify candidate">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Verify
+      </button>
       {% endif %}
       <a href="{% url 'generate_transcript' candidate.id %}" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition" title="Download transcript">
          Print Transcript
@@ -167,6 +207,93 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
           }
         });
       </script>
+      
+      <!-- Verification System JavaScript -->
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          const verifyBtn = document.getElementById('verifyBtn');
+          const declineBtn = document.getElementById('declineBtn');
+          
+          // Verify button handler
+          if (verifyBtn) {
+            verifyBtn.addEventListener('click', function() {
+              // Show confirmation dialog
+              const confirmed = confirm('Are you sure you want to VERIFY this candidate?\n\nClick OK to verify or Cancel to decline.');
+              
+              if (confirmed) {
+                // User clicked OK - Verify
+                verifyCandidate();
+              } else {
+                // User clicked Cancel - Show decline reason dialog
+                const reason = prompt('Please provide a reason for declining this candidate:');
+                if (reason && reason.trim()) {
+                  declineCandidate(reason.trim());
+                }
+              }
+            });
+          }
+          
+          // Decline button handler (for already verified candidates)
+          if (declineBtn) {
+            declineBtn.addEventListener('click', function() {
+              const reason = prompt('Please provide a reason for declining this candidate:');
+              if (reason && reason.trim()) {
+                declineCandidate(reason.trim());
+              }
+            });
+          }
+          
+          function verifyCandidate() {
+            fetch("{% url 'verify_candidate' candidate.id %}", {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                alert('Candidate verified successfully!');
+                location.reload(); // Refresh page to show updated status
+              } else {
+                alert('Error: ' + (data.error || 'Failed to verify candidate'));
+              }
+            })
+            .catch(error => {
+              console.error('Error:', error);
+              alert('An error occurred while verifying the candidate.');
+            });
+          }
+          
+          function declineCandidate(reason) {
+            const formData = new FormData();
+            formData.append('decline_reason', reason);
+            
+            fetch("{% url 'decline_candidate' candidate.id %}", {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                alert('Candidate declined successfully.');
+                location.reload(); // Refresh page to show updated status
+              } else {
+                alert('Error: ' + (data.error || 'Failed to decline candidate'));
+              }
+            })
+            .catch(error => {
+              console.error('Error:', error);
+              alert('An error occurred while declining the candidate.');
+            });
+          }
+        });
+      </script>
     </div>
   </div>
 
@@ -231,6 +358,19 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
             </span>
           {% endif %}
         </p>
+        
+        <!-- Decline Reason (if candidate is declined) -->
+        {% if candidate.verification_status == 'declined' and candidate.decline_reason %}
+        <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-sm">
+            <span class="font-semibold text-red-800">Reason for Decline:</span>
+            <span class="text-red-700 ml-2">{{ candidate.decline_reason }}</span>
+          </p>
+          <p class="text-xs text-red-600 mt-1">
+            Please address the above issue and save your changes for re-verification.
+          </p>
+        </div>
+        {% endif %}
       </div>
     </div>
     <!-- Image + Badge -->
@@ -245,6 +385,22 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
           <span class="text-gray-400 text-lg">No photo</span>
         </div>
       {% endif %}
+      
+      <!-- Verification Status Diagonal Banner -->
+      {% if candidate.verification_status == 'verified' %}
+        <div class="absolute top-0 right-0 w-20 h-20 overflow-hidden">
+          <div class="absolute top-3 -right-6 bg-green-500 text-white text-xs font-bold px-8 py-1 transform rotate-45 shadow-lg">
+            VERIFIED
+          </div>
+        </div>
+      {% elif candidate.verification_status == 'declined' %}
+        <div class="absolute top-0 right-0 w-20 h-20 overflow-hidden">
+          <div class="absolute top-3 -right-6 bg-red-500 text-white text-xs font-bold px-8 py-1 transform rotate-45 shadow-lg">
+            DECLINED
+          </div>
+        </div>
+      {% endif %}
+      
       {% if candidate.is_enrolled %}
         <div class="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold px-3 py-1 rounded shadow">
           Registered
@@ -650,6 +806,9 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
   <div class="text-xs text-gray-500 mt-4 text-right">
     <p>Created: {{ candidate.created_at|date:'Y-m-d H:i' }}{% if candidate.created_by %} by {{ candidate.created_by }}{% endif %}</p>
     <p>Last updated: {{ candidate.updated_at|date:'Y-m-d H:i' }}{% if candidate.updated_by %} by {{ candidate.updated_by }}{% endif %}</p>
+    {% if candidate.verification_status != 'pending' and candidate.verification_date %}
+    <p>{{ candidate.verification_status|capfirst }}: {{ candidate.verification_date|date:'Y-m-d H:i' }}{% if candidate.verified_by %} by {{ candidate.verified_by.get_full_name|default:candidate.verified_by.username }}{% endif %}{% if candidate.verification_status == 'declined' and candidate.decline_reason %} - {{ candidate.decline_reason }}{% endif %}</p>
+    {% endif %}
   </div>
 
 </div>

@@ -461,6 +461,37 @@ class Candidate(models.Model):
         validators=[validate_document_file],
         help_text="Attach relevant qualification documents (for Full Occupation candidates) - PNG, JPG, or PDF (max 10MB)"
     )
+    
+    # Verification fields
+    VERIFICATION_STATUS_CHOICES = [
+        ('pending', 'Pending Verification'),
+        ('verified', 'Verified'),
+        ('declined', 'Declined'),
+    ]
+    verification_status = models.CharField(
+        max_length=10,
+        choices=VERIFICATION_STATUS_CHOICES,
+        default='pending',
+        help_text="Quality assurance verification status"
+    )
+    verification_date = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="Date when verification status was last changed"
+    )
+    verified_by = models.ForeignKey(
+        get_user_model(),
+        related_name='verified_candidates',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text="Admin/staff user who verified or declined this candidate"
+    )
+    decline_reason = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Reason for declining candidate (required when status is declined)"
+    )
 
     def calculate_fees_balance(self):
         """
