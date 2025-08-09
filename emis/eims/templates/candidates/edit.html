@@ -96,6 +96,61 @@
     {{ form.assessment_date }}
   </div>
   {{ form.non_field_errors }}
+  
+  <!-- Relevant Documents Section -->
+  <div class="md:col-span-2 bg-gray-50 p-4 rounded-lg mt-4">
+    <h3 class="text-lg font-medium text-gray-900 mb-4">Relevant Documents <span class="text-sm text-gray-500 font-normal">(Optional)</span></h3>
+    <p class="text-sm text-gray-600 mb-4">Attach or update supporting documents. Accepted formats: PNG, JPG, PDF</p>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label for="{{ form.identification_document.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+          {{ form.identification_document.label }}
+        </label>
+        <p class="text-xs text-gray-500 mb-2">National ID, Birth Certificate, or other identification</p>
+        {% if candidate.identification_document %}
+          <div class="mb-2 p-2 bg-blue-50 rounded border">
+            <p class="text-sm text-blue-800">
+              <strong>Current:</strong> 
+              <a href="{{ candidate.identification_document.url }}" target="_blank" class="text-blue-600 hover:underline">
+                {{ candidate.identification_document.name|slice:"50:" }}
+              </a>
+            </p>
+          </div>
+        {% endif %}
+        {{ form.identification_document }}
+        {% if form.identification_document.errors %}
+          <div class="text-red-600 text-sm mt-1">
+            {{ form.identification_document.errors }}
+          </div>
+        {% endif %}
+      </div>
+      
+      <div>
+        <label for="{{ form.qualification_document.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+          {{ form.qualification_document.label }}
+        </label>
+        <p class="text-xs text-gray-500 mb-2">Relevant qualifications (for Full Occupation candidates)</p>
+        {% if candidate.qualification_document %}
+          <div class="mb-2 p-2 bg-blue-50 rounded border">
+            <p class="text-sm text-blue-800">
+              <strong>Current:</strong> 
+              <a href="{{ candidate.qualification_document.url }}" target="_blank" class="text-blue-600 hover:underline">
+                {{ candidate.qualification_document.name|slice:"50:" }}
+              </a>
+            </p>
+          </div>
+        {% endif %}
+        {{ form.qualification_document }}
+        {% if form.qualification_document.errors %}
+          <div class="text-red-600 text-sm mt-1">
+            {{ form.qualification_document.errors }}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
   <!-- Submit Button -->
   <div class="md:col-span-2 text-right mt-4">
     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Save Changes</button>

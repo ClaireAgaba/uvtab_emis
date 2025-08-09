@@ -1,11 +1,30 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.db import transaction
+from django_countries.fields import CountryField
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+from datetime import datetime
+import os
 from PIL import Image, UnidentifiedImageError
 from io import BytesIO
 from django.core.files.base import ContentFile
-import os
+from django.db import transaction
+from django.contrib.auth import get_user_model
 
+def validate_document_file(value):
+    """Validate that uploaded file is PNG, JPG, or PDF"""
+    if value:
+        ext = os.path.splitext(value.name)[1].lower()
+        valid_extensions = ['.png', '.jpg', '.jpeg', '.pdf']
+        if ext not in valid_extensions:
+            raise ValidationError(
+                f'File must be PNG, JPG, or PDF format. Got: {ext}'
+            )
+        # Check file size (max 10MB)
+        if value.size > 10 * 1024 * 1024:
+            raise ValidationError(
+                'File size must be less than 10MB'
+            )
 
 
 GENDER_CHOICES = [('M', 'Male'), ('F', 'Female')]
@@ -425,6 +444,22 @@ class Candidate(models.Model):
         decimal_places=2,
         default=0.00,
         help_text="Outstanding fees balance for this candidate"
+    )
+    
+    # Document attachments (optional)
+    identification_document = models.FileField(
+        upload_to='candidate_documents/identification/',
+        blank=True,
+        null=True,
+        validators=[validate_document_file],
+        help_text="Attach identification document (National ID, Birth Certificate) - PNG, JPG, or PDF (max 10MB)"
+    )
+    qualification_document = models.FileField(
+        upload_to='candidate_documents/qualifications/',
+        blank=True,
+        null=True,
+        validators=[validate_document_file],
+        help_text="Attach relevant qualification documents (for Full Occupation candidates) - PNG, JPG, or PDF (max 10MB)"
     )
 
     def calculate_fees_balance(self):

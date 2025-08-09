@@ -34,5 +34,9 @@ urlpatterns = [
          name='logout'),
     path('', lambda request: redirect('dashboard')),  # Redirect root to dashboard
 
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
+
+# Serve media files during development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

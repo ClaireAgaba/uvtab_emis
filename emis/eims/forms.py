@@ -366,6 +366,14 @@ class CandidateForm(forms.ModelForm):
             'intake': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'occupation': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'registration_category': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'identification_document': forms.ClearableFileInput(attrs={
+                'class': 'border rounded px-3 py-2 w-full',
+                'accept': '.png,.jpg,.jpeg,.pdf'
+            }),
+            'qualification_document': forms.ClearableFileInput(attrs={
+                'class': 'border rounded px-3 py-2 w-full',
+                'accept': '.png,.jpg,.jpeg,.pdf'
+            }),
             # ...add others similarly
 
             }

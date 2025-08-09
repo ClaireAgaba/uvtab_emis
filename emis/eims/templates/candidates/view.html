@@ -285,6 +285,74 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     {% endif %}
   </div>
 
+  <!-- Relevant Documents Section -->
+  {% if candidate.identification_document or candidate.qualification_document %}
+  <div class="bg-white p-4 rounded shadow mt-4">
+    <div class="flex items-center mb-4">
+      <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <h2 class="text-lg font-semibold text-gray-900">Relevant Documents</h2>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% if candidate.identification_document %}
+      <div class="border rounded-lg p-4 bg-gray-50">
+        <h3 class="font-medium text-gray-800 mb-2">Identification Document</h3>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            {% if candidate.identification_document.name|slice:"-4:" == ".pdf" %}
+              <svg class="w-6 h-6 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+              </svg>
+            {% else %}
+              <svg class="w-6 h-6 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+              </svg>
+            {% endif %}
+            <span class="text-sm text-gray-700 truncate max-w-xs">{{ candidate.identification_document.name|slice:"50:" }}</span>
+          </div>
+          <a href="{% url 'serve_candidate_document' candidate_id=candidate.id document_type='identification' %}" target="_blank" class="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            View
+          </a>
+        </div>
+      </div>
+      {% endif %}
+      
+      {% if candidate.qualification_document %}
+      <div class="border rounded-lg p-4 bg-gray-50">
+        <h3 class="font-medium text-gray-800 mb-2">Qualification Document</h3>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            {% if candidate.qualification_document.name|slice:"-4:" == ".pdf" %}
+              <svg class="w-6 h-6 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+              </svg>
+            {% else %}
+              <svg class="w-6 h-6 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+              </svg>
+            {% endif %}
+            <span class="text-sm text-gray-700 truncate max-w-xs">{{ candidate.qualification_document.name|slice:"50:" }}</span>
+          </div>
+          <a href="{% url 'serve_candidate_document' candidate_id=candidate.id document_type='qualification' %}" target="_blank" class="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            View
+          </a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Enrollment Summary -->
 <div class="bg-white p-4 rounded shadow mt-4">
     <div class="flex items-center justify-between mb-2">
@@ -345,14 +413,15 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
                 {% for mod in lvl.modules %}
                   <li>
                     <span class="font-semibold">{{ mod.module.name }}</span>
-                    {% if mod.papers and mod.papers|length > 0 %}
-                      <ul class="list-disc ml-6">
-                        {% for paper in mod.papers %}
-                          <li>{{ paper.name }} <span class="text-xs text-gray-500">({{ paper.code }})</span></li>
-                        {% endfor %}
-                      </ul>
+                    {% if candidate.identification_document %}
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-image text-green-600"></i>
+                            <a href="{% url 'serve_candidate_document' candidate_id=candidate.id document_type='identification' %}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
+                                View Identification Document
+                            </a>
+                        </div>
                     {% else %}
-                      <span class="text-gray-400 text-xs">No paper selected</span>
+                        <span class="text-gray-500 italic">No identification document attached</span>
                     {% endif %}
                   </li>
                 {% endfor %}

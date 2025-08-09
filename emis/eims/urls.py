@@ -3,6 +3,7 @@ from . import views
 from . import views_api
 from . import views_fees
 from . import sector_views
+from . import document_views
 from django.contrib.auth import views as auth_views
 
 
@@ -67,6 +68,8 @@ urlpatterns = [
     path('candidates/<int:id>/change-center/', views.change_center, name='change_center'),
     path('candidates/<int:id>/change-occupation/', views.change_occupation, name='change_occupation'),
     path('candidates/<int:id>/change-registration-category/', views.change_registration_category, name='change_registration_category'), 
+    # Secure document serving
+    path('candidates/<int:candidate_id>/documents/<str:document_type>/', document_views.serve_candidate_document, name='serve_candidate_document'),
     path('api/districts/<int:district_id>/villages/', views.district_villages_api, name='api_district_villages'),
     path('assessment-centers/<int:id>/', views.assessment_center_view, name='assessment_center_view'),
     path('assessment-centers/<int:id>/edit/', views.edit_assessment_center, name='edit_assessment_center'), 
