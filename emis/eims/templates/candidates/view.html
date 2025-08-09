@@ -76,14 +76,14 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         </a>
       {% endif %}
       {% if not is_center_rep %}
-      <form method="post" action="{% url 'regenerate_candidate_reg_number' candidate.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to regenerate the registration number? This cannot be undone.');">
+      <form method="post" action="{% url 'regenerate_candidate_reg_number' candidate.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to regenerate the registration number? This cannot be undone.');" data-admin-only>
         {% csrf_token %}
-        <button type="submit" class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow transition" title="Regenerate registration number">
+        <button type="submit" class="regenerate-btn flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow transition" data-admin-only title="Regenerate registration number">
           Regenerate Reg. Number
         </button>
       </form>
       {% if candidate.passport_photo %}
-      <button id="addRegnoOnPhotoBtn" type="button" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow transition" title="Add Regno on Photo">
+      <button id="addRegnoOnPhotoBtn" type="button" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow transition" data-admin-only title="Add Regno on Photo">
         Add Regno on Photo
       </button>
       <span id="addRegnoOnPhotoStatus" class="ml-2 text-sm text-gray-500"></span>
@@ -91,21 +91,21 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       
       <!-- Verification Button -->
       {% if candidate.verification_status == 'pending' %}
-      <button id="verifyBtn" type="button" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded shadow transition" title="Verify candidate">
+      <button id="verifyBtn" type="button" class="verify-btn flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded shadow transition" data-admin-only title="Verify candidate">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         Verify
       </button>
       {% elif candidate.verification_status == 'verified' %}
-      <button id="declineBtn" type="button" class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow transition" title="Decline candidate">
+      <button id="declineBtn" type="button" class="decline-btn flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow transition" data-admin-only title="Decline candidate">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         Decline
       </button>
       {% elif candidate.verification_status == 'declined' %}
-      <button id="verifyBtn" type="button" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded shadow transition" title="Verify candidate">
+      <button id="verifyBtn" type="button" class="verify-btn flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded shadow transition" data-admin-only title="Verify candidate">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>

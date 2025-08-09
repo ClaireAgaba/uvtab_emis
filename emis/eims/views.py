@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
@@ -8384,6 +8384,42 @@ def api_assessment_series(request):
         return JsonResponse({
             'success': False,
             'error': str(e)
+        })
+
+@login_required
+def check_session_status(request):
+    """API endpoint to check if user session is still valid and return user role info"""
+    try:
+        # Check if user is authenticated (this will be False if session expired)
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'authenticated': False,
+                'is_center_rep': False,
+                'is_admin_or_staff': False
+            })
+        
+        # Determine user role
+        is_center_rep = hasattr(request.user, 'centerrep')
+        is_admin_or_staff = (
+            request.user.is_superuser or 
+            request.user.is_staff or 
+            hasattr(request.user, 'staff_profile') or 
+            hasattr(request.user, 'supportstaff')
+        )
+        
+        return JsonResponse({
+            'authenticated': True,
+            'is_center_rep': is_center_rep,
+            'is_admin_or_staff': is_admin_or_staff,
+            'username': request.user.username,
+            'full_name': request.user.get_full_name() or request.user.username
+        })
+    except Exception as e:
+        return JsonResponse({
+            'authenticated': False,
+            'error': str(e),
+            'is_center_rep': False,
+            'is_admin_or_staff': False
         })
 
 # Candidate Verification System
