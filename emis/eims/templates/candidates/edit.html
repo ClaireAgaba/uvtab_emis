@@ -308,5 +308,62 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // --- End Nature of Disability Required Logic ---
+
+// --- Name Formatting Logic ---
+document.addEventListener('DOMContentLoaded', function() {
+    const fullNameField = document.getElementById('id_full_name');
+    
+    function formatName(name) {
+        if (!name) return name;
+        
+        // Split the name into parts
+        const nameParts = name.trim().split(/\s+/);
+        if (nameParts.length === 0) return name;
+        
+        // Format: First part (surname) in UPPERCASE, rest in sentence case
+        const formattedParts = nameParts.map((part, index) => {
+            if (index === 0) {
+                // First part (surname) - all uppercase
+                return part.toUpperCase();
+            } else {
+                // Other parts - sentence case (first letter upper, rest lower)
+                return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+            }
+        });
+        
+        return formattedParts.join(' ');
+    }
+    
+    if (fullNameField) {
+        // Format on blur (when user finishes typing)
+        fullNameField.addEventListener('blur', function() {
+            const formatted = formatName(this.value);
+            if (formatted !== this.value) {
+                this.value = formatted;
+            }
+        });
+        
+        // Also format on form submission to ensure consistency
+        const form = fullNameField.closest('form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                const formatted = formatName(fullNameField.value);
+                if (formatted !== fullNameField.value) {
+                    fullNameField.value = formatted;
+                }
+            });
+        }
+        
+        // Show formatting hint
+        const nameLabel = document.querySelector('label[for="id_full_name"]');
+        if (nameLabel && !nameLabel.querySelector('.name-format-hint')) {
+            const hint = document.createElement('span');
+            hint.className = 'name-format-hint text-xs text-gray-500 ml-2';
+            hint.textContent = '(Format: SURNAME Other Names)';
+            nameLabel.appendChild(hint);
+        }
+    }
+});
+// --- End Name Formatting Logic ---
 </script>
 {% endblock %}

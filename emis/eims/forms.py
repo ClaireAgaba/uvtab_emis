@@ -378,6 +378,27 @@ class CandidateForm(forms.ModelForm):
 
             }
 
+    def clean_full_name(self):
+        """Format name to standard format: SURNAME Other Names (sentence case)"""
+        full_name = self.cleaned_data.get('full_name')
+        if not full_name:
+            return full_name
+            
+        # Split the name into parts
+        name_parts = full_name.strip().split()
+        if not name_parts:
+            return full_name
+            
+        # Format: First part (surname) in UPPERCASE, rest in sentence case
+        formatted_parts = []
+        for i, part in enumerate(name_parts):
+            if i == 0:  # First part (surname) - all uppercase
+                formatted_parts.append(part.upper())
+            else:  # Other parts - sentence case (first letter upper, rest lower)
+                formatted_parts.append(part.capitalize())
+                
+        return ' '.join(formatted_parts)
+
     def clean(self):
         cleaned_data = super().clean()
         disability = cleaned_data.get('disability')
