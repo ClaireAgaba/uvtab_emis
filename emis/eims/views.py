@@ -524,6 +524,35 @@ def results_home(request):
     logger = logging.getLogger(__name__)
     logger.info(f'Results home accessed by user: {request.user}')
     
+    # Check if results have been released - filter candidates based on their assessment series
+    # Only block center representatives, allow admin staff and support to see results
+    from .models import AssessmentSeries
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    
+    # If user is a center rep, only show candidates whose assessment series has results released
+    if is_center_rep:
+        # Filter to only include candidates from assessment series with results released
+        enrolled_candidates = enrolled_candidates.filter(
+            assessment_series__results_released=True
+        )
+        
+        # Check if there are any candidates left after filtering
+        if not enrolled_candidates.exists():
+            # No candidates with released results
+            return render(request, 'results/home.html', {
+                'results_not_released': True,
+                'current_series': None,
+                'candidates_with_status': [],
+                'page_obj': None,
+                'paginator': None,
+                'reg_categories': [],
+                'filters': {
+                'reg_number': '',
+                'name': '',
+                'registration_category': '',
+            }
+        })
+    
     # Get filter parameters
     reg_number = request.GET.get('reg_number', '').strip()
     name = request.GET.get('name', '').strip()
@@ -5179,8 +5208,14 @@ def change_registration_category(request, id):
 
 def candidate_view(request, id):
     print('DEBUG: candidate_view (ACTIVE) called for candidate', id)
-    from .models import AssessmentCenter, Occupation, Result, CandidateLevel, CandidateModule, Paper, Module, CandidatePaper
+    from .models import AssessmentCenter, Occupation, Result, CandidateLevel, CandidateModule, Paper, Module, CandidatePaper, AssessmentSeries
     candidate = get_object_or_404(Candidate, id=id)
+
+    # Check if results have been released for the candidate's assessment series
+    # Only block center representatives, allow admin staff and support to see results
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    candidate_series = candidate.assessment_series
+    results_released = candidate_series and candidate_series.results_released or not is_center_rep
 
     reg_cat = candidate.registration_category
     reg_cat_normalized = reg_cat.strip().lower() if reg_cat else ''
@@ -5227,17 +5262,21 @@ def candidate_view(request, id):
         for mod_enroll in module_enrollments:
             mod_enroll.papers = list(Paper.objects.filter(module=mod_enroll.module))
 
-    # Only show results for currently enrolled levels/papers for Informal/Worker PAS
-    if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
-        enrolled_level_ids = [row['level'].id for row in enrollment_summary]
-        enrolled_paper_ids = set()
-        for row in enrollment_summary:
-            for mod in row['modules']:
-                for paper in mod['papers']:
-                    enrolled_paper_ids.add(paper.id)
-        results = Result.objects.filter(candidate=candidate, level_id__in=enrolled_level_ids, paper_id__in=enrolled_paper_ids)
+    # Only show results if they have been released and for currently enrolled levels/papers for Informal/Worker PAS
+    if results_released:
+        if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
+            enrolled_level_ids = [row['level'].id for row in enrollment_summary]
+            enrolled_paper_ids = set()
+            for row in enrollment_summary:
+                for mod in row['modules']:
+                    for paper in mod['papers']:
+                        enrolled_paper_ids.add(paper.id)
+            results = Result.objects.filter(candidate=candidate, level_id__in=enrolled_level_ids, paper_id__in=enrolled_paper_ids)
+        else:
+            results = Result.objects.filter(candidate=candidate).order_by('assessment_date', 'level', 'module', 'paper')
     else:
-        results = Result.objects.filter(candidate=candidate).order_by('assessment_date', 'level', 'module', 'paper')
+        # Results not released - show empty results
+        results = Result.objects.none()
     level_has_results = {}
     for row in enrollment_summary:
         lvl = row['level']
@@ -5260,6 +5299,9 @@ def candidate_view(request, id):
         "centers":     AssessmentCenter.objects.exclude(pk=candidate.assessment_center_id),
         "enrollment_summary": enrollment_summary,
         "level_has_results": level_has_results,
+        "results_released": results_released,
+        "current_series": candidate_series,
+        "is_center_rep": is_center_rep,
     }
     print('DEBUG reg_cat:', reg_cat)
     print('DEBUG enrollment_summary:', enrollment_summary)

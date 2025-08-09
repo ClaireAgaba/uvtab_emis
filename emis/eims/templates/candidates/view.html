@@ -59,6 +59,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       <a href="{% url 'edit_candidate' candidate.id %}" class="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded shadow transition" title="Edit candidate">
        Edit
       </a>
+      {% if not is_center_rep %}
       <form method="post" action="{% url 'regenerate_candidate_reg_number' candidate.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to regenerate the registration number? This cannot be undone.');">
         {% csrf_token %}
         <button type="submit" class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow transition" title="Regenerate registration number">
@@ -77,7 +78,9 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       <a href="#" class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow transition" title="View certificate">
          Certificate
       </a>
-      <!-- Action Dropdown -->
+      {% endif %}
+      <!-- Action Dropdown (Hidden from center representatives) -->
+      {% if not is_center_rep %}
       <div class="relative inline-block text-left ml-2">
         <button id="actionDropdownBtn" type="button" class="flex items-center gap-2 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded shadow transition focus:outline-none" aria-haspopup="true" aria-expanded="false">
           <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -96,6 +99,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
           </div>
         </div>
       </div>
+      {% endif %}
       <script>
         document.addEventListener('DOMContentLoaded', function() {
           const btn = document.getElementById('actionDropdownBtn');
@@ -379,6 +383,23 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
   </div>
   
   <!-- Results Section -->
+  {% if not results_released %}
+    <!-- Results Not Released Message (Only shown to center representatives) -->
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-yellow-800">
+            Results Not Yet Released
+          </h3>
+        </div>
+      </div>
+    </div>
+  {% else %}
   {% if candidate.registration_category == 'Informal' or candidate.registration_category == "Worker's PAS" or candidate.registration_category == 'Workers PAS' %}
     {% if enrollment_summary and enrollment_summary|length > 0 %}
       {% for lvl in enrollment_summary %}
@@ -542,6 +563,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       <p class="text-gray-500 italic">No results recorded yet.</p>
     {% endif %}
   </div>
+  {% endif %}
 
   <!-- Messages -->
   {% if messages %}
