@@ -2357,6 +2357,78 @@ def bulk_candidate_action(request):
             'message': f'Successfully changed occupation for {updated} candidate{"s" if updated != 1 else ""}. Registration numbers have been updated.'
         })
     
+    elif action == 'verify':
+        # Bulk verify candidates - only admin/staff can do this
+        if not (request.user.is_staff or (request.user.groups.exists() and 'CenterRep' not in [g.name for g in request.user.groups.all()])):
+            return JsonResponse({'success': False, 'error': 'Permission denied. Only admin/staff can verify candidates.'}, status=403)
+        
+        from django.utils import timezone
+        
+        verified_count = 0
+        already_verified_count = 0
+        
+        for candidate in candidates:
+            if candidate.verification_status == 'verified':
+                already_verified_count += 1
+            else:
+                candidate.verification_status = 'verified'
+                candidate.verification_date = timezone.now()
+                candidate.verified_by = request.user
+                candidate.decline_reason = None  # Clear any previous decline reason
+                candidate.save(update_fields=['verification_status', 'verification_date', 'verified_by', 'decline_reason'])
+                verified_count += 1
+        
+        message_parts = []
+        if verified_count > 0:
+            message_parts.append(f'Successfully verified {verified_count} candidate{"s" if verified_count != 1 else ""}')
+        if already_verified_count > 0:
+            message_parts.append(f'{already_verified_count} candidate{"s" if already_verified_count != 1 else ""} {"were" if already_verified_count != 1 else "was"} already verified')
+        
+        message = '. '.join(message_parts) + '.'
+        
+        return JsonResponse({
+            'success': True,
+            'message': message
+        })
+    
+    elif action == 'decline':
+        # Bulk decline candidates - only admin/staff can do this
+        if not (request.user.is_staff or (request.user.groups.exists() and 'CenterRep' not in [g.name for g in request.user.groups.all()])):
+            return JsonResponse({'success': False, 'error': 'Permission denied. Only admin/staff can decline candidates.'}, status=403)
+        
+        decline_reason = data.get('decline_reason', '').strip()
+        if not decline_reason:
+            return JsonResponse({'success': False, 'error': 'Decline reason is required.'}, status=400)
+        
+        from django.utils import timezone
+        
+        declined_count = 0
+        already_declined_count = 0
+        
+        for candidate in candidates:
+            if candidate.verification_status == 'declined':
+                already_declined_count += 1
+            else:
+                candidate.verification_status = 'declined'
+                candidate.verification_date = timezone.now()
+                candidate.verified_by = request.user
+                candidate.decline_reason = decline_reason
+                candidate.save(update_fields=['verification_status', 'verification_date', 'verified_by', 'decline_reason'])
+                declined_count += 1
+        
+        message_parts = []
+        if declined_count > 0:
+            message_parts.append(f'Successfully declined {declined_count} candidate{"s" if declined_count != 1 else ""}')
+        if already_declined_count > 0:
+            message_parts.append(f'{already_declined_count} candidate{"s" if already_declined_count != 1 else ""} {"were" if already_declined_count != 1 else "was"} already declined')
+        
+        message = '. '.join(message_parts) + '.'
+        
+        return JsonResponse({
+            'success': True,
+            'message': message
+        })
+    
     else:
         return JsonResponse({'success': False, 'error': 'Unknown action.'}, status=400)
 

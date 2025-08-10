@@ -24,6 +24,10 @@
           <option value="change_reg_cat">Change Reg Category</option>
           <option value="change_occupation">Change Occupation</option>
           <option value="mark_disabled">Mark as Disabled</option>
+          {% if user.is_staff or user.groups.all|length > 0 and 'CenterRep' not in user.groups.all.0.name %}
+          <option value="verify">Verify</option>
+          <option value="decline">Decline</option>
+          {% endif %}
         </select>
         <!-- Assessment Series selector for bulk enroll -->
         <div id="bulk-assessment-series-wrapper" class="hidden w-full sm:w-auto" style="min-width:200px;">
@@ -84,6 +88,22 @@
         <button id="bulk-occupation-apply" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Apply</button>
       </div>
       <button id="bulk-occupation-close" class="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+    </div>
+  </div>
+
+  <!-- Bulk Decline Modal -->
+  <div id="bulk-decline-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+      <h2 class="text-lg font-bold mb-4">Decline Candidates</h2>
+      <p class="text-sm text-gray-600 mb-4">Please provide a reason for declining the selected candidates:</p>
+      <label for="bulk-decline-reason" class="block mb-2 font-medium">Decline Reason <span class="text-red-500">*</span></label>
+      <textarea id="bulk-decline-reason" class="w-full border rounded px-3 py-2 mb-4 h-24" required placeholder="Enter reason for declining these candidates..."></textarea>
+      <div id="bulk-decline-error" class="text-red-600 text-sm mb-2 hidden"></div>
+      <div class="flex justify-between mt-4">
+        <button id="bulk-decline-cancel" class="text-gray-600 hover:underline">Cancel</button>
+        <button id="bulk-decline-apply" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">Decline Candidates</button>
+      </div>
+      <button id="bulk-decline-close" class="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
     </div>
   </div>
 
@@ -307,10 +327,33 @@ function showBulkMarkDisabledModal() {
 function hideBulkMarkDisabledModal() {
   bulkMarkDisabledModal.classList.add('hidden');
 }
+
+// Bulk Decline Modal Functions
+const bulkDeclineModal = document.getElementById('bulk-decline-modal');
+const bulkDeclineReason = document.getElementById('bulk-decline-reason');
+const bulkDeclineError = document.getElementById('bulk-decline-error');
+const bulkDeclineCancel = document.getElementById('bulk-decline-cancel');
+const bulkDeclineClose = document.getElementById('bulk-decline-close');
+const bulkDeclineApply = document.getElementById('bulk-decline-apply');
+
+function showBulkDeclineModal() {
+  bulkDeclineModal.classList.remove('hidden');
+  bulkDeclineError.classList.add('hidden');
+  bulkDeclineError.textContent = '';
+  bulkDeclineReason.value = '';
+  bulkDeclineReason.focus();
+}
+
+function hideBulkDeclineModal() {
+  bulkDeclineModal.classList.add('hidden');
+}
 // Open modal on select
 bulkSelect.addEventListener('change', function() {
   if (bulkSelect.value === 'mark_disabled') {
     showBulkMarkDisabledModal();
+    bulkSelect.value = '';
+  } else if (bulkSelect.value === 'decline') {
+    showBulkDeclineModal();
     bulkSelect.value = '';
   } else if (bulkSelect.value === 'enroll') {
     // Show Assessment Series selector immediately when Enroll is selected
@@ -347,6 +390,10 @@ bulkSelect.addEventListener('change', function() {
 });
 bulkMarkDisabledCancel.addEventListener('click', hideBulkMarkDisabledModal);
 bulkMarkDisabledClose.addEventListener('click', hideBulkMarkDisabledModal);
+
+// Bulk Decline Modal Event Listeners
+bulkDeclineCancel.addEventListener('click', hideBulkDeclineModal);
+bulkDeclineClose.addEventListener('click', hideBulkDeclineModal);
 
 bulkMarkDisabledApply.addEventListener('click', function() {
   const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
@@ -389,6 +436,56 @@ bulkMarkDisabledApply.addEventListener('click', function() {
   .catch(() => {
     bulkMarkDisabledError.textContent = 'Server error.';
     bulkMarkDisabledError.classList.remove('hidden');
+  });
+});
+
+// Bulk Decline Apply Handler
+bulkDeclineApply.addEventListener('click', function() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  const reason = bulkDeclineReason.value.trim();
+  
+  if (!reason) {
+    bulkDeclineError.textContent = 'Please provide a reason for declining.';
+    bulkDeclineError.classList.remove('hidden');
+    return;
+  }
+  
+  if (checked.length === 0) {
+    bulkDeclineError.textContent = 'Please select at least one candidate.';
+    bulkDeclineError.classList.remove('hidden');
+    return;
+  }
+  
+  bulkDeclineError.textContent = '';
+  bulkDeclineError.classList.add('hidden');
+  
+  // AJAX POST to backend
+  fetch("/eims/candidates/bulk-action/", {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      action: 'decline',
+      candidate_ids: checked.map(cb => cb.value),
+      decline_reason: reason
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(data.message || 'Candidates declined successfully.');
+      hideBulkDeclineModal();
+      window.location.reload();
+    } else {
+      bulkDeclineError.textContent = data.error || 'An error occurred.';
+      bulkDeclineError.classList.remove('hidden');
+    }
+  })
+  .catch(() => {
+    bulkDeclineError.textContent = 'Server error.';
+    bulkDeclineError.classList.remove('hidden');
   });
 });
 
@@ -921,6 +1018,15 @@ bulkApply && bulkApply.addEventListener('click', function() {
     });
     return;
   }
+  
+  // Handle verify action with confirmation
+  if (bulkSelect.value === 'verify') {
+    const confirmMsg = `Are you sure you want to verify ${checked.length} candidate${checked.length !== 1 ? 's' : ''}?\n\nThis will mark them as verified and prevent centers from editing them.`;
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+  }
+  
   fetch("/eims/candidates/bulk-action/", {
     method: "POST",
     headers: {
