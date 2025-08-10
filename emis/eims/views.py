@@ -2144,19 +2144,27 @@ def bulk_candidate_action(request):
         
         # --- MODULAR ---
         elif regcat == 'modular':
+            print(f"[DEBUG] Modular enrollment - module_ids: {module_ids}, len: {len(module_ids)}")
             if not (1 <= len(module_ids) <= 2):
                 return JsonResponse({'success': False, 'error': 'Select 1 or 2 modules.'}, status=400)
             occupation_id = occupations.pop()
+            print(f"[DEBUG] Occupation ID: {occupation_id}, Level ID: {level_id}")
             level = Level.objects.filter(id=level_id).first() if level_id else Level.objects.filter(name__icontains='1').first()
+            print(f"[DEBUG] Found level: {level}")
             if not level:
                 return JsonResponse({'success': False, 'error': 'Level not found.'}, status=400)
             modules = Module.objects.filter(id__in=module_ids, occupation_id=occupation_id, level=level)
+            print(f"[DEBUG] Found modules: {modules.count()}/{len(module_ids)} - {list(modules.values_list('name', flat=True))}")
             if modules.count() != len(module_ids):
                 return JsonResponse({'success': False, 'error': 'Invalid module selection.'}, status=400)
             for c in candidates:
                 CandidateModule.objects.filter(candidate=c).delete()
                 for m in modules:
-                    CandidateModule.objects.create(candidate=c, module=m)
+                    CandidateModule.objects.create(
+                        candidate=c, 
+                        module=m,
+                        assessment_series=assessment_series
+                    )
                 # Update candidate's assessment series
                 c.assessment_series = assessment_series
                 # Calculate and set billing fees after module enrollment
