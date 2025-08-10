@@ -53,9 +53,20 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       <span class="text-lg text-gray-500 font-mono" data-field="reg_number">{{ candidate.reg_number }}</span>
     </div>
     <div class="flex flex-wrap gap-3 mt-2 md:mt-0 items-center">
+      {% comment %}
+      Hide enroll button for formal candidates who are already enrolled in a level
+      since formal candidates can only belong to one level
+      {% endcomment %}
+      {% if candidate.registration_category != 'Formal' or not candidate.candidatelevel_set.exists %}
       <a href="{% url 'enroll_candidate' candidate.id %}" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition" title="Enroll candidate">
          Enroll
       </a>
+      {% else %}
+      <!-- Formal candidate already enrolled - show disabled button with explanation -->
+      <span class="flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded shadow cursor-not-allowed" title="Formal candidates can only enroll in one level">
+         Already Enrolled
+      </span>
+      {% endif %}
       <!-- Edit button - conditional based on verification status and user role -->
       {% if is_center_rep %}
         {% if candidate.verification_status == 'verified' %}
