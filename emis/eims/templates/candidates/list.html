@@ -19,12 +19,13 @@
           <option value="">Select Action</option>
           <option value="export">Export to Excel</option>
           <option value="enroll">Enroll</option>
+          {% if user.is_staff or user.groups.all|length > 0 and 'CenterRep' not in user.groups.all.0.name %}
+          <!-- Admin/Staff only actions -->
           <option value="regenerate">Regenerate Reg. Number</option>
           <option value="add_regno_photo">Add Regno on Photo</option>
           <option value="change_reg_cat">Change Reg Category</option>
           <option value="change_occupation">Change Occupation</option>
           <option value="mark_disabled">Mark as Disabled</option>
-          {% if user.is_staff or user.groups.all|length > 0 and 'CenterRep' not in user.groups.all.0.name %}
           <option value="verify">Verify</option>
           <option value="decline">Decline</option>
           {% endif %}
