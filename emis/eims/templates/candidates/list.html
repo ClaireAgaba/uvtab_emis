@@ -590,7 +590,7 @@ function updateBulkSelectors() {
     .then(res => res.json())
     .then(data => {
       bulkAssessmentSeriesSelect.innerHTML = '<option value="">Select Assessment Series...</option>';
-      data.assessment_series.forEach(series => {
+      data.series.forEach(series => {
         const opt = document.createElement('option');
         opt.value = series.id;
         opt.textContent = series.name;
