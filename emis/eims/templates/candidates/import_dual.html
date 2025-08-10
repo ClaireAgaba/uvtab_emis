@@ -8,11 +8,12 @@
   <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
     <h2 class="font-semibold mb-2">Excel & Photos Import</h2>
     <ul class="list-disc list-inside text-sm mb-2">
-      <li>Upload your candidate Excel file and a ZIP file containing candidate photos.</li>
-      <li>Photos will be matched to candidates by order: first Excel row with first image, second row with second image, etc.</li>
+      <li>Upload your candidate Excel file. Photos are optional and can be added later.</li>
+      <li>If providing photos: Upload a ZIP file containing candidate photos.</li>
+      <li>Photos will be matched to candidates by filename (e.g., "123.John Doe.jpg" matches candidate "John Doe").</li>
       <li>All images must be in JPG or PNG format and zipped into a single file.</li>
       <li><strong>Nationality in Excel must be a valid country name (e.g., Ugandan, Kenyan, Tanzanian, etc.) matching the country dropdown used in the candidate form. Do not use 'Foreigner'.</strong></li>
-      <li>Optional: The system can check that image filenames match candidate names for extra safety.</li>
+      <li>Candidates will be created even if their photos are not found - missing photos can be added later.</li>
     </ul>
   </div>
   <form method="post" enctype="multipart/form-data" class="space-y-6">
@@ -22,8 +23,9 @@
       <input type="file" name="excel_file" accept=".xlsx,.xls" required class="border rounded px-3 py-2 w-full">
     </div>
     <div>
-      <label class="block font-semibold mb-1">Select ZIP file of candidate photos:</label>
-      <input type="file" name="photo_zip" accept=".zip" required class="border rounded px-3 py-2 w-full">
+      <label class="block font-semibold mb-1">Select ZIP file of candidate photos (Optional):</label>
+      <input type="file" name="photo_zip" accept=".zip" class="border rounded px-3 py-2 w-full">
+      <small class="text-gray-500 mt-1 block">Leave empty to import candidates without photos. Photos can be added later.</small>
     </div>
     <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Import Candidates & Photos</button>
   </form>

@@ -67,7 +67,7 @@ urlpatterns = [
     path('candidates/<int:id>/regenerate_reg_number/', views.regenerate_candidate_reg_number, name='regenerate_candidate_reg_number'),
     path('candidates/<int:id>/change-center/', views.change_center, name='change_center'),
     path('candidates/<int:id>/change-occupation/', views.change_occupation, name='change_occupation'),
-    path('candidates/<int:id>/change-registration-category/', views.change_registration_category, name='change_registration_category'), 
+    path('candidates/<int:id>/change-registration-category/', views.change_registration_category, name='change_registration_category'),
     # Secure document serving
     path('candidates/<int:candidate_id>/documents/<str:document_type>/', document_views.serve_candidate_document, name='serve_candidate_document'),
     # Candidate verification

@@ -658,6 +658,112 @@ class Candidate(models.Model):
 
     def __str__(self):
         return f"{self.reg_number} - {self.full_name}"
+    
+    # Modular enrollment helper methods
+    def get_enrolled_modules(self):
+        """Get all modules this candidate is enrolled in"""
+        return self.candidatemodule_set.select_related('module').all()
+    
+    def get_available_modules_for_enrollment(self):
+        """Get modules available for enrollment (not already enrolled)"""
+        if not self.occupation:
+            return Module.objects.none()
+        
+        # Get all modules for this occupation
+        all_modules = Module.objects.filter(occupation=self.occupation)
+        
+        # Get already enrolled module IDs
+        enrolled_module_ids = self.candidatemodule_set.values_list('module_id', flat=True)
+        
+        # Return modules not yet enrolled
+        return all_modules.exclude(id__in=enrolled_module_ids)
+    
+    def get_completed_modules(self):
+        """Get modules that have been completed (passed or failed)"""
+        return self.candidatemodule_set.filter(
+            status__in=['completed', 'failed']
+        ).select_related('module')
+    
+    def get_passed_modules(self):
+        """Get modules that have been passed based on actual results"""
+        from .models import Result
+        
+        # Get all enrolled modules
+        enrolled_modules = self.candidatemodule_set.all().select_related('module')
+        passed_modules = []
+        
+        for candidate_module in enrolled_modules:
+            # Check if there are results for this module
+            module_results = Result.objects.filter(
+                candidate=self,
+                module=candidate_module.module
+            )
+            
+            if module_results.exists():
+                # Check if any result meets the passing criteria
+                # Assuming pass mark is 50 or could be defined per module
+                pass_mark = getattr(candidate_module, 'pass_mark', 50)
+                
+                for result in module_results:
+                    try:
+                        mark = float(result.mark) if result.mark else 0
+                        if mark >= pass_mark:
+                            passed_modules.append(candidate_module)
+                            break  # Found a passing mark, no need to check other results
+                    except (ValueError, TypeError):
+                        continue
+        
+        # Return a queryset-like object for compatibility
+        passed_module_ids = [cm.id for cm in passed_modules]
+        return self.candidatemodule_set.filter(id__in=passed_module_ids)
+    
+    def get_total_modules_for_occupation(self):
+        """Get total number of modules required for this candidate's occupation"""
+        if not self.occupation:
+            return 0
+        return Module.objects.filter(occupation=self.occupation).count()
+    
+    def get_modular_completion_status(self):
+        """Get completion status for modular candidates"""
+        if self.registration_category != 'Modular':
+            return None
+        
+        total_modules = self.get_total_modules_for_occupation()
+        passed_modules = self.get_passed_modules().count()
+        
+        return {
+            'total_modules': total_modules,
+            'passed_modules': passed_modules,
+            'remaining_modules': total_modules - passed_modules,
+            'is_qualified': passed_modules >= total_modules,
+            'completion_percentage': (passed_modules / total_modules * 100) if total_modules > 0 else 0
+        }
+    
+    def is_qualified_for_level_1(self):
+        """Check if modular candidate is qualified for Level 1"""
+        if self.registration_category != 'Modular':
+            return False
+        
+        status = self.get_modular_completion_status()
+        return status and status['is_qualified']
+    
+    def can_enroll_in_more_modules(self):
+        """Check if modular candidate can enroll in more modules"""
+        if self.registration_category != 'Modular':
+            return False
+        
+        # Check if there are available modules
+        available_modules = self.get_available_modules_for_enrollment()
+        if not available_modules.exists():
+            return False
+        
+        # Check current active enrollments (not completed)
+        active_enrollments = self.candidatemodule_set.exclude(
+            status__in=['completed', 'failed']
+        ).count()
+        
+        # Can enroll if less than 2 active enrollments
+        return active_enrollments < 2
 
     class Meta:
         ordering = ['reg_number']
@@ -672,9 +778,72 @@ class CandidateLevel(models.Model):
 class CandidateModule(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE)
     module = models.ForeignKey(Module, on_delete=models.CASCADE)
-
+    
+    # Enrollment tracking
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    assessment_series = models.ForeignKey('AssessmentSeries', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Marks and completion tracking
+    marks = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Marks obtained in this module (0-100)"
+    )
+    
+    STATUS_CHOICES = [
+        ('enrolled', 'Enrolled'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+    status = models.CharField(
+        max_length=12,
+        choices=STATUS_CHOICES,
+        default='enrolled',
+        help_text="Current status of this module enrollment"
+    )
+    
+    # Completion tracking
+    completed_at = models.DateTimeField(null=True, blank=True)
+    pass_mark = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=50.00,
+        help_text="Minimum marks required to pass this module"
+    )
+    
+    class Meta:
+        unique_together = ['candidate', 'module']
+        ordering = ['enrolled_at']
+    
     def __str__(self):
-        return f"{self.candidate.full_name} - {self.module.name}"
+        return f"{self.candidate.full_name} - {self.module.name} ({self.get_status_display()})"
+    
+    def is_passed(self):
+        """Check if candidate has passed this module"""
+        return self.marks is not None and self.marks >= self.pass_mark
+    
+    def is_completed(self):
+        """Check if this module is completed (passed or failed)"""
+        return self.status in ['completed', 'failed'] or (self.marks is not None)
+    
+    def save(self, *args, **kwargs):
+        # Auto-update status based on marks
+        if self.marks is not None:
+            if self.marks >= self.pass_mark:
+                self.status = 'completed'
+                if not self.completed_at:
+                    from django.utils import timezone
+                    self.completed_at = timezone.now()
+            else:
+                self.status = 'failed'
+                if not self.completed_at:
+                    from django.utils import timezone
+                    self.completed_at = timezone.now()
+        
+        super().save(*args, **kwargs)
 
 class CandidatePaper(models.Model):
     candidate = models.ForeignKey('Candidate', on_delete=models.CASCADE)

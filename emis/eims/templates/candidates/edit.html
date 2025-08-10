@@ -151,9 +151,22 @@
     </div>
   </div>
   
-  <!-- Submit Button -->
-  <div class="md:col-span-2 text-right mt-4">
-    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Save Changes</button>
+  <!-- Action Buttons -->
+  <div class="md:col-span-2 flex justify-between items-center mt-4">
+    <a href="{% url 'candidate_view' candidate.id %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded inline-flex items-center">
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+      </svg>
+      Back to Candidate
+    </a>
+    <div class="space-x-3">
+      <a href="{% url 'candidate_view' candidate.id %}" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded">
+        Cancel
+      </a>
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+        Save Changes
+      </button>
+    </div>
   </div>
 </form>
 

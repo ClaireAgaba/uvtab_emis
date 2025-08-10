@@ -618,6 +618,61 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     {% endif %}
   </div>
   
+  <!-- Modular Enrollment Section (for Modular candidates only) -->
+  {% if candidate.registration_category == 'Modular' %}
+  <div class="bg-white p-4 rounded shadow mt-4">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold flex items-center">
+        <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+        </svg>
+        Module Enrollment Progress
+      </h2>
+      
+      <!-- Qualification Status -->
+      {% if candidate.is_qualified_for_level_1 %}
+      <div class="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded-lg flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span class="font-semibold">Candidate qualified for Level 1</span>
+      </div>
+      {% endif %}
+    </div>
+    
+    <!-- Progress Overview -->
+    {% with completion_status=candidate.get_modular_completion_status %}
+    {% if completion_status %}
+    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-gray-700">Overall Progress</span>
+        <span class="text-sm text-gray-600">{{ completion_status.passed_modules }}/{{ completion_status.total_modules }} modules completed</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2">
+        <div class="bg-green-600 h-2 rounded-full progress-bar" data-width="{{ completion_status.completion_percentage|floatformat:0 }}"></div>
+      </div>
+      <div class="mt-2 text-xs text-gray-600">
+        {{ completion_status.completion_percentage|floatformat:1 }}% complete
+        {% if completion_status.remaining_modules > 0 %}
+          • {{ completion_status.remaining_modules }} module(s) remaining
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+    
+    {% comment %}
+    Module enrollment details are already shown in the main Enrollment section above.
+    This section focuses only on progress tracking and qualification status.
+    {% endcomment %}
+    
+    {% comment %}
+    Available modules and enrollment constraints are handled in the enrollment form.
+    This section focuses only on progress tracking.
+    {% endcomment %}
+  </div>
+  {% endif %}
+  
   <!-- Results Section -->
   {% if not results_released %}
     <!-- Results Not Released Message (Only shown to center representatives) -->
@@ -1084,6 +1139,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
+    
+    // Set progress bar widths for modular enrollment
+    document.querySelectorAll('.progress-bar').forEach(function(bar) {
+        var width = bar.getAttribute('data-width');
+        if (width) {
+            bar.style.width = width + '%';
+        }
+    });
 });
 </script>
 

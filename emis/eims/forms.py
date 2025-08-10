@@ -350,7 +350,7 @@ class CandidateForm(forms.ModelForm):
         # JavaScript will populate it on district change.
     class Meta:
         model = Candidate
-        exclude = ['status', 'fees_balance']
+        exclude = ['status', 'fees_balance', 'verification_status', 'verification_date', 'verified_by', 'decline_reason']
         widgets = {
             'date_of_birth': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
             'start_date': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
@@ -528,18 +528,42 @@ class EnrollmentForm(forms.Form):
                     self.fields['level'].initial = level_1.id
                     level = level_1  # Use Level 1 for module filtering below
                     print(f"[DEBUG] Auto-selected level for modular: {level}")
-        # Add this around line 480 for debugging
-        if self.is_modular:
-            print(f"[DEBUG] Modular form - occupation: {occupation}, level: {level}")
+        # Enhanced modular enrollment logic
+        if self.is_modular and candidate:
+            print(f"[DEBUG] Enhanced Modular form - occupation: {occupation}, level: {level}")
             if occupation and level:
-                modules = Module.objects.filter(occupation=occupation, level=level)
-                modules_count = modules.count()
-                print(f"[DEBUG] Found {modules_count} modules for modular candidate")
+                # Get available modules for enrollment (not already enrolled)
+                available_modules = candidate.get_available_modules_for_enrollment()
+                enrolled_modules = candidate.get_enrolled_modules()
                 
-                # Populate the modules field with available modules
+                print(f"[DEBUG] Available modules: {available_modules.count()}")
+                print(f"[DEBUG] Already enrolled modules: {enrolled_modules.count()}")
+                
+                # Check if candidate can enroll in more modules
+                can_enroll_more = candidate.can_enroll_in_more_modules()
+                print(f"[DEBUG] Can enroll in more modules: {can_enroll_more}")
+                
+                # Populate the modules field with available modules only
                 if 'modules' in self.fields:
-                    self.fields['modules'].queryset = modules
-                    print(f"[DEBUG] Populated modules field with {modules_count} modules")
+                    self.fields['modules'].queryset = available_modules
+                    
+                    # Add help text showing enrollment status
+                    enrolled_count = enrolled_modules.count()
+                    total_count = candidate.get_total_modules_for_occupation()
+                    
+                    help_text = f"Select 1-2 modules to enroll in. "
+                    help_text += f"Currently enrolled: {enrolled_count}/{total_count} modules. "
+                    
+                    if not can_enroll_more:
+                        help_text += "You have reached the maximum concurrent enrollments (2 modules)."
+                        self.fields['modules'].widget.attrs['disabled'] = True
+                    
+                    self.fields['modules'].help_text = help_text
+                    
+                    # Store module status for template display
+                    self.enrolled_modules = enrolled_modules
+                    self.available_modules = available_modules
+                    self.can_enroll_more = can_enroll_more
         # For informal/worker's PAS: dynamically add paper fields per module
         if self.is_informal and occupation and level:
             print("[DEBUG] EnrollmentForm: occupation=", occupation)

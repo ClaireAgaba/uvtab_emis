@@ -1624,8 +1624,8 @@ def candidate_import_dual(request):
     photo_zip = request.FILES.get('photo_zip')
     errors = []
     created = 0
-    if not excel_file or not photo_zip:
-        errors.append('Both Excel and photo ZIP files must be uploaded.')
+    if not excel_file:
+        errors.append('Excel file is required.')
         return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
     # Load Excel
     try:
@@ -1636,32 +1636,31 @@ def candidate_import_dual(request):
         return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
     headers = [str(cell.value).replace(u'\xa0', ' ').strip().lower() for cell in ws[1] if cell.value]
 
-    # Unzip images to temp dir
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        try:
-            with zipfile.ZipFile(photo_zip) as zf:
-                image_files = [n for n in zf.namelist() if n.lower().endswith(('.jpg', '.jpeg', '.png'))]
-                image_name_map = {}
-                for image_name in image_files:
-                    # Extracts '614956.Kajumba Ruth' from '.../614956.Kajumba Ruth.jpg'
-                    image_name_only = os.path.splitext(os.path.basename(image_name))[0]
-                    if '.' in image_name_only:
-                        try:
-                            # Extracts 'Kajumba Ruth'
-                            name_part = image_name_only.split('.', 1)[1]
-                            # Replaces '_' with ' ' -> 'Kajumba Ruth'
-                            cleaned_name = name_part.replace('_', ' ').strip()
-                            # Map 'kajumba ruth' to '.../614956.Kajumba_Ruth.jpg'
-                            image_name_map[cleaned_name.lower()] = image_name
-                        except IndexError:
-                            # This handles cases like '.DS_Store' or filenames without a name part
-                            continue
-                zf.extractall(tmp_dir)
-                # DEBUG: Log the keys to see what is being generated from filenames
-                errors.append(f"DEBUG: Image name keys generated: {list(image_name_map.keys())}")
-        except Exception as e:
-            errors.append(f'Invalid ZIP file or unable to extract images: {e}')
-            return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
+    # Process photos if ZIP file is provided
+    image_name_map = {}
+    if photo_zip:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            try:
+                with zipfile.ZipFile(photo_zip) as zf:
+                    image_files = [n for n in zf.namelist() if n.lower().endswith(('.jpg', '.jpeg', '.png'))]
+                    for image_name in image_files:
+                        # Extracts '614956.Kajumba Ruth' from '.../614956.Kajumba Ruth.jpg'
+                        image_name_only = os.path.splitext(os.path.basename(image_name))[0]
+                        if '.' in image_name_only:
+                            try:
+                                # Extracts 'Kajumba Ruth'
+                                name_part = image_name_only.split('.', 1)[1]
+                                # Replaces '_' with ' ' -> 'Kajumba Ruth'
+                                cleaned_name = name_part.replace('_', ' ').strip()
+                                # Map 'kajumba ruth' to '.../614956.Kajumba_Ruth.jpg'
+                                image_name_map[cleaned_name.lower()] = image_name
+                            except IndexError:
+                                # This handles cases like '.DS_Store' or filenames without a name part
+                                continue
+                    zf.extractall(tmp_dir)
+            except Exception as e:
+                errors.append(f'Invalid ZIP file or unable to extract images: {e}')
+                return render(request, 'candidates/import_dual.html', {'errors': errors, 'imported_count': 0})
         # Read Excel rows
         rows = [row for row in ws.iter_rows(min_row=2, values_only=True) if not all(cell is None for cell in row)]
         
@@ -1679,9 +1678,10 @@ def candidate_import_dual(request):
             
             img_name = image_name_map.get(candidate_name_for_match.lower())
 
-            if not img_name:
-                errors.append(f"Row {idx}: Image not found for candidate '{candidate_name_full}'.")
-                continue
+            # Note: If no image is found, we'll still create the candidate without a photo
+            if not img_name and photo_zip:
+                # Only log as info if photos were provided but this candidate's photo wasn't found
+                errors.append(f"Row {idx}: Image not found for candidate '{candidate_name_full}' - candidate will be created without photo.")
             # --- (reuse import logic from candidate_import) ---
             form_data = data.copy()
             # Normalize registration_category for modular candidates
@@ -1819,30 +1819,32 @@ def candidate_import_dual(request):
                 continue
             candidate = form.save(commit=False)
             candidate.reg_number = None  # Regenerate
-            # Attach image
-            img_path = os.path.join(tmp_dir, img_name)
-            if not os.path.exists(img_path):
-                print(f"[DEBUG] Row {idx} SKIPPED: Image file '{img_name}' not found after extraction.")
-                errors.append(f"Row {idx}: Image file '{img_name}' not found after extraction.")
-                continue
-            from PIL import Image
-            import io
-            # Open and process the image
-            with open(img_path, 'rb') as img_file:
-                img = Image.open(img_file)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                from PIL import Image
-                resample_method = getattr(Image, 'Resampling', Image).LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
-                img = img.resize((300, 400), resample=resample_method)
-                buffer = io.BytesIO()
-                img.save(buffer, format='JPEG', quality=80, optimize=True)
-                buffer.seek(0)
-                candidate.passport_photo.save(
-                    os.path.splitext(img_name)[0] + '.jpg',
-                    File(buffer),
-                    save=False
-                )
+            
+            # Attach image only if one was found
+            if img_name:
+                img_path = os.path.join(tmp_dir, img_name)
+                if os.path.exists(img_path):
+                    from PIL import Image
+                    import io
+                    # Open and process the image
+                    with open(img_path, 'rb') as img_file:
+                        img = Image.open(img_file)
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        from PIL import Image
+                        resample_method = getattr(Image, 'Resampling', Image).LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
+                        img = img.resize((300, 400), resample=resample_method)
+                        buffer = io.BytesIO()
+                        img.save(buffer, format='JPEG', quality=80, optimize=True)
+                        buffer.seek(0)
+                        candidate.passport_photo.save(
+                            os.path.splitext(img_name)[0] + '.jpg',
+                            File(buffer),
+                            save=False
+                        )
+                else:
+                    errors.append(f"Row {idx}: Image file '{img_name}' not found after extraction - candidate created without photo.")
+            
             candidate.save()
             created += 1
             print(f"[DEBUG] Row {idx} IMPORTED: Candidate '{candidate.full_name}' saved.")
@@ -5090,24 +5092,60 @@ def enroll_candidate_view(request, id):
                 candidate.update_fees_balance()
                 messages.success(request, f'{candidate.full_name} successfully enrolled in {level.name}.')
             
-            # Handle modular registration (must select 1–2 modules, Level 1 only)
+            # Handle modular registration (progressive enrollment system)
             elif registration_category == 'Modular':
                 modules = form.cleaned_data['modules']
+                
+                # Validate enrollment constraints
                 if len(modules) > 2:
-                    messages.error(request, "You can only select up to 2 modules.")
+                    messages.error(request, "You can only select up to 2 modules at a time.")
+                    return render(request, 'candidates/enroll.html', {
+                        'form': form,
+                        'candidate': candidate,
+                    })
+                
+                # Check if candidate can enroll in more modules
+                if not candidate.can_enroll_in_more_modules():
+                    messages.error(request, "You have reached the maximum concurrent enrollments (2 modules). Complete current modules before enrolling in new ones.")
+                    return render(request, 'candidates/enroll.html', {
+                        'form': form,
+                        'candidate': candidate,
+                    })
+                
+                # Check for duplicate enrollments
+                already_enrolled = []
+                for module in modules:
+                    if CandidateModule.objects.filter(candidate=candidate, module=module).exists():
+                        already_enrolled.append(module.name)
+                
+                if already_enrolled:
+                    messages.error(request, f"Already enrolled in: {', '.join(already_enrolled)}")
+                    return render(request, 'candidates/enroll.html', {
+                        'form': form,
+                        'candidate': candidate,
+                    })
+                
+                # Enroll candidate in selected modules (progressive enrollment - don't delete existing)
+                enrolled_modules = []
+                for module in modules:
+                    candidate_module = CandidateModule.objects.create(
+                        candidate=candidate, 
+                        module=module,
+                        assessment_series=assessment_series,
+                        status='enrolled'
+                    )
+                    enrolled_modules.append(module.name)
+                
+                # Update fees balance after enrollment
+                candidate.update_fees_balance()
+                
+                # Check if candidate has completed all modules for qualification
+                completion_status = candidate.get_modular_completion_status()
+                if completion_status and completion_status['is_qualified']:
+                    messages.success(request, f"{candidate.full_name} enrolled in {', '.join(enrolled_modules)}. Congratulations! You have completed all modules and are qualified for Level 1!")
                 else:
-                    # For modular candidates: enroll in modules only (NO level enrollment)
-                    # Clear any existing enrollments first
-                    CandidateModule.objects.filter(candidate=candidate).delete()
-                    
-                    # Enroll candidate in selected modules
-                    for module in modules:
-                        CandidateModule.objects.create(candidate=candidate, module=module)
-                    
-                    # Update fees balance after enrollment
-                    candidate.update_fees_balance()
-                    
-                    messages.success(request, f"{candidate.full_name} enrolled for {len(modules)} module(s)")
+                    remaining = completion_status['remaining_modules'] if completion_status else 0
+                    messages.success(request, f"{candidate.full_name} enrolled in {', '.join(enrolled_modules)}. {remaining} module(s) remaining for Level 1 qualification.")
 
             # Handle informal registration (level + one paper per module)
             elif registration_category in ['Informal', "Worker's PAS", 'Workers PAS', 'informal', "worker's pas"]:
@@ -5293,7 +5331,7 @@ def candidate_view(request, id):
     reg_cat_normalized = reg_cat.strip().lower() if reg_cat else ''
     level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
 
-    # Multi-level enrollment summary for worker's PAS/informal
+    # Multi-level enrollment summary for worker's PAS/informal/modular
     enrollment_summary = []
     if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
         level_enrollments = CandidateLevel.objects.filter(candidate=candidate)
@@ -5313,8 +5351,8 @@ def candidate_view(request, id):
                 'level': lvl_enroll.level,
                 'modules': module_list
             })
-        # For backward compatibility, keep module_enrollments and level_enrollment as before
-        module_enrollments = CandidateModule.objects.filter(candidate=candidate, module__level=level_enrollment.level) if level_enrollment else []
+    # For modular candidates, use simple results display like formal candidates
+    # No enrollment_summary needed
     else:
         # For formal/modular, keep old logic
         module_enrollments = CandidateModule.objects.filter(candidate=candidate)
@@ -5334,7 +5372,7 @@ def candidate_view(request, id):
         for mod_enroll in module_enrollments:
             mod_enroll.papers = list(Paper.objects.filter(module=mod_enroll.module))
 
-    # Only show results if they have been released and for currently enrolled levels/papers for Informal/Worker PAS
+    # Only show results if they have been released and for currently enrolled levels/papers for Informal/Worker PAS/Modular
     if results_released:
         if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
             enrolled_level_ids = [row['level'].id for row in enrollment_summary]
@@ -5344,6 +5382,10 @@ def candidate_view(request, id):
                     for paper in mod['papers']:
                         enrolled_paper_ids.add(paper.id)
             results = Result.objects.filter(candidate=candidate, level_id__in=enrolled_level_ids, paper_id__in=enrolled_paper_ids)
+        elif reg_cat_normalized == "modular":
+            # For modular candidates, get results for all enrolled modules
+            enrolled_module_ids = list(CandidateModule.objects.filter(candidate=candidate).values_list('module_id', flat=True))
+            results = Result.objects.filter(candidate=candidate, module_id__in=enrolled_module_ids)
         else:
             results = Result.objects.filter(candidate=candidate).order_by('assessment_date', 'level', 'module', 'paper')
     else:
