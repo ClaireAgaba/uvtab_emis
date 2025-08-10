@@ -37,6 +37,7 @@ urlpatterns = [
 ]
 
 # Serve media files during development
-if settings.DEBUG:
+# Note: In production, web server (nginx/apache) should serve media files
+if settings.DEBUG or True:  # Enable for development even when DEBUG=False
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

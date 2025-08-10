@@ -1654,22 +1654,39 @@ def candidate_import_dual(request):
                     # Extract filename without extension
                     image_name_only = os.path.splitext(os.path.basename(image_name))[0]
                     
-                    # Handle two formats:
-                    # Format 1: '614956.Kajumba Ruth' -> extract 'Kajumba Ruth'
-                    # Format 2: 'Afoyo_Vani' -> extract 'Afoyo Vani'
+                    # Smart photo name parsing to handle multiple formats:
+                    # Format 1: '540255.Afoyo_Vani' -> extract 'Afoyo Vani' (old system with numeric prefix)
+                    # Format 2: '614956.Kajumba Ruth' -> extract 'Kajumba Ruth' (numbered format)
+                    # Format 3: 'Afoyo_Vani' -> extract 'Afoyo Vani' (simple format)
+                    
+                    cleaned_name = None
                     
                     if '.' in image_name_only:
-                        try:
-                            # Format 1: Extract name after the dot
-                            name_part = image_name_only.split('.', 1)[1]
+                        # Split by first dot to separate potential prefix from name
+                        prefix, name_part = image_name_only.split('.', 1)
+                        
+                        # Check if prefix is purely numeric (old system format)
+                        if prefix.isdigit():
+                            # Old system format: '540255.Afoyo_Vani' -> 'Afoyo Vani'
                             cleaned_name = name_part.replace('_', ' ').strip()
-                            image_name_map[cleaned_name.lower()] = image_name
-                        except IndexError:
-                            continue
+                            print(f"[PHOTO DEBUG] Old system format detected: '{image_name_only}' -> '{cleaned_name}'")
+                        else:
+                            # Mixed format: '614956.Kajumba Ruth' -> 'Kajumba Ruth'
+                            cleaned_name = name_part.replace('_', ' ').strip()
+                            print(f"[PHOTO DEBUG] Mixed format detected: '{image_name_only}' -> '{cleaned_name}'")
                     else:
-                        # Format 2: Just replace underscores with spaces
+                        # Simple format: 'Afoyo_Vani' -> 'Afoyo Vani'
                         cleaned_name = image_name_only.replace('_', ' ').strip()
+                        print(f"[PHOTO DEBUG] Simple format detected: '{image_name_only}' -> '{cleaned_name}'")
+                    
+                    if cleaned_name:
                         image_name_map[cleaned_name.lower()] = image_name
+                
+                # Debug: Show all parsed photo names
+                print(f"[PHOTO PARSING DEBUG] Total photos parsed: {len(image_name_map)}")
+                for parsed_name, original_file in image_name_map.items():
+                    print(f"[PHOTO PARSING DEBUG] '{parsed_name}' -> '{original_file}'")
+                
                 zf.extractall(tmp_dir)
         except Exception as e:
             errors.append(f'Invalid ZIP file or unable to extract images: {e}')
@@ -1694,13 +1711,29 @@ def candidate_import_dual(request):
             if candidate_name_full:
                 candidate_names.append(candidate_name_full)
         
-        # Analyze matching
+        # Analyze matching using multi-strategy approach
         for candidate_name in candidate_names:
             name_parts = candidate_name.split()
-            candidate_name_for_match = " ".join(name_parts[:2]) if len(name_parts) >= 3 else candidate_name
+            matched_photo = None
             
-            if candidate_name_for_match.lower() in image_name_map:
-                photo_analysis.append(f"✅ '{candidate_name}' → matches photo '{image_name_map[candidate_name_for_match.lower()]}'")
+            # Strategy 1: Try full name first
+            if candidate_name.lower() in image_name_map:
+                matched_photo = image_name_map[candidate_name.lower()]
+            
+            # Strategy 2: If no match and 3+ parts, try first two names
+            elif len(name_parts) >= 3:
+                candidate_name_for_match = " ".join(name_parts[:2])
+                if candidate_name_for_match.lower() in image_name_map:
+                    matched_photo = image_name_map[candidate_name_for_match.lower()]
+            
+            # Strategy 3: If still no match and 3+ parts, try first and last names
+            if not matched_photo and len(name_parts) >= 3:
+                candidate_name_for_match = f"{name_parts[0]} {name_parts[-1]}"
+                if candidate_name_for_match.lower() in image_name_map:
+                    matched_photo = image_name_map[candidate_name_for_match.lower()]
+            
+            if matched_photo:
+                photo_analysis.append(f"✅ '{candidate_name}' → matches photo '{matched_photo}'")
             else:
                 unmatched_candidates.append(candidate_name)
         
@@ -1750,19 +1783,34 @@ def candidate_import_dual(request):
         data = dict(zip(headers, row))
         candidate_name_full = data.get('full_name', '').strip()
 
-        # Handle cases where Excel has 3 names but image has 2
+        # Try multiple name matching strategies
         name_parts = candidate_name_full.split()
-        if len(name_parts) >= 3:
-            # Use only the first two names for matching
-            candidate_name_for_match = " ".join(name_parts[:2])
-        else:
-            candidate_name_for_match = candidate_name_full
+        img_name = None
         
-        img_name = image_name_map.get(candidate_name_for_match.lower())
+        # Strategy 1: Try full name first
+        img_name = image_name_map.get(candidate_name_full.lower())
+        
+        # Strategy 2: If no match and 3+ parts, try first two names
+        if not img_name and len(name_parts) >= 3:
+            candidate_name_for_match = " ".join(name_parts[:2])
+            img_name = image_name_map.get(candidate_name_for_match.lower())
+        
+        # Strategy 3: If still no match and 3+ parts, try first and last names
+        if not img_name and len(name_parts) >= 3:
+            candidate_name_for_match = f"{name_parts[0]} {name_parts[-1]}"
+            img_name = image_name_map.get(candidate_name_for_match.lower())
+        
+        # For debugging, show what we tried
+        candidate_name_for_match = candidate_name_full if img_name else "(no match found)"
+        
+        # Debug photo matching
+        print(f"[PHOTO MATCH DEBUG] Row {idx}: Candidate '{candidate_name_full}' -> Looking for '{candidate_name_for_match}' -> Found: {img_name}")
+        if photo_zip and not img_name:
+            print(f"[PHOTO MATCH DEBUG] Available photos: {list(image_name_map.keys())}")
 
         # If photos were provided but this candidate has no match, log it
         if not img_name and photo_zip:
-            errors.append(f"Row {idx}: No photo found for '{candidate_name_full}'")
+            errors.append(f"Row {idx}: No photo found for '{candidate_name_full}' (searched for '{candidate_name_for_match}')")
         
         # --- (reuse import logic from candidate_import) ---
         form_data = data.copy()
@@ -1950,11 +1998,15 @@ def candidate_import_dual(request):
                     buffer = io.BytesIO()
                     img.save(buffer, format='JPEG', quality=85)
                     buffer.seek(0)
+                    # Use only the base filename, not the full path from ZIP
+                    base_filename = os.path.basename(img_name)
+                    clean_filename = os.path.splitext(base_filename)[0] + '.jpg'
                     candidate.passport_photo.save(
-                        os.path.splitext(img_name)[0] + '.jpg',
+                        clean_filename,
                         File(buffer),
                         save=False
                     )
+                    print(f"[PHOTO SAVE DEBUG] Saved photo as: {clean_filename}")
             else:
                 errors.append(f"Row {idx}: Image file '{img_name}' not found after extraction - candidate created without photo.")
         
