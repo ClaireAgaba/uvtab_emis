@@ -6854,7 +6854,29 @@ def download_result_list_pdf(request):
                     
                     # Module header
                     elements.append(Paragraph(f"MODULE: {module_name}", header_style))
-                    elements.append(Spacer(1, 12))
+                    elements.append(Spacer(1, 8))
+                    
+                    # Add paper details row below module header
+                    if module_info['papers']:
+                        paper_details = []
+                        for paper in module_info['papers']:
+                            paper_detail = f"{paper['code']}: {paper['name']}"
+                            paper_details.append(paper_detail)
+                        
+                        # Create a styled paragraph for paper details
+                        paper_info_style = ParagraphStyle(
+                            'PaperInfo',
+                            parent=getSampleStyleSheet()['Normal'],
+                            fontSize=9,
+                            textColor=colors.darkblue,
+                            leftIndent=20,
+                            spaceAfter=8
+                        )
+                        
+                        for paper_detail in paper_details:
+                            elements.append(Paragraph(paper_detail, paper_info_style))
+                        
+                        elements.append(Spacer(1, 8))
                     
                     # Create table data for this module
                     table_data = []
@@ -6922,21 +6944,45 @@ def download_result_list_pdf(request):
                     table_data.append(row)
                     sn += 1
                 
-                # Create and style the table
+                # Create and style the table with enhanced styling
                 if len(table_data) > 1:  # Only create table if there are candidates
                     table = Table(table_data)
-                    table.setStyle(TableStyle([
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    
+                    # Enhanced table styling to match preview
+                    table_style = [
+                        # Header row styling
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.4, 0.4, 0.4)),  # Dark grey header
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                         ('FONTSIZE', (0, 0), (-1, 0), 10),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                        ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                        ('TOPPADDING', (0, 0), (-1, 0), 8),
+                        
+                        # Data rows styling
                         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                        ('FONTSIZE', (0, 1), (-1, -1), 8),
-                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                    ]))
+                        ('FONTSIZE', (0, 1), (-1, -1), 9),
+                        ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
+                        ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
+                        ('TOPPADDING', (0, 1), (-1, -1), 6),
+                        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                        
+                        # Alternating row colors for better readability
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.Color(0.95, 0.95, 0.85), colors.white]),
+                        
+                        # Grid and borders
+                        ('GRID', (0, 0), (-1, -1), 1, colors.Color(0.3, 0.3, 0.3)),
+                        ('BOX', (0, 0), (-1, -1), 2, colors.Color(0.2, 0.2, 0.2)),
+                        
+                        # Special styling for specific columns
+                        ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # S/N column
+                        ('ALIGN', (2, 1), (2, -1), 'CENTER'),  # Reg No column
+                        ('ALIGN', (3, 1), (3, -1), 'LEFT'),    # Name column
+                        ('FONTSIZE', (3, 1), (3, -1), 8),      # Smaller font for names
+                    ]
+                    
+                    table.setStyle(TableStyle(table_style))
                     elements.append(table)
                     elements.append(Spacer(1, 20))
     else:
@@ -7081,22 +7127,45 @@ def download_result_list_pdf(request):
                 table_data.append(row)
                 sn += 1
             
-            # Create and style table for this center
+            # Create and style table for this center with enhanced styling
             if len(table_data) > 1:  # Only create table if there's data
                 table = Table(table_data)
-                table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                
+                # Enhanced table styling to match preview (consistent with modular section)
+                table_style = [
+                    # Header row styling
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.4, 0.4, 0.4)),  # Dark grey header
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                     ('FONTSIZE', (0, 0), (-1, 0), 10),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('TOPPADDING', (0, 0), (-1, 0), 8),
+                    
+                    # Data rows styling
                     ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                    ('FONTSIZE', (0, 1), (-1, -1), 8),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ]))
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 1), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                    
+                    # Alternating row colors for better readability
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.Color(0.95, 0.95, 0.85), colors.white]),
+                    
+                    # Grid and borders
+                    ('GRID', (0, 0), (-1, -1), 1, colors.Color(0.3, 0.3, 0.3)),
+                    ('BOX', (0, 0), (-1, -1), 2, colors.Color(0.2, 0.2, 0.2)),
+                    
+                    # Special styling for specific columns
+                    ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # S/N column
+                    ('ALIGN', (2, 1), (2, -1), 'CENTER'),  # Reg No column
+                    ('ALIGN', (3, 1), (3, -1), 'LEFT'),    # Name column
+                    ('FONTSIZE', (3, 1), (3, -1), 8),      # Smaller font for names
+                ]
+                
+                table.setStyle(TableStyle(table_style))
                 elements.append(table)
                 elements.append(Spacer(1, 20))
             else:
