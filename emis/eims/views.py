@@ -7675,24 +7675,24 @@ def generate_performance_report(request, year, month):
         'S/N', 'Occupation code', 
         # Registered columns
         'Registered', '', '', '',
-        # Missing columns  
-        'Missing', '', '', '',
-        # Sat For Exams columns
-        'Sat For Exams', '', '', '',
-        # Normal Progress columns
-        'Normal Progress (NP)', '', '', '',
-        # Probationary Pass columns
-        'Probationary Pass (PP)', '', '', ''
+        # Absent columns  
+        'Absent', '', '', '',
+        # Assessed columns
+        'Assessed', '', '', '',
+        # Completed Successfully columns
+        'Completed Successfully', '', '', '',
+        # Unsuccessful columns
+        'Unsuccessful', '', '', ''
     ]]
     
     # Add sub-header row for gender breakdown
     table_data.append([
         '', '',
         'F', 'M', 'TT', '%',  # Registered
-        'F', 'M', 'TT', '%',  # Missing
-        'F', 'M', 'TT', '%',  # Sat For Exams
-        'F', 'M', 'TT', '%',  # Normal Progress
-        'F', 'M', 'TT', '%'   # Probationary Pass
+        'F', 'M', 'TT', '%',  # Absent
+        'F', 'M', 'TT', '%',  # Assessed
+        'F', 'M', 'TT', '%',  # Completed Successfully
+        'F', 'M', 'TT', '%'   # Unsuccessful
     ])
     
     for i, occ in enumerate(occupations, 1):
@@ -7726,7 +7726,7 @@ def generate_performance_report(request, year, month):
         sat_male = candidates_with_results.filter(gender='M').count()
         sat_pct = (sat_total / registered_total * 100) if registered_total > 0 else 0.0
         
-        # Calculate Normal Progress (NP) and Probationary Pass (PP) by gender
+        # Calculate Completed Successfully and Unsuccessful by gender
         normal_progress_candidates = []
         probationary_candidates = []
         
@@ -7760,7 +7760,7 @@ def generate_performance_report(request, year, month):
                 else:
                     probationary_candidates.append(candidate)
         
-        # Calculate gender breakdowns for Normal Progress
+        # Calculate gender breakdowns for Completed Successfully
         np_total = len(normal_progress_candidates)
         np_female = sum(1 for c in normal_progress_candidates if c.gender == 'F')
         np_male = sum(1 for c in normal_progress_candidates if c.gender == 'M')
@@ -7785,17 +7785,17 @@ def generate_performance_report(request, year, month):
             str(missing_male),
             str(missing_total),
             f"{missing_pct:.1f}",
-            # Sat For Exams: F, M, TT, %
+            # Assessed: F, M, TT, %
             str(sat_female),
             str(sat_male),
             str(sat_total),
             f"{sat_pct:.1f}",
-            # Normal Progress: F, M, TT, %
+            # Completed Successfully: F, M, TT, %
             str(np_female),
             str(np_male),
             str(np_total),
             f"{np_pct:.1f}",
-            # Probationary Pass: F, M, TT, %
+            # Unsuccessful: F, M, TT, %
             str(pp_female),
             str(pp_male),
             str(pp_total),
@@ -7926,10 +7926,10 @@ def generate_performance_report(request, year, month):
         ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
         # Column spanning for main headers to center them over sub-columns
         ('SPAN', (2, 0), (5, 0)),   # Registered spans 4 columns
-        ('SPAN', (6, 0), (9, 0)),   # Missing spans 4 columns
-        ('SPAN', (10, 0), (13, 0)), # Sat For Exams spans 4 columns
-        ('SPAN', (14, 0), (17, 0)), # Normal Progress spans 4 columns
-        ('SPAN', (18, 0), (21, 0)), # Probationary Pass spans 4 columns
+        ('SPAN', (6, 0), (9, 0)),   # Absent spans 4 columns
+        ('SPAN', (10, 0), (13, 0)), # Assessed spans 4 columns
+        ('SPAN', (14, 0), (17, 0)), # Completed Successfully spans 4 columns
+        ('SPAN', (18, 0), (21, 0)), # Unsuccessful spans 4 columns
         ('BACKGROUND', (0, 2), (-1, -2), colors.Color(0.9, 0.95, 1.0)),  # Light blue rows
         ('BACKGROUND', (0, -1), (-1, -1), colors.Color(0.7, 0.85, 0.95)),  # Darker blue for totals
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),  # Bold totals row
@@ -8193,24 +8193,24 @@ def generate_performance_report(request, year, month):
             'S/N', 'Occupation',
             # Registered columns
             'Registered', '', '', '',
-            # Missing columns  
-            'Missing', '', '', '',
-            # Sat For Exams columns
-            'Sat For Exams', '', '', '',
-            # Normal Progress columns
-            'Normal Progress (NP)', '', '', '',
-            # Probationary Pass columns
-            'Probationary Pass (PP)', '', '', ''
+            # Absent columns  
+            'Absent', '', '', '',
+            # Assessed columns
+            'Assessed', '', '', '',
+            # Completed Successfully columns
+            'Completed Successfully', '', '', '',
+            # Unsuccessful columns
+            'Unsuccessful', '', '', ''
         ]]
         
         # Add sub-header row for gender breakdown
         center_table_data.append([
             '', '',
             'F', 'M', 'TT', '%',  # Registered
-            'F', 'M', 'TT', '%',  # Missing
-            'F', 'M', 'TT', '%',  # Sat For Exams
-            'F', 'M', 'TT', '%',  # Normal Progress
-            'F', 'M', 'TT', '%'   # Probationary Pass
+            'F', 'M', 'TT', '%',  # Absent
+            'F', 'M', 'TT', '%',  # Assessed
+            'F', 'M', 'TT', '%',  # Completed Successfully
+            'F', 'M', 'TT', '%'   # Unsuccessful
         ])
         
         for i, occ in enumerate(center_occupations, 1):
@@ -8244,7 +8244,7 @@ def generate_performance_report(request, year, month):
             sat_male = center_candidates_with_results.filter(gender='M').count()
             sat_pct = (sat_total / registered_total * 100) if registered_total > 0 else 0.0
             
-            # Calculate Normal Progress (NP) and Probationary Pass (PP) by gender
+            # Calculate Completed Successfully and Unsuccessful by gender
             normal_progress_candidates = []
             probationary_candidates = []
             
@@ -8273,7 +8273,7 @@ def generate_performance_report(request, year, month):
                     else:
                         probationary_candidates.append(candidate)
             
-            # Calculate gender breakdowns for Normal Progress
+            # Calculate gender breakdowns for Completed Successfully
             np_total = len(normal_progress_candidates)
             np_female = sum(1 for c in normal_progress_candidates if c.gender == 'F')
             np_male = sum(1 for c in normal_progress_candidates if c.gender == 'M')
@@ -8298,17 +8298,17 @@ def generate_performance_report(request, year, month):
                 str(missing_male),
                 str(missing_total),
                 f"{missing_pct:.1f}",
-                # Sat For Exams: F, M, TT, %
+                # Assessed: F, M, TT, %
                 str(sat_female),
                 str(sat_male),
                 str(sat_total),
                 f"{sat_pct:.1f}",
-                # Normal Progress: F, M, TT, %
+                # Completed Successfully: F, M, TT, %
                 str(np_female),
                 str(np_male),
                 str(np_total),
                 f"{np_pct:.1f}",
-                # Probationary Pass: F, M, TT, %
+                # Unsuccessful: F, M, TT, %
                 str(pp_female),
                 str(pp_male),
                 str(pp_total),
@@ -8392,17 +8392,17 @@ def generate_performance_report(request, year, month):
             str(center_total_missing_male),
             str(center_total_missing),
             f"{center_total_missing_pct:.1f}",
-            # Sat For Exams: F, M, TT, %
+            # Assessed: F, M, TT, %
             str(center_total_sat_female),
             str(center_total_sat_male),
             str(center_total_sat_for_exams),
             f"{center_total_sat_pct:.1f}",
-            # Normal Progress: F, M, TT, %
+            # Completed Successfully: F, M, TT, %
             str(center_total_np_female),
             str(center_total_np_male),
             str(center_total_np),
             f"{center_total_np_pct:.1f}",
-            # Probationary Pass: F, M, TT, %
+            # Unsuccessful: F, M, TT, %
             str(center_total_pp_female),
             str(center_total_pp_male),
             str(center_total_pp),
@@ -8417,11 +8417,11 @@ def generate_performance_report(request, year, month):
             0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
             # Missing: F, M, TT, %
             0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
-            # Sat For Exams: F, M, TT, %
+            # Assessed: F, M, TT, %
             0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
-            # Normal Progress: F, M, TT, %
+            # Completed Successfully: F, M, TT, %
             0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch,
-            # Probationary Pass: F, M, TT, %
+            # Unsuccessful: F, M, TT, %
             0.4*inch, 0.4*inch, 0.5*inch, 0.5*inch
         ]
         
@@ -8438,10 +8438,10 @@ def generate_performance_report(request, year, month):
             ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
             # Column spanning for center table headers
             ('SPAN', (2, 0), (5, 0)),   # Registered spans 4 columns
-            ('SPAN', (6, 0), (9, 0)),   # Missing spans 4 columns
-            ('SPAN', (10, 0), (13, 0)), # Sat For Exams spans 4 columns
-            ('SPAN', (14, 0), (17, 0)), # Normal Progress spans 4 columns
-            ('SPAN', (18, 0), (21, 0)), # Probationary Pass spans 4 columns
+            ('SPAN', (6, 0), (9, 0)),   # Absent spans 4 columns
+            ('SPAN', (10, 0), (13, 0)), # Assessed spans 4 columns
+            ('SPAN', (14, 0), (17, 0)), # Completed Successfully spans 4 columns
+            ('SPAN', (18, 0), (21, 0)), # Unsuccessful spans 4 columns
             ('BACKGROUND', (0, 2), (-1, -2), colors.Color(0.9, 0.95, 1.0)),  # Light blue rows
             ('BACKGROUND', (0, -1), (-1, -1), colors.Color(0.7, 0.85, 0.95)),  # Darker blue for totals
             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),  # Bold totals row
