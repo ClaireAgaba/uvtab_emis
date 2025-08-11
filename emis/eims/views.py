@@ -6500,8 +6500,8 @@ def download_result_list_pdf(request):
                 module_key = f"{module.code} - {module.name}"
                 # Get all papers for this module
                 module_papers = Paper.objects.filter(module=module)
-                # Initialize for all centers that have candidates
-                centers_with_candidates = set(result.candidate.assessment_center.center_name if result.candidate.assessment_center else 'Unknown Center' for result in results)
+                # Initialize for all centers that have candidates (get from result_data, not just results with actual data)
+                centers_with_candidates = set(entry['candidate']['assessment_center'] for entry in result_data if entry['candidate']['assessment_center'])
                 for center_name in centers_with_candidates:
                     informal_module_data[center_name][module_key]['papers'] = [{
                         'code': p.code,
