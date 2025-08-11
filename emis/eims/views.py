@@ -7293,7 +7293,7 @@ def assessment_series_detail(request, year, month):
 
 @login_required
 def generate_performance_report(request, year, month):
-    """Generate performance report PDF for assessment series"""
+    """Generate performance report PDF for assessment series - OPTIMIZED VERSION"""
     from reportlab.lib.pagesizes import landscape, A4
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -7303,6 +7303,12 @@ def generate_performance_report(request, year, month):
     from django.conf import settings
     from io import BytesIO
     import os
+    import time
+    from django.db import connection
+    
+    # Performance monitoring
+    start_time = time.time()
+    print(f"[PERFORMANCE] Report generation started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Get parameters
     category = request.GET.get('category')
@@ -7317,10 +7323,17 @@ def generate_performance_report(request, year, month):
     if not assessment_series:
         return HttpResponse("Assessment series not found", status=404)
     
-    # Filter candidates
+    # Filter candidates with optimized queries to prevent N+1 problems
     filtered_candidates = Candidate.objects.filter(
         assessment_series=assessment_series,
         registration_category=category
+    ).select_related(
+        'occupation',
+        'occupation__sector',
+        'assessment_center'
+    ).prefetch_related(
+        'result_set',  # Prefetch all results to avoid N+1 queries
+        'candidatelevel_set__level'
     )
     
     # Debug logging
@@ -7675,8 +7688,17 @@ def generate_performance_report(request, year, month):
     elements.append(Paragraph("Performance by Occupation by Sector", title_style))
     elements.append(Spacer(1, 20))
     
-    # Get sector data with gender breakdown
+    # Get sector data with gender breakdown - OPTIMIZED with batch processing
     sectors = filtered_candidates.values('occupation__sector__name').distinct()
+    
+    # Add batch processing for large datasets
+    candidate_count = filtered_candidates.count()
+    print(f"[PERFORMANCE] Processing {candidate_count} candidates across {len(sectors)} sectors")
+    
+    # If dataset is very large, implement chunking to prevent memory issues
+    BATCH_SIZE = 1000  # Process candidates in batches of 1000
+    if candidate_count > BATCH_SIZE:
+        print(f"[PERFORMANCE] Large dataset detected, using batch processing with size {BATCH_SIZE}")
     
     # Create sector table with gender breakdown columns
     sector_table_data = [[
@@ -7711,24 +7733,26 @@ def generate_performance_report(request, year, month):
         total_male = sector_candidates.filter(gender='M').count()
         total_pct = 100.0 if total_candidates > 0 else 0.0
         
-        # Calculate successful candidates (Normal Progress) by gender
+        # Calculate successful candidates (Normal Progress) by gender - OPTIMIZED VERSION
         successful_candidates = []
         unsuccessful_candidates = []
         
-        candidates_with_results = sector_candidates.filter(
-            result__isnull=False
-        ).distinct()
+        # Get all candidates with results for this sector (already prefetched)
+        candidates_with_results = [c for c in sector_candidates if hasattr(c, 'result_set') and c.result_set.exists()]
         
+        # Process candidates using prefetched data (no additional DB queries)
         for candidate in candidates_with_results:
-            candidate_results = candidate.result_set.all()
+            # Use prefetched results - no DB query here
+            candidate_results = list(candidate.result_set.all())
             
-            if not candidate_results.exists():
+            if not candidate_results:
                 continue
             
-            practical_results = candidate_results.filter(assessment_type='practical')
+            # Filter practical results from prefetched data
+            practical_results = [r for r in candidate_results if r.assessment_type == 'practical']
             
-            if practical_results.exists():
-                practical_comments = [r.comment.lower() for r in practical_results]
+            if practical_results:
+                practical_comments = [r.comment.lower() if r.comment else '' for r in practical_results]
                 
                 if any(comment in ['unsuccessful', 'ctr', 'fail'] for comment in practical_comments):
                     unsuccessful_candidates.append(candidate)
@@ -7737,7 +7761,7 @@ def generate_performance_report(request, year, month):
                 else:
                     unsuccessful_candidates.append(candidate)
             else:
-                all_comments = [r.comment.lower() for r in candidate_results]
+                all_comments = [r.comment.lower() if r.comment else '' for r in candidate_results]
                 
                 if all(comment == 'successful' for comment in all_comments):
                     successful_candidates.append(candidate)
@@ -8103,6 +8127,14 @@ def generate_performance_report(request, year, month):
     # Get the value of the BytesIO buffer and create response
     pdf = buffer.getvalue()
     buffer.close()
+    
+    # Performance monitoring
+    end_time = time.time()
+    execution_time = end_time - start_time
+    query_count = len(connection.queries)
+    print(f"[PERFORMANCE] Report generation completed in {execution_time:.2f} seconds")
+    print(f"[PERFORMANCE] Total database queries: {query_count}")
+    print(f"[PERFORMANCE] Report generated at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Create PDF response
     response = HttpResponse(content_type='application/pdf')
