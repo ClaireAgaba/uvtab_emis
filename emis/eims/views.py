@@ -7689,11 +7689,29 @@ def generate_performance_report(request, year, month):
     elements.append(Spacer(1, 20))
     
     # Get sector data with gender breakdown - OPTIMIZED with batch processing
-    sectors = filtered_candidates.values('occupation__sector__name').distinct()
+    # Fix sector query to handle NULL sectors properly
+    sectors_raw = filtered_candidates.values('occupation__sector__name').distinct()
+    
+    # Debug sector information to identify the issue
+    sector_list = list(sectors_raw)
+    print(f"[DEBUG] Raw sectors found: {sector_list[:10]}...")  # Show first 10 sectors
+    print(f"[DEBUG] Total unique sectors: {len(sector_list)}")
+    
+    # Check if we have NULL sectors causing the issue
+    null_sector_count = filtered_candidates.filter(occupation__sector__name__isnull=True).count()
+    print(f"[DEBUG] Candidates with NULL sectors: {null_sector_count}")
+    
+    # Get actual unique sector names, handling NULLs
+    unique_sectors = set()
+    for sector in sector_list:
+        sector_name = sector['occupation__sector__name'] or 'Unknown Sector'
+        unique_sectors.add(sector_name)
+    
+    print(f"[DEBUG] Actual unique sectors: {list(unique_sectors)}")
     
     # Add batch processing for large datasets
     candidate_count = filtered_candidates.count()
-    print(f"[PERFORMANCE] Processing {candidate_count} candidates across {len(sectors)} sectors")
+    print(f"[PERFORMANCE] Processing {candidate_count} candidates across {len(unique_sectors)} sectors")
     
     # If dataset is very large, implement chunking to prevent memory issues
     BATCH_SIZE = 1000  # Process candidates in batches of 1000
@@ -7719,13 +7737,18 @@ def generate_performance_report(request, year, month):
         'F', 'M', 'TT', '%'   # Unsuccessful
     ])
     
-    for sector in sectors:
-        sector_name = sector['occupation__sector__name'] or 'Unknown Sector'
+    for sector_name in unique_sectors:
+        print(f"[DEBUG] Processing sector: {sector_name}")
         
-        # Get candidates for this sector
-        sector_candidates = filtered_candidates.filter(
-            occupation__sector__name=sector_name
-        )
+        # Get candidates for this sector - handle NULL sectors properly
+        if sector_name == 'Unknown Sector':
+            sector_candidates = filtered_candidates.filter(
+                occupation__sector__name__isnull=True
+            )
+        else:
+            sector_candidates = filtered_candidates.filter(
+                occupation__sector__name=sector_name
+            )
         
         # Calculate total candidates by gender
         total_candidates = sector_candidates.count()
