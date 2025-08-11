@@ -118,7 +118,7 @@ class AssessmentCenter(models.Model):
     center_name = models.CharField(max_length=255)
     category = models.ForeignKey('AssessmentCenterCategory', on_delete=models.CASCADE)
     district = models.ForeignKey('District', on_delete=models.CASCADE)
-    village = models.ForeignKey('Village', on_delete=models.CASCADE)
+    village = models.ForeignKey('Village', on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return f"{self.center_number} - {self.center_name}"

@@ -30,6 +30,13 @@ class AssessmentCenterForm(forms.ModelForm):
             'district':    forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
             'village':     forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
         }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make village field optional with helpful placeholder
+        self.fields['village'].required = False
+        self.fields['village'].empty_label = "Select village (optional)"
+        self.fields['village'].help_text = "You can add the village later during editing if needed"
 
 
 class OccupationForm(forms.ModelForm):
