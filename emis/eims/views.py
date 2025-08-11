@@ -5774,6 +5774,9 @@ def candidate_view(request, id):
     reg_cat_normalized = reg_cat.strip().lower() if reg_cat else ''
     level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
 
+    # Initialize module_enrollments for all registration categories to prevent UnboundLocalError
+    module_enrollments = CandidateModule.objects.filter(candidate=candidate)
+    
     # Multi-level enrollment summary for worker's PAS/informal/modular
     enrollment_summary = []
     if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
@@ -5797,8 +5800,7 @@ def candidate_view(request, id):
     # For modular candidates, use simple results display like formal candidates
     # No enrollment_summary needed
     else:
-        # For formal/modular, keep old logic
-        module_enrollments = CandidateModule.objects.filter(candidate=candidate)
+        # For formal/modular, keep old logic - module_enrollments already initialized above
         for mod_enroll in module_enrollments:
             mod_enroll.papers = list(Paper.objects.filter(module=mod_enroll.module))
 
