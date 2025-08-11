@@ -205,23 +205,23 @@ def generate_result_list(request):
                         if occ_level:
                             structure_type = occ_level.structure_type
                     if structure_type == 'papers':
-                        # Paper-based: fetch paper results
+                        # Paper-based: fetch paper results with optimized queries
                         results = Result.objects.filter(
                             candidate=cand,
                             assessment_date__year=year,
                             assessment_date__month=month,
                             result_type='formal',
                             paper__isnull=False
-                        )
+                        ).select_related('paper', 'user')
                         print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (formal, papers): year={year}, month={month}, result_type=formal, structure_type=papers')
                     else:
-                        # Module-based: keep old logic
+                        # Module-based: keep old logic with optimized queries
                         results = Result.objects.filter(
                             candidate=cand,
                             assessment_date__year=year,
                             assessment_date__month=month,
                             result_type='formal',
-                        )
+                        ).select_related('user')
                         print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (formal, modules): year={year}, month={month}, result_type=formal, structure_type=modules')
                 elif regcat_lower in ['informal', "worker's pas", "workers pas"]:
                     results = Result.objects.filter(
@@ -229,7 +229,7 @@ def generate_result_list(request):
                         assessment_date__year=year,
                         assessment_date__month=month,
                         result_type='informal',
-                    )
+                    ).select_related('user')
                     print(f'[DEBUG] Filtering results for candidate {cand.reg_number} (informal): year={year}, month={month}, result_type=informal')
                 else:
                     results = Result.objects.none()
