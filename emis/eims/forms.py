@@ -37,6 +37,41 @@ class AssessmentCenterForm(forms.ModelForm):
         self.fields['village'].required = False
         self.fields['village'].empty_label = "Select village (optional)"
         self.fields['village'].help_text = "You can add the village later during editing if needed"
+        
+        # Add helpful placeholders and help text for other fields
+        self.fields['center_number'].help_text = "Enter a unique center number (e.g., UVT001)"
+        self.fields['center_name'].help_text = "Enter the full name of the assessment center"
+    
+    def clean_center_number(self):
+        """Validate that center number is unique"""
+        center_number = self.cleaned_data.get('center_number')
+        if center_number:
+            # Check if this center number already exists (excluding current instance for edit)
+            existing_center = AssessmentCenter.objects.filter(center_number=center_number)
+            if self.instance.pk:
+                existing_center = existing_center.exclude(pk=self.instance.pk)
+            
+            if existing_center.exists():
+                raise forms.ValidationError(
+                    f'Assessment Center with number "{center_number}" already exists. '
+                    'Please choose a different center number.'
+                )
+        return center_number
+    
+    def clean_center_name(self):
+        """Validate center name and warn about potential duplicates"""
+        center_name = self.cleaned_data.get('center_name')
+        if center_name:
+            # Check for exact duplicate names (case-insensitive)
+            existing_center = AssessmentCenter.objects.filter(center_name__iexact=center_name)
+            if self.instance.pk:
+                existing_center = existing_center.exclude(pk=self.instance.pk)
+            
+            if existing_center.exists():
+                # For name duplicates, we'll just add a warning in the view, not block creation
+                # This allows for legitimate cases where centers might have similar names
+                pass
+        return center_name
 
 
 class OccupationForm(forms.ModelForm):

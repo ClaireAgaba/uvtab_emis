@@ -2978,8 +2978,21 @@ def assessment_center_create(request):
     if request.method == 'POST':
         form = AssessmentCenterForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect('assessment_center_list')
+            # Check for center name duplicates and show warning (form validation handles center_number duplicates)
+            center_name = form.cleaned_data['center_name']
+            if AssessmentCenter.objects.filter(center_name__iexact=center_name).exists():
+                messages.warning(request, f'An Assessment Center with the name "{center_name}" already exists. Please verify this is not a duplicate.')
+            
+            try:
+                center = form.save()
+                messages.success(request, f'Assessment Center "{center.center_name}" ({center.center_number}) has been created successfully!')
+                return redirect('assessment_center_list')
+            except Exception as e:
+                messages.error(request, f'Error creating assessment center: {str(e)}')
+                return render(request, 'assessment_centers/create.html', {'form': form})
+        else:
+            # Form validation failed - errors will be displayed automatically
+            messages.error(request, 'Please correct the errors below and try again.')
     else:
         form = AssessmentCenterForm()
 
@@ -7682,6 +7695,61 @@ def generate_performance_report(request, year, month):
     ]))
     
     elements.append(table)
+    elements.append(Spacer(1, 30))
+    
+    # Add Occupation Summary Table
+    elements.append(Paragraph("Occupation Summary", styles['Heading3']))
+    elements.append(Spacer(1, 10))
+    
+    # Get unique occupations with their sectors from the filtered candidates
+    occupation_summary_data = filtered_candidates.values(
+        'occupation__code', 
+        'occupation__name', 
+        'occupation__sector__name'
+    ).distinct().order_by('occupation__code')
+    
+    # Create occupation summary table
+    summary_table_data = [[
+        'S/N', 'Occupation Code', 'Occupation Name', 'Sector'
+    ]]
+    
+    for idx, occ in enumerate(occupation_summary_data, 1):
+        sector_name = occ['occupation__sector__name'] or 'Unknown Sector'
+        summary_table_data.append([
+            str(idx),
+            occ['occupation__code'] or 'N/A',
+            occ['occupation__name'] or 'N/A',
+            sector_name
+        ])
+    
+    # Create summary table with appropriate column widths
+    summary_col_widths = [
+        0.6*inch,  # S/N
+        1.2*inch,  # Occupation Code
+        3.5*inch,  # Occupation Name
+        2.0*inch   # Sector
+    ]
+    
+    summary_table = Table(summary_table_data, colWidths=summary_col_widths)
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.2, 0.6, 0.2)),  # Green header
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Center S/N column
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('TOPPADDING', (0, 1), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.Color(0.95, 1.0, 0.95)),  # Light green rows
+        ('BOX', (0, 0), (-1, -1), 1, colors.Color(0.2, 0.6, 0.2)),  # Green border
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.Color(0.4, 0.7, 0.4)),  # Light green grid
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.Color(0.98, 1.0, 0.98), colors.Color(0.95, 1.0, 0.95)])
+    ]))
+    
+    elements.append(summary_table)
     elements.append(PageBreak())
     
     # Page 2: Stats by occupation by sector
