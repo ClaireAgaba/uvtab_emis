@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, Result, NatureOfDisability, Staff, AssessmentSeries, Sector
+from .models import AssessmentCenter, AssessmentCenterBranch, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, Result, NatureOfDisability, Staff, AssessmentSeries, Sector
 from datetime import datetime   
 
 from django_countries.fields import CountryField
@@ -22,13 +22,14 @@ class NatureOfDisabilityForm(forms.ModelForm):
 class AssessmentCenterForm(forms.ModelForm):
     class Meta:
         model = AssessmentCenter
-        fields = ['center_number', 'center_name', 'category', 'district', 'village']
+        fields = ['center_number', 'center_name', 'category', 'district', 'village', 'has_branches']
         widgets = {
             'center_number': forms.TextInput(attrs={'class':'border rounded px-3 py-2 w-full'}),
             'center_name': forms.TextInput(attrs={'class':'border rounded px-3 py-2 w-full'}),
             'category':    forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
             'district':    forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
             'village':     forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
+            'has_branches': forms.CheckboxInput(attrs={'class':'rounded'}),
         }
         
     def __init__(self, *args, **kwargs):
@@ -41,6 +42,7 @@ class AssessmentCenterForm(forms.ModelForm):
         # Add helpful placeholders and help text for other fields
         self.fields['center_number'].help_text = "Enter a unique center number (e.g., UVT001)"
         self.fields['center_name'].help_text = "Enter the full name of the assessment center"
+        self.fields['has_branches'].help_text = "Check this if the center will have multiple branches in different locations"
     
     def clean_center_number(self):
         """Validate that center number is unique"""
@@ -72,6 +74,73 @@ class AssessmentCenterForm(forms.ModelForm):
                 # This allows for legitimate cases where centers might have similar names
                 pass
         return center_name
+
+
+class AssessmentCenterBranchForm(forms.ModelForm):
+    class Meta:
+        model = AssessmentCenterBranch
+        fields = ['branch_code', 'district', 'village']
+        widgets = {
+            'branch_code': forms.TextInput(attrs={'class':'border rounded px-3 py-2 w-full'}),
+            'district': forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
+            'village': forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        self.assessment_center = kwargs.pop('assessment_center', None)
+        super().__init__(*args, **kwargs)
+        
+        # Add helpful placeholders and help text
+        self.fields['branch_code'].help_text = "Enter a unique branch code (e.g., UVT001-Leju)"
+        self.fields['district'].help_text = "Select the district where this branch is located"
+        self.fields['village'].help_text = "Select the village where this branch is located"
+        
+        # Filter villages based on selected district if editing
+        if self.instance.pk and self.instance.district:
+            self.fields['village'].queryset = Village.objects.filter(district=self.instance.district)
+    
+    def clean_branch_code(self):
+        """Validate that branch code is unique"""
+        branch_code = self.cleaned_data.get('branch_code')
+        if branch_code:
+            # Check if this branch code already exists (excluding current instance for edit)
+            existing_branch = AssessmentCenterBranch.objects.filter(branch_code=branch_code)
+            if self.instance.pk:
+                existing_branch = existing_branch.exclude(pk=self.instance.pk)
+            
+            if existing_branch.exists():
+                raise forms.ValidationError(
+                    f'Branch with code "{branch_code}" already exists. '
+                    'Please choose a different branch code.'
+                )
+        return branch_code
+    
+    def clean_village(self):
+        """Validate that the center doesn't already have a branch in this village"""
+        village = self.cleaned_data.get('village')
+        if village and self.assessment_center:
+            # Check if this center already has a branch in this village
+            existing_branch = AssessmentCenterBranch.objects.filter(
+                assessment_center=self.assessment_center, 
+                village=village
+            )
+            if self.instance.pk:
+                existing_branch = existing_branch.exclude(pk=self.instance.pk)
+            
+            if existing_branch.exists():
+                raise forms.ValidationError(
+                    f'This assessment center already has a branch in {village.name}. '
+                    'Each center can have only one branch per village.'
+                )
+        return village
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.assessment_center:
+            instance.assessment_center = self.assessment_center
+        if commit:
+            instance.save()
+        return instance
 
 
 class OccupationForm(forms.ModelForm):
@@ -390,6 +459,41 @@ class CandidateForm(forms.ModelForm):
                 pass
         # If it's a new form or no district selected, village queryset remains Village.objects.none()
         # JavaScript will populate it on district change.
+        
+        # Handle assessment center branch selection
+        self.fields['assessment_center_branch'].required = False  # Always optional to allow main center assignment
+        self.fields['assessment_center_branch'].empty_label = "Main Center (no specific branch)"
+        self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.none()  # Start with empty queryset
+        
+        if 'assessment_center' in self.data:  # If form is submitted with data
+            try:
+                center_id = int(self.data.get('assessment_center'))
+                center = AssessmentCenter.objects.get(pk=center_id)
+                if center.has_branches:
+                    self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(assessment_center_id=center_id).order_by('branch_code')
+                    self.fields['assessment_center_branch'].help_text = "This center has branches. Select a specific branch or leave blank for main center."
+                else:
+                    self.fields['assessment_center_branch'].help_text = "This center does not have branches."
+            except (ValueError, TypeError, AssessmentCenter.DoesNotExist):
+                pass
+        elif self.instance.pk and self.instance.assessment_center:  # If editing existing instance
+            center = self.instance.assessment_center
+            if center.has_branches:
+                self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(assessment_center=center).order_by('branch_code')
+                self.fields['assessment_center_branch'].help_text = "This center has branches. Select a specific branch or leave blank for main center."
+            else:
+                self.fields['assessment_center_branch'].help_text = "This center does not have branches."
+        elif self.initial.get('assessment_center'):  # If initial data has assessment center
+            try:
+                center_id = int(self.initial.get('assessment_center'))
+                center = AssessmentCenter.objects.get(pk=center_id)
+                if center.has_branches:
+                    self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(assessment_center_id=center_id).order_by('branch_code')
+                    self.fields['assessment_center_branch'].help_text = "This center has branches. Select a specific branch or leave blank for main center."
+                else:
+                    self.fields['assessment_center_branch'].help_text = "This center does not have branches."
+            except (ValueError, TypeError, AssessmentCenter.DoesNotExist):
+                pass
     class Meta:
         model = Candidate
         exclude = ['status', 'fees_balance', 'verification_status', 'verification_date', 'verified_by', 'decline_reason']
@@ -404,6 +508,7 @@ class CandidateForm(forms.ModelForm):
             'district': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'village': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'assessment_center': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'assessment_center_branch': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             #'entry_year': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full', 'choices': YEAR_CHOICES }),
             'intake': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'occupation': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),

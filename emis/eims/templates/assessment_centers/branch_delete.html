@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Branch - {{ branch.branch_code }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-red-600">Delete Branch</h1>
+            <p class="text-gray-600 mt-2">{{ center.center_number }} - {{ center.center_name }}</p>
+            <p class="text-sm text-gray-500">Branch: {{ branch.branch_code }}</p>
+        </div>
+        <a href="{% url 'assessment_center_branches' center.id %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">← Back to Branches</a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="bg-white shadow-md rounded-lg p-6">
+        {% if candidates_count > 0 %}
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">Cannot Delete Branch</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            <p>This branch has <strong>{{ candidates_count }}</strong> candidate(s) assigned to it. You must reassign or remove these candidates before deleting the branch.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end">
+                <a href="{% url 'assessment_center_branches' center.id %}" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg">Back to Branches</a>
+            </div>
+        {% else %}
+            <div class="text-center">
+                <svg class="mx-auto h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-gray-900">Confirm Branch Deletion</h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    Are you sure you want to delete the branch <strong>"{{ branch.branch_code }}"</strong>?
+                </p>
+                <p class="mt-2 text-sm text-red-600">
+                    This action cannot be undone.
+                </p>
+                
+                <div class="mt-6">
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <h4 class="font-medium text-gray-900 mb-2">Branch Details:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <p><strong>Branch Code:</strong> {{ branch.branch_code }}</p>
+                            <p><strong>District:</strong> {{ branch.district.name }}</p>
+                            <p><strong>Village:</strong> {{ branch.village.name }}</p>
+                            <p><strong>Candidates:</strong> {{ candidates_count }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <form method="post" class="mt-6">
+                    {% csrf_token %}
+                    <div class="flex justify-center space-x-3">
+                        <a href="{% url 'assessment_center_branches' center.id %}" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg">Cancel</a>
+                        <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg">Delete Branch</button>
+                    </div>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

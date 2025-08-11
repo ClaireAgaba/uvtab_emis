@@ -74,9 +74,16 @@ urlpatterns = [
     path('candidates/<int:id>/verify/', views.verify_candidate, name='verify_candidate'),
     path('candidates/<int:id>/decline/', views.decline_candidate, name='decline_candidate'),
     path('api/districts/<int:district_id>/villages/', views.district_villages_api, name='api_district_villages'),
+    path('api/assessment-centers/<int:center_id>/branches/', views.api_assessment_center_branches, name='api_assessment_center_branches'),
     path('api/session-status/', views.check_session_status, name='check_session_status'),
     path('assessment-centers/<int:id>/', views.assessment_center_view, name='assessment_center_view'),
-    path('assessment-centers/<int:id>/edit/', views.edit_assessment_center, name='edit_assessment_center'), 
+    path('assessment-centers/<int:id>/edit/', views.edit_assessment_center, name='edit_assessment_center'),
+    
+    # Assessment Center Branch URLs
+    path('assessment-centers/<int:center_id>/branches/', views.assessment_center_branches, name='assessment_center_branches'),
+    path('assessment-centers/<int:center_id>/branches/create/', views.assessment_center_branch_create, name='assessment_center_branch_create'),
+    path('assessment-centers/<int:center_id>/branches/<int:branch_id>/edit/', views.assessment_center_branch_edit, name='assessment_center_branch_edit'),
+    path('assessment-centers/<int:center_id>/branches/<int:branch_id>/delete/', views.assessment_center_branch_delete, name='assessment_center_branch_delete'), 
     path('modules/', views.module_list, name='module_list'),
     path('papers/', views.paper_list, name='paper_list'),
     path('papers/create/', views.paper_create, name='paper_create'),

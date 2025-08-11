@@ -42,6 +42,24 @@
         <label class="block font-medium mb-1">District</label>
         {{ form.district }}
       </div>
+      
+      <div>
+        <label class="block font-medium mb-1">Has Branches?</label>
+        <div class="flex items-center space-x-2">
+          {{ form.has_branches }}
+          <span class="text-sm text-gray-600">Check if this center will have multiple branches</span>
+        </div>
+        {% if form.has_branches.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.has_branches.help_text }}</p>
+        {% endif %}
+        {% if form.has_branches.errors %}
+          <div class="text-red-600 text-sm mt-1">
+            {% for error in form.has_branches.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
     </div>
 
     <!-- Submit Button full width -->

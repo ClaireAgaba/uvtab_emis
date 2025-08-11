@@ -1897,19 +1897,37 @@ def candidate_import_dual(request):
                 errors.append(f"Row {idx}: Occupation '{occ_str}' not found.")
                 continue
         
-        # Handle assessment center lookup (by code/number)
+        # Enhanced assessment center/branch lookup (by code/number)
         center_val = form_data.get('assessment_center')
         if center_val:
             center_str = str(center_val).strip()
-            # Try to find by center_number (code) first, then by center_name as fallback
-            center = AssessmentCenter.objects.filter(center_number__iexact=center_str).first()
-            if not center:
-                center = AssessmentCenter.objects.filter(center_name__iexact=center_str).first()
             
-            if center:
-                form_data['assessment_center'] = center.id
-            else:
-                errors.append(f"Row {idx}: Assessment Center '{center_str}' not found.")
+            # First try to find a branch by branch_code
+            branch_found = None
+            center_found = None
+            
+            try:
+                # Try to find branch by branch_code first
+                from .models import AssessmentCenterBranch
+                branch_found = AssessmentCenterBranch.objects.select_related('assessment_center').filter(branch_code__iexact=center_str).first()
+                if branch_found:
+                    center_found = branch_found.assessment_center
+                    form_data['assessment_center'] = center_found.id
+                    form_data['assessment_center_branch'] = branch_found.id
+                else:
+                    # If no branch found, try to find assessment center by center_number or center_name
+                    center_found = AssessmentCenter.objects.filter(center_number__iexact=center_str).first()
+                    if not center_found:
+                        center_found = AssessmentCenter.objects.filter(center_name__iexact=center_str).first()
+                    
+                    if center_found:
+                        form_data['assessment_center'] = center_found.id
+                        form_data['assessment_center_branch'] = None  # No branch specified
+                    else:
+                        errors.append(f"Row {idx}: Assessment Center or Branch '{center_str}' not found. Please use a valid center number, center name, or branch code.")
+                        continue
+            except Exception as e:
+                errors.append(f"Row {idx}: Error looking up assessment center/branch '{center_str}': {str(e)}")
                 continue
         
         # Use CandidateForm for validation, but patch required fields for import
@@ -1938,7 +1956,7 @@ def candidate_import_dual(request):
 
         # Define date and foreign key fields for use below
         date_fields = ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']
-        fk_fields = ['occupation', 'assessment_center', 'district', 'village']
+        fk_fields = ['occupation', 'assessment_center', 'assessment_center_branch', 'district', 'village']
         
         # Coerce every other field except dates and foreign keys to string
         for k in form_data:
@@ -2137,10 +2155,30 @@ def candidate_import(request):
         except Exception:
             errors.append(f"Row {idx}: Invalid occupation code '{occ_code}'.")
             continue
+        
+        # Enhanced assessment center/branch lookup
+        # First try to find a branch by branch_code
+        branch_found = None
+        center_found = None
+        
         try:
-            form_data['assessment_center'] = AssessmentCenter.objects.get(center_number=center_code).id
-        except Exception:
-            errors.append(f"Row {idx}: Invalid assessment center code '{center_code}'.")
+            # Try to find branch by branch_code first
+            from .models import AssessmentCenterBranch
+            branch_found = AssessmentCenterBranch.objects.select_related('assessment_center').get(branch_code=center_code)
+            center_found = branch_found.assessment_center
+            form_data['assessment_center'] = center_found.id
+            form_data['assessment_center_branch'] = branch_found.id
+        except AssessmentCenterBranch.DoesNotExist:
+            # If no branch found, try to find assessment center by center_number
+            try:
+                center_found = AssessmentCenter.objects.get(center_number=center_code)
+                form_data['assessment_center'] = center_found.id
+                form_data['assessment_center_branch'] = None  # No branch specified
+            except AssessmentCenter.DoesNotExist:
+                errors.append(f"Row {idx}: Invalid assessment center code or branch code '{center_code}'. Please use either a valid center number or branch code.")
+                continue
+        except Exception as e:
+            errors.append(f"Row {idx}: Error looking up assessment center/branch '{center_code}': {str(e)}")
             continue
         # District and village: optional for import
         for loc_field, model_cls in [('district', District), ('village', Village)]:
@@ -2152,7 +2190,7 @@ def candidate_import(request):
                 form_data[loc_field] = None
         # Coerce all other values to string except dates and foreign keys
         for k in form_data:
-            if k not in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date', 'occupation', 'assessment_center', 'district', 'village']:
+            if k not in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date', 'occupation', 'assessment_center', 'assessment_center_branch', 'district', 'village']:
                 v = form_data[k]
                 if v is not None:
                     form_data[k] = str(v)
@@ -2808,9 +2846,9 @@ def export_candidates(request):
     return response
 
 from django.urls import reverse
-from .models import AssessmentCenter, Candidate, Occupation, AssessmentCenterCategory, Level, Module, Paper, CandidateLevel, CandidateModule, Village, District
+from .models import AssessmentCenter, AssessmentCenterBranch, Candidate, Occupation, AssessmentCenterCategory, Level, Module, Paper, CandidateLevel, CandidateModule, Village, District
 from . import views_api
-from .forms import AssessmentCenterForm, OccupationForm, ModuleForm, PaperForm, CandidateForm, EnrollmentForm, DistrictForm, VillageForm
+from .forms import AssessmentCenterForm, AssessmentCenterBranchForm, OccupationForm, ModuleForm, PaperForm, CandidateForm, EnrollmentForm, DistrictForm, VillageForm
 from django.contrib import messages 
 from reportlab.lib import colors    
 from reportlab.lib.pagesizes import letter, landscape
@@ -3013,6 +3051,98 @@ def edit_assessment_center(request, id):
         'form': form,
         'center': center,
     })
+
+
+# Assessment Center Branch Management Views
+def assessment_center_branches(request, center_id):
+    """List all branches for a specific assessment center"""
+    center = get_object_or_404(AssessmentCenter, id=center_id)
+    branches = center.branches.all().order_by('branch_code')
+    
+    return render(request, 'assessment_centers/branches.html', {
+        'center': center,
+        'branches': branches,
+    })
+
+
+def assessment_center_branch_create(request, center_id):
+    """Create a new branch for an assessment center"""
+    center = get_object_or_404(AssessmentCenter, id=center_id)
+    
+    # Check if center has branches enabled
+    if not center.has_branches:
+        messages.error(request, 'This assessment center does not have branches enabled. Please enable branches first.')
+        return redirect('assessment_center_view', id=center.id)
+    
+    if request.method == 'POST':
+        form = AssessmentCenterBranchForm(request.POST, assessment_center=center)
+        if form.is_valid():
+            try:
+                branch = form.save()
+                messages.success(request, f'Branch "{branch.branch_code}" has been created successfully!')
+                return redirect('assessment_center_branches', center_id=center.id)
+            except Exception as e:
+                messages.error(request, f'Error creating branch: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors below and try again.')
+    else:
+        form = AssessmentCenterBranchForm(assessment_center=center)
+    
+    return render(request, 'assessment_centers/branch_create.html', {
+        'form': form,
+        'center': center,
+    })
+
+
+def assessment_center_branch_edit(request, center_id, branch_id):
+    """Edit an existing branch"""
+    center = get_object_or_404(AssessmentCenter, id=center_id)
+    branch = get_object_or_404(AssessmentCenterBranch, id=branch_id, assessment_center=center)
+    
+    if request.method == 'POST':
+        form = AssessmentCenterBranchForm(request.POST, instance=branch, assessment_center=center)
+        if form.is_valid():
+            try:
+                branch = form.save()
+                messages.success(request, f'Branch "{branch.branch_code}" has been updated successfully!')
+                return redirect('assessment_center_branches', center_id=center.id)
+            except Exception as e:
+                messages.error(request, f'Error updating branch: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors below and try again.')
+    else:
+        form = AssessmentCenterBranchForm(instance=branch, assessment_center=center)
+    
+    return render(request, 'assessment_centers/branch_edit.html', {
+        'form': form,
+        'center': center,
+        'branch': branch,
+    })
+
+
+def assessment_center_branch_delete(request, center_id, branch_id):
+    """Delete a branch"""
+    center = get_object_or_404(AssessmentCenter, id=center_id)
+    branch = get_object_or_404(AssessmentCenterBranch, id=branch_id, assessment_center=center)
+    
+    # Check if branch has candidates assigned
+    candidates_count = branch.candidate_set.count()
+    
+    if request.method == 'POST':
+        if candidates_count > 0:
+            messages.error(request, f'Cannot delete branch "{branch.branch_code}" because it has {candidates_count} candidate(s) assigned to it.')
+        else:
+            branch_code = branch.branch_code
+            branch.delete()
+            messages.success(request, f'Branch "{branch_code}" has been deleted successfully!')
+        return redirect('assessment_center_branches', center_id=center.id)
+    
+    return render(request, 'assessment_centers/branch_delete.html', {
+        'center': center,
+        'branch': branch,
+        'candidates_count': candidates_count,
+    })
+
 
 def occupation_list(request):
     occupations = Occupation.objects.select_related('category', 'sector').all().order_by('code')
@@ -3320,6 +3450,33 @@ def api_centers(request):
         {'id': c.id, 'name': str(c)} for c in centers
     ]
     return JsonResponse(data, safe=False)
+
+def api_assessment_center_branches(request, center_id):
+    """Returns branches for a specific assessment center as JSON"""
+    try:
+        center = get_object_or_404(AssessmentCenter, id=center_id)
+        
+        data = {
+            'has_branches': center.has_branches,
+            'branches': []
+        }
+        
+        if center.has_branches:
+            branches = center.branches.select_related('district', 'village').order_by('branch_code')
+            data['branches'] = [
+                {
+                    'id': branch.id,
+                    'branch_code': branch.branch_code,
+                    'district_name': branch.district.name,
+                    'village_name': branch.village.name,
+                    'full_name': branch.get_full_name()
+                }
+                for branch in branches
+            ]
+        
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # --- AJAX API for dynamic paper creation form ---
 from .models import OccupationLevel, Module
@@ -3765,15 +3922,17 @@ def generate_album(request):
                 logger.error(f"Invalid parameter provided: {e}")
                 return HttpResponse(f"Invalid parameter: {e}", status=400)
 
-            # Candidate Querying
+            # Candidate Querying with branch optimization
             logger.info("Querying candidates...")
-            candidate_qs = Candidate.objects.select_related('occupation', 'assessment_center').prefetch_related('nature_of_disability').filter(
+            candidate_qs = Candidate.objects.select_related(
+                'occupation', 'assessment_center', 'assessment_center_branch'
+            ).prefetch_related('nature_of_disability').filter(
                 assessment_center=center,
                 occupation=occupation,
                 registration_category__iexact=reg_category_form, # Use form value for filtering
                 assessment_date__year=assessment_year,
                 assessment_date__month=assessment_month
-            ).order_by('reg_number')
+            )
 
             # Optional level filtering (if applicable for the registration category)
             if reg_category_form.lower() in ['formal', 'informal', 'workers pas'] and level_id:
@@ -3782,13 +3941,58 @@ def generate_album(request):
                     id__in=CandidateLevel.objects.filter(level_id=level_id).values('candidate_id')
                 )
             
-            final_candidates = list(candidate_qs)
-            logger.info(f"Found {len(final_candidates)} candidates.")
-            if not final_candidates:
-                logger.warning("No candidates found matching the criteria.")
-                return HttpResponse("No candidates found matching the criteria.", status=404)
+            # Group candidates by branch for centers with branches
+            if center.has_branches:
+                logger.info("Center has branches - organizing candidates by branch")
+                # Order by branch first, then by reg_number within each branch
+                candidate_qs = candidate_qs.order_by(
+                    'assessment_center_branch__branch_code',  # Branches first (nulls will be last)
+                    'reg_number'
+                )
+                
+                # Group candidates by branch
+                from collections import defaultdict
+                branch_candidates = defaultdict(list)
+                
+                for candidate in candidate_qs:
+                    if candidate.assessment_center_branch:
+                        branch_key = candidate.assessment_center_branch.branch_code
+                        branch_name = f"{candidate.assessment_center_branch.branch_code} - {candidate.assessment_center_branch.village.name}"
+                    else:
+                        branch_key = "main_center"
+                        branch_name = "Main Center"
+                    
+                    branch_candidates[branch_key].append({
+                        'candidate': candidate,
+                        'branch_name': branch_name,
+                        'branch_obj': candidate.assessment_center_branch
+                    })
+                
+                total_candidates = sum(len(candidates) for candidates in branch_candidates.values())
+                logger.info(f"Found {total_candidates} candidates across {len(branch_candidates)} branches/sections.")
+                
+                if not branch_candidates:
+                    logger.warning("No candidates found matching the criteria.")
+                    return HttpResponse("No candidates found matching the criteria.", status=404)
+                    
+            else:
+                # No branches - use existing logic
+                final_candidates = list(candidate_qs.order_by('reg_number'))
+                logger.info(f"Found {len(final_candidates)} candidates.")
+                if not final_candidates:
+                    logger.warning("No candidates found matching the criteria.")
+                    return HttpResponse("No candidates found matching the criteria.", status=404)
+                    
+                # Convert to branch format for unified processing
+                branch_candidates = {
+                    "main_center": [{
+                        'candidate': candidate,
+                        'branch_name': center.center_name,
+                        'branch_obj': None
+                    } for candidate in final_candidates]
+                }
 
-            # PDF Generation
+            # PDF Generation with branch support
             logger.info("Starting PDF generation...")
             buffer = BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
@@ -3804,129 +4008,169 @@ def generate_album(request):
             report_title_style = ParagraphStyle('ReportTitle', parent=styles['h2'], fontSize=12, alignment=TA_CENTER, spaceAfter=4)
             center_info_style = ParagraphStyle('CenterInfo', parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, spaceAfter=10)
             details_label_style = ParagraphStyle('DetailsLabel', parent=styles['Normal'], fontSize=9, alignment=TA_LEFT, spaceAfter=2)
+            branch_title_style = ParagraphStyle('BranchTitle', parent=styles['h3'], fontSize=11, alignment=TA_CENTER, spaceBefore=10, spaceAfter=8, textColor=colors.HexColor('#2E5984'))
             
-            # 1. Header Section
-            logger.info("Generating PDF header.")
-            # Top contact line
-            logo_path = None
-            possible_paths = [
-                os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab logo.png'),
-                os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab logo.png'),
-                os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab logo.png'),
-                os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab logo.png') # Check collected static too
-            ]
-            for path in possible_paths:
-                if path and os.path.exists(path):
-                    logo_path = path
-                    logger.info(f"Found logo at: {logo_path}")
-                    break
-            
-            if not logo_path:
-                logger.warning("Logo image not found.")
-
-            logo_image = Image(logo_path, width=1*inch, height=1*inch) if logo_path else Paragraph(" ", styles['Normal'])
-
-            header_table_data = [
-                [Paragraph("P.O.Box 1499<br/>Email: info@uvtab.go.ug", contact_style), 
-                 logo_image, 
-                 Paragraph("Tel: 256 414 289786", contact_style)]
-            ]
-            header_table = Table(header_table_data, colWidths=[3*inch, 3*inch, 3*inch]) # Adjusted for landscape
-            header_table.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('ALIGN', (0,0), (0,0), 'LEFT'),
-                ('ALIGN', (1,0), (1,0), 'CENTER'),
-                ('ALIGN', (2,0), (2,0), 'RIGHT'),
-            ]))
-            elements.append(header_table)
-            elements.append(Spacer(1, 0.1*inch))
-
-            elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", board_title_style))
-            
-            month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-            assessment_period_str = f"{month_names[assessment_month-1]} {assessment_year}"
-            elements.append(Paragraph(f"Registered Candidates for {assessment_period_str} Assessment", report_title_style))
-            elements.append(Paragraph(f"Assessment Center: {center.center_number} - {center.center_name}", center_info_style))
-            
-            # Occupation Details Section (below Assessment Center info)
-            elements.append(Paragraph(f"Occupation Name: {occupation.name.upper()}<br/>Occupation Code: {occupation.code.upper()}<br/>Registration Category: {reg_category_form.upper()}{(' - Level: ' + Level.objects.get(id=level_id).name.upper()) if reg_category_form.lower() in ['formal', 'informal'] and level_id else ''}", details_label_style))
-            elements.append(Spacer(1, 0.2*inch))
-
-            # 2. Candidate Table
-            logger.info("Generating candidate table.")
-            table_header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER, textColor=colors.white)
-            table_cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8, alignment=TA_LEFT, leading=10)
-            table_cell_center_style = ParagraphStyle('TableCellCenter', parent=table_cell_style, alignment=TA_CENTER)
-
-            data = []
-            # Table Headers
-            header_row = [Paragraph(h, table_header_style) for h in ['S/N', 'PHOTO', 'REG NO.', 'FULL NAME', 'OCCUPATION', 'REG TYPE', 'SPECIAL NEEDS', 'SIGNATURE']]
-            data.append(header_row)
-
-            for i, cand in enumerate(final_candidates):
-                logger.debug(f"Processing candidate {i+1}: {cand.reg_number}")
-                photo_cell_flowables = _create_photo_cell_content(cand, styles)
+            # Helper function to create header section
+            def create_header_section(branch_name=None):
+                header_elements = []
                 
-                # Generate Special Needs text
-                if cand.disability:
-                    # Get nature of disability names
-                    nature_names = list(cand.nature_of_disability.values_list('name', flat=True))
-                    nature_text = ', '.join(nature_names) if nature_names else 'Not specified'
-                    
-                    # Add disability specification if available
-                    specification = cand.disability_specification or ''
-                    if specification:
-                        special_needs_text = f"Yes ({nature_text} - {specification})"
-                    else:
-                        special_needs_text = f"Yes ({nature_text})"
-                else:
-                    special_needs_text = "No"
-                
-                row = [
-                    Paragraph(str(i + 1), table_cell_center_style),
-                    photo_cell_flowables, # This is a list of flowables
-                    Paragraph(cand.reg_number or 'N/A', table_cell_style),
-                    Paragraph(cand.full_name.upper(), table_cell_style),
-                    Paragraph(cand.occupation.name.upper() if cand.occupation else 'N/A', table_cell_style),
-                    Paragraph(cand.registration_category.upper() if cand.registration_category else 'N/A', table_cell_style),
-                    Paragraph(special_needs_text, table_cell_style),
-                    Paragraph('', table_cell_style) # Empty for signature
+                # Logo setup
+                logo_path = None
+                possible_paths = [
+                    os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab logo.png'),
+                    os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab logo.png'),
+                    os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab logo.png'),
+                    os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab logo.png')
                 ]
-                data.append(row)
-            
-            # Column widths (adjust as needed, total should be around 10.2 inch for landscape letter with 0.4 margins)
-            # S/N, PHOTO, REG NO., FULL NAME, OCCUPATION, REG TYPE, SPECIAL NEEDS, SIGNATURE
-            col_widths = [0.4*inch, 1.2*inch, 1.4*inch, 2.2*inch, 1.2*inch, 1.0*inch, 1.8*inch, 1.2*inch] 
+                for path in possible_paths:
+                    if path and os.path.exists(path):
+                        logo_path = path
+                        break
+                
+                logo_image = Image(logo_path, width=1*inch, height=1*inch) if logo_path else Paragraph(" ", styles['Normal'])
+                
+                # Header table
+                header_table_data = [
+                    [Paragraph("P.O.Box 1499<br/>Email: info@uvtab.go.ug", contact_style), 
+                     logo_image, 
+                     Paragraph("Tel: 256 414 289786", contact_style)]
+                ]
+                header_table = Table(header_table_data, colWidths=[3*inch, 3*inch, 3*inch])
+                header_table.setStyle(TableStyle([
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('ALIGN', (0,0), (0,0), 'LEFT'),
+                    ('ALIGN', (1,0), (1,0), 'CENTER'),
+                    ('ALIGN', (2,0), (2,0), 'RIGHT'),
+                ]))
+                header_elements.append(header_table)
+                header_elements.append(Spacer(1, 0.1*inch))
+                
+                # Board title
+                header_elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", board_title_style))
+                
+                # Assessment period
+                month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+                assessment_period_str = f"{month_names[assessment_month-1]} {assessment_year}"
+                header_elements.append(Paragraph(f"Registered Candidates for {assessment_period_str} Assessment", report_title_style))
+                
+                # Center info with branch
+                if branch_name and branch_name != center.center_name:
+                    center_info_text = f"Assessment Center: {center.center_number} - {center.center_name}<br/>Branch: {branch_name}"
+                else:
+                    center_info_text = f"Assessment Center: {center.center_number} - {center.center_name}"
+                header_elements.append(Paragraph(center_info_text, center_info_style))
+                
+                # Occupation details
+                level_text = f" - Level: {Level.objects.get(id=level_id).name.upper()}" if reg_category_form.lower() in ['formal', 'informal'] and level_id else ''
+                occupation_details = f"Occupation Name: {occupation.name.upper()}<br/>Occupation Code: {occupation.code.upper()}<br/>Registration Category: {reg_category_form.upper()}{level_text}"
+                header_elements.append(Paragraph(occupation_details, details_label_style))
+                header_elements.append(Spacer(1, 0.2*inch))
+                
+                return header_elements
 
-            candidate_table = Table(data, colWidths=col_widths, repeatRows=1)
-            candidate_table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4F81BD')), # Header background
-                ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-                ('ALIGN', (0,0), (-1,0), 'CENTER'), # Header text alignment
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), # All cells middle aligned vertically
-                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0,0), (-1,0), 8),
-                ('BOTTOMPADDING', (0,0), (-1,0), 6),
-                ('TOPPADDING', (0,0), (-1,0), 6),
+            # Helper function to create candidate table for a branch
+            def create_candidate_table(candidates_data, start_sn=1):
+                table_header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER, textColor=colors.white)
+                table_cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8, alignment=TA_LEFT, leading=10)
+                table_cell_center_style = ParagraphStyle('TableCellCenter', parent=table_cell_style, alignment=TA_CENTER)
                 
-                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-                ('BOX', (0,0), (-1,-1), 1, colors.black),
+                data = []
+                # Table Headers
+                header_row = [Paragraph(h, table_header_style) for h in ['S/N', 'PHOTO', 'REG NO.', 'FULL NAME', 'OCCUPATION', 'REG TYPE', 'SPECIAL NEEDS', 'SIGNATURE']]
+                data.append(header_row)
                 
-                # Data row styling
-                ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-                ('FONTSIZE', (0,1), (-1,-1), 8),
-                ('ALIGN', (0,1), (0,-1), 'CENTER'), # S/N centered
-                ('ALIGN', (1,1), (1,-1), 'CENTER'), # Photo centered horizontally
-                ('ALIGN', (2,1), (2,-1), 'LEFT'), # Reg No left
-                ('ALIGN', (3,1), (3,-1), 'LEFT'), # Full Name left
-                ('ALIGN', (4,1), (4,-1), 'LEFT'), # Occupation left
-                ('ALIGN', (5,1), (5,-1), 'CENTER'), # Reg Type center
-                ('ALIGN', (6,1), (6,-1), 'LEFT'), # Special Needs left
-                ('ALIGN', (7,1), (7,-1), 'CENTER'), # Signature center
-                ('TOPPADDING', (0,1), (-1,-1), 2), # Reduced padding
-                ('BOTTOMPADDING', (0,1), (-1,-1), 2), # Reduced padding
-            ]))
-            elements.append(candidate_table)
+                for i, cand_data in enumerate(candidates_data):
+                    cand = cand_data['candidate']
+                    logger.debug(f"Processing candidate {start_sn + i}: {cand.reg_number}")
+                    photo_cell_flowables = _create_photo_cell_content(cand, styles)
+                    
+                    # Generate Special Needs text
+                    if cand.disability:
+                        # Get nature of disability names
+                        nature_names = list(cand.nature_of_disability.values_list('name', flat=True))
+                        nature_text = ', '.join(nature_names) if nature_names else 'Not specified'
+                        
+                        # Add disability specification if available
+                        specification = cand.disability_specification or ''
+                        if specification:
+                            special_needs_text = f"Yes ({nature_text} - {specification})"
+                        else:
+                            special_needs_text = f"Yes ({nature_text})"
+                    else:
+                        special_needs_text = "No"
+                    
+                    row = [
+                        Paragraph(str(start_sn + i), table_cell_center_style),
+                        photo_cell_flowables, # This is a list of flowables
+                        Paragraph(cand.reg_number or 'N/A', table_cell_style),
+                        Paragraph(cand.full_name.upper(), table_cell_style),
+                        Paragraph(cand.occupation.name.upper() if cand.occupation else 'N/A', table_cell_style),
+                        Paragraph(cand.registration_category.upper() if cand.registration_category else 'N/A', table_cell_style),
+                        Paragraph(special_needs_text, table_cell_style),
+                        Paragraph('', table_cell_style) # Empty for signature
+                    ]
+                    data.append(row)
+                
+                # Column widths (adjust as needed, total should be around 10.2 inch for landscape letter with 0.4 margins)
+                col_widths = [0.4*inch, 1.2*inch, 1.4*inch, 2.2*inch, 1.2*inch, 1.0*inch, 1.8*inch, 1.2*inch]
+                
+                candidate_table = Table(data, colWidths=col_widths, repeatRows=1)
+                candidate_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4F81BD')), # Header background
+                    ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+                    ('ALIGN', (0,0), (-1,0), 'CENTER'), # Header text alignment
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), # All cells middle aligned vertically
+                    ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0,0), (-1,0), 8),
+                    ('BOTTOMPADDING', (0,0), (-1,0), 6),
+                    ('TOPPADDING', (0,0), (-1,0), 6),
+                    
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+                    ('BOX', (0,0), (-1,-1), 1, colors.black),
+                    
+                    # Data row styling
+                    ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+                    ('FONTSIZE', (0,1), (-1,-1), 8),
+                    ('ALIGN', (0,1), (0,-1), 'CENTER'), # S/N centered
+                    ('ALIGN', (1,1), (1,-1), 'CENTER'), # Photo centered horizontally
+                    ('ALIGN', (2,1), (2,-1), 'LEFT'), # Reg No left
+                    ('ALIGN', (3,1), (3,-1), 'LEFT'), # Full Name left
+                    ('ALIGN', (4,1), (4,-1), 'LEFT'), # Occupation left
+                    ('ALIGN', (5,1), (5,-1), 'CENTER'), # Reg Type center
+                    ('ALIGN', (6,1), (6,-1), 'LEFT'), # Special Needs left
+                    ('ALIGN', (7,1), (7,-1), 'CENTER'), # Signature center
+                    ('TOPPADDING', (0,1), (-1,-1), 2), # Reduced padding
+                    ('BOTTOMPADDING', (0,1), (-1,-1), 2), # Reduced padding
+                ]))
+                
+                return candidate_table
+            
+            # Generate branch-organized content
+            logger.info("Generating branch-organized PDF content.")
+            current_sn = 1
+            branch_keys = sorted(branch_candidates.keys(), key=lambda x: (x != 'main_center', x))  # Main center first, then branches alphabetically
+            
+            for branch_index, branch_key in enumerate(branch_keys):
+                candidates_data = branch_candidates[branch_key]
+                branch_name = candidates_data[0]['branch_name'] if candidates_data else "Unknown Branch"
+                
+                logger.info(f"Processing branch: {branch_name} ({len(candidates_data)} candidates)")
+                
+                # Add page break for subsequent branches (not for the first one)
+                if branch_index > 0:
+                    elements.append(PageBreak())
+                
+                # Add header section for this branch
+                header_elements = create_header_section(branch_name)
+                elements.extend(header_elements)
+                
+                # Add candidate table for this branch
+                if candidates_data:
+                    candidate_table = create_candidate_table(candidates_data, current_sn)
+                    elements.append(candidate_table)
+                    current_sn += len(candidates_data)
+                else:
+                    elements.append(Paragraph("No candidates found for this branch.", styles['Normal']))
 
             # --- First pass to count total pages ---
             logger.info("Starting first pass for page count.")

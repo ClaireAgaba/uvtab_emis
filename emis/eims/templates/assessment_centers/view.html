@@ -28,6 +28,15 @@
           </svg>
           Back to Centers
         </a>
+        {% if center.has_branches %}
+        <a href="{% url 'assessment_center_branches' center.id %}" 
+           class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+          </svg>
+          Manage Branches
+        </a>
+        {% endif %}
         <a href="{% url 'edit_assessment_center' center.id %}" 
            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200">
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,7 +180,25 @@
         </div>
         <div>
           <p class="text-sm font-medium text-gray-500">Village</p>
-          <p class="text-sm text-gray-900">{{ center.village.name }}</p>
+          <p class="text-sm text-gray-900">{% if center.village %}{{ center.village.name }}{% else %}Not specified{% endif %}</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-3">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-500">Branches</p>
+          <p class="text-sm text-gray-900">
+            {% if center.has_branches %}
+              <span class="text-green-600 font-medium">Enabled</span> ({{ center.branches.count }} branch{{ center.branches.count|pluralize:"es" }})
+            {% else %}
+              <span class="text-gray-500">Disabled</span>
+            {% endif %}
+          </p>
         </div>
       </div>
     </div>

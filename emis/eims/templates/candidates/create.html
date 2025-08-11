@@ -96,6 +96,13 @@
           {{ form.assessment_center|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
+        <div id="branch-field-wrapper" class="hidden">
+          <label for="{{ form.assessment_center_branch.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_center_branch.label }} <span class="text-red-500">*</span></label>
+          {{ form.assessment_center_branch|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+          <span id="branch-loading" class="text-xs text-gray-500 hidden">Loading branches...</span>
+          <p id="branch-help-text" class="text-xs text-gray-500 mt-1">Select the branch for this candidate</p>
+        </div>
+        
         <div>
           <label for="{{ form.entry_year.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.entry_year.label }}</label>
           {{ form.entry_year|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
@@ -431,6 +438,78 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // --- End Nature of Disability Required Logic ---
+
+// --- Begin Assessment Center Branch Logic ---
+document.addEventListener('DOMContentLoaded', function() {
+    const assessmentCenterSelect = document.getElementById('id_assessment_center');
+    const branchFieldWrapper = document.getElementById('branch-field-wrapper');
+    const branchSelect = document.getElementById('id_assessment_center_branch');
+    const branchLoading = document.getElementById('branch-loading');
+    const branchHelpText = document.getElementById('branch-help-text');
+    
+    function updateBranchField() {
+        const centerId = assessmentCenterSelect.value;
+        
+        if (!centerId) {
+            // No center selected, hide branch field
+            branchFieldWrapper.classList.add('hidden');
+            branchSelect.innerHTML = '<option value="">Select branch</option>';
+            return;
+        }
+        
+        // Show loading state
+        branchLoading.classList.remove('hidden');
+        branchHelpText.classList.add('hidden');
+        
+        // Fetch center details to check if it has branches
+        fetch(`/eims/api/assessment-centers/${centerId}/branches/`)
+            .then(response => response.json())
+            .then(data => {
+                branchLoading.classList.add('hidden');
+                
+                if (data.has_branches && data.branches && data.branches.length > 0) {
+                    // Center has branches, show the field and populate options
+                    branchFieldWrapper.classList.remove('hidden');
+                    branchSelect.innerHTML = '<option value="">Main Center (no specific branch)</option>';
+                    
+                    data.branches.forEach(branch => {
+                        const option = document.createElement('option');
+                        option.value = branch.id;
+                        option.textContent = `${branch.branch_code} - ${branch.village_name}`;
+                        branchSelect.appendChild(option);
+                    });
+                    
+                    branchHelpText.textContent = 'This center has branches. Select a specific branch or leave blank for main center.';
+                    branchHelpText.classList.remove('hidden');
+                    branchSelect.required = false;  // Make optional to allow main center assignment
+                } else {
+                    // Center doesn't have branches, hide the field
+                    branchFieldWrapper.classList.add('hidden');
+                    branchSelect.innerHTML = '<option value="">Main Center (no specific branch)</option>';
+                    branchSelect.required = false;
+                    branchSelect.value = '';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching branches:', error);
+                branchLoading.classList.add('hidden');
+                branchHelpText.textContent = 'Error loading branches. Please try again.';
+                branchHelpText.classList.remove('hidden');
+                branchFieldWrapper.classList.add('hidden');
+            });
+    }
+    
+    // Listen for assessment center changes
+    if (assessmentCenterSelect) {
+        assessmentCenterSelect.addEventListener('change', updateBranchField);
+        
+        // Check initial state if center is already selected
+        if (assessmentCenterSelect.value) {
+            updateBranchField();
+        }
+    }
+});
+// --- End Assessment Center Branch Logic ---
 
 // --- Name Formatting Logic ---
 document.addEventListener('DOMContentLoaded', function() {

@@ -325,7 +325,13 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         <p><span class="font-semibold text-gray-700">Date of Birth:</span> {{ candidate.date_of_birth }}</p>
         <p><span class="font-semibold text-gray-700">Nationality:</span> {{ candidate.nationality|country_name }}</p>
         <p><span class="font-semibold text-gray-700">Contact:</span> {{ candidate.contact }}</p>
-        <p><span class="font-semibold text-gray-700">Assessment Center:</span> <span data-field="assessment_center">{{ candidate.assessment_center.center_name }}</span></p>
+        <p><span class="font-semibold text-gray-700">Assessment Center:</span> <span data-field="assessment_center">{{ candidate.assessment_center.center_name }}</span>
+          {% if candidate.assessment_center_branch %}
+            <br><span class="text-sm text-gray-600">Branch: <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800" data-field="assessment_center_branch">{{ candidate.assessment_center_branch.branch_code }}</span></span>
+          {% elif candidate.assessment_center.has_branches %}
+            <br><span class="text-sm text-gray-600">Branch: <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Main Center</span></span>
+          {% endif %}
+        </p>
         <p><span class="font-semibold text-gray-700">Occupation:</span> <span data-field="occupation">{{ candidate.occupation.name }}</span></p>
         <p><span class="font-semibold text-gray-700">Registration Category:</span> <span data-field="registration_category">{{ candidate.registration_category }}</span></p>
         {% if candidate.registration_category == 'Formal' %}

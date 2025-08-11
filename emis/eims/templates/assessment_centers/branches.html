@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ center.center_name }} - Branches{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Assessment Center Branches</h1>
+            <p class="text-gray-600 mt-2">{{ center.center_number }} - {{ center.center_name }}</p>
+        </div>
+        <div class="flex space-x-3">
+            <a href="{% url 'assessment_center_view' center.id %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">← Back</a>
+            {% if center.has_branches %}
+                <a href="{% url 'assessment_center_branch_create' center.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">+ Add Branch</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if not center.has_branches %}
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+            <h3 class="text-lg font-medium text-yellow-800">Branches Not Enabled</h3>
+            <p class="text-yellow-700 mt-1">Enable branches in <a href="{% url 'edit_assessment_center' center.id %}" class="underline">center settings</a>.</p>
+        </div>
+    {% endif %}
+
+    {% if branches %}
+        <div class="bg-white shadow-md rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Branch Code</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">District</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Village</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Candidates</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for branch in branches %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ branch.branch_code }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ branch.district.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ branch.village.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ branch.candidate_set.count }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <a href="{% url 'assessment_center_branch_edit' center.id branch.id %}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
+                                <a href="{% url 'assessment_center_branch_delete' center.id branch.id %}" class="text-red-600 hover:text-red-900">Delete</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="text-center py-12">
+            <p class="text-gray-500 text-lg">No branches found.</p>
+            {% if center.has_branches %}
+                <a href="{% url 'assessment_center_branch_create' center.id %}" class="mt-4 inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg">Create First Branch</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

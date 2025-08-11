@@ -119,6 +119,7 @@ class AssessmentCenter(models.Model):
     category = models.ForeignKey('AssessmentCenterCategory', on_delete=models.CASCADE)
     district = models.ForeignKey('District', on_delete=models.CASCADE)
     village = models.ForeignKey('Village', on_delete=models.CASCADE, null=True, blank=True)
+    has_branches = models.BooleanField(default=False, help_text="Check if this center has branches")
 
     def __str__(self):
         return f"{self.center_number} - {self.center_name}"
@@ -155,6 +156,29 @@ class AssessmentCenter(models.Model):
         ordering = ['center_number']
         verbose_name = "Assessment Center"
         verbose_name_plural = "Assessment Centers"
+
+
+class AssessmentCenterBranch(models.Model):
+    """Model for assessment center branches"""
+    assessment_center = models.ForeignKey('AssessmentCenter', on_delete=models.CASCADE, related_name='branches')
+    branch_code = models.CharField(max_length=100, unique=True, help_text="Unique branch code (e.g., UBT001-Leju)")
+    district = models.ForeignKey('District', on_delete=models.CASCADE, help_text="District where the branch is located")
+    village = models.ForeignKey('Village', on_delete=models.CASCADE, help_text="Village where the branch is located (must be unique)")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.branch_code} - {self.assessment_center.center_name}"
+    
+    def get_full_name(self):
+        """Get full branch name with center name"""
+        return f"{self.assessment_center.center_name} - {self.branch_code}"
+    
+    class Meta:
+        ordering = ['branch_code']
+        verbose_name = "Assessment Center Branch"
+        verbose_name_plural = "Assessment Center Branches"
+        unique_together = [['assessment_center', 'village']]  # Each center can have only one branch per village
 
 
 class Occupation(models.Model):
@@ -388,6 +412,7 @@ class Candidate(models.Model):
 
     # Section 3 - Assessment Info (without modules or levels yet)
     assessment_center = models.ForeignKey(AssessmentCenter, on_delete=models.SET_NULL, null=True)
+    assessment_center_branch = models.ForeignKey('AssessmentCenterBranch', on_delete=models.SET_NULL, null=True, blank=True, help_text="Branch of the assessment center (if applicable)")
     assessment_series = models.ForeignKey('AssessmentSeries', on_delete=models.SET_NULL, null=True, blank=True, help_text="Assessment series this candidate is enrolled in")
     entry_year = models.PositiveIntegerField()
     intake = models.CharField(max_length=6, choices=[('M', 'March'), ('A', 'August')])
