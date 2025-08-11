@@ -372,31 +372,10 @@ def generate_result_list(request):
             from .models import Module, Paper
             informal_module_data = defaultdict(lambda: defaultdict(lambda: {'papers': [], 'candidates': []}))
             
-            # Get all modules that have results for this occupation (from all levels)
-            if occupation_id:
-                # First, get all modules that have results in the result_data
-                modules_with_results = set()
-                for entry in result_data:
-                    for result in entry.get('results', []):
-                        if 'module_code' in result and result['module_code']:
-                            # Find module by code and occupation
-                            try:
-                                module = Module.objects.get(code=result['module_code'], occupation_id=occupation_id)
-                                modules_with_results.add(module)
-                            except Module.DoesNotExist:
-                                pass
-                
-                # Also include all modules for the selected level (if any)
-                if level_id:
-                    level_modules = Module.objects.filter(occupation_id=occupation_id, level_id=level_id)
-                    modules_with_results.update(level_modules)
-                
-                # If no modules found yet, get all modules for the occupation
-                if not modules_with_results:
-                    modules_with_results = set(Module.objects.filter(occupation_id=occupation_id))
-                
-                # Initialize papers for all relevant modules
-                for module in modules_with_results:
+            # Get all modules for this level to ensure we show all modules even if no results
+            if level_id and occupation_id:
+                all_modules = Module.objects.filter(occupation_id=occupation_id, level_id=level_id)
+                for module in all_modules:
                     module_key = f"{module.code} - {module.name}"
                     # Get all papers for this module
                     module_papers = Paper.objects.filter(module=module)
@@ -427,6 +406,9 @@ def generate_result_list(request):
                 for result in candidate_results:
                     if result.module:
                         module = result.module
+                        # Only process results from the selected level
+                        if level_id and module.level_id != int(level_id):
+                            continue
                         module_key = f"{module.code} - {module.name}"
                         
                         # Check if we already processed this candidate for this module in this center
@@ -6514,25 +6496,10 @@ def download_result_list_pdf(request):
         
         informal_module_data = defaultdict(lambda: defaultdict(lambda: {'papers': [], 'candidates': []}))
         
-        # Get all modules that have results for this occupation (from all levels)
-        if occupation_id:
-            # First, get all modules that have results in the results queryset
-            modules_with_results = set()
-            for result in results:
-                if result.module:
-                    modules_with_results.add(result.module)
-            
-            # Also include all modules for the selected level (if any)
-            if level_id:
-                level_modules = Module.objects.filter(occupation_id=occupation_id, level_id=level_id)
-                modules_with_results.update(level_modules)
-            
-            # If no modules found yet, get all modules for the occupation
-            if not modules_with_results:
-                modules_with_results = set(Module.objects.filter(occupation_id=occupation_id))
-            
-            # Initialize papers for all relevant modules
-            for module in modules_with_results:
+        # Get all modules for this level to ensure we show all modules even if no results
+        if level_id and occupation_id:
+            all_modules = Module.objects.filter(occupation_id=occupation_id, level_id=level_id)
+            for module in all_modules:
                 module_key = f"{module.code} - {module.name}"
                 # Get all papers for this module
                 module_papers = Paper.objects.filter(module=module)
@@ -6558,6 +6525,9 @@ def download_result_list_pdf(request):
             for candidate_result in candidate_results:
                 if candidate_result.module:
                     module = candidate_result.module
+                    # Only process results from the selected level
+                    if level_id and module.level_id != int(level_id):
+                        continue
                     module_key = f"{module.code} - {module.name}"
                     
                     # Check if we already processed this candidate for this module in this center
