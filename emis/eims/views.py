@@ -6821,6 +6821,9 @@ def download_result_list_pdf(request):
             # Process each module within this center
             first_module = True
             for module_name, module_info in center_modules.items():
+                # Initialize table_data for each module to prevent UnboundLocalError
+                table_data = []
+                
                 if module_info['candidates']:
                     if not first_module:  # Add page break between modules within same center
                         elements.append(PageBreak())
