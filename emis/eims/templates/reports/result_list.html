@@ -197,11 +197,20 @@
                   <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.gender }}</td>
                   <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% for r in entry.results %}
-                      <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                      <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
                     {% endfor %}
                   </td>
                   <td class="border p-3" style="font-size: 13px; text-align: center;">
-                    {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
+                    {% for r in entry.results %}
+                      {% if r.comment == 'Missing' or r.comment == 'Fail' %}
+                        <span class="font-bold text-red-600">{{ r.comment }}</span>
+                      {% elif r.comment == 'CTR' %}
+                        <span class="font-bold text-red-600">Fail</span>
+                      {% else %}
+                        {{ r.comment|default:"Successful" }}
+                      {% endif %}
+                      {% if not forloop.last %}, {% endif %}
+                    {% endfor %}
                   </td>
                 </tr>
               {% endfor %}
@@ -245,45 +254,41 @@
                   <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.gender }}</td>
                   {% if papers_list and papers_list|length > 0 %}
                     {% for paper in papers_list %}
-  <td class="border p-2">
-    {% with found_result=None %}
-      {% for r in entry.results %}
-        {% if r.paper_code == paper.code and not found_result %}
-          {% with found_result=r %}
-            <span class="inline-block px-2 py-1 rounded {% if found_result.grade == 'F' or found_result.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ found_result.grade }}</span>
-          {% endwith %}
-        {% endif %}
-      {% endfor %}
-      {% if not found_result %}-{% endif %}
-    {% endwith %}
-  </td>
-{% endfor %}
+                      <td class="border p-3" style="font-size: 13px; text-align: center;">
+                        {% for r in entry.results %}
+                          {% if r.paper_code == paper.code %}
+                            <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                          {% endif %}
+                        {% endfor %}
+                      </td>
+                    {% endfor %}
                   {% else %}
                     <td class="border p-3" style="font-size: 13px; text-align: center;">
                       {% for r in entry.results %}
                         {% if r.assessment_type == 'theory' %}
-                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
                         {% endif %}
                       {% endfor %}
                     </td>
                     <td class="border p-3" style="font-size: 13px; text-align: center;">
                       {% for r in entry.results %}
                         {% if r.assessment_type == 'practical' %}
-                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
                         {% endif %}
                       {% endfor %}
                     </td>
                   {% endif %}
                   <td class="border p-3" style="font-size: 13px; text-align: center;">
-                    {% if papers_list and papers_list|length > 0 %}
-                      {% if entry.results|has_ctr %}
-                        Fail
+                    {% for r in entry.results %}
+                      {% if r.comment == 'Missing' or r.comment == 'Fail' %}
+                        <span class="font-bold text-red-600">{{ r.comment }}</span>
+                      {% elif r.comment == 'CTR' %}
+                        <span class="font-bold text-red-600">Fail</span>
                       {% else %}
-                        Successful
+                        {{ r.comment|default:"Successful" }}
                       {% endif %}
-                    {% else %}
-                      {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
-                    {% endif %}
+                      {% if not forloop.last %}, {% endif %}
+                    {% endfor %}
                   </td>
                 </tr>
               {% endfor %}
@@ -343,7 +348,7 @@
                             <td class="border p-3" style="font-size: 13px; text-align: center;">
                               {% with paper_result=candidate.paper_results|lookup:paper.id %}
                                 {% if paper_result %}
-                                  <span class="inline-block px-2 py-1 rounded {% if paper_result.grade == 'F' or paper_result.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %}">
+                                  <span class="inline-block px-2 py-1 rounded {% if paper_result.grade == 'F' or paper_result.grade == 'Ms' or paper_result.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %}">
                                     {{ paper_result.grade }}
                                   </span>
                                 {% else %}
@@ -353,7 +358,16 @@
                             </td>
                           {% endfor %}
                           <td class="border p-3" style="font-size: 13px; text-align: center;">
-                            {% if candidate.has_ctr %}Fail{% else %}Successful{% endif %}
+                            {% for r in candidate.paper_results.values %}
+                              {% if r.comment == 'Missing' or r.comment == 'Fail' %}
+                                <span class="font-bold text-red-600">{{ r.comment }}</span>
+                              {% elif r.comment == 'CTR' %}
+                                <span class="font-bold text-red-600">Fail</span>
+                              {% else %}
+                                {{ r.comment|default:"Successful" }}
+                              {% endif %}
+                              {% if not forloop.last %}, {% endif %}
+                            {% endfor %}
                           </td>
                         </tr>
                       {% endfor %}
@@ -439,7 +453,7 @@
                       <td class="border p-3" style="font-size: 13px; text-align: center;">
                         {% for r in entry.results %}
                           {% if r.paper_code == paper.code %}
-                            <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                            <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
                           {% endif %}
                         {% endfor %}
                       </td>
@@ -448,20 +462,29 @@
                     <td class="border p-3" style="font-size: 13px; text-align: center;">
                       {% for r in entry.results %}
                         {% if r.assessment_type == 'theory' %}
-                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
                         {% endif %}
                       {% endfor %}
                     </td>
                     <td class="border p-3" style="font-size: 13px; text-align: center;">
                       {% for r in entry.results %}
                         {% if r.assessment_type == 'practical' %}
-                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
                         {% endif %}
                       {% endfor %}
                     </td>
                   {% endif %}
                   <td class="border p-3" style="font-size: 13px; text-align: center;">
-                    {% if entry.results|has_ctr %}Fail{% else %}Successful{% endif %}
+                    {% for r in entry.results %}
+                      {% if r.comment == 'Missing' or r.comment == 'Fail' %}
+                        <span class="font-bold text-red-600">{{ r.comment }}</span>
+                      {% elif r.comment == 'CTR' %}
+                        <span class="font-bold text-red-600">Fail</span>
+                      {% else %}
+                        {{ r.comment|default:"Successful" }}
+                      {% endif %}
+                      {% if not forloop.last %}, {% endif %}
+                    {% endfor %}
                   </td>
                 </tr>
               {% endfor %}

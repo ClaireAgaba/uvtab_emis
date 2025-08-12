@@ -6762,14 +6762,29 @@ def download_result_list_pdf(request):
                 row.append(candidate['full_name'] or 'N/A')
                 row.append(candidate['gender'] or 'N/A')
                 
-                # Practical grade
+                # Practical grade with styling
                 practical_grade = 'N/A'
+                grade_style = None
                 if results and len(results) > 0:
-                    practical_grade = str(results[0]['grade']) if results[0]['grade'] else 'N/A'
+                    grade_value = results[0]['grade'] if results[0]['grade'] else 'N/A'
+                    practical_grade = str(grade_value)
+                    # Apply red styling for Ms and F grades
+                    if grade_value in ['Ms', 'F']:
+                        grade_style = 'red'
                 
-                # Comment: "Fail" if any result has comment "CTR", otherwise "Successful"
-                has_ctr = any(r['comment'] == 'CTR' for r in results if r.get('comment'))
-                comment = "Fail" if has_ctr else "Successful"
+                # Comment: Use actual comment text with styling
+                comment = 'Successful'
+                comment_style = None
+                if results and len(results) > 0:
+                    actual_comment = results[0].get('comment', '')
+                    if actual_comment in ['Missing', 'Fail']:
+                        comment = actual_comment
+                        comment_style = 'red_bold'
+                    elif actual_comment == 'CTR':
+                        comment = 'Fail'
+                        comment_style = 'red_bold'
+                    elif actual_comment:
+                        comment = actual_comment
                 
                 row.extend([practical_grade, comment])
                 table_data.append(row)
@@ -6778,7 +6793,9 @@ def download_result_list_pdf(request):
             # Create and style the table for this module
             if len(table_data) > 1:  # Only create table if there are candidates
                 table = Table(table_data)
-                table.setStyle(TableStyle([
+                
+                # Base table styling
+                table_style = [
                     ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -6789,7 +6806,30 @@ def download_result_list_pdf(request):
                     ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
                     ('FONTSIZE', (0, 1), (-1, -1), 8),
                     ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                ]))
+                ]
+                
+                # Apply conditional styling for grades and comments
+                for row_idx, entry in enumerate(module_entries, start=1):
+                    results = entry['results']
+                    if results and len(results) > 0:
+                        grade_value = results[0]['grade'] if results[0]['grade'] else 'N/A'
+                        actual_comment = results[0].get('comment', '')
+                        
+                        # Style grade column (column 5 - Practical)
+                        if grade_value in ['Ms', 'F']:
+                            table_style.extend([
+                                ('TEXTCOLOR', (5, row_idx), (5, row_idx), colors.red),
+                                ('FONTNAME', (5, row_idx), (5, row_idx), 'Helvetica-Bold')
+                            ])
+                        
+                        # Style comment column (column 6 - Comment)
+                        if actual_comment in ['Missing', 'Fail', 'CTR']:
+                            table_style.extend([
+                                ('TEXTCOLOR', (6, row_idx), (6, row_idx), colors.red),
+                                ('FONTNAME', (6, row_idx), (6, row_idx), 'Helvetica-Bold')
+                            ])
+                
+                table.setStyle(TableStyle(table_style))
                 elements.append(table)
                 elements.append(Spacer(1, 20))
     # Handle informal category with module and paper grouping

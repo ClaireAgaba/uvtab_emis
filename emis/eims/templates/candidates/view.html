@@ -744,8 +744,22 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
                     <td class="py-2 px-4">{{ result.paper.type|capfirst }}</td>
                     <td class="py-2 px-4">{{ result.assessment_type }}</td>
                     <td class="py-2 px-4">{{ result.mark }}</td>
-                    <td class="py-2 px-4">{{ result.grade }}</td>
-                    <td class="py-2 px-4">{{ result.comment }}</td>
+                    <td class="py-2 px-4">
+                      {% if result.grade == 'Ms' or result.grade == 'F' %}
+                        <span class="text-red-600 font-semibold">{{ result.grade }}</span>
+                      {% else %}
+                        {{ result.grade }}
+                      {% endif %}
+                    </td>
+                    <td class="py-2 px-4">
+                      {% if result.comment == 'Missing' or result.comment == 'Fail' %}
+                        <span class="font-bold text-red-600">{{ result.comment }}</span>
+                      {% elif result.comment == 'CTR' %}
+                        <span class="font-bold text-orange-600">{{ result.comment }}</span>
+                      {% else %}
+                        {{ result.comment }}
+                      {% endif %}
+                    </td>
                     <td class="py-2 px-4">{{ result.status }}</td>
                     <td class="py-2 px-4">{{ result.created|date:"Y-m-d H:i" }}</td>
                     <td class="py-2 px-4">{{ result.user.username }}</td>
@@ -844,23 +858,37 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
                  {% endif %}
                </td>
                <td class="px-3 py-2 border">{{ result.get_result_type_display }}</td>
-              <td class="px-3 py-2 border">{{ result.get_assessment_type_display }}</td>
-              <td class="px-3 py-2 border">{{ result.mark }}</td>
-              <td class="px-3 py-2 border">{{ result.grade }}</td>
-              <td class="px-3 py-2 border">{{ result.comment }}</td>
-              <td class="px-3 py-2 border">{{ result.status|default:"—" }}</td>
-              <td class="px-3 py-2 border">{{ result.date|date:'Y-m-d H:i' }}</td>
-              <td class="px-3 py-2 border">{{ result.user.username|default:"—" }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <p class="text-gray-500 italic">No results recorded yet.</p>
-    {% endif %}
-  </div>
-  {% endif %}
+               <td class="px-3 py-2 border">{{ result.get_assessment_type_display }}</td>
+               <td class="px-3 py-2 border">{{ result.mark }}</td>
+               <td class="px-3 py-2 border">
+                 {% if result.grade == 'Ms' or result.grade == 'F' %}
+                   <span class="text-red-600 font-semibold">{{ result.grade }}</span>
+                 {% else %}
+                   {{ result.grade }}
+                 {% endif %}
+               </td>
+               <td class="px-3 py-2 border">
+                 {% if result.comment == 'Missing' or result.comment == 'Fail' %}
+                   <span class="font-bold text-red-600">{{ result.comment }}</span>
+                 {% elif result.comment == 'CTR' %}
+                   <span class="font-bold text-orange-600">{{ result.comment }}</span>
+                 {% else %}
+                   {{ result.comment }}
+                 {% endif %}
+               </td>
+               <td class="px-3 py-2 border">{{ result.status|default:"—" }}</td>
+               <td class="px-3 py-2 border">{{ result.date|date:'Y-m-d H:i' }}</td>
+               <td class="px-3 py-2 border">{{ result.user.username|default:"—" }}</td>
+             </tr>
+             {% endfor %}
+           </tbody>
+         </table>
+       </div>
+     {% else %}
+       <p class="text-gray-500 italic">No results recorded yet.</p>
+     {% endif %}
+   </div>
+   {% endif %}
 
   <!-- Messages -->
   {% if messages %}
