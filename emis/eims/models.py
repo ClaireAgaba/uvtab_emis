@@ -366,28 +366,74 @@ class Result(models.Model):
         return f"{self.candidate} - {self.level} - {self.module or self.paper} - {self.mark}"
 
     def save(self, *args, **kwargs):
-        # Auto-calculate grade and comment based on mark
-        from .models import Grade
-        grade_type = self.assessment_type
-        grade_obj = Grade.objects.filter(type=grade_type, min_score__lte=self.mark, max_score__gte=self.mark).first()
-        if grade_obj:
-            self.grade = grade_obj.grade
-            # Set passmark per type
-            if grade_type == 'practical':
-                passmark = 65
-            else:
-                passmark = 50
-            if self.mark >= passmark:
-                self.comment = 'Successful'
-            else:
-                self.comment = 'CTR'
+        # Handle grade and comment calculation
+        if self.mark == -1:
+            self.grade = 'Ms'
+            self.comment = 'Missing'
         else:
-            self.grade = ''
-            self.comment = ''
+            # Auto-calculate grade and comment based on mark
+            from .models import Grade
+            grade_type = self.assessment_type
+            grade_obj = Grade.objects.filter(type=grade_type, min_score__lte=self.mark, max_score__gte=self.mark).first()
+            if grade_obj:
+                self.grade = grade_obj.grade
+                # Set passmark per type
+                if grade_type == 'practical':
+                    passmark = 65
+                else:
+                    passmark = 50
+                if self.mark >= passmark:
+                    self.comment = 'Successful'
+                else:
+                    self.comment = 'CTR'
+            else:
+                self.grade = ''
+                self.comment = ''
+        
+        # Determine status (Normal, Retake, or Missing Paper)
+        self._determine_status()
+        
         # For modular results, ensure level is blank/null
         if self.result_type == 'modular':
             self.level = None
         super().save(*args, **kwargs)
+    
+    def _determine_status(self):
+        """
+        Determine status based on sitting history:
+        - Normal: First sitting (always, regardless of mark)
+        - Missing Paper: Subsequent sitting where candidate didn't sit (mark = -1)
+        - Retake: Subsequent sitting where candidate sat (mark >= 0)
+        """
+        # Check if there are previous results for the same candidate, paper/module, and assessment type
+        previous_results = Result.objects.filter(
+            candidate=self.candidate,
+            assessment_type=self.assessment_type
+        )
+        
+        # Filter by paper or module depending on what this result has
+        if self.paper:
+            previous_results = previous_results.filter(paper=self.paper)
+        elif self.module:
+            previous_results = previous_results.filter(module=self.module)
+        
+        # Exclude the current result if it already exists (for updates)
+        if self.pk:
+            previous_results = previous_results.exclude(pk=self.pk)
+        
+        # Check if there are any previous results
+        if previous_results.exists():
+            # This is NOT the first sitting
+            if self.mark == -1:
+                # Candidate didn't sit for this subsequent attempt
+                self.status = 'Missing Paper'
+            else:
+                # Candidate sat for this subsequent attempt (regardless of pass/fail)
+                self.status = 'Retake'
+        else:
+            # No previous results found, this is the first sitting
+            # Always "Normal" regardless of mark (even if -1)
+            self.status = 'Normal'
 
 
 

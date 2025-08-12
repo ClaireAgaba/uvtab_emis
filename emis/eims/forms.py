@@ -988,13 +988,15 @@ class FormalResultsForm(forms.Form):
     year = forms.ChoiceField(choices=YEAR_CHOICES, label="Assessment Year", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
     theory_mark = forms.DecimalField(
         label="Theory Mark",
-        min_value=0, max_value=100, decimal_places=2, required=True,
-        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+        min_value=-1, max_value=100, decimal_places=2, required=True,
+        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'}),
+        help_text="Enter -1 for missing paper (candidate didn't sit)"
     )
     practical_mark = forms.DecimalField(
         label="Practical Mark",
-        min_value=0, max_value=100, decimal_places=2, required=True,
-        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+        min_value=-1, max_value=100, decimal_places=2, required=True,
+        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'}),
+        help_text="Enter -1 for missing paper (candidate didn't sit)"
     )
 
     def __init__(self, *args, **kwargs):
@@ -1041,12 +1043,13 @@ class ModularResultsForm(forms.Form):
                 value = self.initial.get(field_name)
                 self.fields[field_name] = forms.DecimalField(
                     label=f"{module.code} - {module.name} Mark",
-                    min_value=0,
+                    min_value=-1,
                     max_value=100,
                     decimal_places=2,
                     required=True,
                     widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'}),
-                    initial=value
+                    initial=value,
+                    help_text="Enter -1 for missing paper (candidate didn't sit)"
                 )
 
     def clean(self):
@@ -1135,11 +1138,12 @@ class PaperResultsForm(forms.Form):
                     field_name = f'mark_{paper.id}'
                     self.fields[field_name] = forms.DecimalField(
                         label=f"{paper.code} - {paper.name} ({paper.get_grade_type_display()}) Mark",
-                        min_value=0,
+                        min_value=-1,
                         max_value=100,
                         decimal_places=2,
                         required=True,
-                        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+                        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'}),
+                        help_text="Enter -1 for missing paper (candidate didn't sit)"
                     )
 
     def clean(self):
@@ -1180,11 +1184,12 @@ class WorkerPASPaperResultsForm(forms.Form):
                     field_name = f'mark_{paper.id}'
                     self.fields[field_name] = forms.DecimalField(
                         label=f"{paper.code} - {paper.name} (Module: {cp.module.name}) Mark",
-                        min_value=0,
+                        min_value=-1,
                         max_value=100,
                         decimal_places=2,
                         required=True,
-                        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'})
+                        widget=forms.NumberInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'step': '0.01'}),
+                        help_text="Enter -1 for missing paper (candidate didn't sit)"
                     )
 
     def clean(self):
