@@ -7718,6 +7718,7 @@ def generate_performance_report(request, year, month):
     from reportlab.lib.units import inch
     from django.http import HttpResponse
     from django.conf import settings
+    from django.db.models import Q, Count
     from io import BytesIO
     import os
     import time
@@ -7741,21 +7742,55 @@ def generate_performance_report(request, year, month):
         return HttpResponse("Assessment series not found", status=404)
     
     # Map category parameter to database registration_category values
+    # Handle all possible variations of Informal/Worker's PAS
     category_mapping = {
         'Modular': 'Modular',
         'Formal': 'Formal', 
         "Worker's PAS": 'Informal',  # Frontend sends "Worker's PAS" but DB stores "Informal"
-        'Informal': 'Informal'  # Handle both cases
+        'Workers PAS': 'Informal',   # Handle without apostrophe
+        'Worker PAS': 'Informal',    # Handle without 's
+        'Informal': 'Informal',      # Handle direct informal
+        'informal': 'Informal',      # Handle lowercase
+        "worker's pas": 'Informal',  # Handle lowercase
+        'workers pas': 'Informal',   # Handle lowercase without apostrophe
+        'worker pas': 'Informal'     # Handle lowercase without 's
     }
     
     # Get the correct database category value
     db_category = category_mapping.get(category, category)
-    print(f"[DEBUG] Frontend category: {category}, Database category: {db_category}")
+    print(f"[DEBUG] Frontend category: '{category}', Database category: '{db_category}'")
+    
+    # Additional debugging: Check what registration categories actually exist in the database
+    existing_categories = Candidate.objects.values_list('registration_category', flat=True).distinct()
+    print(f"[DEBUG] Existing registration categories in database: {list(existing_categories)}")
+    
+    # Try both the mapped category and original category to be extra safe
+    candidate_filters = [
+        Q(registration_category=db_category),
+        Q(registration_category=category)  # Fallback to original
+    ]
+    
+    # If it's an informal/worker's pas related category, also try common variations
+    if any(term in category.lower() for term in ['informal', 'worker', 'pas']):
+        candidate_filters.extend([
+            Q(registration_category='Informal'),
+            Q(registration_category='informal'),
+            Q(registration_category="Worker's PAS"),
+            Q(registration_category='Workers PAS'),
+            Q(registration_category='Worker PAS')
+        ])
+    
+    # Combine all filters with OR
+    combined_filter = candidate_filters[0]
+    for filter_q in candidate_filters[1:]:
+        combined_filter |= filter_q
     
     # Filter candidates with optimized queries to prevent N+1 problems
+    # Use the combined filter to handle all category variations
     filtered_candidates = Candidate.objects.filter(
-        assessment_series=assessment_series,
-        registration_category=db_category
+        assessment_series=assessment_series
+    ).filter(
+        combined_filter  # Apply the combined category filter
     ).select_related(
         'occupation',
         'occupation__sector',
