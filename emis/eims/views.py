@@ -7740,10 +7740,22 @@ def generate_performance_report(request, year, month):
     if not assessment_series:
         return HttpResponse("Assessment series not found", status=404)
     
+    # Map category parameter to database registration_category values
+    category_mapping = {
+        'Modular': 'Modular',
+        'Formal': 'Formal', 
+        "Worker's PAS": 'Informal',  # Frontend sends "Worker's PAS" but DB stores "Informal"
+        'Informal': 'Informal'  # Handle both cases
+    }
+    
+    # Get the correct database category value
+    db_category = category_mapping.get(category, category)
+    print(f"[DEBUG] Frontend category: {category}, Database category: {db_category}")
+    
     # Filter candidates with optimized queries to prevent N+1 problems
     filtered_candidates = Candidate.objects.filter(
         assessment_series=assessment_series,
-        registration_category=category
+        registration_category=db_category
     ).select_related(
         'occupation',
         'occupation__sector',
