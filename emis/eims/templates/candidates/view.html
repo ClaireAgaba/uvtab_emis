@@ -717,7 +717,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
           <table class="min-w-full mb-4 border border-gray-300">
             <thead>
               <tr class="bg-gray-100">
-                <th class="py-2 px-4 text-left">Date</th>
+                <th class="py-2 px-4 text-left">Assessment Series</th>
                 <th class="py-2 px-4 text-left">Level</th>
                 <th class="py-2 px-4 text-left">Module</th>
                 <th class="py-2 px-4 text-left">Paper</th>
@@ -727,7 +727,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
                 <th class="py-2 px-4 text-left">Grade</th>
                 <th class="py-2 px-4 text-left">Comment</th>
                 <th class="py-2 px-4 text-left">Status</th>
-                <th class="py-2 px-4 text-left">Date</th>
+                <th class="py-2 px-4 text-left">Assessment Series</th>
 
                 
                 <th class="py-2 px-4 text-left">User</th>
@@ -737,7 +737,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
               {% for result in results %}
                 {% if result.level_id == lvl.level.id %}
                   <tr>
-                    <td class="py-2 px-4">{{ result.assessment_date|date:"F, Y" }}</td>
+                    <td class="py-2 px-4">{{ result.assessment_series.name|default:"No Series" }}</td>
                     <td class="py-2 px-4">{{ result.level.name }}</td>
                     <td class="py-2 px-4">{{ result.module.name }}</td>
                     <td class="py-2 px-4">{{ result.paper.name }}</td>
@@ -814,7 +814,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         <table class="min-w-full text-sm border border-gray-200 rounded">
           <thead>
             <tr class="bg-gray-100">
-              <th class="px-3 py-2 border">Date</th>
+              <th class="px-3 py-2 border">Assessment Series</th>
               <th class="px-3 py-2 border">Level</th>
               <th class="px-3 py-2 border">Module</th>
               <th class="px-3 py-2 border">Paper</th>
@@ -824,14 +824,14 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
               <th class="px-3 py-2 border">Grade</th>
               <th class="px-3 py-2 border">Comment</th>
               <th class="px-3 py-2 border">Status</th>
-              <th class="px-3 py-2 border">Date</th>
+              <th class="px-3 py-2 border">Assessment Series</th>
               <th class="px-3 py-2 border">User</th>
             </tr>
           </thead>
           <tbody>
             {% for result in results %}
             <tr>
-              <td class="px-3 py-2 border">{{ result.assessment_date|date:'F, Y' }}</td>
+              <td class="px-3 py-2 border">{{ result.assessment_series.name|default:"No Series" }}</td>
               <td class="px-3 py-2 border">
                 {% if result.level %}
                   {{ result.level.name }}

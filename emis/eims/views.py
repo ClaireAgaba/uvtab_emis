@@ -5300,11 +5300,14 @@ def edit_result(request, id):
 
 
 def add_result(request, id):
-    from .models import Candidate, Result, Module, Paper, Level, OccupationLevel, CandidateLevel, CandidatePaper
+    from .models import Candidate, Result, Module, Paper, Level, OccupationLevel, CandidateLevel, CandidatePaper, AssessmentSeries
     from .forms import ResultForm, ModularResultsForm, WorkerPASPaperResultsForm
     candidate = get_object_or_404(Candidate, id=id)
     reg_cat = getattr(candidate, 'registration_category', '').strip().lower()
-    context = {'candidate': candidate}
+    
+    # Get all assessment series for the dropdown
+    assessment_series = AssessmentSeries.objects.all().order_by('-created_at')
+    context = {'candidate': candidate, 'assessment_series': assessment_series}
 
     # Worker PAS/informal: mark per enrolled paper
     if reg_cat == "Informal":
@@ -5332,13 +5335,28 @@ def add_result(request, id):
             context['error'] = 'Candidate has no enrolled papers.'
             return render(request, 'candidates/add_result.html', context)
         if request.method == 'POST':
-            form = WorkerPASPaperResultsForm(request.POST, candidate=candidate, level=level)
-            if form.is_valid():
-                assessment_date = form.cleaned_data['assessment_date']
-                for cp in enrolled_papers:
-                    paper = cp.paper
-                    mark = form.cleaned_data.get(f'mark_{paper.id}')
-                    if mark is not None:
+            # Get assessment series from form
+            assessment_series_id = request.POST.get('assessment_series')
+            assessment_series = None
+            if assessment_series_id:
+                try:
+                    assessment_series = AssessmentSeries.objects.get(id=assessment_series_id)
+                except AssessmentSeries.DoesNotExist:
+                    assessment_series = candidate.assessment_series
+            else:
+                assessment_series = candidate.assessment_series
+            
+            # Use assessment series date or current date
+            assessment_date = assessment_series.start_date if assessment_series else timezone.now().date()
+            
+            # Process marks for each enrolled paper
+            for cp in enrolled_papers:
+                paper = cp.paper
+                mark_field_name = f'mark_{paper.id}'
+                mark = request.POST.get(mark_field_name)
+                if mark is not None and mark != '':
+                    try:
+                        mark = float(mark)
                         Result.objects.update_or_create(
                             candidate=candidate,
                             level=level,
@@ -5348,11 +5366,14 @@ def add_result(request, id):
                             assessment_date=assessment_date,
                             result_type='informal',
                             defaults={
+                                'assessment_series': assessment_series,
                                 'mark': mark,
                                 'user': request.user,
                                 'status': ''
                             }
                         )
+                    except ValueError:
+                        pass  # Skip invalid marks
                 return redirect('candidate_view', id=candidate.id)
         else:
             # Default assessment month/year to candidate's enrolled period for this level
@@ -5371,15 +5392,31 @@ def add_result(request, id):
 
     if reg_cat == 'modular':
         if request.method == 'POST':
-            form = ModularResultsForm(request.POST, candidate=candidate)
-            if form.is_valid():
-                month = int(form.cleaned_data['month'])
-                year = int(form.cleaned_data['year'])
-                assessment_date = f"{year}-{month:02d}-01"
-                for module in form.modules:
-                    mark = form.cleaned_data.get(f'mark_{module.id}')
-                    if mark is not None:
-
+            # Get assessment series from form
+            assessment_series_id = request.POST.get('assessment_series')
+            assessment_series = None
+            if assessment_series_id:
+                try:
+                    assessment_series = AssessmentSeries.objects.get(id=assessment_series_id)
+                except AssessmentSeries.DoesNotExist:
+                    assessment_series = candidate.assessment_series
+            else:
+                assessment_series = candidate.assessment_series
+            
+            # Use assessment series date or current date
+            assessment_date = assessment_series.start_date if assessment_series else timezone.now().date()
+            
+            # Get candidate's enrolled modules
+            from .models import CandidateModule
+            enrolled_modules = CandidateModule.objects.filter(candidate=candidate).select_related('module')
+            
+            for cm in enrolled_modules:
+                module = cm.module
+                mark_field_name = f'mark_{module.id}'
+                mark = request.POST.get(mark_field_name)
+                if mark is not None and mark != '':
+                    try:
+                        mark = float(mark)
                         result, created = Result.objects.update_or_create(
                             candidate=candidate,
                             module=module,
@@ -5387,12 +5424,15 @@ def add_result(request, id):
                             result_type='modular',
                             defaults={
                                 'level': None,  # Modular results are not tied to a level
+                                'assessment_series': assessment_series,
                                 'assessment_type': 'practical',
                                 'mark': mark,
                                 'user': request.user,
                                 'status': ''
                             }
                         )
+                    except ValueError:
+                        pass  # Skip invalid marks
             return redirect('candidate_view', id=candidate.id)
         else:
             form = ModularResultsForm(candidate=candidate)

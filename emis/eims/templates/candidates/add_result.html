@@ -6,18 +6,16 @@
     {% csrf_token %}
     {{ form.non_field_errors }}
     <div class="mb-4">
-      <label class="block font-semibold mb-1">Assessment Month</label>
-      {{ form.month }}
-      {% for error in form.month.errors %}
-        <div class="text-red-600 text-xs">{{ error }}</div>
-      {% endfor %}
-    </div>
-    <div class="mb-4">
-      <label class="block font-semibold mb-1">Assessment Year</label>
-      {{ form.year }}
-      {% for error in form.year.errors %}
-        <div class="text-red-600 text-xs">{{ error }}</div>
-      {% endfor %}
+      <label class="block font-semibold mb-1">Assessment Series</label>
+      <select name="assessment_series" class="border rounded px-3 py-2 w-full" required>
+        <option value="">Select Assessment Series</option>
+        {% for series in assessment_series %}
+          <option value="{{ series.id }}" {% if series.id == candidate.assessment_series.id %}selected{% endif %}>
+            {{ series.name }}
+          </option>
+        {% endfor %}
+      </select>
+      <div class="text-sm text-gray-600 mt-1">Current candidate series: {{ candidate.assessment_series.name|default:"No series assigned" }}</div>
     </div>
     {% if is_worker_pas %}
       <table class="min-w-full mb-6 border border-gray-300">

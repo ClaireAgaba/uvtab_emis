@@ -347,6 +347,7 @@ class Result(models.Model):
     level = models.ForeignKey('Level', on_delete=models.CASCADE, null=True, blank=True)
     module = models.ForeignKey('Module', on_delete=models.CASCADE, null=True, blank=True)
     paper = models.ForeignKey('Paper', on_delete=models.CASCADE, null=True, blank=True)
+    assessment_series = models.ForeignKey('AssessmentSeries', on_delete=models.SET_NULL, null=True, blank=True, help_text="Assessment series for this result")
     assessment_date = models.DateField()
     result_type = models.CharField(max_length=10, choices=RESULT_TYPE_CHOICES)
     assessment_type = models.CharField(max_length=10, choices=ASSESSMENT_TYPE_CHOICES)
@@ -366,6 +367,10 @@ class Result(models.Model):
         return f"{self.candidate} - {self.level} - {self.module or self.paper} - {self.mark}"
 
     def save(self, *args, **kwargs):
+        # Auto-set assessment series from candidate if not already set
+        if not self.assessment_series and self.candidate and self.candidate.assessment_series:
+            self.assessment_series = self.candidate.assessment_series
+        
         # Handle grade and comment calculation
         if self.mark == -1:
             self.grade = 'Ms'
