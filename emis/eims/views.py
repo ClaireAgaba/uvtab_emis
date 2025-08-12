@@ -7800,24 +7800,89 @@ def generate_performance_report(request, year, month):
         'candidatelevel_set__level'
     )
     
-    # Debug logging
-    print(f"[DEBUG] Initial candidates count: {filtered_candidates.count()}")
+    # Step-by-step debugging to identify where candidates are lost
+    print(f"[DEBUG] === FILTERING BREAKDOWN ===")
+    
+    # Step 1: Check total candidates in assessment series
+    series_candidates = Candidate.objects.filter(assessment_series=assessment_series)
+    print(f"[DEBUG] Step 1 - Total candidates in assessment series: {series_candidates.count()}")
+    
+    # Step 2: Check candidates after category filter
+    category_candidates = series_candidates.filter(combined_filter)
+    print(f"[DEBUG] Step 2 - Candidates after category filter: {category_candidates.count()}")
+    
+    # Step 3: Apply the full filter
+    filtered_candidates = Candidate.objects.filter(
+        assessment_series=assessment_series
+    ).filter(
+        combined_filter
+    ).select_related(
+        'occupation',
+        'occupation__sector',
+        'assessment_center'
+    ).prefetch_related(
+        'result_set',
+        'candidatelevel_set__level'
+    )
+    
+    print(f"[DEBUG] Step 3 - After full filtering: {filtered_candidates.count()}")
     print(f"[DEBUG] Category: {category}, Level: {level}")
     
+    # Step 4: Level filtering (if applicable)
     if level and category in ['Formal', "Worker's PAS"]:
-        # Convert level parameter to Level object
+        print(f"[DEBUG] Step 4 - Applying level filter for category: {category}")
+        pre_level_count = filtered_candidates.count()
+        
         try:
             from .models import Level
             level_obj = Level.objects.get(id=level)
             print(f"[DEBUG] Found level object: {level_obj.name} (ID: {level_obj.id})")
-            filtered_candidates = filtered_candidates.filter(candidatelevel__level=level_obj)
-            print(f"[DEBUG] Candidates after level filter: {filtered_candidates.count()}")
+            
+            # Check how many candidates have this level enrollment
+            candidates_with_level = filtered_candidates.filter(candidatelevel__level=level_obj)
+            print(f"[DEBUG] Candidates with level {level_obj.name}: {candidates_with_level.count()}")
+            
+            filtered_candidates = candidates_with_level
+            print(f"[DEBUG] After level filter: {pre_level_count} -> {filtered_candidates.count()}")
+            
         except (Level.DoesNotExist, ValueError) as e:
             print(f"[DEBUG] Level filtering error: {e}")
             # If level not found, don't filter by level
             pass
+    else:
+        print(f"[DEBUG] Step 4 - No level filtering needed for category: {category}")
     
+    print(f"[DEBUG] === FINAL RESULT ===")
     print(f"[DEBUG] Final filtered candidates count: {filtered_candidates.count()}")
+    
+    # Additional debugging: Show some sample candidate data if any exist
+    if filtered_candidates.exists():
+        sample_candidates = filtered_candidates[:3]
+        for i, candidate in enumerate(sample_candidates):
+            print(f"[DEBUG] Sample candidate {i+1}: {candidate.reg_number} - {candidate.full_name} - {candidate.registration_category}")
+    else:
+        print(f"[DEBUG] No candidates found after all filters!")
+        
+        # Debug: Check if there are any informal candidates at all in this series
+        informal_in_series = Candidate.objects.filter(
+            assessment_series=assessment_series,
+            registration_category='Informal'
+        ).count()
+        print(f"[DEBUG] Total Informal candidates in this series: {informal_in_series}")
+        
+        # Debug: Check if the assessment series exists and has candidates
+        if assessment_series:
+            print(f"[DEBUG] Assessment series: {assessment_series.name} (ID: {assessment_series.id})")
+            total_in_series = Candidate.objects.filter(assessment_series=assessment_series).count()
+            print(f"[DEBUG] Total candidates in series: {total_in_series}")
+        else:
+            print(f"[DEBUG] No assessment series found!")
+    
+    print(f"[DEBUG] === END DEBUGGING ===")
+    
+    # Debug logging (original)
+    print(f"[DEBUG] Initial candidates count: {filtered_candidates.count()}")
+    print(f"[DEBUG] Category: {category}, Level: {level}")
     
     # Create PDF document
     buffer = BytesIO()
