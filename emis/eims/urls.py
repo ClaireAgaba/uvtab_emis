@@ -47,6 +47,7 @@ urlpatterns = [
     path('results/download-printed-marksheet/', views.download_printed_marksheet, name='download_printed_marksheet'),
     path('results/upload-marks/', views.upload_marks, name='upload_marks'),
     path('api/occupations/', views.api_occupations, name='api_occupations'),
+    path('api/occupations-by-category/', views.api_occupations_by_category, name='api_occupations_by_category'),
     path('api/levels/', views.api_levels, name='api_levels'),
     path('api/levels-for-occupation/', views.api_levels_for_occupation, name='api_levels_for_occupation'),
     path('api/levels-for-papers/', views.api_levels_for_papers, name='api_levels_for_papers'),

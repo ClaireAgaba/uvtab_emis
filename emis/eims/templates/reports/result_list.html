@@ -114,12 +114,16 @@
   </form>
 
   <script>
+    // Template variables
+    var selectedOccupationId = {% if form_data.occupation_id %}'{{ form_data.occupation_id }}'{% else %}null{% endif %};
+    
     document.addEventListener('DOMContentLoaded', function() {
-      const regCategorySelect = document.getElementById('reg_category');
-      const levelWrapper = document.getElementById('level_wrapper');
+      var regCategorySelect = document.getElementById('reg_category');
+      var occupationSelect = document.getElementById('occupation');
+      var levelWrapper = document.getElementById('level_wrapper');
       
       function toggleLevelField() {
-        const val = regCategorySelect.value;
+        var val = regCategorySelect.value;
         console.log('Registration category changed to:', val);
         if (val === 'formal' || val === 'informal') {
           levelWrapper.classList.remove('hidden');
@@ -128,11 +132,64 @@
         }
       }
       
+      function loadOccupations() {
+        var regCategory = regCategorySelect.value;
+        console.log('Loading occupations for category:', regCategory);
+        
+        if (!regCategory) {
+          // Clear occupation dropdown if no category selected
+          occupationSelect.innerHTML = '<option value="">Select Occupation</option>';
+          return;
+        }
+        
+        // Show loading state
+        occupationSelect.innerHTML = '<option value="">Loading...</option>';
+        
+        // Fetch occupations for the selected registration category
+        fetch('/eims/api/occupations-by-category/?registration_category=' + regCategory)
+          .then(function(response) {
+            return response.json();
+          })
+          .then(function(data) {
+            // Clear existing options
+            occupationSelect.innerHTML = '<option value="">Select Occupation</option>';
+            
+            // Add filtered occupations
+            for (var i = 0; i < data.occupations.length; i++) {
+              var occupation = data.occupations[i];
+              var option = document.createElement('option');
+              option.value = occupation.id;
+              option.textContent = occupation.display_name;
+              
+              // Preserve selected value if it exists in filtered list
+              if (selectedOccupationId && occupation.id == selectedOccupationId) {
+                option.selected = true;
+              }
+              
+              occupationSelect.appendChild(option);
+            }
+            
+            console.log('Loaded ' + data.occupations.length + ' occupations for ' + regCategory);
+          })
+          .catch(function(error) {
+            console.error('Error loading occupations:', error);
+            occupationSelect.innerHTML = '<option value="">Error loading occupations</option>';
+          });
+      }
+      
       // Set initial state
       toggleLevelField();
       
+      // Load occupations on page load if category is selected
+      if (regCategorySelect.value) {
+        loadOccupations();
+      }
+      
       // Listen for changes
-      regCategorySelect.addEventListener('change', toggleLevelField);
+      regCategorySelect.addEventListener('change', function() {
+        toggleLevelField();
+        loadOccupations();
+      });
     });
   </script>
 </div>

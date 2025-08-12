@@ -9318,3 +9318,61 @@ def decline_candidate(request, id):
             'success': False,
             'error': str(e)
         })
+
+
+@login_required
+def api_occupations_by_category(request):
+    """
+    AJAX endpoint to get occupations filtered by registration category
+    """
+    from django.http import JsonResponse
+    from .models import Occupation, OccupationCategory
+    
+    registration_category = request.GET.get('registration_category', '').lower()
+    
+    if not registration_category:
+        return JsonResponse({'occupations': []})
+    
+    # Filter occupations based on registration category
+    if registration_category == 'modular':
+        # For modular, only show occupations that allow modular registration
+        occupations = Occupation.objects.filter(has_modular=True).order_by('code')
+    elif registration_category == 'formal':
+        # For formal, only show occupations in the "Formal" category
+        try:
+            formal_category = OccupationCategory.objects.get(name__iexact='Formal')
+            occupations = Occupation.objects.filter(category=formal_category).order_by('code')
+        except OccupationCategory.DoesNotExist:
+            # Fallback: show all non-modular occupations
+            occupations = Occupation.objects.filter(has_modular=False).order_by('code')
+    elif registration_category == 'informal':
+        # For informal/worker's PAS, only show occupations in the "Worker's PAS" category
+        try:
+            workers_pas_category = OccupationCategory.objects.filter(name__iregex=r"worker('?s)? pas").first()
+            if workers_pas_category:
+                occupations = Occupation.objects.filter(category=workers_pas_category).order_by('code')
+            else:
+                # Fallback: try alternative names
+                workers_pas_category = OccupationCategory.objects.filter(
+                    name__icontains='worker'
+                ).first()
+                if workers_pas_category:
+                    occupations = Occupation.objects.filter(category=workers_pas_category).order_by('code')
+                else:
+                    occupations = Occupation.objects.none()
+        except Exception:
+            occupations = Occupation.objects.none()
+    else:
+        occupations = Occupation.objects.none()
+    
+    # Format occupations for JSON response
+    occupation_data = []
+    for occ in occupations:
+        occupation_data.append({
+            'id': occ.id,
+            'code': occ.code,
+            'name': occ.name,
+            'display_name': f"{occ.code} - {occ.name}"
+        })
+    
+    return JsonResponse({'occupations': occupation_data})
