@@ -7829,7 +7829,9 @@ def generate_performance_report(request, year, month):
     print(f"[DEBUG] Category: {category}, Level: {level}")
     
     # Step 4: Level filtering (if applicable)
-    if level and category in ['Formal', "Worker's PAS"]:
+    # IMPORTANT: Only apply level filtering for Formal category
+    # Informal/Worker's PAS should show ALL candidates regardless of level
+    if level and category == 'Formal':
         print(f"[DEBUG] Step 4 - Applying level filter for category: {category}")
         pre_level_count = filtered_candidates.count()
         
@@ -7850,7 +7852,7 @@ def generate_performance_report(request, year, month):
             # If level not found, don't filter by level
             pass
     else:
-        print(f"[DEBUG] Step 4 - No level filtering needed for category: {category}")
+        print(f"[DEBUG] Step 4 - No level filtering applied for category: {category} (showing all candidates)")
     
     print(f"[DEBUG] === FINAL RESULT ===")
     print(f"[DEBUG] Final filtered candidates count: {filtered_candidates.count()}")
