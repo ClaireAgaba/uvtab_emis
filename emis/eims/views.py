@@ -148,6 +148,42 @@ def generate_result_list(request):
         result_data = []
         papers_list = []
         if not errors:
+            # Check if results have been released for this assessment period
+            # Only block center representatives, allow admin staff and support to see results
+            is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+            
+            # Find the assessment series for this period
+            from .models import AssessmentSeries, AssessmentCenter
+            import calendar
+            month_name = calendar.month_name[int(month)]
+            series_name = f"{month_name} {year} Series"
+            
+            assessment_series = AssessmentSeries.objects.filter(
+                start_date__year=year,
+                start_date__month=month
+            ).first()
+            
+            if not assessment_series:
+                # Try to find by name pattern if no exact date match
+                assessment_series = AssessmentSeries.objects.filter(name=series_name).first()
+            
+            # Check if results are released
+            results_released = assessment_series and assessment_series.results_released or not is_center_rep
+            
+            if not results_released:
+                # Return a message indicating results are not yet released
+                context = {
+                    'months': months,
+                    'years': years,
+                    'occupations': Occupation.objects.all(),
+                    'levels': Level.objects.all(),
+                    'assessment_centers': AssessmentCenter.objects.all(),
+                    'results_not_released': True,
+                    'assessment_period': f"{month_name} {year}",
+                    'series_name': series_name if assessment_series else f"{month_name} {year} Series"
+                }
+                return render(request, 'reports/result_list.html', context)
+            
             # Build assessment period filter
             period_start = datetime(int(year), int(month), 1)
             period_end = datetime(int(year), int(month), 28)  # crude, will catch all results in month
