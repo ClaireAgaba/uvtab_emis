@@ -2,7 +2,7 @@
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from eims.models import Result, Candidate, AssessmentSeries, CandidateAssessmentSeries
+from eims.models import Result, Candidate, AssessmentSeries
 from collections import defaultdict
 import logging
 import calendar
@@ -34,7 +34,7 @@ class Command(BaseCommand):
         # Get all candidates who have results
         candidates_with_results = Candidate.objects.filter(
             result__isnull=False
-        ).distinct().prefetch_related('result_set', 'candidateassessmentseries_set__assessment_series')
+        ).distinct().prefetch_related('result_set').select_related('assessment_series')
         
         total_candidates = candidates_with_results.count()
         self.stdout.write(f"Found {total_candidates} candidates with results to check")
@@ -64,11 +64,10 @@ class Command(BaseCommand):
                     period_key = f"{month_name} {year}"
                     result_periods[period_key].append(result)
             
-            # Get candidate's current assessment series enrollments
+            # Get candidate's current assessment series enrollment
             current_enrollments = set()
-            for cas in candidate.candidateassessmentseries_set.all():
-                if cas.assessment_series:
-                    current_enrollments.add(cas.assessment_series.series_name)
+            if candidate.assessment_series:
+                current_enrollments.add(candidate.assessment_series.series_name)
             
             # Check if candidate needs to be enrolled in series matching their result dates
             needed_series = set(result_periods.keys())
@@ -141,29 +140,29 @@ class Command(BaseCommand):
                     for update_info in batch_candidates:
                         candidate = update_info['candidate']
                         
-                        # Enroll candidate in missing series
-                        for series_name in update_info['missing_series']:
+                        # Update candidate's assessment series (only if they have missing series)
+                        if update_info['missing_series']:
+                            # For now, we'll assign the most recent series from their results
+                            # In the future, you might want to handle multiple series differently
+                            most_recent_series = sorted(update_info['needed_series'])[-1]  # Get latest series
+                            
                             try:
-                                assessment_series = AssessmentSeries.objects.get(series_name=series_name)
+                                assessment_series = AssessmentSeries.objects.get(series_name=most_recent_series)
                                 
-                                # Check if enrollment already exists (race condition protection)
-                                enrollment, created = CandidateAssessmentSeries.objects.get_or_create(
-                                    candidate=candidate,
-                                    assessment_series=assessment_series,
-                                    defaults={
-                                        'enrollment_date': candidate.created or candidate.assessment_date
-                                    }
-                                )
-                                
-                                if created:
+                                # Update candidate's assessment series if different
+                                if candidate.assessment_series != assessment_series:
+                                    old_series = candidate.assessment_series.series_name if candidate.assessment_series else "None"
+                                    candidate.assessment_series = assessment_series
+                                    candidate.save(update_fields=['assessment_series'])
+                                    
                                     enrollments_created += 1
                                     self.stdout.write(
-                                        f"  Enrolled {candidate.reg_number} in {series_name}"
+                                        f"  Updated {candidate.reg_number}: {old_series} → {most_recent_series}"
                                     )
                                     
                             except AssessmentSeries.DoesNotExist:
                                 self.stdout.write(
-                                    self.style.ERROR(f"Assessment series not found: {series_name}")
+                                    self.style.ERROR(f"Assessment series not found: {most_recent_series}")
                                 )
                                 continue
                         
