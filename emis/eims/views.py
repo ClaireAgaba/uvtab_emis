@@ -501,7 +501,7 @@ def generate_result_list(request):
         # GET: show form only
         from .models import AssessmentCenter, Occupation, Level
         occupations = Occupation.objects.all().order_by('code')
-        levels = Level.objects.all()
+        levels = []  # Don't load all levels initially - will be loaded via AJAX
         centers = AssessmentCenter.objects.all()
         context = {
             'preview': False,

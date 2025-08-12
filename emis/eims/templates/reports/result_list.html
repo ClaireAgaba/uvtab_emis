@@ -499,4 +499,91 @@
 </div>
 {% endif %}
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const occupationSelect = document.getElementById('occupation');
+    const levelSelect = document.getElementById('level');
+    const levelWrapper = document.getElementById('level_wrapper');
+    const regCategorySelect = document.getElementById('reg_category');
+    
+    // Function to load levels for selected occupation
+    function loadLevelsForOccupation(occupationId) {
+        if (!occupationId) {
+            levelSelect.innerHTML = '<option value="">Select Level</option>';
+            return;
+        }
+        
+        // Show loading state
+        levelSelect.innerHTML = '<option value="">Loading levels...</option>';
+        
+        // Fetch levels via AJAX
+        fetch(`/eims/api/levels-for-occupation/?occupation_id=${occupationId}`)
+            .then(response => response.json())
+            .then(data => {
+                // Clear existing options
+                levelSelect.innerHTML = '<option value="">Select Level</option>';
+                
+                // Add new options
+                data.levels.forEach(level => {
+                    const option = document.createElement('option');
+                    option.value = level.id;
+                    option.textContent = level.name;
+                    
+                    // Preserve selected value if it exists
+                    const selectedLevelId = '{{ form_data.level_id|default:"" }}';
+                    if (selectedLevelId && level.id == selectedLevelId) {
+                        option.selected = true;
+                    }
+                    
+                    levelSelect.appendChild(option);
+                });
+                
+                // Show message if no levels found
+                if (data.levels.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No levels available for this occupation';
+                    option.disabled = true;
+                    levelSelect.appendChild(option);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading levels:', error);
+                levelSelect.innerHTML = '<option value="">Error loading levels</option>';
+            });
+    }
+    
+    // Function to toggle level visibility based on registration category
+    function toggleLevelVisibility() {
+        const regCategory = regCategorySelect.value;
+        if (regCategory === 'formal' || regCategory === 'informal') {
+            levelWrapper.classList.remove('hidden');
+        } else {
+            levelWrapper.classList.add('hidden');
+            levelSelect.innerHTML = '<option value="">Select Level</option>';
+        }
+    }
+    
+    // Event listeners
+    occupationSelect.addEventListener('change', function() {
+        const occupationId = this.value;
+        loadLevelsForOccupation(occupationId);
+    });
+    
+    regCategorySelect.addEventListener('change', function() {
+        toggleLevelVisibility();
+        // Clear level selection when category changes
+        levelSelect.innerHTML = '<option value="">Select Level</option>';
+    });
+    
+    // Load levels on page load if occupation is already selected
+    if (occupationSelect.value) {
+        loadLevelsForOccupation(occupationSelect.value);
+    }
+    
+    // Set initial level visibility
+    toggleLevelVisibility();
+});
+</script>
+
 {% endblock %}
