@@ -67,7 +67,7 @@ class Command(BaseCommand):
             # Get candidate's current assessment series enrollment
             current_enrollments = set()
             if candidate.assessment_series:
-                current_enrollments.add(candidate.assessment_series.series_name)
+                current_enrollments.add(candidate.assessment_series.name)
             
             # Check if candidate needs to be enrolled in series matching their result dates
             needed_series = set(result_periods.keys())
@@ -111,10 +111,12 @@ class Command(BaseCommand):
         created_series = 0
         for series_name in series_needed:
             series, created = AssessmentSeries.objects.get_or_create(
-                series_name=series_name,
+                name=series_name,
                 defaults={
-                    'series_name': series_name,
-                    'is_active': True
+                    'name': series_name,
+                    'start_date': '2025-01-01',  # Default dates - you may want to adjust these
+                    'end_date': '2025-12-31',
+                    'date_of_release': '2025-12-31'
                 }
             )
             if created:
@@ -147,11 +149,11 @@ class Command(BaseCommand):
                             most_recent_series = sorted(update_info['needed_series'])[-1]  # Get latest series
                             
                             try:
-                                assessment_series = AssessmentSeries.objects.get(series_name=most_recent_series)
+                                assessment_series = AssessmentSeries.objects.get(name=most_recent_series)
                                 
                                 # Update candidate's assessment series if different
                                 if candidate.assessment_series != assessment_series:
-                                    old_series = candidate.assessment_series.series_name if candidate.assessment_series else "None"
+                                    old_series = candidate.assessment_series.name if candidate.assessment_series else "None"
                                     candidate.assessment_series = assessment_series
                                     candidate.save(update_fields=['assessment_series'])
                                     
