@@ -22,13 +22,14 @@ class NatureOfDisabilityForm(forms.ModelForm):
 class AssessmentCenterForm(forms.ModelForm):
     class Meta:
         model = AssessmentCenter
-        fields = ['center_number', 'center_name', 'category', 'district', 'village', 'has_branches']
+        fields = ['center_number', 'center_name', 'category', 'district', 'village', 'contact', 'has_branches']
         widgets = {
             'center_number': forms.TextInput(attrs={'class':'border rounded px-3 py-2 w-full'}),
             'center_name': forms.TextInput(attrs={'class':'border rounded px-3 py-2 w-full'}),
             'category':    forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
             'district':    forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
             'village':     forms.Select(attrs={'class':'border rounded px-3 py-2 w-full'}),
+            'contact':     forms.TextInput(attrs={'class':'border rounded px-3 py-2 w-full', 'placeholder': 'e.g., +256701234567'}),
             'has_branches': forms.CheckboxInput(attrs={'class':'rounded'}),
         }
         
@@ -42,6 +43,7 @@ class AssessmentCenterForm(forms.ModelForm):
         # Add helpful placeholders and help text for other fields
         self.fields['center_number'].help_text = "Enter a unique center number (e.g., UVT001)"
         self.fields['center_name'].help_text = "Enter the full name of the assessment center"
+        self.fields['contact'].help_text = "Phone number or contact information for the center (optional)"
         self.fields['has_branches'].help_text = "Check this if the center will have multiple branches in different locations"
     
     def clean_center_number(self):

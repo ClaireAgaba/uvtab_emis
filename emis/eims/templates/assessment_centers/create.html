@@ -42,6 +42,21 @@
         <label class="block font-medium mb-1">District</label>
         {{ form.district }}
       </div>
+
+      <div>
+        <label class="block font-medium mb-1">Contact</label>
+        {{ form.contact }}
+        {% if form.contact.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.contact.help_text }}</p>
+        {% endif %}
+        {% if form.contact.errors %}
+          <div class="text-red-600 text-sm mt-1">
+            {% for error in form.contact.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
       
       <div>
         <label class="block font-medium mb-1">Has Branches?</label>

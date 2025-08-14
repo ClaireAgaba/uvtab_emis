@@ -119,6 +119,7 @@ class AssessmentCenter(models.Model):
     category = models.ForeignKey('AssessmentCenterCategory', on_delete=models.CASCADE)
     district = models.ForeignKey('District', on_delete=models.CASCADE)
     village = models.ForeignKey('Village', on_delete=models.CASCADE, null=True, blank=True)
+    contact = models.CharField(max_length=20, blank=True, null=True, help_text="Phone number or contact information")
     has_branches = models.BooleanField(default=False, help_text="Check if this center has branches")
 
     def __str__(self):
