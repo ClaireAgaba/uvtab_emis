@@ -12,9 +12,15 @@ class Command(BaseCommand):
             action='store_true',
             help='Show what would be changed without actually updating the database',
         )
+        parser.add_argument(
+            '--show-errors',
+            action='store_true',
+            help='Show detailed information about registration numbers that could not be processed',
+        )
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
+        show_errors = options['show_errors']
         
         if dry_run:
             self.stdout.write(self.style.WARNING('DRY RUN MODE - No changes will be made to the database'))
@@ -25,6 +31,7 @@ class Command(BaseCommand):
         updated_count = 0
         error_count = 0
         already_new_format_count = 0
+        error_details = []
         
         self.stdout.write(f'Found {candidates.count()} candidates with registration numbers')
         
@@ -63,15 +70,17 @@ class Command(BaseCommand):
                 else:
                     # Unknown format
                     error_count += 1
-                    self.stdout.write(
-                        self.style.ERROR(f'  ERROR: Unknown format for candidate {candidate.id}: {old_reg_number}')
-                    )
+                    error_msg = f'Unknown format for candidate {candidate.id}: {old_reg_number} (parts: {len(parts)})'
+                    error_details.append(error_msg)
+                    if show_errors:
+                        self.stdout.write(self.style.ERROR(f'  ERROR: {error_msg}'))
                     
             except Exception as e:
                 error_count += 1
-                self.stdout.write(
-                    self.style.ERROR(f'  ERROR processing candidate {candidate.id} ({old_reg_number}): {str(e)}')
-                )
+                error_msg = f'Exception processing candidate {candidate.id} ({old_reg_number}): {str(e)}'
+                error_details.append(error_msg)
+                if show_errors:
+                    self.stdout.write(self.style.ERROR(f'  ERROR: {error_msg}'))
         
         # Summary
         self.stdout.write('\n' + '='*60)
@@ -83,6 +92,36 @@ class Command(BaseCommand):
         else:
             self.stdout.write(f'  Successfully updated: {updated_count}')
         self.stdout.write(f'  Errors: {error_count}')
+        
+        # Show error analysis if there were errors
+        if error_count > 0:
+            self.stdout.write('\n' + self.style.WARNING('ERROR ANALYSIS:'))
+            
+            # Categorize errors
+            unknown_format_count = 0
+            exception_count = 0
+            format_patterns = {}
+            
+            for error in error_details:
+                if 'Unknown format' in error:
+                    unknown_format_count += 1
+                    # Extract the registration number pattern
+                    if 'parts:' in error:
+                        parts_info = error.split('parts: ')[-1].rstrip(')')
+                        format_patterns[parts_info] = format_patterns.get(parts_info, 0) + 1
+                elif 'Exception' in error:
+                    exception_count += 1
+            
+            self.stdout.write(f'  Unknown format errors: {unknown_format_count}')
+            self.stdout.write(f'  Exception errors: {exception_count}')
+            
+            if format_patterns:
+                self.stdout.write('  Registration number part counts found:')
+                for parts, count in sorted(format_patterns.items()):
+                    self.stdout.write(f'    {parts} parts: {count} candidates')
+            
+            if not show_errors:
+                self.stdout.write('\n' + self.style.WARNING('To see detailed error information, run with --show-errors'))
         
         if dry_run:
             self.stdout.write('\n' + self.style.WARNING('This was a DRY RUN. To actually update the database, run without --dry-run'))
