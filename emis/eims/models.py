@@ -651,12 +651,18 @@ class Candidate(models.Model):
                 try:
                     # New format: CENTER_NO/N/YY/I/OC_CODE/REG_TYPE/SERIAL
                     # Old format: N/YY/I/OC_CODE/REG_TYPE/SERIAL-CENTER_NO
+                    # Alternative old format: N/YY/I/OC_CODE/LEVEL/SERIAL-CENTER_NO
                     parts = c.reg_number.split('/')
                     if len(parts) >= 7:
                         # New format - serial is the last part
                         serial_int = int(parts[-1])
                     elif len(parts) >= 6 and '-' in parts[-1]:
-                        # Old format - serial is before the dash in the last part
+                        # Old format (6 parts) - serial is before the dash in the last part
+                        last_part = parts[-1]
+                        serial_part = last_part.split('-')[0]
+                        serial_int = int(serial_part)
+                    elif len(parts) == 5 and '-' in parts[-1]:
+                        # Alternative old format (5 parts) - serial is before the dash in the last part
                         last_part = parts[-1]
                         serial_part = last_part.split('-')[0]
                         serial_int = int(serial_part)

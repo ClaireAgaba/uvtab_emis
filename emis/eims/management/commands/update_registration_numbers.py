@@ -67,6 +67,25 @@ class Command(BaseCommand):
                         self.stdout.write(f'  UPDATED: {old_reg_number} → {new_reg_number}')
                     
                     updated_count += 1
+                # Check if in alternative old format (N/YY/I/OC/LEVEL/SERIAL-CENTER - 5 parts with dash in last)
+                elif len(parts) == 5 and '-' in parts[-1]:
+                    # Alternative old format: N/YY/I/OC/LEVEL/SERIAL-CENTER
+                    # Split the last part to get serial and center
+                    last_part = parts[-1]
+                    serial_part, center_part = last_part.split('-', 1)
+                    
+                    # Build new format: CENTER/N/YY/I/OC/LEVEL/SERIAL
+                    new_reg_number = f"{center_part}/{parts[0]}/{parts[1]}/{parts[2]}/{parts[3]}/{parts[4]}/{serial_part}"
+                    
+                    if dry_run:
+                        self.stdout.write(f'  UPDATE: {old_reg_number} → {new_reg_number}')
+                    else:
+                        # Update the candidate
+                        candidate.reg_number = new_reg_number
+                        candidate.save(update_fields=['reg_number'])
+                        self.stdout.write(f'  UPDATED: {old_reg_number} → {new_reg_number}')
+                    
+                    updated_count += 1
                 else:
                     # Unknown format
                     error_count += 1
