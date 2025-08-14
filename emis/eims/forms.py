@@ -807,11 +807,16 @@ class EnrollmentForm(forms.Form):
                     mod_id = int(fname.split('_')[-1])
                     selected_papers[mod_id] = paper
             
-            # Enforce minimum of 2 papers for Worker's PAS/Informal enrollment
+            # Enforce minimum of 2 and maximum of 4 papers for Worker's PAS/Informal enrollment
             if len(selected_papers) < 2:
                 raise forms.ValidationError(
                     "Worker's PAS/Informal candidates must select a minimum of 2 papers at any given sitting. "
                     f"You have selected {len(selected_papers)} paper(s). Please select at least 2 papers from different modules."
+                )
+            elif len(selected_papers) > 4:
+                raise forms.ValidationError(
+                    "Worker's PAS/Informal candidates can select a maximum of 4 papers at any given sitting. "
+                    f"You have selected {len(selected_papers)} paper(s). Please select no more than 4 papers from different modules."
                 )
             
             cleaned_data['selected_papers'] = selected_papers
