@@ -476,9 +476,9 @@ class Candidate(models.Model):
     ])
 
     # Section 4 - Assessment Dates
-    start_date = models.DateField()
-    finish_date = models.DateField()
-    assessment_date = models.DateField()
+    start_date = models.DateField(null=True, blank=True, help_text="Training start date (optional for Worker's PAS/Informal)")
+    finish_date = models.DateField(null=True, blank=True, help_text="Training finish date (optional for Worker's PAS/Informal)")
+    assessment_date = models.DateField(help_text="Assessment date (mandatory for all registration categories)")
 
     # Audit trail fields
     created_at = models.DateTimeField(auto_now_add=True)

@@ -558,11 +558,48 @@ class CandidateForm(forms.ModelForm):
                 self.add_error('nature_of_disability', 'Please select at least one nature of disability.')
         else:
             cleaned_data['nature_of_disability'] = []
-        # --- Existing logic below ---
+        
+        # Date validation based on registration category
+        reg_cat = cleaned_data.get('registration_category')
+        start_date = cleaned_data.get('start_date')
+        finish_date = cleaned_data.get('finish_date')
+        assessment_date = cleaned_data.get('assessment_date')
         occupation = cleaned_data.get('occupation')
+        
+        # Assessment date is always mandatory
+        if not assessment_date:
+            self.add_error('assessment_date', 'Assessment date is required for all registration categories.')
+        
+        # For Worker's PAS/Informal with Worker's PAS occupation, start_date and finish_date are optional
+        if reg_cat and str(reg_cat).lower() == 'informal' and occupation:
+            # Check if the occupation is Worker's PAS category
+            from .models import OccupationCategory
+            from django.db.models import Q
+            workers_pas_cat = OccupationCategory.objects.filter(
+                Q(name__iexact="Worker's PAS") | Q(name__iexact="Worker PAS")
+            ).first()
+            if not workers_pas_cat:
+                workers_pas_cat = OccupationCategory.objects.filter(name__iregex=r"worker('?s)? pas").first()
+            
+            if workers_pas_cat and occupation.category == workers_pas_cat:
+                # For Worker's PAS occupation with informal registration, dates are optional
+                pass
+            else:
+                # For other occupations with informal registration, dates are still required
+                if not start_date:
+                    self.add_error('start_date', 'Start date is required for this registration type.')
+                if not finish_date:
+                    self.add_error('finish_date', 'Finish date is required for this registration type.')
+        else:
+            # For all other registration categories, start_date and finish_date are required
+            if not start_date:
+                self.add_error('start_date', 'Start date is required for this registration type.')
+            if not finish_date:
+                self.add_error('finish_date', 'Finish date is required for this registration type.')
+        
+        # --- Existing logic below ---
         level = cleaned_data.get('level')
         modules = cleaned_data.get('modules')
-        reg_cat = cleaned_data.get('registration_category')
 
         if not occupation or not level:
             return cleaned_data
@@ -576,7 +613,7 @@ class CandidateForm(forms.ModelForm):
 
         structure_type = occ_level.structure_type if occ_level else None
 
-        if reg_cat == 'modular':
+        if reg_cat and str(reg_cat).lower() == 'modular':
             if not occupation.has_modular:
                 raise forms.ValidationError("This occupation does not allow Modular registration.")
             if structure_type == 'papers':
@@ -585,10 +622,10 @@ class CandidateForm(forms.ModelForm):
                 raise forms.ValidationError("Modular candidates can only register for Level 1.")
             if modules.count() == 0 or modules.count() > 2:
                 raise forms.ValidationError("Modular candidates must select 1 or 2 modules only.")
-        elif reg_cat == 'formal':
+        elif reg_cat and str(reg_cat).lower() == 'formal':
             if modules is not None and hasattr(modules, 'exists') and modules.exists():
                 raise forms.ValidationError("Formal candidates should not select modules.")
-        elif reg_cat == 'informal':
+        elif reg_cat and str(reg_cat).lower() == 'informal':
             if structure_type == 'papers':
                 raise forms.ValidationError("Informal candidates cannot be registered for paper-based levels.")
 
