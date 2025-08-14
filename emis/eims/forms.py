@@ -798,7 +798,7 @@ class EnrollmentForm(forms.Form):
         if not assessment_series:
             raise forms.ValidationError("Please select an Assessment Series for this enrollment.")
         
-        # Informal/worker's PAS: allow zero or more module paper selections, but only one per module
+        # Informal/worker's PAS: require minimum 2 papers across all modules, but only one per module
         if self.is_informal and occupation and level:
             selected_papers = {}
             for fname in getattr(self, 'module_field_names', []):
@@ -806,7 +806,14 @@ class EnrollmentForm(forms.Form):
                 if paper:
                     mod_id = int(fname.split('_')[-1])
                     selected_papers[mod_id] = paper
-            # No longer require at least one paper per module; allow user to skip modules
+            
+            # Enforce minimum of 2 papers for Worker's PAS/Informal enrollment
+            if len(selected_papers) < 2:
+                raise forms.ValidationError(
+                    "Worker's PAS/Informal candidates must select a minimum of 2 papers at any given sitting. "
+                    f"You have selected {len(selected_papers)} paper(s). Please select at least 2 papers from different modules."
+                )
+            
             cleaned_data['selected_papers'] = selected_papers
         return cleaned_data
 

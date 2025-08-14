@@ -13,6 +13,15 @@
     </ul>
   {% endif %}
 
+  <!-- Display form validation errors (including minimum papers validation) -->
+  {% if form.non_field_errors %}
+    <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+      {% for error in form.non_field_errors %}
+        <div class="text-red-600 font-semibold">{{ error }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   {% if form.level.errors %}
     <div class="mb-4 text-red-600 font-semibold">Please select a level.</div>
   {% endif %}
