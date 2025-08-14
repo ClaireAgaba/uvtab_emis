@@ -623,7 +623,7 @@ class Candidate(models.Model):
     def build_reg_number(self):
         """
         Build a registration number in the format
-        N/YY/I/OC_CODE/###-CENTER_NO
+        CENTER_NO/N/YY/I/OC_CODE/REG_TYPE/SERIAL
         Serial is always unique for (center, intake, year, occupation, reg cat).
         """
         from django.db import transaction
@@ -649,9 +649,19 @@ class Candidate(models.Model):
             max_serial = 0
             for c in qs.only('reg_number'):
                 try:
-                    last_part = c.reg_number.split('/')[-1]
-                    serial_part = last_part.split('-')[0]
-                    serial_int = int(serial_part)
+                    # New format: CENTER_NO/N/YY/I/OC_CODE/REG_TYPE/SERIAL
+                    # Old format: N/YY/I/OC_CODE/REG_TYPE/SERIAL-CENTER_NO
+                    parts = c.reg_number.split('/')
+                    if len(parts) >= 7:
+                        # New format - serial is the last part
+                        serial_int = int(parts[-1])
+                    elif len(parts) >= 6 and '-' in parts[-1]:
+                        # Old format - serial is before the dash in the last part
+                        last_part = parts[-1]
+                        serial_part = last_part.split('-')[0]
+                        serial_int = int(serial_part)
+                    else:
+                        continue
                     if serial_int > max_serial:
                         max_serial = serial_int
                 except (ValueError, IndexError, AttributeError):
@@ -659,7 +669,7 @@ class Candidate(models.Model):
             next_serial = max_serial + 1
             serial_str = str(next_serial).zfill(3)
 
-        self.reg_number = f"{nat}/{year}/{intake}/{occ_code}/{reg_type}/{serial_str}-{center_code}"
+        self.reg_number = f"{center_code}/{nat}/{year}/{intake}/{occ_code}/{reg_type}/{serial_str}"
 
     def save(self, *args, **kwargs):
             # regenerate if reg_number is empty
