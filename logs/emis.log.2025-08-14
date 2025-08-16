@@ -1,0 +1,1308 @@
+INFO 2025-08-14 07:26:47,871 autoreload 12013 131060950397056 Watching for file changes with StatReloader
+INFO 2025-08-14 07:26:52,034 basehttp 12013 131060870887104 "GET /eims/candidates/36/ HTTP/1.1" 200 33279
+WARNING 2025-08-14 07:26:52,833 log 12013 131060870887104 Not Found: /favicon.ico
+WARNING 2025-08-14 07:26:52,833 basehttp 12013 131060870887104 "GET /favicon.ico HTTP/1.1" 404 179
+INFO 2025-08-14 07:26:54,918 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 302 0
+INFO 2025-08-14 07:26:54,929 basehttp 12013 131060870887104 "GET /login/?next=/eims/candidates/ HTTP/1.1" 200 5819
+WARNING 2025-08-14 07:26:54,995 log 12013 131060870887104 Not Found: /static/images/uvtab_logo.png
+WARNING 2025-08-14 07:26:54,995 basehttp 12013 131060870887104 "GET /static/images/uvtab_logo.png HTTP/1.1" 404 179
+INFO 2025-08-14 07:26:56,850 basehttp 12013 131060870887104 "POST /login/?next=/eims/candidates/ HTTP/1.1" 302 0
+INFO 2025-08-14 07:26:56,884 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 188923
+WARNING 2025-08-14 07:26:56,939 log 12013 131060870887104 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 07:26:56,940 basehttp 12013 131060870887104 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,945 log 12013 131060784424640 Not Found: /media/candidate_photos/540246.Shantale_Irona.jpg
+WARNING 2025-08-14 07:26:56,945 basehttp 12013 131060784424640 "GET /media/candidate_photos/540246.Shantale_Irona.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,948 log 12013 131060767639232 Not Found: /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg
+WARNING 2025-08-14 07:26:56,948 basehttp 12013 131060767639232 "GET /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,953 log 12013 131060784424640 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 07:26:56,954 basehttp 12013 131060784424640 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,957 log 12013 131060767639232 Not Found: /media/candidate_photos/testphoto/Afoyo_Vani.jpg
+WARNING 2025-08-14 07:26:56,957 basehttp 12013 131060767639232 "GET /media/candidate_photos/testphoto/Afoyo_Vani.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,963 log 12013 131060776031936 Not Found: /media/candidate_photos/testphoto/540250.Francine_Binene.jpg
+WARNING 2025-08-14 07:26:56,963 basehttp 12013 131060776031936 "GET /media/candidate_photos/testphoto/540250.Francine_Binene.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,968 log 12013 131060776031936 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 07:26:56,968 basehttp 12013 131060776031936 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,979 log 12013 131060759246528 Not Found: /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg
+WARNING 2025-08-14 07:26:56,979 basehttp 12013 131060759246528 "GET /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,987 log 12013 131060792817344 Not Found: /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg
+WARNING 2025-08-14 07:26:56,988 basehttp 12013 131060792817344 "GET /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,992 log 12013 131060870887104 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 07:26:56,992 basehttp 12013 131060870887104 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:56,995 log 12013 131060759246528 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 07:26:56,996 basehttp 12013 131060759246528 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:57,000 log 12013 131060784424640 Not Found: /media/candidate_photos/ditlogo_regno_4V2TdWk.png
+WARNING 2025-08-14 07:26:57,001 basehttp 12013 131060784424640 "GET /media/candidate_photos/ditlogo_regno_4V2TdWk.png HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:57,004 log 12013 131060767639232 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 07:26:57,004 basehttp 12013 131060767639232 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:26:57,012 log 12013 131060792817344 Not Found: /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png
+WARNING 2025-08-14 07:26:57,012 basehttp 12013 131060792817344 "GET /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png HTTP/1.1" 404 179
+INFO 2025-08-14 07:26:57,059 basehttp 12013 131060776031936 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:00,007 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:01,945 views 12013 131060870887104 Dashboard accessed by user: agaba
+INFO 2025-08-14 07:27:01,952 basehttp 12013 131060870887104 "GET /eims/ HTTP/1.1" 200 23067
+WARNING 2025-08-14 07:27:02,084 log 12013 131060784424640 Not Found: /favicon.ico
+INFO 2025-08-14 07:27:02,125 basehttp 12013 131060767639232 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:07,094 basehttp 12013 131060792817344 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:21,764 basehttp 12013 131060870887104 "GET /eims/candidates/?reg_number=&search=&occupation=13&registration_category=Modular&assessment_month=&assessment_year=&disability=&assessment_center=&apply_filters=1 HTTP/1.1" 302 0
+INFO 2025-08-14 07:27:21,780 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 86452
+WARNING 2025-08-14 07:27:21,801 log 12013 131060776031936 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 07:27:21,801 basehttp 12013 131060776031936 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:21,805 log 12013 131060767639232 Not Found: /media/candidate_photos/ditlogo_regno_4V2TdWk.png
+WARNING 2025-08-14 07:27:21,806 basehttp 12013 131060767639232 "GET /media/candidate_photos/ditlogo_regno_4V2TdWk.png HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:21,809 log 12013 131060759246528 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 07:27:21,810 basehttp 12013 131060759246528 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:21,822 log 12013 131060792817344 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 07:27:21,822 basehttp 12013 131060792817344 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+INFO 2025-08-14 07:27:21,924 basehttp 12013 131060776031936 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:26,929 basehttp 12013 131060767639232 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:28,375 basehttp 12013 131060870887104 "GET /eims/candidates/94/ HTTP/1.1" 200 42901
+WARNING 2025-08-14 07:27:28,393 log 12013 131060759246528 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 07:27:28,394 basehttp 12013 131060759246528 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:28,467 log 12013 131060792817344 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 07:27:28,468 basehttp 12013 131060792817344 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 07:27:28,814 basehttp 12013 131060776031936 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:32,626 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 86452
+WARNING 2025-08-14 07:27:32,659 log 12013 131060767639232 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 07:27:32,659 basehttp 12013 131060767639232 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:32,665 log 12013 131060759246528 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 07:27:32,666 basehttp 12013 131060759246528 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:32,676 log 12013 131060792817344 Not Found: /media/candidate_photos/ditlogo_regno_4V2TdWk.png
+WARNING 2025-08-14 07:27:32,676 basehttp 12013 131060792817344 "GET /media/candidate_photos/ditlogo_regno_4V2TdWk.png HTTP/1.1" 404 179
+INFO 2025-08-14 07:27:32,802 basehttp 12013 131060776031936 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:37,753 basehttp 12013 131060767639232 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:38,739 basehttp 12013 131060870887104 "GET /eims/candidates/?reg_number=&search=&occupation=13&registration_category=Modular&assessment_month=5&assessment_year=&disability=&assessment_center=&apply_filters=1 HTTP/1.1" 302 0
+INFO 2025-08-14 07:27:38,757 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 62697
+WARNING 2025-08-14 07:27:38,821 log 12013 131060759246528 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 07:27:38,822 basehttp 12013 131060759246528 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+INFO 2025-08-14 07:27:38,934 basehttp 12013 131060792817344 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:40,349 basehttp 12013 131060870887104 "GET /eims/candidates/79/ HTTP/1.1" 200 46634
+WARNING 2025-08-14 07:27:40,366 log 12013 131060776031936 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 07:27:40,367 basehttp 12013 131060776031936 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:40,443 log 12013 131060767639232 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 07:27:40,444 basehttp 12013 131060767639232 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+INFO 2025-08-14 07:27:40,874 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:45,486 basehttp 12013 131060792817344 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:46,192 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 62697
+WARNING 2025-08-14 07:27:46,214 log 12013 131060776031936 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 07:27:46,214 basehttp 12013 131060776031936 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:46,237 log 12013 131060767639232 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 07:27:46,237 basehttp 12013 131060767639232 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+INFO 2025-08-14 07:27:46,386 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:51,022 basehttp 12013 131060870887104 "GET /eims/candidates/?assessment_month=5&reg_number=&search=&occupation=17&registration_category=Modular&assessment_month=5&assessment_year=&disability=&assessment_center=&apply_filters=1 HTTP/1.1" 302 0
+INFO 2025-08-14 07:27:51,040 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 83321
+WARNING 2025-08-14 07:27:51,064 log 12013 131060792817344 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 07:27:51,064 basehttp 12013 131060792817344 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:51,068 log 12013 131060767639232 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 07:27:51,068 basehttp 12013 131060767639232 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:27:51,073 log 12013 131060776031936 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 07:27:51,073 basehttp 12013 131060776031936 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 07:27:51,346 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:27:56,204 basehttp 12013 131060792817344 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:02,360 basehttp 12013 131060870887104 "GET /eims/candidates/77/ HTTP/1.1" 200 43057
+INFO 2025-08-14 07:28:02,721 basehttp 12013 131060767639232 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:07,514 basehttp 12013 131060776031936 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:08,715 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 83321
+WARNING 2025-08-14 07:28:08,738 log 12013 131060767639232 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 07:28:08,738 basehttp 12013 131060767639232 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:28:08,741 log 12013 131060759246528 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 07:28:08,741 basehttp 12013 131060759246528 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:28:08,746 log 12013 131060792817344 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 07:28:08,746 basehttp 12013 131060792817344 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:28:08,756 log 12013 131060776031936 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 07:28:08,757 basehttp 12013 131060776031936 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 07:28:08,961 basehttp 12013 131060767639232 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:13,864 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:31,257 basehttp 12013 131060870887104 "GET /eims/candidates/76/ HTTP/1.1" 200 43090
+INFO 2025-08-14 07:28:31,381 basehttp 12013 131060792817344 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:35,513 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 83321
+WARNING 2025-08-14 07:28:35,537 log 12013 131060767639232 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 07:28:35,538 basehttp 12013 131060767639232 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:28:35,541 log 12013 131060759246528 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 07:28:35,541 basehttp 12013 131060759246528 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:28:35,546 log 12013 131060776031936 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 07:28:35,546 basehttp 12013 131060776031936 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 07:28:35,919 basehttp 12013 131060792817344 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:40,660 basehttp 12013 131060767639232 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:49,268 basehttp 12013 131060870887104 "GET /eims/api/assessment-series/ HTTP/1.1" 200 1110
+INFO 2025-08-14 07:28:49,280 basehttp 12013 131060776031936 "GET /eims/api/assessment-series/ HTTP/1.1" 200 1110
+INFO 2025-08-14 07:28:49,284 basehttp 12013 131060759246528 "POST /eims/candidates/bulk-modules/ HTTP/1.1" 200 164
+INFO 2025-08-14 07:28:55,030 basehttp 12013 131060870887104 "POST /eims/candidates/bulk-action/ HTTP/1.1" 200 93
+INFO 2025-08-14 07:28:56,349 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 83321
+WARNING 2025-08-14 07:28:56,368 log 12013 131060759246528 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 07:28:56,368 basehttp 12013 131060759246528 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:28:56,371 log 12013 131060792817344 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 07:28:56,371 basehttp 12013 131060792817344 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:28:56,380 log 12013 131060767639232 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 07:28:56,381 basehttp 12013 131060767639232 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 07:28:56,447 basehttp 12013 131060759246528 "GET /eims/api/assessment-series/ HTTP/1.1" 200 1110
+INFO 2025-08-14 07:28:56,457 basehttp 12013 131060759246528 "POST /eims/candidates/bulk-modules/ HTTP/1.1" 200 164
+INFO 2025-08-14 07:28:56,471 basehttp 12013 131060792817344 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:57,773 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:28:58,795 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:01,499 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:02,032 views 12013 131060870887104 Results home accessed by user: agaba
+INFO 2025-08-14 07:29:02,048 basehttp 12013 131060870887104 "GET /eims/results/ HTTP/1.1" 200 70644
+WARNING 2025-08-14 07:29:02,065 log 12013 131060759246528 Not Found: /static/js/results_marksheet_modules.js
+WARNING 2025-08-14 07:29:02,066 basehttp 12013 131060759246528 "GET /static/js/results_marksheet_modules.js HTTP/1.1" 404 179
+WARNING 2025-08-14 07:29:02,156 log 12013 131060759246528 Not Found: /static/js/results_marksheet_modules.js
+WARNING 2025-08-14 07:29:02,156 basehttp 12013 131060759246528 "GET /static/js/results_marksheet_modules.js HTTP/1.1" 404 179
+INFO 2025-08-14 07:29:02,186 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:02,960 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:03,867 basehttp 12013 131060870887104 "GET /eims/candidates/77/ HTTP/1.1" 200 43298
+INFO 2025-08-14 07:29:03,989 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:07,137 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:07,179 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:09,018 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:09,075 basehttp 12013 131060759246528 "GET /eims/api/levels/ HTTP/1.1" 200 896
+INFO 2025-08-14 07:29:09,081 basehttp 12013 131060870887104 "GET /eims/api/occupations/ HTTP/1.1" 200 602
+INFO 2025-08-14 07:29:09,085 basehttp 12013 131060767639232 "GET /eims/api/centers/ HTTP/1.1" 200 273
+INFO 2025-08-14 07:29:20,909 basehttp 12013 131060870887104 "GET /eims/api/modules/?occupation_id=13 HTTP/1.1" 200 273
+INFO 2025-08-14 07:29:22,404 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:25,759 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:29,150 basehttp 12013 131060870887104 "GET /eims/api/modules/?occupation_id=17 HTTP/1.1" 200 131
+INFO 2025-08-14 07:29:32,221 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:41,517 basehttp 12013 131060870887104 "POST /eims/results/generate-marksheet/ HTTP/1.1" 200 167
+INFO 2025-08-14 07:29:43,482 basehttp 12013 131060870887104 "GET /eims/results/download-marksheet/?assessment_month=May&assessment_year=2025&registration_category=modular&occupation=17&modules=24 HTTP/1.1" 200 5235
+INFO 2025-08-14 07:29:43,519 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:44,740 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:58,440 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:59,447 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:29:59,727 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:30:05,336 basehttp 12013 131060870887104 "GET /eims/candidates/ HTTP/1.1" 200 83321
+WARNING 2025-08-14 07:30:05,364 log 12013 131060759246528 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 07:30:05,364 basehttp 12013 131060759246528 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:30:05,368 log 12013 131060767639232 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 07:30:05,368 basehttp 12013 131060767639232 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 07:30:05,373 log 12013 131060792817344 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 07:30:05,373 basehttp 12013 131060792817344 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 07:30:05,626 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:30:10,493 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:30:12,286 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:30:13,597 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:30:33,576 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:30:35,254 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:30:35,549 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:30:56,630 basehttp 12013 131060870887104 "GET /eims/api/modules/?occupation_id=17 HTTP/1.1" 200 131
+INFO 2025-08-14 07:31:02,188 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:07,889 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:08,187 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:09,449 basehttp 12013 131060870887104 "POST /eims/results/upload-marks/ HTTP/1.1" 200 51
+INFO 2025-08-14 07:31:11,447 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:11,770 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:13,035 basehttp 12013 131060870887104 "GET /eims/candidates/77/ HTTP/1.1" 200 45342
+INFO 2025-08-14 07:31:13,223 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:16,611 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:18,188 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:27,155 basehttp 12013 131060870887104 "GET /eims/api/modules/?occupation_id=17 HTTP/1.1" 200 131
+INFO 2025-08-14 07:31:29,205 basehttp 12013 131060870887104 "POST /eims/results/generate-marksheet/ HTTP/1.1" 200 167
+INFO 2025-08-14 07:31:31,403 basehttp 12013 131060870887104 "GET /eims/results/download-marksheet/?assessment_month=May&assessment_year=2025&registration_category=modular&occupation=17&modules=25 HTTP/1.1" 200 5045
+INFO 2025-08-14 07:31:31,445 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:32,797 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:47,817 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:31:48,047 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:32:01,854 basehttp 12013 131060870887104 "GET /eims/api/modules/?occupation_id=17 HTTP/1.1" 200 131
+INFO 2025-08-14 07:32:13,800 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:32:16,008 basehttp 12013 131060870887104 "POST /eims/results/upload-marks/ HTTP/1.1" 200 51
+INFO 2025-08-14 07:32:18,071 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:32:18,321 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:32:19,275 basehttp 12013 131060870887104 "GET /eims/candidates/77/ HTTP/1.1" 200 46882
+INFO 2025-08-14 07:32:19,608 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:32:24,388 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:32:58,445 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:33:02,189 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:33:13,480 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:33:13,852 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:34:19,392 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:35:08,245 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:36:19,393 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:37:08,474 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:38:19,581 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:39:08,475 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:40:19,577 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:41:08,476 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:42:19,583 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:43:08,478 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:44:19,905 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:45:08,473 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:46:19,909 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:47:08,477 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:48:19,908 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:49:08,474 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:50:19,907 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:51:08,477 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:52:19,907 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:53:08,472 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:54:19,909 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:55:08,477 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:56:19,903 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:57:08,479 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:58:19,902 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:58:40,433 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:58:41,195 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:58:41,723 basehttp 12013 131060759246528 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:58:43,990 views 12013 131060759246528 Results home accessed by user: agaba
+INFO 2025-08-14 07:58:44,008 basehttp 12013 131060759246528 "GET /eims/results/ HTTP/1.1" 200 82014
+WARNING 2025-08-14 07:58:44,029 log 12013 131060759246528 Not Found: /static/js/results_marksheet_modules.js
+WARNING 2025-08-14 07:58:44,029 basehttp 12013 131060759246528 "GET /static/js/results_marksheet_modules.js HTTP/1.1" 404 179
+WARNING 2025-08-14 07:58:44,592 log 12013 131060759246528 Not Found: /static/js/results_marksheet_modules.js
+WARNING 2025-08-14 07:58:44,592 basehttp 12013 131060759246528 "GET /static/js/results_marksheet_modules.js HTTP/1.1" 404 179
+WARNING 2025-08-14 07:58:44,601 log 12013 131060759246528 Not Found: /favicon.ico
+WARNING 2025-08-14 07:58:44,601 basehttp 12013 131060759246528 "GET /favicon.ico HTTP/1.1" 404 179
+INFO 2025-08-14 07:58:44,617 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:58:46,167 basehttp 12013 131060767639232 "GET /eims/api/centers/ HTTP/1.1" 200 273
+INFO 2025-08-14 07:58:46,171 basehttp 12013 131060870887104 "GET /eims/api/levels/ HTTP/1.1" 200 896
+INFO 2025-08-14 07:58:46,175 basehttp 12013 131060759246528 "GET /eims/api/occupations/ HTTP/1.1" 200 602
+INFO 2025-08-14 07:58:49,628 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:58:57,791 basehttp 12013 131060759246528 "GET /eims/api/modules/?occupation_id=17 HTTP/1.1" 200 131
+INFO 2025-08-14 07:59:15,122 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:59:15,326 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:59:16,457 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:59:20,340 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:59:23,238 basehttp 12013 131060759246528 "POST /eims/results/generate-marksheet/ HTTP/1.1" 200 167
+INFO 2025-08-14 07:59:26,621 basehttp 12013 131060759246528 "GET /eims/results/download-marksheet/?assessment_month=May&assessment_year=2025&registration_category=modular&occupation=17&modules=24 HTTP/1.1" 200 5236
+INFO 2025-08-14 07:59:26,662 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:59:28,345 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:59:33,023 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 07:59:45,687 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:00:19,910 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:00:48,551 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:01:06,170 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:01:06,322 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:01:15,704 basehttp 12013 131060759246528 "GET /eims/api/modules/?occupation_id=17 HTTP/1.1" 200 131
+INFO 2025-08-14 08:01:20,765 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:01:21,881 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:02:19,910 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:02:48,552 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:04:19,910 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:04:48,735 basehttp 12013 131060870887104 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:15:02,811 autoreload 17380 130026994610304 Watching for file changes with StatReloader
+INFO 2025-08-14 08:15:29,072 basehttp 17380 130026846549696 "GET /login/?next=%2Feims%2Fcandidates%2F77%2F HTTP/1.1" 200 16489
+WARNING 2025-08-14 08:15:29,092 log 17380 130026846549696 Not Found: /static/images/uvtab_logo.png
+WARNING 2025-08-14 08:15:29,092 basehttp 17380 130026846549696 "GET /static/images/uvtab_logo.png HTTP/1.1" 404 179
+INFO 2025-08-14 08:15:29,496 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:15:30,766 basehttp 17380 130026846549696 "POST /login/?next=%2Feims%2Fcandidates%2F77%2F HTTP/1.1" 302 0
+INFO 2025-08-14 08:15:30,803 basehttp 17380 130026846549696 "GET /eims/candidates/77/ HTTP/1.1" 200 46882
+INFO 2025-08-14 08:15:31,002 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:15:36,164 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:15:52,633 views 17380 130026846549696 Dashboard accessed by user: agaba
+INFO 2025-08-14 08:15:52,643 basehttp 17380 130026846549696 "GET /eims/ HTTP/1.1" 200 23067
+INFO 2025-08-14 08:15:53,056 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:15:54,980 basehttp 17380 130026846549696 "GET /login/?next=%2Feims%2Fresults%2F HTTP/1.1" 200 16489
+WARNING 2025-08-14 08:15:55,001 log 17380 130026846549696 Not Found: /static/images/uvtab_logo.png
+WARNING 2025-08-14 08:15:55,001 basehttp 17380 130026846549696 "GET /static/images/uvtab_logo.png HTTP/1.1" 404 179
+INFO 2025-08-14 08:15:55,286 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:15:56,377 basehttp 17380 130026846549696 "POST /login/?next=%2Feims%2Fresults%2F HTTP/1.1" 302 0
+INFO 2025-08-14 08:15:56,382 views 17380 130026846549696 Results home accessed by user: agaba
+INFO 2025-08-14 08:15:56,397 basehttp 17380 130026846549696 "GET /eims/results/ HTTP/1.1" 200 83527
+WARNING 2025-08-14 08:15:56,412 log 17380 130026846549696 Not Found: /static/js/results_marksheet_modules.js
+WARNING 2025-08-14 08:15:56,413 basehttp 17380 130026846549696 "GET /static/js/results_marksheet_modules.js HTTP/1.1" 404 179
+INFO 2025-08-14 08:15:56,526 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:15:57,764 basehttp 17380 130026837108416 "GET /eims/api/levels/ HTTP/1.1" 200 896
+INFO 2025-08-14 08:15:57,768 basehttp 17380 130026846549696 "GET /eims/api/occupations/ HTTP/1.1" 200 602
+INFO 2025-08-14 08:15:57,771 basehttp 17380 130026828715712 "GET /eims/api/centers/ HTTP/1.1" 200 273
+INFO 2025-08-14 08:15:58,177 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:16:01,551 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:16:16,744 basehttp 17380 130026846549696 "GET /eims/api/modules/?occupation_id=13 HTTP/1.1" 200 273
+INFO 2025-08-14 08:16:21,844 basehttp 17380 130026846549696 "POST /eims/results/generate-marksheet/ HTTP/1.1" 200 167
+INFO 2025-08-14 08:16:23,568 basehttp 17380 130026846549696 "GET /eims/results/download-marksheet/?assessment_month=May&assessment_year=2025&registration_category=modular&occupation=13&modules=18 HTTP/1.1" 200 5134
+INFO 2025-08-14 08:16:23,610 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:16:24,885 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:16:30,166 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:16:30,224 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:16:35,906 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:16:36,884 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:17:52,781 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:17:56,506 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:19:52,781 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:19:56,509 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:20:13,795 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:20:14,028 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:21:53,043 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:21:56,509 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:23:53,049 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:23:56,513 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:25:53,047 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:25:56,507 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:27:53,049 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:27:56,510 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:29:53,050 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:29:56,511 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:31:36,332 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:31:36,993 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:31:53,056 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:31:56,509 basehttp 17380 130026846549696 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:32:59,900 autoreload 17380 130026994610304 /home/claire/Desktop/projects/emis/emis/eims/models.py changed, reloading.
+INFO 2025-08-14 08:33:00,155 autoreload 18956 139885286740096 Watching for file changes with StatReloader
+INFO 2025-08-14 08:33:30,515 autoreload 18956 139885286740096 /home/claire/Desktop/projects/emis/emis/eims/forms.py changed, reloading.
+INFO 2025-08-14 08:33:30,766 autoreload 19003 129254128668800 Watching for file changes with StatReloader
+INFO 2025-08-14 08:33:45,038 autoreload 19003 129254128668800 /home/claire/Desktop/projects/emis/emis/eims/forms.py changed, reloading.
+INFO 2025-08-14 08:33:45,282 autoreload 19050 124624589004928 Watching for file changes with StatReloader
+INFO 2025-08-14 08:33:53,511 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:33:56,510 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:35:53,510 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:35:56,511 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:37:53,510 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:37:56,512 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:39:53,508 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:39:56,513 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:40:33,501 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:40:34,046 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:40:34,891 views 19050 124624441915072 Dashboard accessed by user: agaba
+INFO 2025-08-14 08:40:34,923 basehttp 19050 124624441915072 "GET /eims/ HTTP/1.1" 200 23067
+INFO 2025-08-14 08:40:35,598 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:40:37,909 basehttp 19050 124624441915072 "GET /eims/reports/ HTTP/1.1" 200 14887
+INFO 2025-08-14 08:40:38,250 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+ERROR 2025-08-14 08:40:39,319 log 19050 124624441915072 Internal Server Error: /eims/reports/result-list/
+Traceback (most recent call last):
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 360, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: eims_assessmentcenter.contact
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/contrib/auth/decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/emis/eims/views.py", line 557, in generate_result_list
+    return render(request, 'reports/result_list.html', context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/loader.py", line 62, in render_to_string
+    return template.render(context, request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/backends/django.py", line 107, in render
+    return self.template.render(context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/base.py", line 171, in render
+    return self._render(context)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/base.py", line 163, in _render
+    return self.nodelist.render(context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/base.py", line 977, in render_annotated
+    return self.render(context)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/loader_tags.py", line 159, in render
+    return compiled_parent._render(context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/base.py", line 163, in _render
+    return self.nodelist.render(context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/base.py", line 977, in render_annotated
+    return self.render(context)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/loader_tags.py", line 65, in render
+    result = block.nodelist.render(context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/base.py", line 977, in render_annotated
+    return self.render(context)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/template/defaulttags.py", line 199, in render
+    len_values = len(values)
+                 ^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/models/query.py", line 366, in __len__
+    self._fetch_all()
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/models/query.py", line 1949, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+              ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1623, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claire/Desktop/projects/emis/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 360, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such column: eims_assessmentcenter.contact
+ERROR 2025-08-14 08:40:39,325 basehttp 19050 124624441915072 "GET /eims/reports/result-list/ HTTP/1.1" 500 145
+INFO 2025-08-14 08:40:41,271 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:40:45,231 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:41:53,510 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:43:51,124 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:43:53,509 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:45:54,058 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:47:54,713 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:49:54,711 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:38,625 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:40,250 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:40,453 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:41,198 basehttp 19050 124624441915072 "GET /eims/reports/result-list/ HTTP/1.1" 200 24714
+INFO 2025-08-14 08:50:41,365 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:44,824 basehttp 19050 124624441915072 "GET /eims/reports/ HTTP/1.1" 200 14887
+INFO 2025-08-14 08:50:45,073 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:46,049 views 19050 124624441915072 generate_album view started.
+INFO 2025-08-14 08:50:46,049 views 19050 124624441915072 GET request received, rendering form.
+INFO 2025-08-14 08:50:46,058 basehttp 19050 124624441915072 "GET /eims/reports/albums/ HTTP/1.1" 200 19161
+INFO 2025-08-14 08:50:46,218 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:47,510 basehttp 19050 124624441915072 "GET /eims/reports/ HTTP/1.1" 200 14887
+INFO 2025-08-14 08:50:48,174 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:48,689 basehttp 19050 124624441915072 "GET /eims/reports/result-list/ HTTP/1.1" 200 24714
+INFO 2025-08-14 08:50:48,813 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:53,793 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:50:57,805 basehttp 19050 124624441915072 "GET /eims/api/occupations-by-category/?registration_category=informal HTTP/1.1" 200 130
+INFO 2025-08-14 08:51:00,333 basehttp 19050 124624441915072 "GET /eims/api/levels-for-occupation/?occupation_id=15 HTTP/1.1" 200 152
+INFO 2025-08-14 08:51:02,430 basehttp 19050 124624441915072 "POST /eims/reports/result-list/ HTTP/1.1" 200 25774
+INFO 2025-08-14 08:51:02,510 basehttp 19050 124624441915072 "GET /eims/api/occupations-by-category/?registration_category=informal HTTP/1.1" 200 130
+INFO 2025-08-14 08:51:02,559 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:51:07,911 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:51:11,844 basehttp 19050 124624441915072 "GET /eims/api/occupations-by-category/?registration_category=modular HTTP/1.1" 200 411
+INFO 2025-08-14 08:51:13,965 basehttp 19050 124624441915072 "GET /eims/api/levels-for-occupation/?occupation_id=13 HTTP/1.1" 200 117
+INFO 2025-08-14 08:51:16,360 basehttp 19050 124624441915072 "POST /eims/reports/result-list/ HTTP/1.1" 200 29827
+WARNING 2025-08-14 08:51:16,377 log 19050 124624441915072 Not Found: /static/images/uvtab_logo.png
+WARNING 2025-08-14 08:51:16,377 basehttp 19050 124624441915072 "GET /static/images/uvtab_logo.png HTTP/1.1" 404 179
+WARNING 2025-08-14 08:51:16,381 log 19050 124624430376640 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 08:51:16,381 basehttp 19050 124624430376640 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+INFO 2025-08-14 08:51:16,469 basehttp 19050 124624441915072 "GET /eims/api/occupations-by-category/?registration_category=modular HTTP/1.1" 200 411
+INFO 2025-08-14 08:51:16,783 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:51:21,620 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:51:55,549 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:52:43,160 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:52:45,363 views 19050 124624441915072 Dashboard accessed by user: agaba
+INFO 2025-08-14 08:52:45,374 basehttp 19050 124624441915072 "GET /eims/ HTTP/1.1" 200 23067
+INFO 2025-08-14 08:52:45,506 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:52:48,956 basehttp 19050 124624441915072 "GET /eims/assessment-centers/ HTTP/1.1" 200 22171
+INFO 2025-08-14 08:52:49,199 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:52:51,197 basehttp 19050 124624441915072 "GET /eims/assessment-centers/4/ HTTP/1.1" 200 45171
+INFO 2025-08-14 08:52:51,565 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:52:55,758 basehttp 19050 124624441915072 "GET /eims/assessment-centers/4/edit/ HTTP/1.1" 200 15889
+INFO 2025-08-14 08:52:55,912 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:52:58,766 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:52:59,599 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:53:01,668 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:53:55,945 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:54:15,596 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:54:15,860 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:54:53,096 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:54:53,366 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:54:54,042 basehttp 19050 124624441915072 "GET /eims/candidates/ HTTP/1.1" 200 83321
+WARNING 2025-08-14 08:54:54,102 log 19050 124624430376640 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 08:54:54,102 basehttp 19050 124624430376640 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 08:54:54,105 log 19050 124624420935360 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 08:54:54,106 basehttp 19050 124624420935360 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 08:54:54,112 log 19050 124624441915072 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 08:54:54,112 basehttp 19050 124624441915072 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 08:54:54,190 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:54:55,073 basehttp 19050 124624441915072 "GET /eims/candidates/create/ HTTP/1.1" 200 54182
+WARNING 2025-08-14 08:54:55,091 log 19050 124624441915072 Not Found: /static/flags/__.gif
+WARNING 2025-08-14 08:54:55,092 basehttp 19050 124624441915072 "GET /static/flags/__.gif HTTP/1.1" 404 179
+INFO 2025-08-14 08:54:56,152 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:54:56,190 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:55:01,382 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:55:14,166 basehttp 19050 124624441915072 "GET /eims/api/assessment-centers/6/branches/ HTTP/1.1" 200 495
+INFO 2025-08-14 08:55:16,526 basehttp 19050 124624441915072 "GET /eims/api/assessment-centers/5/branches/ HTTP/1.1" 200 39
+INFO 2025-08-14 08:55:19,686 basehttp 19050 124624441915072 "GET /eims/candidates/create/?registration_category=Informal HTTP/1.1" 200 431
+INFO 2025-08-14 08:55:28,745 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:55:28,961 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+WARNING 2025-08-14 08:55:45,666 log 19050 124624441915072 Not Found: /static/flags/ug.gif
+WARNING 2025-08-14 08:55:45,667 basehttp 19050 124624441915072 "GET /static/flags/ug.gif HTTP/1.1" 404 179
+INFO 2025-08-14 08:55:51,241 basehttp 19050 124624441915072 "GET /eims/api/districts/8/villages/ HTTP/1.1" 200 2
+INFO 2025-08-14 08:55:53,698 basehttp 19050 124624441915072 "GET /eims/api/districts/6/villages/ HTTP/1.1" 200 32
+INFO 2025-08-14 08:55:58,954 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:56:10,877 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:56:28,229 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:56:28,966 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:56:34,096 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:56:56,153 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:56:56,193 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:57:51,421 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:57:51,533 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:57:56,124 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:58:04,386 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:58:06,514 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:58:34,932 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:58:35,054 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:58:38,930 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:58:40,195 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:58:41,806 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:58:56,156 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:58:56,192 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:59:04,563 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:59:05,076 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 08:59:10,806 basehttp 19050 124624441915072 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:00:55,967 autoreload 19050 124624589004928 /home/claire/Desktop/projects/emis/emis/eims/models.py changed, reloading.
+INFO 2025-08-14 09:00:56,241 autoreload 22243 139920074846336 Watching for file changes with StatReloader
+INFO 2025-08-14 09:00:56,607 basehttp 22243 139919995909824 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:01:06,170 basehttp 22243 139919995909824 "GET /login/?next=%2Feims%2Fassessment-centers%2F4%2Fedit%2F HTTP/1.1" 200 16489
+WARNING 2025-08-14 09:01:06,187 log 22243 139919995909824 Not Found: /static/images/uvtab_logo.png
+WARNING 2025-08-14 09:01:06,187 basehttp 22243 139919995909824 "GET /static/images/uvtab_logo.png HTTP/1.1" 404 179
+INFO 2025-08-14 09:01:11,279 basehttp 22243 139919995909824 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:01:22,625 autoreload 22243 139920074846336 /home/claire/Desktop/projects/emis/emis/eims/forms.py changed, reloading.
+INFO 2025-08-14 09:01:22,881 autoreload 22361 123306537144448 Watching for file changes with StatReloader
+INFO 2025-08-14 09:02:57,099 basehttp 22361 123306457380544 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:03:06,274 basehttp 22361 123306457380544 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:04:36,439 basehttp 22361 123306457380544 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:04:36,615 basehttp 22361 123306457380544 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:04:41,661 basehttp 22361 123306457380544 "GET /eims/candidates/create/ HTTP/1.1" 200 54296
+WARNING 2025-08-14 09:04:42,514 log 22361 123306457380544 Not Found: /static/flags/__.gif
+WARNING 2025-08-14 09:04:42,514 basehttp 22361 123306457380544 "GET /static/flags/__.gif HTTP/1.1" 404 179
+WARNING 2025-08-14 09:04:42,524 log 22361 123306457380544 Not Found: /favicon.ico
+WARNING 2025-08-14 09:04:42,524 basehttp 22361 123306457380544 "GET /favicon.ico HTTP/1.1" 404 179
+INFO 2025-08-14 09:04:42,529 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:04:47,526 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+WARNING 2025-08-14 09:05:05,314 log 22361 123306457380544 Not Found: /static/flags/ug.gif
+WARNING 2025-08-14 09:05:05,315 basehttp 22361 123306457380544 "GET /static/flags/ug.gif HTTP/1.1" 404 179
+INFO 2025-08-14 09:05:06,281 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:05:10,827 basehttp 22361 123306457380544 "GET /eims/api/districts/6/villages/ HTTP/1.1" 200 32
+INFO 2025-08-14 09:05:12,558 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:05:14,465 basehttp 22361 123306457380544 "GET /eims/api/assessment-centers/1/branches/ HTTP/1.1" 200 39
+INFO 2025-08-14 09:05:20,428 basehttp 22361 123306457380544 "GET /eims/candidates/create/?registration_category=Informal HTTP/1.1" 200 431
+INFO 2025-08-14 09:05:31,157 basehttp 22361 123306457380544 "POST /eims/candidates/create/ HTTP/1.1" 200 55795
+WARNING 2025-08-14 09:05:31,178 log 22361 123306447939264 Not Found: /static/flags/ug.gif
+WARNING 2025-08-14 09:05:31,178 basehttp 22361 123306447939264 "GET /static/flags/ug.gif HTTP/1.1" 404 179
+WARNING 2025-08-14 09:05:31,218 log 22361 123306447939264 Not Found: /static/flags/ug.gif
+WARNING 2025-08-14 09:05:31,219 basehttp 22361 123306447939264 "GET /static/flags/ug.gif HTTP/1.1" 404 179
+INFO 2025-08-14 09:05:31,295 basehttp 22361 123306457380544 "GET /eims/api/assessment-centers/1/branches/ HTTP/1.1" 200 39
+INFO 2025-08-14 09:05:31,299 basehttp 22361 123306447939264 "GET /eims/api/districts/6/villages/ HTTP/1.1" 200 32
+INFO 2025-08-14 09:05:31,406 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:05:36,705 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:05:43,641 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:05:45,028 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:05:48,483 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:05:52,310 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:05:53,041 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:05:55,597 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:06:01,409 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:06:03,027 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:06:03,927 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:06:05,555 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:06:12,608 basehttp 22361 123306447939264 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:06:58,016 autoreload 22361 123306537144448 /home/claire/Desktop/projects/emis/emis/eims/forms.py changed, reloading.
+INFO 2025-08-14 09:06:58,365 autoreload 23049 137736706760832 Watching for file changes with StatReloader
+INFO 2025-08-14 09:07:06,286 basehttp 23049 137736626845376 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:07:18,746 autoreload 23049 137736706760832 /home/claire/Desktop/projects/emis/emis/eims/forms.py changed, reloading.
+INFO 2025-08-14 09:07:19,045 autoreload 23120 132617265811584 Watching for file changes with StatReloader
+INFO 2025-08-14 09:07:31,747 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:09:06,075 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:09:06,285 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:09:06,577 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:09:09,380 basehttp 23120 132617114482368 "POST /eims/candidates/create/ HTTP/1.1" 302 0
+INFO 2025-08-14 09:09:09,411 basehttp 23120 132617114482368 "GET /eims/candidates/109/ HTTP/1.1" 200 40865
+INFO 2025-08-14 09:09:09,784 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:09:14,557 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:09:29,430 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:09:30,393 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:10:57,219 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:10:57,485 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:11:00,018 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:11:03,577 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:11:06,282 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:11:09,520 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:11:09,556 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:11:11,499 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:11:17,045 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:06,284 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:06,680 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:07,657 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:09,598 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:10,540 views 23120 132617114482368 Dashboard accessed by user: agaba
+INFO 2025-08-14 09:13:10,550 basehttp 23120 132617114482368 "GET /eims/ HTTP/1.1" 200 23067
+INFO 2025-08-14 09:13:10,693 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:13,159 basehttp 23120 132617114482368 "GET /eims/candidates/ HTTP/1.1" 200 83321
+WARNING 2025-08-14 09:13:13,187 log 23120 132617097696960 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 09:13:13,188 basehttp 23120 132617097696960 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:13,191 log 23120 132617106089664 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 09:13:13,191 basehttp 23120 132617106089664 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:13,196 log 23120 132617114482368 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 09:13:13,196 basehttp 23120 132617114482368 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 09:13:13,291 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:14,276 basehttp 23120 132617114482368 "GET /eims/candidates/import-dual/ HTTP/1.1" 200 14669
+INFO 2025-08-14 09:13:14,485 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:19,482 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:23,550 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:27,209 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:28,704 basehttp 23120 132617114482368 "POST /eims/candidates/import-dual/ HTTP/1.1" 200 14909
+INFO 2025-08-14 09:13:28,819 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:31,088 basehttp 23120 132617114482368 "GET /eims/candidates/ HTTP/1.1" 200 83321
+WARNING 2025-08-14 09:13:31,116 log 23120 132617106089664 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 09:13:31,117 basehttp 23120 132617106089664 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:31,119 log 23120 132617114482368 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 09:13:31,120 basehttp 23120 132617114482368 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:31,125 log 23120 132617097696960 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 09:13:31,125 basehttp 23120 132617097696960 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:31,137 log 23120 132617106089664 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 09:13:31,137 basehttp 23120 132617106089664 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 09:13:31,563 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:33,609 basehttp 23120 132617114482368 "GET /eims/candidates/?reset_filters=1 HTTP/1.1" 302 0
+INFO 2025-08-14 09:13:33,671 basehttp 23120 132617114482368 "GET /eims/candidates/ HTTP/1.1" 200 192572
+WARNING 2025-08-14 09:13:33,702 log 23120 132617114482368 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 09:13:33,702 basehttp 23120 132617114482368 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,711 log 23120 132617106089664 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 09:13:33,711 basehttp 23120 132617106089664 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,717 log 23120 132617106089664 Not Found: /media/candidate_photos/540246.Shantale_Irona.jpg
+WARNING 2025-08-14 09:13:33,717 basehttp 23120 132617106089664 "GET /media/candidate_photos/540246.Shantale_Irona.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,728 log 23120 132617097696960 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 09:13:33,728 basehttp 23120 132617097696960 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,734 log 23120 132617080911552 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 09:13:33,734 basehttp 23120 132617080911552 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,738 log 23120 132617097696960 Not Found: /media/candidate_photos/testphoto/540250.Francine_Binene.jpg
+WARNING 2025-08-14 09:13:33,739 basehttp 23120 132617097696960 "GET /media/candidate_photos/testphoto/540250.Francine_Binene.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,745 log 23120 132617089304256 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 09:13:33,745 basehttp 23120 132617089304256 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,747 log 23120 132617080911552 Not Found: /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg
+WARNING 2025-08-14 09:13:33,748 basehttp 23120 132617080911552 "GET /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,756 log 23120 132617072518848 Not Found: /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg
+WARNING 2025-08-14 09:13:33,756 basehttp 23120 132617072518848 "GET /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,761 log 23120 132617089304256 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 09:13:33,762 basehttp 23120 132617089304256 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,767 log 23120 132617072518848 Not Found: /media/candidate_photos/testphoto/Afoyo_Vani.jpg
+WARNING 2025-08-14 09:13:33,767 basehttp 23120 132617072518848 "GET /media/candidate_photos/testphoto/Afoyo_Vani.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,770 log 23120 132617106089664 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 09:13:33,770 basehttp 23120 132617106089664 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,784 log 23120 132617097696960 Not Found: /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png
+WARNING 2025-08-14 09:13:33,784 basehttp 23120 132617097696960 "GET /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,793 log 23120 132617080911552 Not Found: /media/candidate_photos/ditlogo_regno_4V2TdWk.png
+WARNING 2025-08-14 09:13:33,794 basehttp 23120 132617080911552 "GET /media/candidate_photos/ditlogo_regno_4V2TdWk.png HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,807 log 23120 132617114482368 Not Found: /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg
+WARNING 2025-08-14 09:13:33,807 basehttp 23120 132617114482368 "GET /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 09:13:33,812 log 23120 132617089304256 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 09:13:33,812 basehttp 23120 132617089304256 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 09:13:33,852 basehttp 23120 132617072518848 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:36,384 basehttp 23120 132617114482368 "GET /eims/candidates/110/ HTTP/1.1" 200 41131
+WARNING 2025-08-14 09:13:36,405 log 23120 132617114482368 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 09:13:36,405 basehttp 23120 132617114482368 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 09:13:37,467 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:38,901 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:13:41,779 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:15:06,280 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:15:36,504 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:17:06,283 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:17:36,507 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:18:35,910 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:18:36,241 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:18:37,364 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:19:06,285 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:19:36,502 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:21:06,284 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:21:36,504 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:23:06,284 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:23:46,252 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:25:06,278 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:25:46,254 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:27:06,282 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:27:46,253 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:29:06,878 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:29:46,247 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:31:06,882 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:31:46,326 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:33:06,879 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:33:46,328 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:35:06,881 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:35:46,330 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:37:06,880 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:37:46,328 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:39:06,881 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:39:46,552 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:41:06,883 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:41:46,551 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:43:06,884 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:43:46,551 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:45:06,883 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:45:46,585 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:47:06,877 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:47:46,585 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:49:06,884 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:49:46,584 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:51:06,885 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:51:46,586 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:53:06,886 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:53:46,686 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:55:06,884 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:55:46,688 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:56:15,253 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:56:15,592 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:56:25,724 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:57:06,886 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:57:46,688 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:59:06,887 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 09:59:46,687 basehttp 23120 132617114482368 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:00:20,672 autoreload 23120 132617265811584 /home/claire/Desktop/projects/emis/emis/eims/models.py changed, reloading.
+INFO 2025-08-14 10:00:20,945 autoreload 27458 126766669889664 Watching for file changes with StatReloader
+INFO 2025-08-14 10:00:28,174 autoreload 27458 126766669889664 /home/claire/Desktop/projects/emis/emis/eims/models.py changed, reloading.
+INFO 2025-08-14 10:00:28,520 autoreload 27503 129208886698112 Watching for file changes with StatReloader
+INFO 2025-08-14 10:00:40,784 autoreload 27503 129208886698112 /home/claire/Desktop/projects/emis/emis/eims/models.py changed, reloading.
+INFO 2025-08-14 10:00:41,152 autoreload 27528 138522070417536 Watching for file changes with StatReloader
+INFO 2025-08-14 10:01:06,893 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:01:46,682 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:01:56,207 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:01:56,384 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:01:57,697 basehttp 27528 138521990346432 "GET /eims/candidates/110/ HTTP/1.1" 200 41131
+WARNING 2025-08-14 10:01:57,717 log 27528 138521990346432 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 10:01:57,717 basehttp 27528 138521990346432 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 10:01:58,169 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:02:02,873 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:02:22,941 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:02:24,146 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:03:06,888 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:03:57,809 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:05:06,888 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:05:57,817 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:07:06,884 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:07:57,820 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:08:02,853 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:08:03,139 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:08:04,412 basehttp 27528 138521990346432 "GET /eims/candidates/ HTTP/1.1" 200 192572
+WARNING 2025-08-14 10:08:04,439 log 27528 138521990346432 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 10:08:04,439 basehttp 27528 138521990346432 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,449 log 27528 138521979856576 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 10:08:04,449 basehttp 27528 138521979856576 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,452 log 27528 138521971463872 Not Found: /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg
+WARNING 2025-08-14 10:08:04,453 basehttp 27528 138521971463872 "GET /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,458 log 27528 138521979856576 Not Found: /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg
+WARNING 2025-08-14 10:08:04,459 basehttp 27528 138521979856576 "GET /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,465 log 27528 138521738204864 Not Found: /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg
+WARNING 2025-08-14 10:08:04,466 basehttp 27528 138521738204864 "GET /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,471 log 27528 138521738204864 Not Found: /media/candidate_photos/testphoto/Afoyo_Vani.jpg
+WARNING 2025-08-14 10:08:04,471 basehttp 27528 138521738204864 "GET /media/candidate_photos/testphoto/Afoyo_Vani.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,476 log 27528 138521971463872 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 10:08:04,477 basehttp 27528 138521971463872 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,484 log 27528 138521746597568 Not Found: /media/candidate_photos/testphoto/540250.Francine_Binene.jpg
+WARNING 2025-08-14 10:08:04,484 basehttp 27528 138521746597568 "GET /media/candidate_photos/testphoto/540250.Francine_Binene.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,489 log 27528 138521990346432 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 10:08:04,490 basehttp 27528 138521990346432 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,493 log 27528 138521746597568 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 10:08:04,493 basehttp 27528 138521746597568 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,503 log 27528 138521754990272 Not Found: /media/candidate_photos/540246.Shantale_Irona.jpg
+WARNING 2025-08-14 10:08:04,503 basehttp 27528 138521754990272 "GET /media/candidate_photos/540246.Shantale_Irona.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,508 log 27528 138521979856576 Not Found: /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png
+WARNING 2025-08-14 10:08:04,508 basehttp 27528 138521979856576 "GET /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,511 log 27528 138521754990272 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 10:08:04,513 basehttp 27528 138521754990272 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,516 log 27528 138521738204864 Not Found: /media/candidate_photos/ditlogo_regno_4V2TdWk.png
+WARNING 2025-08-14 10:08:04,517 basehttp 27528 138521738204864 "GET /media/candidate_photos/ditlogo_regno_4V2TdWk.png HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,522 log 27528 138521971463872 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 10:08:04,522 basehttp 27528 138521971463872 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,536 log 27528 138521990346432 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 10:08:04,536 basehttp 27528 138521990346432 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 10:08:04,540 log 27528 138521746597568 Not Found: /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg
+WARNING 2025-08-14 10:08:04,540 basehttp 27528 138521746597568 "GET /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 10:08:04,828 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:08:08,240 basehttp 27528 138521990346432 "GET /eims/candidates/?reg_number=U%2F22%2FM%2FEIWp%2FI%2F001-UBT020&search=&occupation=&registration_category=&assessment_month=&assessment_year=&disability=&assessment_center=&apply_filters=1 HTTP/1.1" 302 0
+INFO 2025-08-14 10:08:08,251 basehttp 27528 138521990346432 "GET /eims/candidates/ HTTP/1.1" 200 60909
+INFO 2025-08-14 10:08:08,534 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:08:13,510 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:09:06,889 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:10:08,409 basehttp 27528 138521990346432 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:11:02,430 autoreload 27528 138522070417536 /home/claire/Desktop/projects/emis/emis/eims/models.py changed, reloading.
+INFO 2025-08-14 10:11:02,730 autoreload 28652 129752272466048 Watching for file changes with StatReloader
+INFO 2025-08-14 10:11:06,898 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:12:08,413 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:13:06,890 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:14:08,413 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:15:06,891 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:16:08,413 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:17:06,891 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:18:08,414 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:19:06,892 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:20:08,416 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:21:06,890 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:22:08,419 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:23:06,891 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:24:08,417 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:25:06,889 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:26:08,420 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:27:06,893 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:28:08,420 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:29:06,892 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:30:08,420 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:31:06,891 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:32:08,420 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:33:06,892 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:34:08,421 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:35:06,895 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:36:08,421 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:37:06,890 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:38:08,446 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:39:06,894 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:40:08,448 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:41:06,892 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:42:08,440 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:43:06,894 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:44:08,448 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:45:06,895 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:46:08,449 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:47:06,892 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:48:08,448 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:49:06,894 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:50:08,449 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:51:06,896 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:52:08,449 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:53:06,898 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:54:08,905 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:55:06,897 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:56:08,905 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:57:06,894 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:58:08,898 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 10:59:06,899 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:00:08,903 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:01:06,896 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:02:08,907 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:03:06,899 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:04:08,908 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:05:06,897 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:06:08,985 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:06:21,329 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:06:21,913 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:07:10,229 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:08:08,985 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:09:10,385 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:10:08,985 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:11:10,396 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:12:08,983 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:13:15,799 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:23:03,253 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:24:10,055 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:25:03,249 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:26:10,056 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:27:03,252 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:27:55,038 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:27:55,321 basehttp 28652 129752192464576 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:27:57,480 basehttp 28652 129752192464576 "GET /eims/candidates/?reset_filters=1 HTTP/1.1" 302 0
+INFO 2025-08-14 11:27:57,548 basehttp 28652 129752192464576 "GET /eims/candidates/ HTTP/1.1" 200 192572
+WARNING 2025-08-14 11:27:57,631 log 28652 129752192464576 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 11:27:57,632 log 28652 129752183023296 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 11:27:57,633 basehttp 28652 129752192464576 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,635 basehttp 28652 129752183023296 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,641 log 28652 129751968642752 Not Found: /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg
+WARNING 2025-08-14 11:27:57,651 basehttp 28652 129751968642752 "GET /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,655 log 28652 129751960250048 Not Found: /media/candidate_photos/540246.Shantale_Irona.jpg
+WARNING 2025-08-14 11:27:57,660 basehttp 28652 129751960250048 "GET /media/candidate_photos/540246.Shantale_Irona.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,661 log 28652 129751943464640 Not Found: /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg
+WARNING 2025-08-14 11:27:57,663 basehttp 28652 129751943464640 "GET /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,668 log 28652 129751951857344 Not Found: /media/candidate_photos/testphoto/540250.Francine_Binene.jpg
+WARNING 2025-08-14 11:27:57,674 log 28652 129752183023296 Not Found: /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg
+WARNING 2025-08-14 11:27:57,679 basehttp 28652 129751951857344 "GET /media/candidate_photos/testphoto/540250.Francine_Binene.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,680 basehttp 28652 129752183023296 "GET /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,694 log 28652 129751960250048 Not Found: /media/candidate_photos/testphoto/Afoyo_Vani.jpg
+WARNING 2025-08-14 11:27:57,697 basehttp 28652 129751960250048 "GET /media/candidate_photos/testphoto/Afoyo_Vani.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,698 log 28652 129751968642752 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 11:27:57,699 basehttp 28652 129751968642752 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,703 log 28652 129752192464576 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 11:27:57,703 basehttp 28652 129752192464576 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,708 log 28652 129751943464640 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 11:27:57,709 basehttp 28652 129751943464640 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,721 log 28652 129751951857344 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 11:27:57,721 basehttp 28652 129751951857344 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,730 log 28652 129752183023296 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 11:27:57,731 basehttp 28652 129752183023296 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,748 log 28652 129751960250048 Not Found: /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png
+WARNING 2025-08-14 11:27:57,749 basehttp 28652 129751960250048 "GET /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,760 log 28652 129751968642752 Not Found: /media/candidate_photos/ditlogo_regno_4V2TdWk.png
+WARNING 2025-08-14 11:27:57,762 basehttp 28652 129751968642752 "GET /media/candidate_photos/ditlogo_regno_4V2TdWk.png HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,765 log 28652 129752192464576 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 11:27:57,768 basehttp 28652 129752192464576 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,769 log 28652 129751943464640 Not Found: /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg
+WARNING 2025-08-14 11:27:57,772 basehttp 28652 129751943464640 "GET /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 11:27:57,905 log 28652 129752192464576 Not Found: /favicon.ico
+INFO 2025-08-14 11:27:57,924 basehttp 28652 129751951857344 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:28:02,954 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:28:10,566 basehttp 28652 129751960250048 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:29:57,913 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:30:10,565 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:31:57,914 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:32:10,565 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:33:58,683 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:34:10,566 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:35:58,684 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:36:10,565 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:37:58,683 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:38:10,567 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:39:58,683 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:40:10,566 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:41:58,686 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:42:10,568 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:43:58,689 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:44:10,567 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:45:58,686 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:46:10,565 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:47:58,686 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:48:10,567 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:49:58,686 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:50:10,569 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:51:58,687 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:52:10,571 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:53:58,687 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:54:10,691 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:55:58,687 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:56:10,693 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:57:59,991 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:58:11,600 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 11:59:59,993 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:00:11,598 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:01:59,992 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:02:11,600 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:03:59,990 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:04:11,603 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:05:59,991 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:06:11,601 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:07:59,992 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:08:11,601 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:09:59,993 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:10:11,600 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:11:59,993 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:12:14,682 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:13:59,995 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:14:14,681 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:15:59,995 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:16:14,686 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:18:00,686 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:18:04,316 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:18:14,684 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:20:00,685 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:20:14,687 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:22:10,054 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:22:16,294 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:24:10,282 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:24:16,335 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:26:10,232 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:26:16,293 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:28:10,237 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:28:16,295 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:30:10,239 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:30:16,295 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:30:19,516 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:30:20,372 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:31:02,328 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:32:10,240 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:32:16,296 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:32:47,652 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:33:22,096 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:34:10,549 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:34:16,297 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:34:19,563 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:34:55,578 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:35:28,306 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:35:58,470 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:36:10,595 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:36:16,295 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:38:10,598 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:38:16,297 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:40:10,600 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:40:16,302 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:42:13,990 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:42:16,292 basehttp 28652 129752183023296 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:42:20,670 autoreload 28652 129752272466048 /home/claire/Desktop/projects/emis/emis/eims/forms.py changed, reloading.
+INFO 2025-08-14 12:42:21,204 autoreload 36602 138713435070592 Watching for file changes with StatReloader
+INFO 2025-08-14 12:44:13,997 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:44:16,298 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:46:13,992 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:46:16,298 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:48:13,991 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:48:16,298 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:50:13,992 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:50:16,299 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:52:02,924 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:52:03,320 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:52:14,052 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:52:16,300 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:52:35,086 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:04,887 basehttp 36602 138713283688128 "GET /eims/candidates/110/ HTTP/1.1" 200 41131
+WARNING 2025-08-14 12:53:04,951 log 36602 138713283688128 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 12:53:04,952 basehttp 36602 138713283688128 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 12:53:05,107 log 36602 138713283688128 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 12:53:05,107 basehttp 36602 138713283688128 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 12:53:05,144 log 36602 138713283688128 Not Found: /favicon.ico
+INFO 2025-08-14 12:53:05,445 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:10,178 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:11,225 basehttp 36602 138713283688128 "GET /eims/candidates/110/enroll/ HTTP/1.1" 200 17550
+INFO 2025-08-14 12:53:11,950 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:16,506 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:18,922 basehttp 36602 138713283688128 "GET /eims/candidates/110/enroll/?_enroll=0&csrfmiddlewaretoken=f8gVb7K8zE4eFLMRuIbBoeIsbnyoqkoOwYWHFQjgSlAfENz37RC5tfTB8oj4gcPW&csrfmiddlewaretoken=f8gVb7K8zE4eFLMRuIbBoeIsbnyoqkoOwYWHFQjgSlAfENz37RC5tfTB8oj4gcPW&assessment_series=1&level=49 HTTP/1.1" 200 18800
+INFO 2025-08-14 12:53:19,161 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:22,808 basehttp 36602 138713283688128 "POST /eims/candidates/110/enroll/?_enroll=0&csrfmiddlewaretoken=f8gVb7K8zE4eFLMRuIbBoeIsbnyoqkoOwYWHFQjgSlAfENz37RC5tfTB8oj4gcPW&csrfmiddlewaretoken=f8gVb7K8zE4eFLMRuIbBoeIsbnyoqkoOwYWHFQjgSlAfENz37RC5tfTB8oj4gcPW&assessment_series=1&level=49 HTTP/1.1" 200 18808
+INFO 2025-08-14 12:53:23,485 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:27,420 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:28,101 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:29,023 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:41,517 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:51,730 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:53:52,821 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:54:16,300 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:55:23,029 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:55:52,552 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:55:52,701 basehttp 36602 138713283688128 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:55:56,310 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:55:56,366 basehttp 36602 138713283688128 "POST /eims/candidates/110/enroll/?_enroll=0&csrfmiddlewaretoken=f8gVb7K8zE4eFLMRuIbBoeIsbnyoqkoOwYWHFQjgSlAfENz37RC5tfTB8oj4gcPW&csrfmiddlewaretoken=f8gVb7K8zE4eFLMRuIbBoeIsbnyoqkoOwYWHFQjgSlAfENz37RC5tfTB8oj4gcPW&assessment_series=1&level=49 HTTP/1.1" 200 19224
+WARNING 2025-08-14 12:55:56,963 log 36602 138713275295424 Not Found: /favicon.ico
+WARNING 2025-08-14 12:55:56,963 basehttp 36602 138713275295424 "GET /favicon.ico HTTP/1.1" 404 179
+INFO 2025-08-14 12:55:58,187 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:56:02,004 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:56:07,717 basehttp 36602 138713283688128 "POST /eims/candidates/110/enroll/?_enroll=0&csrfmiddlewaretoken=f8gVb7K8zE4eFLMRuIbBoeIsbnyoqkoOwYWHFQjgSlAfENz37RC5tfTB8oj4gcPW&csrfmiddlewaretoken=f8gVb7K8zE4eFLMRuIbBoeIsbnyoqkoOwYWHFQjgSlAfENz37RC5tfTB8oj4gcPW&assessment_series=1&level=49 HTTP/1.1" 200 19684
+INFO 2025-08-14 12:56:08,112 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:56:10,394 basehttp 36602 138713283688128 "GET /eims/candidates/110/ HTTP/1.1" 200 44103
+WARNING 2025-08-14 12:56:10,468 log 36602 138713275295424 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 12:56:10,469 basehttp 36602 138713275295424 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 12:56:10,711 log 36602 138713275295424 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 12:56:10,711 basehttp 36602 138713275295424 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+INFO 2025-08-14 12:56:10,781 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:56:13,635 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:56:16,300 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:56:16,431 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:58:10,776 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 12:58:16,295 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:00:11,179 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:00:16,297 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:02:11,528 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:02:16,297 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:04:11,527 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:04:16,301 basehttp 36602 138713275295424 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:05:55,429 autoreload 36602 138713435070592 /home/claire/Desktop/projects/emis/emis/eims/forms.py changed, reloading.
+INFO 2025-08-14 13:05:55,929 autoreload 38186 134749048148096 Watching for file changes with StatReloader
+INFO 2025-08-14 13:06:11,536 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:06:16,302 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:06:24,947 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:06:25,173 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:08:11,531 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:08:16,310 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:10:11,529 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:10:16,302 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:12:11,530 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:12:16,303 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:14:11,529 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:14:16,302 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:16:11,529 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:16:16,299 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:18:11,530 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:18:16,304 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:20:11,532 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:20:16,306 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:22:11,531 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:22:16,305 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:24:11,532 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:24:16,303 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:26:11,800 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:26:16,302 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:28:11,798 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:28:16,300 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:30:11,804 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:30:16,307 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:32:11,803 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:32:16,308 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:34:11,803 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:34:20,481 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:36:11,804 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:36:20,480 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:38:12,135 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:38:20,481 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:40:12,980 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:40:20,482 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:42:12,981 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:42:20,483 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:44:12,981 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:44:20,482 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:46:12,986 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:46:21,146 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:48:13,489 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:48:21,144 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:50:13,490 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:50:21,148 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:52:13,490 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:52:17,146 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:52:17,598 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:52:20,219 basehttp 38186 134748886263488 "POST /login/?next=%2Feims%2Fassessment-centers%2F4%2Fedit%2F HTTP/1.1" 302 0
+INFO 2025-08-14 13:52:20,279 basehttp 38186 134748886263488 "GET /eims/assessment-centers/4/edit/ HTTP/1.1" 200 15889
+INFO 2025-08-14 13:52:20,587 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:52:23,023 basehttp 38186 134748886263488 "GET /eims/assessment-centers/4/ HTTP/1.1" 200 45171
+INFO 2025-08-14 13:52:23,925 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:52:28,263 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:52:46,636 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:53:24,297 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:53:25,625 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:53:27,738 views 38186 134748886263488 Dashboard accessed by user: agaba
+INFO 2025-08-14 13:53:27,752 basehttp 38186 134748886263488 "GET /eims/ HTTP/1.1" 200 23067
+WARNING 2025-08-14 13:53:27,962 log 38186 134748886263488 Not Found: /favicon.ico
+INFO 2025-08-14 13:53:28,165 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:53:29,798 basehttp 38186 134748886263488 "GET /eims/candidates/ HTTP/1.1" 200 192572
+WARNING 2025-08-14 13:53:29,897 log 38186 134748894656192 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 13:53:29,898 basehttp 38186 134748894656192 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,908 log 38186 134748886263488 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 13:53:29,909 basehttp 38186 134748886263488 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,920 log 38186 134748877870784 Not Found: /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg
+WARNING 2025-08-14 13:53:29,922 basehttp 38186 134748877870784 "GET /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,926 log 38186 134748852692672 Not Found: /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg
+WARNING 2025-08-14 13:53:29,927 basehttp 38186 134748852692672 "GET /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,931 log 38186 134748894656192 Not Found: /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg
+WARNING 2025-08-14 13:53:29,932 basehttp 38186 134748894656192 "GET /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,939 log 38186 134748861085376 Not Found: /media/candidate_photos/testphoto/540250.Francine_Binene.jpg
+WARNING 2025-08-14 13:53:29,940 basehttp 38186 134748861085376 "GET /media/candidate_photos/testphoto/540250.Francine_Binene.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,946 log 38186 134748886263488 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 13:53:29,947 basehttp 38186 134748886263488 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,955 log 38186 134748869478080 Not Found: /media/candidate_photos/540246.Shantale_Irona.jpg
+WARNING 2025-08-14 13:53:29,956 basehttp 38186 134748869478080 "GET /media/candidate_photos/540246.Shantale_Irona.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,959 log 38186 134748861085376 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 13:53:29,960 basehttp 38186 134748861085376 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,967 log 38186 134748869478080 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 13:53:29,968 basehttp 38186 134748869478080 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,972 log 38186 134748877870784 Not Found: /media/candidate_photos/testphoto/Afoyo_Vani.jpg
+WARNING 2025-08-14 13:53:29,972 basehttp 38186 134748877870784 "GET /media/candidate_photos/testphoto/Afoyo_Vani.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,980 log 38186 134748852692672 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 13:53:29,980 basehttp 38186 134748852692672 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,987 log 38186 134748894656192 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 13:53:29,987 basehttp 38186 134748894656192 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:29,998 log 38186 134748886263488 Not Found: /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png
+WARNING 2025-08-14 13:53:29,998 basehttp 38186 134748886263488 "GET /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:30,013 log 38186 134748861085376 Not Found: /media/candidate_photos/ditlogo_regno_4V2TdWk.png
+WARNING 2025-08-14 13:53:30,015 basehttp 38186 134748861085376 "GET /media/candidate_photos/ditlogo_regno_4V2TdWk.png HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:30,028 log 38186 134748869478080 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 13:53:30,029 basehttp 38186 134748869478080 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:30,036 log 38186 134748877870784 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 13:53:30,037 basehttp 38186 134748877870784 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:30,175 log 38186 134748886263488 Not Found: /favicon.ico
+INFO 2025-08-14 13:53:30,232 basehttp 38186 134748852692672 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:53:35,391 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:53:47,947 basehttp 38186 134748861085376 "GET /eims/candidates/?reg_number=&search=&occupation=&registration_category=&assessment_month=&assessment_year=&disability=&assessment_center=1&apply_filters=1 HTTP/1.1" 302 0
+INFO 2025-08-14 13:53:48,036 basehttp 38186 134748869478080 "GET /eims/candidates/ HTTP/1.1" 200 152450
+WARNING 2025-08-14 13:53:48,101 log 38186 134748877870784 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 13:53:48,101 basehttp 38186 134748877870784 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,115 log 38186 134748894656192 Not Found: /media/candidate_photos/540246.Shantale_Irona.jpg
+WARNING 2025-08-14 13:53:48,116 basehttp 38186 134748894656192 "GET /media/candidate_photos/540246.Shantale_Irona.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,121 log 38186 134748869478080 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 13:53:48,121 basehttp 38186 134748869478080 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,126 log 38186 134748861085376 Not Found: /media/candidate_photos/testphoto/540250.Francine_Binene.jpg
+WARNING 2025-08-14 13:53:48,126 basehttp 38186 134748861085376 "GET /media/candidate_photos/testphoto/540250.Francine_Binene.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,131 log 38186 134748877870784 Not Found: /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg
+WARNING 2025-08-14 13:53:48,132 basehttp 38186 134748877870784 "GET /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,136 log 38186 134748894656192 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 13:53:48,137 basehttp 38186 134748894656192 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,141 log 38186 134748861085376 Not Found: /media/candidate_photos/testphoto/Afoyo_Vani.jpg
+WARNING 2025-08-14 13:53:48,141 basehttp 38186 134748861085376 "GET /media/candidate_photos/testphoto/Afoyo_Vani.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,147 log 38186 134748852692672 Not Found: /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg
+WARNING 2025-08-14 13:53:48,147 basehttp 38186 134748852692672 "GET /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,152 log 38186 134748886263488 Not Found: /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg
+WARNING 2025-08-14 13:53:48,153 basehttp 38186 134748886263488 "GET /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,161 log 38186 134748852692672 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 13:53:48,161 basehttp 38186 134748852692672 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,165 log 38186 134748886263488 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 13:53:48,165 basehttp 38186 134748886263488 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,171 log 38186 134748869478080 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 13:53:48,172 basehttp 38186 134748869478080 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,179 log 38186 134748877870784 Not Found: /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png
+WARNING 2025-08-14 13:53:48,180 basehttp 38186 134748877870784 "GET /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,186 log 38186 134748894656192 Not Found: /media/candidate_photos/ditlogo_regno_4V2TdWk.png
+WARNING 2025-08-14 13:53:48,186 basehttp 38186 134748894656192 "GET /media/candidate_photos/ditlogo_regno_4V2TdWk.png HTTP/1.1" 404 179
+WARNING 2025-08-14 13:53:48,268 log 38186 134748869478080 Not Found: /favicon.ico
+INFO 2025-08-14 13:53:48,333 basehttp 38186 134748861085376 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:53:53,847 basehttp 38186 134748852692672 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:54:13,493 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:54:25,470 basehttp 38186 134748877870784 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:54:25,822 basehttp 38186 134748894656192 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:55:48,275 basehttp 38186 134748852692672 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:56:13,491 basehttp 38186 134748877870784 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:57:48,279 basehttp 38186 134748877870784 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:58:13,492 basehttp 38186 134748877870784 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:58:34,652 basehttp 38186 134748877870784 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:58:35,495 basehttp 38186 134748877870784 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:59:06,448 basehttp 38186 134748877870784 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:59:06,888 basehttp 38186 134748877870784 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:59:10,328 basehttp 38186 134748877870784 "GET /eims/candidates/?reset_filters=1 HTTP/1.1" 302 0
+INFO 2025-08-14 13:59:10,392 basehttp 38186 134748877870784 "GET /eims/candidates/ HTTP/1.1" 200 192572
+WARNING 2025-08-14 13:59:10,469 log 38186 134748877870784 Not Found: /media/candidate_photos/Informal_Import.jpg
+WARNING 2025-08-14 13:59:10,469 basehttp 38186 134748877870784 "GET /media/candidate_photos/Informal_Import.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,482 log 38186 134748894656192 Not Found: /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg
+WARNING 2025-08-14 13:59:10,483 basehttp 38186 134748894656192 "GET /media/candidate_photos/540248.Shukuru_Deborah_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,488 log 38186 134748886263488 Not Found: /media/candidate_photos/540246.Shantale_Irona.jpg
+WARNING 2025-08-14 13:59:10,489 basehttp 38186 134748886263488 "GET /media/candidate_photos/540246.Shantale_Irona.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,499 log 38186 134748894656192 Not Found: /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg
+WARNING 2025-08-14 13:59:10,500 basehttp 38186 134748894656192 "GET /media/candidate_photos/testphoto/540264.Dzvenga_Ngabusi.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,508 log 38186 134748861085376 Not Found: /media/candidate_photos/testphoto/540250.Francine_Binene.jpg
+WARNING 2025-08-14 13:59:10,509 basehttp 38186 134748861085376 "GET /media/candidate_photos/testphoto/540250.Francine_Binene.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,519 log 38186 134748869478080 Not Found: /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg
+WARNING 2025-08-14 13:59:10,522 basehttp 38186 134748869478080 "GET /media/candidate_photos/testphoto/540234.Esther_Furaha.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,533 log 38186 134748852692672 Not Found: /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg
+WARNING 2025-08-14 13:59:10,534 basehttp 38186 134748852692672 "GET /media/candidate_photos/540252.Sesile_Deborah_Rozine.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,548 log 38186 134748877870784 Not Found: /media/candidate_photos/testphoto/Afoyo_Vani.jpg
+WARNING 2025-08-14 13:59:10,549 basehttp 38186 134748877870784 "GET /media/candidate_photos/testphoto/Afoyo_Vani.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,554 log 38186 134748869478080 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg
+WARNING 2025-08-14 13:59:10,555 basehttp 38186 134748869478080 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Atem__Apajok_Y3ryFYn.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,560 log 38186 134748861085376 Not Found: /media/candidate_photos/uvtab_logo_brVd0hl.png
+WARNING 2025-08-14 13:59:10,560 basehttp 38186 134748861085376 "GET /media/candidate_photos/uvtab_logo_brVd0hl.png HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,575 log 38186 134748852692672 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg
+WARNING 2025-08-14 13:59:10,575 basehttp 38186 134748852692672 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Aloyo__Babra_GJMHKne.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,578 log 38186 134748894656192 Not Found: /media/candidate_photos/Gulu-Hair Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg
+WARNING 2025-08-14 13:59:10,579 basehttp 38186 134748894656192 "GET /media/candidate_photos/Gulu-Hair%20Dresser-Modular-01-27-2025-04-30-2025~/Achol__Thon_il5fyWp.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,599 log 38186 134748877870784 Not Found: /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png
+WARNING 2025-08-14 13:59:10,599 basehttp 38186 134748877870784 "GET /media/candidate_photos/ditlogo_IDa3xla_regno_regno_regno_regno_regno.png HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,606 log 38186 134748886263488 Not Found: /media/candidate_photos/testphoto/Annuarite_Mave.jpg
+WARNING 2025-08-14 13:59:10,606 basehttp 38186 134748886263488 "GET /media/candidate_photos/testphoto/Annuarite_Mave.jpg HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,610 log 38186 134748869478080 Not Found: /media/candidate_photos/ditlogo_regno_4V2TdWk.png
+WARNING 2025-08-14 13:59:10,610 basehttp 38186 134748869478080 "GET /media/candidate_photos/ditlogo_regno_4V2TdWk.png HTTP/1.1" 404 179
+WARNING 2025-08-14 13:59:10,700 log 38186 134748877870784 Not Found: /favicon.ico
+INFO 2025-08-14 13:59:10,724 basehttp 38186 134748861085376 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:59:15,772 basehttp 38186 134748852692672 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:59:20,469 basehttp 38186 134748894656192 "GET /eims/candidates/?reg_number=UBT070%2FX%2F25%2FM%2FBKR%2FM%2F040&search=&occupation=&registration_category=&assessment_month=&assessment_year=&disability=&assessment_center=&apply_filters=1 HTTP/1.1" 302 0
+INFO 2025-08-14 13:59:20,493 basehttp 38186 134748886263488 "GET /eims/candidates/ HTTP/1.1" 200 60908
+INFO 2025-08-14 13:59:20,759 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 13:59:25,893 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:00:13,492 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:01:20,745 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:02:13,490 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:03:20,744 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:04:13,488 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:05:20,745 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:06:13,490 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:07:20,744 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:08:13,494 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:13:37,704 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:14:30,454 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:22:58,864 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:23:50,563 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:24:58,944 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:25:50,564 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:26:58,751 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:27:50,561 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:28:58,749 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:29:50,565 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:30:58,752 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:31:50,564 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:32:58,750 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:33:50,564 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:34:59,128 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:35:50,566 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:36:59,129 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:37:50,566 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:38:59,136 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:39:50,567 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:40:59,139 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:41:50,559 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:42:59,138 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:43:50,563 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:44:59,138 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:45:50,560 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:46:59,139 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:47:51,192 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:48:59,764 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
+INFO 2025-08-14 14:49:51,192 basehttp 38186 134748886263488 "GET /eims/api/session-status/ HTTP/1.1" 200 117
