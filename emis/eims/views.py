@@ -677,10 +677,16 @@ def upload_marks(request):
     level_id = request.POST.get('level')
     center_id = request.POST.get('assessment_center')
     modules_param = request.POST.get('modules')
-    assessment_month = request.POST.get('assessment_month')
-    assessment_year = request.POST.get('assessment_year')
-    print(assessment_month)
-    print(assessment_year)
+    assessment_series_id = request.POST.get('assessment_series')
+    
+    # Get assessment series object
+    assessment_series = None
+    if assessment_series_id:
+        assessment_series = AssessmentSeries.objects.filter(pk=assessment_series_id).first()
+        if not assessment_series:
+            return JsonResponse({'success': False, 'error': 'Invalid assessment series selected.'})
+    else:
+        return JsonResponse({'success': False, 'error': 'Assessment series is required.'})
     # Normalize registration category
     regcat_normalized = regcat.strip().lower() if regcat else ''
     if regcat_normalized in ["workers_pas", "worker's pas"]:
@@ -757,20 +763,9 @@ def upload_marks(request):
             if not CandidateLevel.objects.filter(candidate=candidate, level=level).exists():
                 errors.append(f"Row {idx}: Candidate '{regno}' not enrolled in selected level.")
                 continue
-        # Assessment date
-        assessment_month = int(assessment_month)
-        print(assessment_month)
-        assessment_year = int(assessment_year)
-        print(assessment_year)
-        from datetime import date
-        try:
-            # code to convert 06/2025 to date time object of 2025-06-01
-            assessment_day = date(assessment_year, assessment_month, 1)
-            print(assessment_day)
-        except Exception as e:
-            print(e)
-            errors.append(f"Row {idx}: Invalid conversion of assessment month/year {assessment_month}/{assessment_year}")
-            continue
+        # Assessment date from assessment series
+        assessment_day = assessment_series.start_date
+        print(f"Assessment date from series: {assessment_day}")
         # Modular: expects PRACTICAL column and selected module
         if regcat_normalized == 'modular':
             mark = row_data.get('PRACTICAL') or row_data.get('Practical') or row_data.get('practical')
@@ -789,6 +784,7 @@ def upload_marks(request):
                 candidate=candidate,
                 module=selected_module,
                 assessment_date=assessment_day,
+                assessment_series=assessment_series,
                 result_type='modular',
                 defaults={
                     'assessment_type': 'practical',
@@ -814,6 +810,7 @@ def upload_marks(request):
                         candidate=candidate,
                         level=level,
                         assessment_date=assessment_day,
+                        assessment_series=assessment_series,
                         assessment_type='theory',
                         result_type='formal',
                         defaults={
@@ -834,7 +831,8 @@ def upload_marks(request):
                     Result.objects.update_or_create(
                         candidate=candidate,
                         level=level,
-                        assessment_date=assessment_date,
+                        assessment_date=assessment_day,
+                        assessment_series=assessment_series,
                         assessment_type='practical',
                         result_type='formal',
                         defaults={
@@ -864,7 +862,8 @@ def upload_marks(request):
                         candidate=candidate,
                         level=level,
                         paper=obj,
-                        assessment_date=assessment_date,
+                        assessment_date=assessment_day,
+                        assessment_series=assessment_series,
                         result_type='formal',
                         defaults={
                             'assessment_type': obj.grade_type if hasattr(obj, 'grade_type') else 'practical',
@@ -884,7 +883,8 @@ def upload_marks(request):
                         module=module,
                         paper=obj,
                         assessment_type='practical',
-                        assessment_date=assessment_date,
+                        assessment_date=assessment_day,
+                        assessment_series=assessment_series,
                         result_type='informal',
                         defaults={
                             'mark': mark_val,
@@ -2363,39 +2363,144 @@ def bulk_candidate_action(request):
                 enrolled += 1
             return JsonResponse({'success': True, 'message': f'Enrolled and billed {enrolled} candidates in {level.name}.'})
         
-        # --- WORKER'S PAS / INFORMAL ---
+        # --- WORKER'S PAS / INFORMAL (Cross-level paper selection) ---
         elif regcat in ['informal', "worker's pas", "workers pas"]:
-            if not level_id:
-                return JsonResponse({'success': False, 'error': 'Level is required.'})
-            level = Level.objects.filter(id=level_id).first()
-            if not level:
-                return JsonResponse({'success': False, 'error': 'Invalid level.'})
+            # For cross-level enrollment, we don't require a specific level_id
+            # Instead, we process the selected papers and determine levels/modules from them
+            if not paper_ids:
+                return JsonResponse({'success': False, 'error': 'At least one paper must be selected for Worker\'s PAS/Informal enrollment.'})
+            
+            # Check if any candidate has had previous results to determine if this is first sitting
+            has_any_previous_results = Result.objects.filter(candidate__in=candidates).exists()
+            
+
+            
+            # Validate paper count based on whether this is first sitting or subsequent sitting
+            if has_any_previous_results:
+                # Subsequent sitting: No minimum restriction, only maximum of 4 papers
+                if len(paper_ids) > 4:
+                    return JsonResponse({'success': False, 'error': 'Worker\'s PAS/Informal candidates can select a maximum of 4 papers at any given sitting.'})
+                # Allow any number of papers (including 1) for re-enrollment
+            else:
+                # First sitting: Enforce minimum of 2 and maximum of 4 papers
+                if len(paper_ids) < 2:
+                    return JsonResponse({'success': False, 'error': 'Worker\'s PAS/Informal candidates must select a minimum of 2 papers for their first sitting.'})
+                elif len(paper_ids) > 4:
+                    return JsonResponse({'success': False, 'error': 'Worker\'s PAS/Informal candidates can select a maximum of 4 papers at any given sitting.'})
+            
+            # Get selected papers with their levels and modules
+            papers = Paper.objects.filter(id__in=paper_ids).select_related('module', 'level', 'occupation')
+            if papers.count() != len(paper_ids):
+                return JsonResponse({'success': False, 'error': 'Invalid paper selection.'})
+            
+            # Validate that papers are from the same occupation as candidates
+            occupation_id = occupations.pop()
+            paper_occupations = set(paper.occupation_id for paper in papers)
+            if len(paper_occupations) != 1 or occupation_id not in paper_occupations:
+                return JsonResponse({'success': False, 'error': 'Selected papers must be from the same occupation as candidates.'})
+            
+            # Validate one paper per module rule
+            module_ids_in_papers = [paper.module_id for paper in papers]
+            if len(module_ids_in_papers) != len(set(module_ids_in_papers)):
+                return JsonResponse({'success': False, 'error': 'You can only select one paper per module.'})
+            
+            # Validate per-assessment series enrollment eligibility for each candidate
+            ineligible_candidates = []
             for c in candidates:
-                CandidateLevel.objects.get_or_create(candidate=c, level=level)
+                # Get candidate's enrollment and result history
+                enrolled_papers = set(CandidatePaper.objects.filter(candidate=c).values_list('paper_id', flat=True))
+                
+                # Get papers with failed or missing results (eligible for re-enrollment)
+                failed_or_missing_papers = set(Result.objects.filter(
+                    candidate=c,
+                    paper_id__in=enrolled_papers
+                ).filter(
+                    # Failed: CTR comment OR Missing: Ms grade
+                    models.Q(comment='CTR') | models.Q(grade='Ms')
+                ).values_list('paper_id', flat=True))
+                
+                # Check eligibility for each selected paper
+                ineligible_papers = []
+                for paper in papers:
+                    if paper.id in enrolled_papers:
+                        # Candidate has enrolled for this paper before
+                        if paper.id not in failed_or_missing_papers:
+                            # Paper was passed - not eligible for re-enrollment
+                            ineligible_papers.append(paper.name)
+                
+                if ineligible_papers:
+                    ineligible_candidates.append({
+                        'candidate': c.full_name,
+                        'reg_number': c.reg_number,
+                        'ineligible_papers': ineligible_papers
+                    })
+            
+            # If any candidates have ineligible papers, return error
+            if ineligible_candidates:
+                error_details = []
+                for item in ineligible_candidates[:3]:  # Show first 3 candidates
+                    error_details.append(f"{item['candidate']} ({item['reg_number']}): {', '.join(item['ineligible_papers'])}")
+                
+                error_msg = f"Some candidates cannot enroll for selected papers (already passed): {'; '.join(error_details)}"
+                if len(ineligible_candidates) > 3:
+                    error_msg += f" and {len(ineligible_candidates) - 3} more candidates."
+                
+                return JsonResponse({'success': False, 'error': error_msg})
+            
+            # Process enrollment for each candidate
+            for c in candidates:
+                # For retakes, preserve all previous enrollments and results
+                # Only clear enrollments for the CURRENT assessment series to avoid duplicates
+                current_series = AssessmentSeries.objects.filter(is_current=True).first()
+                if current_series:
+                    CandidatePaper.objects.filter(
+                        candidate=c, 
+                        enrolled_at__gte=current_series.start_date,
+                        enrolled_at__lte=current_series.end_date
+                    ).delete()
+                
+                # Track levels and modules we need to enroll in
+                levels_to_enroll = set()
+                modules_to_enroll = set()
+                
+                # Process each selected paper
+                for paper in papers:
+                    levels_to_enroll.add(paper.level)
+                    modules_to_enroll.add(paper.module)
+                    
+                    # Create CandidatePaper record
+                    CandidatePaper.objects.create(
+                        candidate=c, 
+                        module=paper.module, 
+                        paper=paper, 
+                        level=paper.level
+                    )
+                
+                # Enroll in all required levels (avoid duplicates for retakes)
+                for level in levels_to_enroll:
+                    CandidateLevel.objects.get_or_create(candidate=c, level=level)
+                
+                # Enroll in all required modules (avoid duplicates for retakes)
+                for module in modules_to_enroll:
+                    CandidateModule.objects.get_or_create(candidate=c, module=module)
+                
                 # Update candidate's assessment series
                 c.assessment_series = assessment_series
-                c.save()
-                enrolled += 1
-            # Assign selected papers (one per module)
-            if paper_ids:
-                papers = Paper.objects.filter(id__in=paper_ids).select_related('module')
-                for c in candidates:
-                    for paper in papers:
-                        CandidateModule.objects.get_or_create(candidate=c, module=paper.module)
-                        CandidatePaper.objects.get_or_create(candidate=c, module=paper.module, paper=paper, level=level)
-                    # Calculate and set billing fees after module enrollment
-                    if hasattr(c, 'calculate_fees_balance'):
-                        calculated_fees = c.calculate_fees_balance()
-                        c.fees_balance = calculated_fees
-                    c.save()
-                return JsonResponse({'success': True, 'message': f'Enrolled and billed {enrolled} candidates in {level.name} and assigned selected papers.'})
-            # If no papers selected, still need to bill based on level enrollment
-            for c in candidates:
+                
+                # Calculate and set billing fees after enrollment
                 if hasattr(c, 'calculate_fees_balance'):
                     calculated_fees = c.calculate_fees_balance()
                     c.fees_balance = calculated_fees
                 c.save()
-            return JsonResponse({'success': True, 'message': f'Enrolled and billed {enrolled} candidates in {level.name}.'})
+                enrolled += 1
+            
+            # Create success message
+            level_names = list(set(paper.level.name for paper in papers))
+            paper_names = [paper.name for paper in papers]
+            return JsonResponse({
+                'success': True, 
+                'message': f'Enrolled and billed {enrolled} candidates across {len(level_names)} level(s): {", ".join(level_names)}. Selected {len(paper_names)} paper(s): {", ".join(paper_names)}'
+            })
         
         # --- MODULAR ---
         elif regcat == 'modular':
@@ -4695,11 +4800,10 @@ def generate_transcript(request, id):
         result_headers = [Paragraph("Module", bold), Paragraph("Grade", bold)]
         result_table_data = [result_headers]
         all_passed = True
+        results = Result.objects.filter(candidate=candidate).select_related('level', 'module', 'paper', 'assessment_series')
+        series_level_enrollments = {}
         for candidate_module in candidate_modules:
             module = candidate_module.module
-            # Fetch all results for this candidate and module, newest first
-            results = Result.objects.filter(candidate=candidate, module=module).order_by('-assessment_date')
-            # Find the latest successful result, else fallback to latest result
             result = next((r for r in results if r.comment == 'Successful'), None)
             if not result:
                 result = results.first() if results else None
@@ -4997,14 +5101,17 @@ def candidate_create(request):
 from django.contrib.auth.decorators import user_passes_test
 
 def edit_result(request, id):
-    from .models import Candidate, Result, Module, CandidateLevel, OccupationLevel, Paper
+    from .models import Candidate, Result, Module, CandidateLevel, OccupationLevel, Paper, AssessmentSeries
     from .forms import ModularResultsForm, ResultForm, PaperResultsForm, WorkerPASPaperResultsForm
     candidate = get_object_or_404(Candidate, id=id)
     if not request.user.is_superuser:
         return redirect('candidate_view', id=candidate.id)
     reg_cat = getattr(candidate, 'registration_category', '').lower().strip()
     print('DEBUG edit_result: candidate', candidate, 'reg_cat', reg_cat)
-    context = {'candidate': candidate, 'edit_mode': True}
+    
+    # Get all assessment series for the dropdown, ordered by current first, then by start date
+    assessment_series = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
+    context = {'candidate': candidate, 'edit_mode': True, 'assessment_series': assessment_series}
 
     # --- Modular candidate edit logic ---
     if reg_cat == 'modular':
@@ -5341,8 +5448,8 @@ def add_result(request, id):
     candidate = get_object_or_404(Candidate, id=id)
     reg_cat = getattr(candidate, 'registration_category', '').strip().lower()
     
-    # Get all assessment series for the dropdown
-    assessment_series = AssessmentSeries.objects.all().order_by('-created_at')
+    # Get all assessment series for the dropdown, ordered by current first, then by start date
+    assessment_series = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
     context = {'candidate': candidate, 'assessment_series': assessment_series}
 
     # Worker PAS/informal: mark per enrolled paper
@@ -5669,25 +5776,75 @@ def enroll_candidate_view(request, id):
                     remaining = completion_status['remaining_modules'] if completion_status else 0
                     messages.success(request, f"{candidate.full_name} enrolled in {', '.join(enrolled_modules)}. {remaining} module(s) remaining for Level 1 qualification.")
 
-            # Handle informal registration (level + one paper per module)
+            # Handle informal registration (cross-level paper selection)
             elif registration_category in ['Informal', "Worker's PAS", 'Workers PAS', 'informal', "worker's pas"]:
-                from .models import CandidatePaper
-                level = form.cleaned_data['level']
-                selected_papers = form.cleaned_data.get('selected_papers', {})
-                # Remove previous enrollments for this candidate/level
-                CandidateLevel.objects.filter(candidate=candidate, level=level).delete()
-                CandidateModule.objects.filter(candidate=candidate, module__level=level).delete()
-                CandidatePaper.objects.filter(candidate=candidate, level=level).delete()
-                # Enroll in level
-                CandidateLevel.objects.create(candidate=candidate, level=level)
-                # Enroll in modules and papers
-                for mod_id, paper in selected_papers.items():
-                    module = paper.module
-                    CandidateModule.objects.create(candidate=candidate, module=module)
-                    CandidatePaper.objects.create(candidate=candidate, module=module, paper=paper, level=level)
+                from .models import CandidatePaper, Level
+                selected_papers = form.cleaned_data.get('selected_papers', [])
+                
+                # For retakes, preserve all previous enrollments and results
+                # Only clear enrollments for the CURRENT assessment series to avoid duplicates
+                current_series = AssessmentSeries.objects.filter(is_current=True).first()
+                if current_series:
+                    CandidatePaper.objects.filter(
+                        candidate=candidate, 
+                        enrolled_at__gte=current_series.start_date,
+                        enrolled_at__lte=current_series.end_date
+                    ).delete()
+                
+                # Track levels and modules we need to enroll in
+                levels_to_enroll = set()
+                modules_to_enroll = set()
+                papers_enrolled = []
+                
+                # Process each selected paper
+                for paper_data in selected_papers:
+                    paper = paper_data['paper']
+                    level_id = paper_data['level_id']
+                    module_id = paper_data['module_id']
+                    
+                    # Get level and module objects
+                    try:
+                        level = Level.objects.get(id=level_id)
+                        module = Module.objects.get(id=module_id)
+                        
+                        levels_to_enroll.add(level)
+                        modules_to_enroll.add(module)
+                        papers_enrolled.append(paper)
+                        
+                        # Create CandidatePaper record
+                        CandidatePaper.objects.create(
+                            candidate=candidate, 
+                            module=module, 
+                            paper=paper, 
+                            level=level
+                        )
+                        
+                    except (Level.DoesNotExist, Module.DoesNotExist) as e:
+                        messages.error(request, f"Error processing paper selection: {e}")
+                        return render(request, 'candidates/enroll.html', {
+                            'form': form,
+                            'candidate': candidate,
+                        })
+                
+                # Enroll in all required levels (avoid duplicates for retakes)
+                for level in levels_to_enroll:
+                    CandidateLevel.objects.get_or_create(candidate=candidate, level=level)
+                
+                # Enroll in all required modules (avoid duplicates for retakes)
+                for module in modules_to_enroll:
+                    CandidateModule.objects.get_or_create(candidate=candidate, module=module)
+                
                 # Update fees balance after enrollment
                 candidate.update_fees_balance()
-                messages.success(request, f"{candidate.full_name} enrolled in {level.name} and selected {len(selected_papers)} paper(s)")
+                
+                # Create success message
+                level_names = [level.name for level in levels_to_enroll]
+                paper_names = [paper.name for paper in papers_enrolled]
+                messages.success(
+                    request, 
+                    f"{candidate.full_name} enrolled across {len(levels_to_enroll)} level(s): {', '.join(level_names)}. "
+                    f"Selected {len(papers_enrolled)} paper(s): {', '.join(paper_names)}"
+                )
 
             messages.success(request, "Candidate enrolled successfully.")
     else:
@@ -5896,16 +6053,11 @@ def candidate_view(request, id):
         for mod_enroll in module_enrollments:
             mod_enroll.papers = list(Paper.objects.filter(module=mod_enroll.module))
 
-    # Only show results if they have been released and for currently enrolled levels/papers for Informal/Worker PAS/Modular
+    # Only show results if they have been released - show ALL historical results, not just current enrollment
     if results_released:
         if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
-            enrolled_level_ids = [row['level'].id for row in enrollment_summary]
-            enrolled_paper_ids = set()
-            for row in enrollment_summary:
-                for mod in row['modules']:
-                    for paper in mod['papers']:
-                        enrolled_paper_ids.add(paper.id)
-            results = Result.objects.filter(candidate=candidate, level_id__in=enrolled_level_ids, paper_id__in=enrolled_paper_ids)
+            # Show ALL results for this candidate across all assessment series and enrollments
+            results = Result.objects.filter(candidate=candidate)
         elif reg_cat_normalized == "modular":
             # For modular candidates, get results for all enrolled modules
             enrolled_module_ids = list(CandidateModule.objects.filter(candidate=candidate).values_list('module_id', flat=True))
@@ -5916,17 +6068,213 @@ def candidate_view(request, id):
         # Results not released - show empty results
         results = Result.objects.none()
     level_has_results = {}
-    for row in enrollment_summary:
-        lvl = row['level']
-        enrolled_paper_ids = set()
-        for mod in row['modules']:
-            for paper in mod['papers']:
-                enrolled_paper_ids.add(paper.id)
-        result_paper_ids = set(results.filter(level_id=lvl.id).values_list('paper_id', flat=True))
-        # Only True if ALL enrolled papers have results for this level
-        level_has_results[str(lvl.id)] = bool(enrolled_paper_ids) and enrolled_paper_ids == result_paper_ids and len(result_paper_ids) > 0
+    
+    # For Informal/Worker's PAS: Show Add/Edit Marks for ALL enrolled levels AND levels with results
+    if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
+        # Get all enrolled levels (for Add Marks button)
+        enrolled_levels = CandidateLevel.objects.filter(candidate=candidate).values_list('level_id', flat=True)
+        
+        # Get all levels that have results (for Edit Marks button)
+        levels_with_results = results.values_list('level_id', flat=True).distinct()
+        
+        # Combine both enrolled levels and levels with results
+        all_relevant_levels = set(enrolled_levels) | set(levels_with_results)
+        
+        for level_id in all_relevant_levels:
+            # Always show button for enrolled levels or levels with results
+            level_has_results[str(level_id)] = True
+    else:
+        # For other registration categories: use enrollment-based logic
+        for row in enrollment_summary:
+            lvl = row['level']
+            enrolled_paper_ids = set()
+            for mod in row['modules']:
+                for paper in mod['papers']:
+                    enrolled_paper_ids.add(paper.id)
+            result_paper_ids = set(results.filter(level_id=lvl.id).values_list('paper_id', flat=True))
+            
+            # Only True if ALL enrolled papers have results for this level
+            level_has_results[str(lvl.id)] = bool(enrolled_paper_ids) and enrolled_paper_ids == result_paper_ids and len(result_paper_ids) > 0
+        
+        print(f"DEBUG level_has_results for level {lvl.id} (key='{str(lvl.id)}'): enrolled_papers={enrolled_paper_ids}, result_papers={result_paper_ids}, results_with_marks={results_with_marks}, final={level_has_results[str(lvl.id)]}")
+    
+    print(f"DEBUG: Final level_has_results dictionary: {level_has_results}")
     # Convert all keys to string for template consistency
     # (already done above for lvl.id)
+
+    # For Informal/Worker's PAS: Create comprehensive results summary including all levels with results
+    if reg_cat_normalized in ["informal", "worker's pas", "workers pas"]:
+        # Get all levels that have results, not just enrolled levels
+        all_results_levels = results.values('level_id', 'level__name').distinct()
+        
+        # Create comprehensive results summary including historical results
+        comprehensive_results_summary = []
+        
+        # Group by level_id to avoid duplicates
+        levels_processed = set()
+        for level_data in all_results_levels:
+            level_id = level_data['level_id']
+            
+            # Skip if we've already processed this level
+            if level_id in levels_processed:
+                continue
+            levels_processed.add(level_id)
+            
+            level = Level.objects.get(id=level_id)
+            
+            # Get all results for this level across all assessment series
+            level_results = results.filter(level_id=level_id)
+            
+            # Group results by module, then by paper
+            modules_with_results = {}
+            for result in level_results:
+                module_id = result.module.id
+                if module_id not in modules_with_results:
+                    modules_with_results[module_id] = {
+                        'module': result.module,
+                        'papers': set(),  # Use set to avoid duplicate papers
+                        'results': []
+                    }
+                modules_with_results[module_id]['papers'].add(result.paper)
+                modules_with_results[module_id]['results'].append(result)
+            
+            # Convert paper sets back to lists
+            for module_data in modules_with_results.values():
+                module_data['papers'] = list(module_data['papers'])
+            
+            comprehensive_results_summary.append({
+                'level': level,
+                'modules': list(modules_with_results.values())
+            })
+        
+        # Use comprehensive summary for results display, but also include enrolled levels without results
+        results_summary_for_display = comprehensive_results_summary
+        
+        # Always add ALL enrolled levels to results_summary (whether they have results or not)
+        enrolled_levels = CandidateLevel.objects.filter(candidate=candidate).select_related('level')
+        
+        # Get levels that already have results (to avoid duplicates)
+        levels_with_results = set(result.level.id for result in results)
+        
+        for level_enrollment in enrolled_levels:
+            level = level_enrollment.level
+            
+            # Skip if this level already has results (already in comprehensive_results_summary)
+            if level.id in levels_with_results:
+                continue
+                
+            # Get enrolled modules for this level
+            enrolled_modules = CandidateModule.objects.filter(
+                candidate=candidate, 
+                module__level=level
+            ).select_related('module')
+            
+            modules_data = []
+            for module_enrollment in enrolled_modules:
+                # Get enrolled papers for this module
+                enrolled_papers = CandidatePaper.objects.filter(
+                    candidate=candidate,
+                    level=level,
+                    module=module_enrollment.module
+                ).select_related('paper')
+                
+                if enrolled_papers.exists():
+                    modules_data.append({
+                        'module': module_enrollment.module,
+                        'papers': [cp.paper for cp in enrolled_papers],
+                        'results': []  # No results yet
+                    })
+            
+            if modules_data:
+                results_summary_for_display.append({
+                    'level': level,
+                    'modules': modules_data
+                })
+        
+        # Create enrollment history - use both enrollment records AND results
+        series_level_enrollments = {}
+        
+        # First, add enrollment records (for candidates with enrollments but no results)
+        candidate_papers = CandidatePaper.objects.filter(candidate=candidate).select_related(
+            'level', 'module', 'paper'
+        ).order_by('-enrolled_at')
+        
+        for cp in candidate_papers:
+            # Use candidate's assessment series if available, otherwise try to determine from date
+            if candidate.assessment_series:
+                series_key = f"{candidate.assessment_series.name} ({candidate.assessment_series.start_date.strftime('%b %Y')})"
+            else:
+                # Fallback: determine from enrollment date
+                series_key = None
+                enrolled_date = cp.enrolled_at.date() if hasattr(cp.enrolled_at, 'date') else cp.enrolled_at
+                
+                for series in AssessmentSeries.objects.all().order_by('-start_date'):
+                    if enrolled_date >= series.start_date and enrolled_date <= series.end_date:
+                        series_key = f"{series.name} ({series.start_date.strftime('%b %Y')})"
+                        break
+                
+                if not series_key:
+                    series_key = f"Unknown Series ({enrolled_date.strftime('%b %Y')})"
+            
+            level_key = f"{series_key}|{cp.level.id}"
+            
+            if level_key not in series_level_enrollments:
+                series_level_enrollments[level_key] = {
+                    'series_name': series_key,
+                    'level': cp.level,
+                    'modules': {}
+                }
+            
+            module_id = cp.module.id
+            if module_id not in series_level_enrollments[level_key]['modules']:
+                series_level_enrollments[level_key]['modules'][module_id] = {
+                    'module': cp.module,
+                    'papers': []
+                }
+            
+            # Add paper if not already in list
+            if cp.paper not in series_level_enrollments[level_key]['modules'][module_id]['papers']:
+                series_level_enrollments[level_key]['modules'][module_id]['papers'].append(cp.paper)
+        
+        # Then, add any additional papers from results (for historical completeness)
+        for result in results:
+            # Use assessment series from result
+            if result.assessment_series:
+                series_key = f"{result.assessment_series.name} ({result.assessment_series.start_date.strftime('%b %Y')})"
+            else:
+                # Fallback for results without assessment series
+                series_key = f"Unknown Series ({result.assessment_date.strftime('%b %Y') if result.assessment_date else 'Unknown'})"
+            
+            level_key = f"{series_key}|{result.level.id}"
+            
+            if level_key not in series_level_enrollments:
+                series_level_enrollments[level_key] = {
+                    'series_name': series_key,
+                    'level': result.level,
+                    'modules': {}
+                }
+            
+            module_id = result.module.id
+            if module_id not in series_level_enrollments[level_key]['modules']:
+                series_level_enrollments[level_key]['modules'][module_id] = {
+                    'module': result.module,
+                    'papers': []
+                }
+            
+            # Add paper if not already in list
+            if result.paper not in series_level_enrollments[level_key]['modules'][module_id]['papers']:
+                series_level_enrollments[level_key]['modules'][module_id]['papers'].append(result.paper)
+        
+        # Convert to list format for template
+        enrollment_history = []
+        for enrollment_data in series_level_enrollments.values():
+            enrollment_data['modules'] = list(enrollment_data['modules'].values())
+            enrollment_history.append(enrollment_data)
+        
+    else:
+        # For other registration categories, use enrollment summary
+        results_summary_for_display = enrollment_summary
+        enrollment_history = enrollment_summary
 
     context = {
         "candidate":          candidate,
@@ -5936,15 +6284,11 @@ def candidate_view(request, id):
         "occupations": Occupation.objects.exclude(pk=candidate.occupation_id).order_by('code'),
         "centers":     AssessmentCenter.objects.exclude(pk=candidate.assessment_center_id),
         "enrollment_summary": enrollment_summary,
+        "enrollment_history": enrollment_history,  # New comprehensive enrollment history
+        "results_summary": results_summary_for_display,  # New comprehensive results summary
         "level_has_results": level_has_results,
         "results_released": results_released,
-        "current_series": candidate_series,
-        "is_center_rep": is_center_rep,
     }
-    print('DEBUG reg_cat:', reg_cat)
-    print('DEBUG enrollment_summary:', enrollment_summary)
-    print('DEBUG module_enrollments:', module_enrollments)
-    print('DEBUG results:', list(results))
     return render(request, "candidates/view.html", context)
 
 
@@ -9526,3 +9870,72 @@ def api_occupations_by_category(request):
         })
     
     return JsonResponse({'occupations': occupation_data})
+
+@login_required
+def api_all_levels_modules_papers(request):
+    """API endpoint to get all levels, modules, and papers for cross-level Worker's PAS/Informal enrollment"""
+    occupation_id = request.GET.get('occupation_id')
+    
+    if not occupation_id:
+        return JsonResponse({'error': 'occupation_id parameter is required'}, status=400)
+    
+    try:
+        occupation = Occupation.objects.get(id=occupation_id)
+        
+        # Get all levels for this occupation
+        from .models import OccupationLevel
+        occupation_levels = OccupationLevel.objects.filter(occupation=occupation).select_related('level')
+        all_levels = [ol.level for ol in occupation_levels]
+        
+        # Build level_module_data structure similar to EnrollmentForm
+        level_module_data = []
+        
+        for level in all_levels:
+            # Get all modules for this occupation/level
+            modules = Module.objects.filter(occupation=occupation, level=level)
+            
+            level_data = {
+                'level': {
+                    'id': level.id,
+                    'name': level.name
+                },
+                'modules': []
+            }
+            
+            for module in modules:
+                papers = Paper.objects.filter(module=module, occupation=occupation, level=level)
+                
+                module_data = {
+                    'module': {
+                        'id': module.id,
+                        'name': module.name,
+                        'code': module.code
+                    },
+                    'papers': []
+                }
+                
+                for paper in papers:
+                    paper_info = {
+                        'paper': {
+                            'id': paper.id,
+                            'name': paper.name,
+                            'code': paper.code
+                        }
+                    }
+                    module_data['papers'].append(paper_info)
+                
+                if module_data['papers']:  # Only add modules that have papers
+                    level_data['modules'].append(module_data)
+            
+            if level_data['modules']:  # Only add levels that have modules with papers
+                level_module_data.append(level_data)
+        
+        return JsonResponse({
+            'success': True,
+            'level_module_data': level_module_data
+        })
+        
+    except Occupation.DoesNotExist:
+        return JsonResponse({'error': 'Occupation not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

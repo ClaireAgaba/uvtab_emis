@@ -596,14 +596,31 @@ class Candidate(models.Model):
                 total_fees += fee
                 
         elif self.registration_category in ['Informal', "Worker's PAS", 'Workers PAS', 'informal', "worker's pas"]:
-            # For Worker's PAS candidates: calculate based on modules enrolled (charged per module)
-            module_count = self.candidatemodule_set.count()
-            if module_count > 0:
-                # Get the level from the first module
+            # For Worker's PAS candidates: calculate based on actual assessment attempts (results + enrollments)
+            # This accounts for retakes where the same module may be attempted multiple times
+            
+            # Count unique assessment attempts (results) per assessment series
+            from django.db.models import Count
+            results_count = self.result_set.values('assessment_series', 'level', 'module').distinct().count()
+            
+            # Count enrolled modules that don't have results yet
+            enrolled_modules = self.candidatemodule_set.count()
+            
+            # Total billable attempts = results + pending enrollments
+            total_attempts = max(results_count, enrolled_modules)
+            
+            if total_attempts > 0:
+                # Get fee per attempt from any enrolled module's level
                 first_module = self.candidatemodule_set.first()
                 if first_module and first_module.module:
                     level = first_module.module.level
-                    total_fees = level.get_fee_for_registration('Informal', module_count)
+                    total_fees = level.get_fee_for_registration('Informal', total_attempts)
+                elif results_count > 0:
+                    # If no enrollments but have results, use results to get level
+                    first_result = self.result_set.first()
+                    if first_result and first_result.level:
+                        level = first_result.level
+                        total_fees = level.get_fee_for_registration('Informal', total_attempts)
         
         return total_fees
 

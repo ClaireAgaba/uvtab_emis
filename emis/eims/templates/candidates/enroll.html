@@ -71,18 +71,87 @@
       {% endif %}
     </div>
 
-    <!-- MODULES & PAPERS: For worker's PAS/informal, render radio groups for each module's papers -->
-    {% if form.module_field_names %}
+    <!-- CROSS-LEVEL PAPERS: For worker's PAS/informal, display all levels with modules and papers -->
+    {% if form.level_module_data %}
       <div class="mb-8">
-        <label class="font-semibold text-lg block mb-2">Select One Paper Per Module:</label>
-        <div class="space-y-6">
-          {% for field in form.module_fields %}
-            <div class="border border-gray-300 rounded p-4">
-              <div class="block font-semibold mb-2">{{ field.label }}</div>
-<div>{{ field }}</div>
-              {% if field.errors %}
-                <div class="text-red-600 text-sm mt-2">{{ field.errors|join:', ' }}</div>
-              {% endif %}
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h3 class="text-lg font-semibold text-blue-800 mb-2">📋 Paper Selection Instructions</h3>
+          <p class="text-blue-700 mb-2">
+            <strong>Worker's PAS/Informal candidates</strong> can select papers from any level and module.
+          </p>
+          <ul class="text-blue-700 text-sm space-y-1 ml-4">
+            <li>• <strong>Minimum:</strong> 2 papers per assessment series</li>
+            <li>• <strong>Maximum:</strong> 4 papers per assessment series</li>
+            <li>• <strong>Rule:</strong> Only one paper per module</li>
+          </ul>
+          <p class="text-sm text-blue-600 mt-3">
+            Papers selected: <span id="selectedCount" class="font-bold text-red-600">0</span> / 4
+          </p>
+        </div>
+        
+        {% if form.ineligible_papers %}
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <h3 class="text-lg font-semibold text-yellow-800 mb-2">ℹ️ Re-enrollment Rules</h3>
+          <p class="text-yellow-700 mb-2">
+            You can only enroll for papers that you have <strong>never attempted</strong> or papers that you <strong>failed/missed</strong> in previous assessment series.
+          </p>
+          <div class="text-sm text-yellow-700">
+            <p><span class="text-green-600 font-medium">(New)</span> - Never attempted before</p>
+            <p><span class="text-orange-600 font-medium">(Re-enrollment)</span> - Failed or missed in previous series</p>
+            <p><span class="text-red-600 font-medium">(Already passed)</span> - Cannot re-enroll (already successful)</p>
+          </div>
+        </div>
+        {% endif %}
+        
+        <div class="space-y-8">
+          {% for level_data in form.level_module_data %}
+            <div class="border border-gray-300 rounded-lg p-6 bg-gray-50">
+              <h3 class="text-xl font-bold mb-4 text-gray-800 border-b border-gray-300 pb-2">
+                🎓 {{ level_data.level.name }}
+              </h3>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for module_data in level_data.modules %}
+                  <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                    <h4 class="text-lg font-semibold mb-3 text-gray-700 border-b border-gray-200 pb-2">
+                      📚 {{ module_data.module.name }} ({{ module_data.module.code }})
+                    </h4>
+                    
+                    <div class="space-y-2">
+                      {% for paper_info in module_data.papers %}
+                        <div class="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded transition-colors {% if not paper_info.is_eligible %}opacity-50{% endif %}">
+                          {% if paper_info.field and paper_info.is_eligible %}
+                            <input 
+                              type="checkbox" 
+                              name="{{ paper_info.field_name }}" 
+                              id="id_{{ paper_info.field_name }}"
+                              class="paper-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                              data-level="{{ level_data.level.id }}"
+                              data-module="{{ module_data.module.id }}"
+                              data-paper="{{ paper_info.paper.id }}"
+                              data-module-name="{{ module_data.module.name }} ({{ module_data.module.code }})"
+                            >
+                            <label for="id_{{ paper_info.field_name }}" class="text-sm text-gray-700 cursor-pointer flex-1">
+                              📄 {{ paper_info.paper.name }} ({{ paper_info.paper.code }})
+                              {% if paper_info.eligibility_reason == "Re-enrollment (failed/missing)" %}
+                                <span class="text-xs text-orange-600 font-medium ml-2">(Re-enrollment)</span>
+                              {% elif paper_info.eligibility_reason == "Never attempted" %}
+                                <span class="text-xs text-green-600 font-medium ml-2">(New)</span>
+                              {% endif %}
+                            </label>
+                          {% elif not paper_info.is_eligible %}
+                            <input type="checkbox" disabled class="w-4 h-4 opacity-50 cursor-not-allowed">
+                            <label class="text-sm text-gray-500 cursor-not-allowed flex-1">
+                              📄 {{ paper_info.paper.name }} ({{ paper_info.paper.code }})
+                              <span class="text-xs text-red-600 font-medium ml-2">(Already passed)</span>
+                            </label>
+                          {% endif %}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
             </div>
           {% endfor %}
         </div>
@@ -117,9 +186,93 @@
     </div>
     <script>
       document.addEventListener('DOMContentLoaded', function() {
+        var regCat = '{{ candidate.registration_category|escapejs }}';
+        var isWorkerPAS = regCat === 'Informal' || regCat === "Worker's PAS" || regCat === 'Workers PAS';
+        
         var enrollBtn = document.getElementById('enrollSubmitBtn');
+        var paperCheckboxes = document.querySelectorAll('.paper-checkbox');
+        var selectedCountSpan = document.getElementById('selectedCount');
+        
+        function updatePaperCount() {
+          var selectedPapers = document.querySelectorAll('.paper-checkbox:checked');
+          var count = selectedPapers.length;
+          
+          if (selectedCountSpan) {
+            selectedCountSpan.textContent = count;
+            selectedCountSpan.className = count >= 1 && count <= 4 ? 'font-bold text-green-600' : 'font-bold text-red-600';
+          }
+          
+          // Enable/disable submit button based on selection (only for Worker's PAS/Informal)
+          if (enrollBtn) {
+            if (isWorkerPAS) {
+              // Worker's PAS/Informal: Allow 1-4 papers (backend will handle first-sitting vs retake validation)
+              if (count >= 1 && count <= 4) {
+                enrollBtn.disabled = false;
+                enrollBtn.className = 'bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow hover:bg-blue-700 transition';
+              } else {
+                enrollBtn.disabled = true;
+                enrollBtn.className = 'bg-gray-400 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow cursor-not-allowed';
+              }
+            } else {
+              // Formal/Modular: always enable button (they have different validation)
+              enrollBtn.disabled = false;
+              enrollBtn.className = 'bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow hover:bg-blue-700 transition';
+            }
+          }
+        }
+        
+        function validateModuleSelection(checkbox) {
+          if (!checkbox.checked) return true;
+          
+          var moduleId = checkbox.getAttribute('data-module');
+          var moduleName = checkbox.getAttribute('data-module-name');
+          var moduleCheckboxes = document.querySelectorAll('.paper-checkbox[data-module="' + moduleId + '"]:checked');
+          
+          if (moduleCheckboxes.length > 1) {
+            alert('You can only select one paper per module. You have selected multiple papers for ' + moduleName + '. Please unselect one.');
+            checkbox.checked = false;
+            return false;
+          }
+          return true;
+        }
+        
+        // Add event listeners to paper checkboxes
+        paperCheckboxes.forEach(function(checkbox) {
+          checkbox.addEventListener('change', function() {
+            if (this.checked) {
+              if (!validateModuleSelection(this)) {
+                return;
+              }
+            }
+            updatePaperCount();
+          });
+        });
+        
+        // Initial count update
+        updatePaperCount();
+        
         if (enrollBtn) {
           enrollBtn.addEventListener('click', function() {
+            if (isWorkerPAS) {
+              // Worker's PAS/Informal: validate paper selection
+              var selectedPapers = document.querySelectorAll('.paper-checkbox:checked');
+              var count = selectedPapers.length;
+              
+              // Simplified validation - backend will handle first-sitting vs re-enrollment logic
+              
+              // Simplified validation: Allow 1-4 papers for re-enrollment, backend will handle first-sitting validation
+              if (count < 1) {
+                alert('Please select at least 1 paper before enrolling.');
+                return;
+              }
+              
+              if (count > 4) {
+                alert('Please select no more than 4 papers before enrolling.');
+                return;
+              }
+            }
+            
+            // Submit form for all registration categories
             document.getElementById('_enrollFlag').value = '1';
             var form = document.getElementById('enrollForm');
             form.method = 'post';

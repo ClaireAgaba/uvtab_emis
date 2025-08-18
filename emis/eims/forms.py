@@ -750,31 +750,128 @@ class EnrollmentForm(forms.Form):
                     self.enrolled_modules = enrolled_modules
                     self.available_modules = available_modules
                     self.can_enroll_more = can_enroll_more
-        # For informal/worker's PAS: dynamically add paper fields per module
-        if self.is_informal and occupation and level:
+        # For informal/worker's PAS: dynamically add paper fields for ALL levels, modules, and papers
+        if self.is_informal and occupation:
             print("[DEBUG] EnrollmentForm: occupation=", occupation)
-            print("[DEBUG] EnrollmentForm: level=", level)
-            # Remove modules field (not used for informal)
+            # Remove modules field and level field (not used for cross-level informal selection)
             if 'modules' in self.fields:
                 self.fields.pop('modules')
-            # Get all modules for this occupation/level
-            modules = Module.objects.filter(occupation=occupation, level=level)
-            print(f"[DEBUG] EnrollmentForm: Found {modules.count()} modules for occupation={occupation}, level={level}")
-            for module in modules:
-                papers = Paper.objects.filter(module=module, occupation=occupation, level=level)
-                print(f"[DEBUG] Module: {module} (ID={module.id}) - Papers found: {papers.count()}")
-                for paper in papers:
-                    print(f"    [DEBUG] Paper: {paper} (ID={paper.id}) - occupation={paper.occupation_id}, level={paper.level_id}, module={paper.module_id}")
-                field_name = f"paper_module_{module.id}"
-                self.fields[field_name] = forms.ModelChoiceField(
-                    queryset=papers,
-                    required=False,  # Make paper selection per module optional
-                    widget=forms.RadioSelect,
-                    label=f"{module.name} ({module.code})"
-                )
-                self.fields[field_name].module = module
-            self.module_field_names = [f"paper_module_{m.id}" for m in modules]
-            self.module_fields = [self[name] for name in self.module_field_names]
+            
+            # Hide level field since we're showing all levels
+            self.fields['level'].widget = forms.HiddenInput()
+            self.fields['level'].required = False
+            
+            # Get ALL levels for this occupation
+            from .models import OccupationLevel, CandidatePaper, Result
+            from django.db import models
+            occupation_levels = OccupationLevel.objects.filter(occupation=occupation).select_related('level')
+            all_levels = [ol.level for ol in occupation_levels]
+            
+            print(f"[DEBUG] EnrollmentForm: Found {len(all_levels)} levels for occupation={occupation}")
+            
+            # Get candidate's enrollment and result history for eligibility checking
+            enrolled_papers = set()
+            failed_or_missing_papers = set()
+            
+            if candidate:
+                # Get all papers the candidate has ever enrolled for
+                candidate_papers = CandidatePaper.objects.filter(candidate=candidate).values_list('paper_id', flat=True)
+                enrolled_papers = set(candidate_papers)
+                
+                # Get papers with failed or missing results (eligible for re-enrollment)
+                failed_results = Result.objects.filter(
+                    candidate=candidate,
+                    paper_id__in=enrolled_papers
+                ).filter(
+                    # Failed: CTR comment OR Missing: Ms grade
+                    models.Q(comment='CTR') | models.Q(grade='Ms')
+                ).values_list('paper_id', flat=True)
+                failed_or_missing_papers = set(failed_results)
+                
+                print(f"[DEBUG] Candidate {candidate.id}: enrolled_papers={len(enrolled_papers)}, failed_or_missing={len(failed_or_missing_papers)}")
+            
+            # Store level and module information for template rendering
+            self.level_module_data = []
+            self.all_paper_fields = []
+            self.ineligible_papers = []  # Track papers that are not eligible for enrollment
+            
+            for level in all_levels:
+                # Get all modules for this occupation/level
+                modules = Module.objects.filter(occupation=occupation, level=level)
+                print(f"[DEBUG] Level: {level} - Found {modules.count()} modules")
+                
+                level_data = {
+                    'level': level,
+                    'modules': []
+                }
+                
+                for module in modules:
+                    papers = Paper.objects.filter(module=module, occupation=occupation, level=level)
+                    print(f"[DEBUG] Module: {module} (ID={module.id}) - Papers found: {papers.count()}")
+                    
+                    module_data = {
+                        'module': module,
+                        'papers': []
+                    }
+                    
+                    for paper in papers:
+                        print(f"    [DEBUG] Paper: {paper} (ID={paper.id})")
+                        field_name = f"paper_{level.id}_{module.id}_{paper.id}"
+                        
+                        # Determine eligibility for this paper
+                        is_eligible = True
+                        eligibility_reason = ""
+                        
+                        if candidate and paper.id in enrolled_papers:
+                            # Candidate has enrolled for this paper before
+                            if paper.id in failed_or_missing_papers:
+                                # Paper was failed or missing - eligible for re-enrollment
+                                is_eligible = True
+                                eligibility_reason = "Re-enrollment (failed/missing)"
+                            else:
+                                # Paper was passed - not eligible for re-enrollment
+                                is_eligible = False
+                                eligibility_reason = "Already passed"
+                        else:
+                            # Never enrolled for this paper - eligible
+                            is_eligible = True
+                            eligibility_reason = "Never attempted"
+                        
+                        # Create checkbox field for each paper (only if eligible)
+                        if is_eligible:
+                            self.fields[field_name] = forms.BooleanField(
+                                required=False,
+                                label=f"{paper.name} ({paper.code})",
+                                widget=forms.CheckboxInput(attrs={
+                                    'class': 'paper-checkbox',
+                                    'data-level': level.id,
+                                    'data-module': module.id,
+                                    'data-paper': paper.id
+                                })
+                            )
+                            self.all_paper_fields.append(field_name)
+                        else:
+                            # Track ineligible papers for UI display
+                            self.ineligible_papers.append({
+                                'paper': paper,
+                                'reason': eligibility_reason
+                            })
+                        
+                        # Store paper info for template
+                        paper_info = {
+                            'paper': paper,
+                            'field_name': field_name if is_eligible else None,
+                            'field': self[field_name] if is_eligible and field_name in self.fields else None,
+                            'is_eligible': is_eligible,
+                            'eligibility_reason': eligibility_reason
+                        }
+                        module_data['papers'].append(paper_info)
+                    
+                    if module_data['papers']:  # Only add modules that have papers
+                        level_data['modules'].append(module_data)
+                
+                if level_data['modules']:  # Only add levels that have modules with papers
+                    self.level_module_data.append(level_data)
         else:
             self.module_fields = [] 
             # Modular: modules field as checkboxes
@@ -798,26 +895,84 @@ class EnrollmentForm(forms.Form):
         if not assessment_series:
             raise forms.ValidationError("Please select an Assessment Series for this enrollment.")
         
-        # Informal/worker's PAS: require minimum 2 papers across all modules, but only one per module
-        if self.is_informal and occupation and level:
-            selected_papers = {}
-            for fname in getattr(self, 'module_field_names', []):
-                paper = cleaned_data.get(fname)
-                if paper:
-                    mod_id = int(fname.split('_')[-1])
-                    selected_papers[mod_id] = paper
+        # Informal/worker's PAS: require minimum 2 and maximum 4 papers across all levels and modules
+        if self.is_informal and occupation:
+            selected_papers = []
+            module_paper_count = {}  # Track papers per module to enforce one paper per module
             
-            # Enforce minimum of 2 and maximum of 4 papers for Worker's PAS/Informal enrollment
-            if len(selected_papers) < 2:
-                raise forms.ValidationError(
-                    "Worker's PAS/Informal candidates must select a minimum of 2 papers at any given sitting. "
-                    f"You have selected {len(selected_papers)} paper(s). Please select at least 2 papers from different modules."
-                )
-            elif len(selected_papers) > 4:
-                raise forms.ValidationError(
-                    "Worker's PAS/Informal candidates can select a maximum of 4 papers at any given sitting. "
-                    f"You have selected {len(selected_papers)} paper(s). Please select no more than 4 papers from different modules."
-                )
+            # Check all paper fields for selections
+            for field_name in getattr(self, 'all_paper_fields', []):
+                is_selected = cleaned_data.get(field_name, False)
+                if is_selected:
+                    # Parse field name: paper_{level_id}_{module_id}_{paper_id}
+                    parts = field_name.split('_')
+                    if len(parts) == 4:
+                        level_id = int(parts[1])
+                        module_id = int(parts[2])
+                        paper_id = int(parts[3])
+                        
+                        # Check if we already have a paper selected for this module
+                        if module_id in module_paper_count:
+                            # Get module name for error message
+                            try:
+                                from .models import Module
+                                module = Module.objects.get(id=module_id)
+                                raise forms.ValidationError(
+                                    f"You can only select one paper per module. "
+                                    f"You have selected multiple papers for module '{module.name} ({module.code})'. "
+                                    f"Please select only one paper per module."
+                                )
+                            except Module.DoesNotExist:
+                                raise forms.ValidationError(
+                                    "You can only select one paper per module. "
+                                    "Please select only one paper per module."
+                                )
+                        
+                        # Get the paper object
+                        try:
+                            from .models import Paper
+                            paper = Paper.objects.get(id=paper_id)
+                            selected_papers.append({
+                                'paper': paper,
+                                'level_id': level_id,
+                                'module_id': module_id,
+                                'paper_id': paper_id
+                            })
+                            module_paper_count[module_id] = 1
+                        except Paper.DoesNotExist:
+                            raise forms.ValidationError(f"Invalid paper selection: {field_name}")
+            
+            # Check if this is the candidate's first sitting or a subsequent sitting
+            from .models import Result
+            
+            # Ensure we have a candidate object
+            if not self.candidate:
+                raise forms.ValidationError("No candidate specified for enrollment validation.")
+            
+            has_previous_results = Result.objects.filter(candidate=self.candidate).exists()
+            
+
+            
+            if has_previous_results:
+                # Subsequent sitting: No minimum restriction, only maximum of 4 papers
+                if len(selected_papers) > 4:
+                    raise forms.ValidationError(
+                        "Worker's PAS/Informal candidates can select a maximum of 4 papers at any given sitting. "
+                        f"You have selected {len(selected_papers)} paper(s). Please select no more than 4 papers from different modules."
+                    )
+                # Allow any number of papers (including 1) for re-enrollment
+            else:
+                # First sitting: Enforce minimum of 2 and maximum of 4 papers
+                if len(selected_papers) < 2:
+                    raise forms.ValidationError(
+                        "Worker's PAS/Informal candidates must select a minimum of 2 papers for their first sitting. "
+                        f"You have selected {len(selected_papers)} paper(s). Please select at least 2 papers from different modules."
+                    )
+                elif len(selected_papers) > 4:
+                    raise forms.ValidationError(
+                        "Worker's PAS/Informal candidates can select a maximum of 4 papers at any given sitting. "
+                        f"You have selected {len(selected_papers)} paper(s). Please select no more than 4 papers from different modules."
+                    )
             
             cleaned_data['selected_papers'] = selected_papers
         return cleaned_data
@@ -1206,15 +1361,22 @@ class PaperResultsForm(forms.Form):
 
 
 class WorkerPASPaperResultsForm(forms.Form):
-    MONTH_CHOICES = [(i, calendar.month_name[i]) for i in range(1, 13)]
-    YEAR_CHOICES = [(y, y) for y in range(2020, 2031)]
-    month = forms.ChoiceField(choices=MONTH_CHOICES, label="Assessment Month", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
-    year = forms.ChoiceField(choices=YEAR_CHOICES, label="Assessment Year", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+    assessment_series = forms.ModelChoiceField(
+        queryset=None,  # Will be set in __init__
+        label="Assessment Series",
+        widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        required=True
+    )
 
     def __init__(self, *args, **kwargs):
         candidate = kwargs.pop('candidate', None)
         level = kwargs.pop('level', None)
         super().__init__(*args, **kwargs)
+        
+        # Set up assessment series queryset
+        from .models import AssessmentSeries
+        self.fields['assessment_series'].queryset = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
+        
         self.papers = []
         if candidate:
             from .models import CandidateLevel, CandidatePaper, Level
@@ -1245,9 +1407,10 @@ class WorkerPASPaperResultsForm(forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
-        month = int(cleaned_data.get('month'))
-        year = int(cleaned_data.get('year'))
-        cleaned_data['assessment_date'] = f"{year}-{month:02d}-01"
+        assessment_series = cleaned_data.get('assessment_series')
+        if assessment_series:
+            # Use the assessment series start_date as the assessment_date
+            cleaned_data['assessment_date'] = assessment_series.start_date.strftime('%Y-%m-%d')
         return cleaned_data
 
 class ChangeOccupationForm(forms.ModelForm):

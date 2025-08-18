@@ -10,8 +10,11 @@
       <select name="assessment_series" class="border rounded px-3 py-2 w-full" required>
         <option value="">Select Assessment Series</option>
         {% for series in assessment_series %}
-          <option value="{{ series.id }}" {% if series.id == candidate.assessment_series.id %}selected{% endif %}>
+          <option value="{{ series.id }}" 
+                  {% if candidate.assessment_series and series.id == candidate.assessment_series.id %}selected{% endif %}
+                  {% if not candidate.assessment_series and series.is_current %}selected{% endif %}>
             {{ series.name }}
+            {% if series.is_current %} (Current){% endif %}
           </option>
         {% endfor %}
       </select>

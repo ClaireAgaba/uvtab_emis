@@ -577,24 +577,24 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       </div>
   
     {% elif candidate.registration_category == 'Informal' or candidate.registration_category == "Worker's PAS" or candidate.registration_category == 'Workers PAS' %}
-      {% if enrollment_summary and enrollment_summary|length > 0 %}
-        {% for lvl in enrollment_summary %}
-          <div class="mb-2">
-            <span class="font-semibold">Level: {{ lvl.level.name }}</span>
-            {% if lvl.modules and lvl.modules|length > 0 %}
-              <ul class="list-disc ml-6">
-                {% for mod in lvl.modules %}
-                  <li>
-                    <span class="font-semibold">{{ mod.module.name }}</span>
-                    {% if candidate.identification_document %}
-                        <div class="flex items-center space-x-2">
-                            <i class="fas fa-image text-green-600"></i>
-                            <a href="{% url 'serve_candidate_document' candidate_id=candidate.id document_type='identification' %}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
-                                View Identification Document
-                            </a>
-                        </div>
-                    {% else %}
-                        <span class="text-gray-500 italic">No identification document attached</span>
+      {% if enrollment_history and enrollment_history|length > 0 %}
+        {% for enrollment in enrollment_history %}
+          <div class="mb-3 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-semibold text-blue-800">{{ enrollment.series_name }}</span>
+              <span class="text-sm text-blue-600">{{ enrollment.level.name }}</span>
+            </div>
+            {% if enrollment.modules and enrollment.modules|length > 0 %}
+              <ul class="list-disc ml-4 space-y-1">
+                {% for mod in enrollment.modules %}
+                  <li class="text-sm">
+                    <span class="font-medium">{{ mod.module.name }}</span>
+                    {% if mod.papers and mod.papers|length > 0 %}
+                      <ul class="list-circle ml-4 mt-1">
+                        {% for paper in mod.papers %}
+                          <li class="text-xs text-gray-600">{{ paper.name }}</li>
+                        {% endfor %}
+                      </ul>
                     {% endif %}
                   </li>
                 {% endfor %}
@@ -605,7 +605,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
           </div>
         {% endfor %}
       {% else %}
-        <span class="text-gray-400 text-xs">No enrollment for this candidate.</span>
+        <span class="text-gray-400 text-xs">No enrollment history for this candidate.</span>
       {% endif %}
     {% elif candidate.registration_category == 'Modular' %}
       {% if module_enrollments %}
@@ -698,8 +698,8 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     </div>
   {% else %}
   {% if candidate.registration_category == 'Informal' or candidate.registration_category == "Worker's PAS" or candidate.registration_category == 'Workers PAS' %}
-    {% if enrollment_summary and enrollment_summary|length > 0 %}
-      {% for lvl in enrollment_summary %}
+    {% if results_summary and results_summary|length > 0 %}
+      {% for lvl in results_summary %}
         <div class="bg-white p-4 rounded shadow mt-4">
           <div class="flex items-center justify-between mb-2">
             <h2 class="text-lg font-semibold">Results for {{ lvl.level.name }}</h2>

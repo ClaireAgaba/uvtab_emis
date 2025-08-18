@@ -569,6 +569,130 @@ function fetchModulesPapersForInformal(occupationId, levelId, cb) {
     .catch(() => cb({modules: []}));
 }
 
+// New function to fetch all levels, modules, and papers for cross-level selection
+function fetchAllLevelsModulesPapersForInformal(occupationId, cb) {
+  fetch(`/eims/api/all-levels-modules-papers/?occupation_id=${occupationId}`)
+    .then(res => res.json())
+    .then(data => cb(data))
+    .catch(() => cb({success: false, level_module_data: []}));
+}
+
+// Function to display cross-level paper selection interface
+function displayCrossLevelPaperSelection(levelModuleData) {
+  let html = `
+    <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+      <h4 class="font-semibold text-blue-800 mb-2">📋 Paper Selection Instructions</h4>
+      <ul class="text-blue-700 text-xs space-y-1">
+        <li>• Select <strong>2-4 papers</strong> from any level/module</li>
+        <li>• Only <strong>one paper per module</strong></li>
+        <li>• Papers selected: <span id="bulkSelectedCount" class="font-bold">0</span>/4</li>
+      </ul>
+    </div>
+    <div class="space-y-4 max-h-64 overflow-y-auto">
+  `;
+  
+  levelModuleData.forEach(levelData => {
+    html += `
+      <div class="border border-gray-300 rounded p-3 bg-gray-50">
+        <h4 class="text-sm font-bold mb-2 text-gray-800">🎓 ${levelData.level.name}</h4>
+        <div class="grid grid-cols-1 gap-3">
+    `;
+    
+    levelData.modules.forEach(moduleData => {
+      html += `
+        <div class="border border-gray-200 rounded p-2 bg-white">
+          <h5 class="text-xs font-semibold mb-2 text-gray-700">📚 ${moduleData.module.name} (${moduleData.module.code})</h5>
+          <div class="space-y-1">
+      `;
+      
+      moduleData.papers.forEach(paperInfo => {
+        html += `
+          <div class="flex items-center space-x-2">
+            <input 
+              type="checkbox" 
+              name="bulk-paper-${levelData.level.id}-${moduleData.module.id}-${paperInfo.paper.id}" 
+              id="bulk-paper-${levelData.level.id}-${moduleData.module.id}-${paperInfo.paper.id}"
+              class="bulk-paper-checkbox text-blue-600" 
+              data-level="${levelData.level.id}"
+              data-module="${moduleData.module.id}"
+              data-paper="${paperInfo.paper.id}"
+              data-module-name="${moduleData.module.name} (${moduleData.module.code})"
+              value="${paperInfo.paper.id}"
+            >
+            <label for="bulk-paper-${levelData.level.id}-${moduleData.module.id}-${paperInfo.paper.id}" class="text-xs text-gray-700 cursor-pointer">
+              📄 ${paperInfo.paper.name} (${paperInfo.paper.code})
+            </label>
+          </div>
+        `;
+      });
+      
+      html += `
+          </div>
+        </div>
+      `;
+    });
+    
+    html += `
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  
+  bulkInformalBox.innerHTML = html;
+  bulkInformalBox.classList.remove('hidden');
+  
+  // Add event listeners for paper selection validation
+  setupBulkPaperValidation();
+}
+
+// Function to setup validation for bulk paper selection
+function setupBulkPaperValidation() {
+  const paperCheckboxes = document.querySelectorAll('.bulk-paper-checkbox');
+  const selectedCountSpan = document.getElementById('bulkSelectedCount');
+  
+  function updateBulkPaperCount() {
+    const selectedPapers = document.querySelectorAll('.bulk-paper-checkbox:checked');
+    const count = selectedPapers.length;
+    
+    if (selectedCountSpan) {
+      selectedCountSpan.textContent = count;
+      selectedCountSpan.className = count >= 2 && count <= 4 ? 'font-bold text-green-600' : 'font-bold text-red-600';
+    }
+  }
+  
+  function validateBulkModuleSelection(checkbox) {
+    if (!checkbox.checked) return true;
+    
+    const moduleId = checkbox.getAttribute('data-module');
+    const moduleName = checkbox.getAttribute('data-module-name');
+    const moduleCheckboxes = document.querySelectorAll('.bulk-paper-checkbox[data-module="' + moduleId + '"]:checked');
+    
+    if (moduleCheckboxes.length > 1) {
+      alert('You can only select one paper per module. You have selected multiple papers for ' + moduleName + '. Please unselect one.');
+      checkbox.checked = false;
+      return false;
+    }
+    return true;
+  }
+  
+  // Add event listeners to paper checkboxes
+  paperCheckboxes.forEach(function(checkbox) {
+    checkbox.addEventListener('change', function() {
+      if (this.checked) {
+        if (!validateBulkModuleSelection(this)) {
+          return;
+        }
+      }
+      updateBulkPaperCount();
+    });
+  });
+  
+  // Initial count update
+  updateBulkPaperCount();
+}
+
 function updateBulkSelectors() {
   const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
   if (bulkSelect.value !== 'enroll' || checked.length === 0) {
@@ -611,7 +735,7 @@ function updateBulkSelectors() {
         opt.textContent = series.name;
         bulkAssessmentSeriesSelect.appendChild(opt);
       });
-      // For informal: after level is chosen, fetch modules/papers
+      // For informal: show cross-level paper selection interface
       if (regcat === 'Informal' || regcat === "Worker's PAS") {
         bulkAssessmentSeriesSelect.onchange = function() {
           const assessmentSeriesId = bulkAssessmentSeriesSelect.value;
@@ -622,36 +746,18 @@ function updateBulkSelectors() {
             bulkInformalBox.innerHTML = '';
             return;
           }
-          fetchLevelsForOccupation(occ, function(levels) {
-            bulkLevelSelect.innerHTML = '<option value="">Select Level</option>';
-            levels.forEach(l => {
-              const opt = document.createElement('option');
-              opt.value = l.id;
-              opt.textContent = l.name;
-              bulkLevelSelect.appendChild(opt);
-            });
-            bulkLevelWrapper.classList.remove('hidden');
-            bulkLevelSelect.onchange = function() {
-              const levelId = bulkLevelSelect.value;
-              if (!levelId) {
-                bulkInformalBox.classList.add('hidden');
-                bulkInformalBox.innerHTML = '';
-                return;
-              }
-              fetchModulesPapersForInformal(occId, levelId, function(data) {
-                // Render module/paper selectors (one radio group per module)
-                let html = '';
-                (data.modules || []).forEach(mod => {
-                  html += `<div class='mb-2'><div class='font-semibold mb-1'>${mod.name}</div>`;
-                  (mod.papers || []).forEach(paper => {
-                    html += `<label class='mr-4'><input type='radio' name='bulk-paper-module-${mod.id}' value='${paper.id}'> ${paper.name}</label>`;
-                  });
-                  html += '</div>';
-                });
-                bulkInformalBox.innerHTML = html;
-                bulkInformalBox.classList.remove('hidden');
-              });
-            };
+          // Hide level selector for cross-level selection
+          bulkLevelWrapper.classList.add('hidden');
+          bulkLevelSelect.innerHTML = '';
+          
+          // Fetch all levels, modules, and papers for cross-level selection
+          fetchAllLevelsModulesPapersForInformal(occId, function(data) {
+            if (data.success && data.level_module_data && data.level_module_data.length > 0) {
+              displayCrossLevelPaperSelection(data.level_module_data);
+            } else {
+              bulkInformalBox.innerHTML = '<div class="text-red-600">No papers available for this occupation.</div>';
+              bulkInformalBox.classList.remove('hidden');
+            }
           });
         };
       } else if (regcat === 'Formal') {
@@ -945,13 +1051,26 @@ bulkApply && bulkApply.addEventListener('click', function() {
       return;
     }
   }
-  // For informal, require at least one paper per module
+  // For informal, require 2-4 papers from cross-level selection
   if (!bulkInformalBox.classList.contains('hidden')) {
-    // Collect all selected paper ids
-    const radios = bulkInformalBox.querySelectorAll('input[type=radio]:checked');
-    paperIds = Array.from(radios).map(r => r.value);
-    if (paperIds.length === 0) {
-      bulkError.textContent = 'Select at least one paper to enroll.';
+    // Collect all selected paper ids from checkboxes (cross-level selection)
+    const paperCheckboxes = bulkInformalBox.querySelectorAll('.bulk-paper-checkbox:checked');
+    paperIds = Array.from(paperCheckboxes).map(cb => cb.value);
+    
+    if (paperIds.length < 2) {
+      bulkError.textContent = 'Worker\'s PAS/Informal candidates must select a minimum of 2 papers.';
+      return;
+    }
+    if (paperIds.length > 4) {
+      bulkError.textContent = 'Worker\'s PAS/Informal candidates can select a maximum of 4 papers.';
+      return;
+    }
+    
+    // Validate one paper per module rule
+    const moduleIds = Array.from(paperCheckboxes).map(cb => cb.getAttribute('data-module'));
+    const uniqueModules = new Set(moduleIds);
+    if (moduleIds.length !== uniqueModules.size) {
+      bulkError.textContent = 'You can only select one paper per module.';
       return;
     }
   }
