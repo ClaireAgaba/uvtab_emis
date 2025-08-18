@@ -853,8 +853,9 @@ def upload_marks(request):
                 except Exception:
                     errors.append(f"Row {idx}: Invalid mark for {code} (candidate '{regno}').")
                     continue
-                if not (0 <= mark_val <= 100):
-                    errors.append(f"Row {idx}: Mark for {code} (candidate '{regno}') must be between 0 and 100. Got {mark_val}.")
+                # Allow -1 for "Missing" (Ms) status, otherwise marks must be between 0 and 100
+                if not (mark_val == -1 or (0 <= mark_val <= 100)):
+                    errors.append(f"Row {idx}: Mark for {code} (candidate '{regno}') must be between 0 and 100, or -1 for Missing. Got {mark_val}.")
                     continue
                 # Paper-based formal
                 if regcat_normalized == 'formal' and structure_type == 'papers':
