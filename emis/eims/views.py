@@ -6587,6 +6587,56 @@ def edit_support_staff(request, pk):
     return render(request, 'users/support_staff/edit_support_staff.html', {'form': form, 'staff': staff})
 
 
+@login_required
+def profile(request):
+    """User profile view with password change functionality"""
+    from django.contrib.auth import authenticate, logout
+    from django.contrib import messages
+    
+    user = request.user
+    
+    # Get user's staff profile if exists
+    staff_profile = None
+    try:
+        staff_profile = user.staff_profile
+    except:
+        try:
+            staff_profile = user.supportstaff
+        except:
+            pass
+    
+    if request.method == 'POST':
+        old_password = request.POST.get('old_password')
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        # Validate old password
+        if not authenticate(username=user.username, password=old_password):
+            messages.error(request, 'Current password is incorrect.')
+            return render(request, 'profile.html', {'staff_profile': staff_profile})
+        
+        # Validate new passwords match
+        if new_password != confirm_password:
+            messages.error(request, 'New passwords do not match.')
+            return render(request, 'profile.html', {'staff_profile': staff_profile})
+        
+        # Validate password length
+        if len(new_password) < 4:
+            messages.error(request, 'New password must be at least 4 characters long.')
+            return render(request, 'profile.html', {'staff_profile': staff_profile})
+        
+        # Change password
+        user.set_password(new_password)
+        user.save()
+        
+        # Log out user so they can login with new password
+        logout(request)
+        messages.success(request, 'Password changed successfully. Please login with your new password.')
+        return redirect('login')
+    
+    return render(request, 'profile.html', {'staff_profile': staff_profile})
+
+
 from PIL import Image as PILImage, ImageDraw, ImageFont
 from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect
