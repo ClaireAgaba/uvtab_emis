@@ -337,6 +337,16 @@ class CandidateForm(forms.ModelForm):
     nationality = CountryField(blank_label='(Select country)').formfield(
         widget=CountrySelectWidget(attrs={'class': 'border rounded px-3 py-2 w-full'})
     )
+    
+    # Override the model's BooleanField with a ChoiceField for proper dropdown rendering
+    is_refugee = forms.ChoiceField(
+        choices=[('', '--------'), ('True', 'Yes'), ('False', 'No')],
+        required=False,
+        widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        label="Is refugee",
+        help_text="Is this candidate a refugee?"
+    )
+
     disability = forms.BooleanField(
         required=False,
         label="Disability",
@@ -378,6 +388,19 @@ class CandidateForm(forms.ModelForm):
         else:
             self.fields['nature_of_disability'].required = True
             self.fields['disability_specification'].required = False  # Keep optional but show when disability is True
+        
+        # Handle refugee fields visibility based on nationality
+        nationality_value = None
+        if self.data.get('nationality'):
+            nationality_value = self.data.get('nationality')
+        elif hasattr(self.instance, 'nationality'):
+            nationality_value = getattr(self.instance, 'nationality', None)
+        
+        # Refugee field visibility is controlled entirely by JavaScript
+        # Remove any server-side hiding to prevent conflicts with JavaScript show/hide logic
+        
+        # Refugee number field visibility is also controlled entirely by JavaScript
+        # This ensures consistent behavior and prevents server/client conflicts
         if user and user.groups.filter(name='CenterRep').exists():
             from .models import CenterRepresentative
             try:
@@ -523,6 +546,8 @@ class CandidateForm(forms.ModelForm):
                 'class': 'border rounded px-3 py-2 w-full',
                 'accept': '.png,.jpg,.jpeg,.pdf'
             }),
+
+            'refugee_number': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'placeholder': 'Enter refugee number (optional)'}),
             # ...add others similarly
 
             }
@@ -547,6 +572,16 @@ class CandidateForm(forms.ModelForm):
                 formatted_parts.append(part.capitalize())
                 
         return ' '.join(formatted_parts)
+
+    def clean_is_refugee(self):
+        """Convert string refugee status to boolean for model"""
+        is_refugee = self.cleaned_data.get('is_refugee')
+        if is_refugee == 'True':
+            return True
+        elif is_refugee == 'False':
+            return False
+        else:
+            return None  # Empty selection
 
     def clean(self):
         cleaned_data = super().clean()

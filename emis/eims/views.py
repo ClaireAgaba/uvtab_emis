@@ -2818,6 +2818,37 @@ def bulk_candidate_action(request):
             'message': message
         })
     
+    elif action == 'mark_refugee':
+        # Bulk mark candidates as refugees
+        refugee_numbers = data.get('refugee_numbers', {})
+        updated_count = 0
+        already_refugee_count = 0
+        
+        for candidate in candidates:
+            if candidate.is_refugee:
+                already_refugee_count += 1
+            else:
+                candidate.is_refugee = True
+                # Set refugee number if provided
+                candidate_id_str = str(candidate.id)
+                if candidate_id_str in refugee_numbers:
+                    candidate.refugee_number = refugee_numbers[candidate_id_str]
+                candidate.save(update_fields=['is_refugee', 'refugee_number'])
+                updated_count += 1
+        
+        message_parts = []
+        if updated_count > 0:
+            message_parts.append(f'Successfully marked {updated_count} candidate{"s" if updated_count != 1 else ""} as refugee{"s" if updated_count != 1 else ""}')
+        if already_refugee_count > 0:
+            message_parts.append(f'{already_refugee_count} candidate{"s" if already_refugee_count != 1 else ""} {"were" if already_refugee_count != 1 else "was"} already marked as refugee{"s" if already_refugee_count != 1 else ""}')
+        
+        message = '. '.join(message_parts) + '.'
+        
+        return JsonResponse({
+            'success': True,
+            'message': message
+        })
+    
     else:
         return JsonResponse({'success': False, 'error': 'Unknown action.'}, status=400)
 
@@ -4454,6 +4485,7 @@ def candidate_list(request):
             'assessment_center': request.GET.get('assessment_center', '').strip(),
             'gender': request.GET.get('gender', '').strip(),
             'disability': request.GET.get('disability', '').strip(),
+            'is_refugee': request.GET.get('is_refugee', '').strip(),
             'assessment_year': request.GET.get('assessment_year', '').strip(),
             'assessment_month': request.GET.get('assessment_month', '').strip(),
         }
@@ -4476,6 +4508,7 @@ def candidate_list(request):
             'assessment_month': request.GET.get('assessment_month', '').strip(),
             'assessment_year': request.GET.get('assessment_year', '').strip(),
             'disability': request.GET.get('disability', '').strip(),
+            'is_refugee': request.GET.get('is_refugee', '').strip(),
         }
         
         # IMPORTANT: Preserve assessment series context from existing session or URL
@@ -4532,6 +4565,11 @@ def candidate_list(request):
         # Convert string to boolean
         disability_filter = current_filters.get('disability').lower() == 'true'
         candidates = candidates.filter(disability=disability_filter)
+    
+    if current_filters.get('is_refugee'):
+        # Convert string to boolean
+        refugee_filter = current_filters.get('is_refugee').lower() == 'true'
+        candidates = candidates.filter(is_refugee=refugee_filter)
     
     # Assessment date filtering by month and year
     if current_filters.get('assessment_year'):

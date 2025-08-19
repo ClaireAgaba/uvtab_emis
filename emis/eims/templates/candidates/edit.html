@@ -26,6 +26,24 @@
     {{ form.nationality }}
     <small class="text-gray-500">Please select the candidate's country of nationality.</small>
   </div>
+  
+  <!-- Refugee Status Fields (conditional based on nationality) -->
+  <div id="refugee-status-field" style="display: none;">
+    <label class="block font-semibold mb-1">{{ form.is_refugee.label }}</label>
+    {{ form.is_refugee }}
+    {% if form.is_refugee.help_text %}
+      <small class="text-gray-500">{{ form.is_refugee.help_text }}</small>
+    {% endif %}
+  </div>
+  
+  <div id="refugee-number-field" style="display: none;">
+    <label class="block font-semibold mb-1">{{ form.refugee_number.label }}</label>
+    {{ form.refugee_number }}
+    {% if form.refugee_number.help_text %}
+      <small class="text-gray-500">{{ form.refugee_number.help_text }}</small>
+    {% endif %}
+  </div>
+  
   <!-- Contact & Location -->
   <div>
     <label class="block font-semibold mb-1">Contact</label>
@@ -378,5 +396,78 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // --- End Name Formatting Logic ---
+
+// --- Refugee Fields Dynamic Logic ---
+document.addEventListener('DOMContentLoaded', function() {
+    const nationalitySelect = document.getElementById('id_nationality');
+    const refugeeStatusField = document.getElementById('refugee-status-field');
+    const refugeeNumberField = document.getElementById('refugee-number-field');
+    const isRefugeeSelect = document.getElementById('id_is_refugee');
+    
+    function updateRefugeeFields() {
+        const nationality = nationalitySelect.value;
+        
+        console.log('Nationality selected:', nationality); // Debug log
+        
+        // Show refugee status field only if nationality is not Uganda
+        // Check for both country code 'UG' and country name 'Uganda'
+        if (nationality && nationality !== 'UG' && nationality !== 'Uganda' && nationality !== '') {
+            console.log('Showing refugee field for:', nationality); // Debug log
+            refugeeStatusField.style.display = 'block';
+            
+            // Check if refugee status is selected
+            const isRefugee = isRefugeeSelect.value;
+            if (isRefugee === 'True') {
+                refugeeNumberField.style.display = 'block';
+            } else {
+                refugeeNumberField.style.display = 'none';
+                // Clear refugee number if not a refugee
+                const refugeeNumberInput = document.getElementById('id_refugee_number');
+                if (refugeeNumberInput) {
+                    refugeeNumberInput.value = '';
+                }
+            }
+        } else {
+            console.log('Hiding refugee field for Uganda or empty selection'); // Debug log
+            // Hide both refugee fields if nationality is Uganda (UG) or not selected
+            refugeeStatusField.style.display = 'none';
+            refugeeNumberField.style.display = 'none';
+            
+            // Clear refugee fields
+            if (isRefugeeSelect) {
+                isRefugeeSelect.value = '';
+            }
+            const refugeeNumberInput = document.getElementById('id_refugee_number');
+            if (refugeeNumberInput) {
+                refugeeNumberInput.value = '';
+            }
+        }
+    }
+    
+    function updateRefugeeNumberField() {
+        const isRefugeeValue = isRefugeeSelect.value;
+        // Show refugee_number field only if is_refugee is True
+        if (isRefugeeValue === 'True' || isRefugeeValue === true || isRefugeeValue === 'true') {
+            refugeeNumberField.style.display = 'block';
+        } else {
+            refugeeNumberField.style.display = 'none';
+            // Clear refugee number if not a refugee
+            const refugeeNumberInput = document.getElementById('id_refugee_number');
+            if (refugeeNumberInput) {
+                refugeeNumberInput.value = '';
+            }
+        }
+    }
+    
+    if (nationalitySelect && refugeeStatusField && refugeeNumberField && isRefugeeSelect) {
+        // Initial state check
+        updateRefugeeFields();
+        
+        // Add event listeners
+        nationalitySelect.addEventListener('change', updateRefugeeFields);
+        isRefugeeSelect.addEventListener('change', updateRefugeeNumberField);
+    }
+});
+// --- End Refugee Fields Dynamic Logic ---
 </script>
 {% endblock %}

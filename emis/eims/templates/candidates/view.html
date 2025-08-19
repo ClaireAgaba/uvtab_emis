@@ -456,6 +456,16 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     {% else %}
       <p><strong>Disability:</strong> No</p>
     {% endif %}
+    
+    <!-- Refugee Status -->
+    {% if candidate.is_refugee %}
+      <p><strong>Refugee Status:</strong> Yes</p>
+      {% if candidate.refugee_number %}
+        <p><strong>Refugee Number:</strong> {{ candidate.refugee_number }}</p>
+      {% endif %}
+    {% else %}
+      <p><strong>Refugee Status:</strong> No</p>
+    {% endif %}
   </div>
 
   <!-- Relevant Documents Section -->

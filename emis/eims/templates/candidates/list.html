@@ -26,6 +26,7 @@
           <option value="change_reg_cat">Change Reg Category</option>
           <option value="change_occupation">Change Occupation</option>
           <option value="mark_disabled">Mark as Disabled</option>
+          <option value="mark_refugee">Mark as Refugee</option>
           <option value="verify">Verify</option>
           <option value="decline">Decline</option>
           {% endif %}
@@ -134,6 +135,35 @@
     </div>
   </div>
 
+  <!-- Bulk Mark as Refugee Modal -->
+  <div id="bulk-mark-refugee-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+      <h2 class="text-lg font-bold mb-4">Mark as Refugee</h2>
+      <p class="text-sm text-gray-600 mb-4">This will mark the selected candidates as refugees. You can optionally provide refugee numbers for each candidate.</p>
+      
+      <div class="mb-4">
+        <label class="flex items-center gap-2 mb-3">
+          <input type="checkbox" id="bulk-refugee-add-numbers" class="form-checkbox">
+          <span class="font-medium">Add refugee numbers (optional)</span>
+        </label>
+        
+        <div id="bulk-refugee-numbers-section" class="hidden">
+          <p class="text-xs text-gray-500 mb-2">Leave blank for candidates that don't have refugee numbers yet.</p>
+          <div id="bulk-refugee-numbers-list" class="max-h-48 overflow-y-auto border rounded px-3 py-2 space-y-2">
+            <!-- Candidate refugee number inputs will be populated here by JavaScript -->
+          </div>
+        </div>
+      </div>
+      
+      <div id="bulk-mark-refugee-error" class="text-red-600 text-sm mb-2 hidden"></div>
+      <div class="flex justify-between mt-4">
+        <button id="bulk-mark-refugee-cancel" class="text-gray-600 hover:underline">Cancel</button>
+        <button id="bulk-mark-refugee-apply" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Mark as Refugee</button>
+      </div>
+      <button id="bulk-mark-refugee-close" class="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+    </div>
+  </div>
+
   <!-- Candidate Table -->
   <div class="mb-2 text-sm text-gray-600 flex justify-between items-center">
   <span>
@@ -163,6 +193,7 @@
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Reg. Category</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Assessment Date</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Disability</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Refugee Status</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Center</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Status</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Actions</th>
@@ -233,6 +264,13 @@
               </select>
             </th>
             <th class="px-3 py-2">
+              <select name="is_refugee" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">All</option>
+                <option value="true" {% if filters.is_refugee == 'true' %}selected{% endif %}>Yes</option>
+                <option value="false" {% if filters.is_refugee == 'false' %}selected{% endif %}>No</option>
+              </select>
+            </th>
+            <th class="px-3 py-2">
               <select name="assessment_center" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                 <option value="">All Centers</option>
                 {% for center in centers %}
@@ -282,6 +320,13 @@
             {% endif %}
           </td>
           <td class="px-3 py-3 text-sm text-gray-900">
+            {% if candidate.is_refugee %}
+              <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Yes</span>
+            {% else %}
+              <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">No</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-3 text-sm text-gray-900">
             <div>
               {{ candidate.assessment_center.center_name|default:"—" }}
               {% if candidate.assessment_center_branch %}
@@ -308,7 +353,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="6" class="px-4 py-4 text-center text-gray-500">No candidates found.</td>
+          <td colspan="10" class="px-4 py-4 text-center text-gray-500">No candidates found.</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -333,6 +378,16 @@ const bulkMarkDisabledClose = document.getElementById('bulk-mark-disabled-close'
 const bulkMarkDisabledError = document.getElementById('bulk-mark-disabled-error');
 const bulkNatureCheckboxes = document.getElementById('bulk-nature-checkboxes');
 
+// Bulk Mark as Refugee modal logic
+const bulkMarkRefugeeModal = document.getElementById('bulk-mark-refugee-modal');
+const bulkMarkRefugeeApply = document.getElementById('bulk-mark-refugee-apply');
+const bulkMarkRefugeeCancel = document.getElementById('bulk-mark-refugee-cancel');
+const bulkMarkRefugeeClose = document.getElementById('bulk-mark-refugee-close');
+const bulkMarkRefugeeError = document.getElementById('bulk-mark-refugee-error');
+const bulkRefugeeAddNumbers = document.getElementById('bulk-refugee-add-numbers');
+const bulkRefugeeNumbersSection = document.getElementById('bulk-refugee-numbers-section');
+const bulkRefugeeNumbersList = document.getElementById('bulk-refugee-numbers-list');
+
 function showBulkMarkDisabledModal() {
   bulkMarkDisabledModal.classList.remove('hidden');
   bulkMarkDisabledError.classList.add('hidden');
@@ -342,6 +397,46 @@ function showBulkMarkDisabledModal() {
 }
 function hideBulkMarkDisabledModal() {
   bulkMarkDisabledModal.classList.add('hidden');
+}
+
+function showBulkMarkRefugeeModal() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  if (checked.length === 0) {
+    alert('Please select at least one candidate.');
+    return;
+  }
+  
+  bulkMarkRefugeeModal.classList.remove('hidden');
+  bulkMarkRefugeeError.classList.add('hidden');
+  bulkMarkRefugeeError.textContent = '';
+  bulkRefugeeAddNumbers.checked = false;
+  bulkRefugeeNumbersSection.classList.add('hidden');
+  
+  // Populate candidate list for refugee numbers
+  populateRefugeeNumbersList(checked);
+}
+
+function hideBulkMarkRefugeeModal() {
+  bulkMarkRefugeeModal.classList.add('hidden');
+}
+
+function populateRefugeeNumbersList(checkedCandidates) {
+  bulkRefugeeNumbersList.innerHTML = '';
+  checkedCandidates.forEach(checkbox => {
+    const row = checkbox.closest('tr');
+    const regNumber = row.querySelector('td:nth-child(3)').textContent.trim();
+    const fullName = row.querySelector('td:nth-child(4)').textContent.trim();
+    
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded';
+    div.innerHTML = `
+      <span class="text-sm font-medium min-w-0 flex-1">${regNumber} - ${fullName}</span>
+      <input type="text" class="refugee-number-input border rounded px-2 py-1 text-sm w-32" 
+             data-candidate-id="${checkbox.value}" 
+             placeholder="Refugee #">
+    `;
+    bulkRefugeeNumbersList.appendChild(div);
+  });
 }
 
 // Bulk Decline Modal Functions
@@ -367,6 +462,9 @@ function hideBulkDeclineModal() {
 bulkSelect.addEventListener('change', function() {
   if (bulkSelect.value === 'mark_disabled') {
     showBulkMarkDisabledModal();
+    bulkSelect.value = '';
+  } else if (bulkSelect.value === 'mark_refugee') {
+    showBulkMarkRefugeeModal();
     bulkSelect.value = '';
   } else if (bulkSelect.value === 'decline') {
     showBulkDeclineModal();
@@ -406,6 +504,19 @@ bulkSelect.addEventListener('change', function() {
 });
 bulkMarkDisabledCancel.addEventListener('click', hideBulkMarkDisabledModal);
 bulkMarkDisabledClose.addEventListener('click', hideBulkMarkDisabledModal);
+
+// Bulk Mark as Refugee Modal Event Listeners
+bulkMarkRefugeeCancel.addEventListener('click', hideBulkMarkRefugeeModal);
+bulkMarkRefugeeClose.addEventListener('click', hideBulkMarkRefugeeModal);
+
+// Toggle refugee numbers section
+bulkRefugeeAddNumbers.addEventListener('change', function() {
+  if (this.checked) {
+    bulkRefugeeNumbersSection.classList.remove('hidden');
+  } else {
+    bulkRefugeeNumbersSection.classList.add('hidden');
+  }
+});
 
 // Bulk Decline Modal Event Listeners
 bulkDeclineCancel.addEventListener('click', hideBulkDeclineModal);
@@ -452,6 +563,61 @@ bulkMarkDisabledApply.addEventListener('click', function() {
   .catch(() => {
     bulkMarkDisabledError.textContent = 'Server error.';
     bulkMarkDisabledError.classList.remove('hidden');
+  });
+});
+
+// Bulk Mark as Refugee Apply Handler
+bulkMarkRefugeeApply.addEventListener('click', function() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  
+  if (checked.length === 0) {
+    bulkMarkRefugeeError.textContent = 'Please select at least one candidate.';
+    bulkMarkRefugeeError.classList.remove('hidden');
+    return;
+  }
+  
+  // Collect refugee numbers if the checkbox is checked
+  const refugeeNumbers = {};
+  if (bulkRefugeeAddNumbers.checked) {
+    const refugeeInputs = bulkRefugeeNumbersList.querySelectorAll('.refugee-number-input');
+    refugeeInputs.forEach(input => {
+      const candidateId = input.getAttribute('data-candidate-id');
+      const refugeeNumber = input.value.trim();
+      if (refugeeNumber) {
+        refugeeNumbers[candidateId] = refugeeNumber;
+      }
+    });
+  }
+  
+  bulkMarkRefugeeError.textContent = '';
+  bulkMarkRefugeeError.classList.add('hidden');
+  
+  // AJAX POST to backend
+  fetch("/eims/candidates/bulk-action/", {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      action: 'mark_refugee',
+      candidate_ids: checked.map(cb => cb.value),
+      refugee_numbers: refugeeNumbers
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(data.message || 'Candidates marked as refugees successfully.');
+      window.location.reload();
+    } else {
+      bulkMarkRefugeeError.textContent = data.error || 'An error occurred.';
+      bulkMarkRefugeeError.classList.remove('hidden');
+    }
+  })
+  .catch(() => {
+    bulkMarkRefugeeError.textContent = 'Server error.';
+    bulkMarkRefugeeError.classList.remove('hidden');
   });
 });
 

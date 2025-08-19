@@ -468,6 +468,10 @@ class Candidate(models.Model):
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
     nationality = models.CharField(max_length=64, help_text="Specify country of nationality (e.g. Ugandan, Kenyan, Rwandan, etc.)")
+    
+    # Refugee status fields (only relevant for non-Ugandan nationals)
+    is_refugee = models.BooleanField(default=False, help_text="Is this candidate a refugee?")
+    refugee_number = models.CharField(max_length=50, blank=True, null=True, help_text="Refugee identification number (optional)")
 
     # Section 2 - Contact and Location
     contact = models.CharField(max_length=20, blank=True)
