@@ -170,6 +170,12 @@
 
             // Function to show session timeout modal
             function showSessionTimeoutModal() {
+                // Check if modal already exists and remove it
+                const existingModal = document.getElementById('session-timeout-modal');
+                if (existingModal) {
+                    existingModal.remove();
+                }
+                
                 if (isSessionExpired) return; // Prevent multiple modals
                 isSessionExpired = true;
                 
@@ -202,15 +208,42 @@
                 
                 document.body.appendChild(modal);
                 
-                // Handle modal close and redirect
-                document.getElementById('session-timeout-ok').addEventListener('click', function() {
+                // Function to redirect to login
+                function redirectToLogin() {
+                    // Remove modal before redirect
+                    const modalToRemove = document.getElementById('session-timeout-modal');
+                    if (modalToRemove) {
+                        modalToRemove.remove();
+                    }
+                    
+                    // Clear any intervals
+                    if (sessionCheckInterval) {
+                        clearInterval(sessionCheckInterval);
+                    }
+                    
+                    // Redirect to login
                     window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+                }
+                
+                // Handle modal close and redirect
+                document.getElementById('session-timeout-ok').addEventListener('click', redirectToLogin);
+                
+                // Allow clicking outside modal to close it
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        redirectToLogin();
+                    }
+                });
+                
+                // Allow ESC key to close modal
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        redirectToLogin();
+                    }
                 });
                 
                 // Auto-redirect after 10 seconds
-                setTimeout(() => {
-                    window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
-                }, 10000);
+                setTimeout(redirectToLogin, 10000);
             }
 
             // Function to check session status
