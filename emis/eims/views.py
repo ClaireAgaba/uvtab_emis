@@ -1747,7 +1747,7 @@ def candidate_import_dual(request):
         candidate_names = []
         for row in rows:
             data = dict(zip(headers, row))
-            candidate_name_full = data.get('full_name', '').strip()
+            candidate_name_full = (data.get('full_name') or '').strip()
             if candidate_name_full:
                 candidate_names.append(candidate_name_full)
         
@@ -1821,7 +1821,7 @@ def candidate_import_dual(request):
     
     for idx, row in enumerate(rows, start=2):
         data = dict(zip(headers, row))
-        candidate_name_full = data.get('full_name', '').strip()
+        candidate_name_full = (data.get('full_name') or '').strip()
 
         # Try multiple name matching strategies
         name_parts = candidate_name_full.split()
