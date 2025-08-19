@@ -19,6 +19,7 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('', views.dashboard, name='dashboard'),
     path('profile/', views.profile, name='profile'),
+    path('admin/fix-photos/', views.fix_all_photos, name='fix_all_photos'),
     path('assessment-centers/', views.assessment_center_list, name='assessment_center_list'),
     #path('assessment-centers/<int:pk>/', views.assessment_center_detail, name='assessment_center_detail'),
     path('assessment-centers/create/', views.assessment_center_create, name='create_assessment_center'),

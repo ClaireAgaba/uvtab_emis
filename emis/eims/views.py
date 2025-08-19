@@ -6655,6 +6655,138 @@ def profile(request):
     return render(request, 'profile.html', {'staff_profile': staff_profile})
 
 
+@login_required
+def fix_all_photos(request):
+    """Fix orientation for existing candidate photos that were imported with rotation issues"""
+    from django.contrib import messages
+    from PIL import Image, ExifTags
+    from django.core.files.base import ContentFile
+    import io
+    import os
+    
+    if request.method == 'GET':
+        return render(request, 'admin/fix_photos.html')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        dry_run = request.POST.get('dry_run') == '1'
+        
+        if action == 'fix_single':
+            candidate_id = request.POST.get('candidate_id')
+            if not candidate_id:
+                messages.error(request, 'Please provide a candidate ID.')
+                return render(request, 'admin/fix_photos.html')
+            
+            try:
+                candidate = Candidate.objects.get(id=candidate_id)
+                if fix_candidate_photo_orientation(candidate, dry_run):
+                    if dry_run:
+                        messages.info(request, f'Dry run: Would fix photo orientation for candidate {candidate.id}: {candidate.full_name}')
+                    else:
+                        messages.success(request, f'Successfully fixed photo orientation for candidate {candidate.id}: {candidate.full_name}')
+                else:
+                    messages.warning(request, f'No orientation fix needed for candidate {candidate.id}: {candidate.full_name}')
+            except Candidate.DoesNotExist:
+                messages.error(request, f'Candidate with ID {candidate_id} not found.')
+            except Exception as e:
+                messages.error(request, f'Error fixing photo for candidate {candidate_id}: {str(e)}')
+        
+        elif action == 'fix_all':
+            try:
+                candidates = Candidate.objects.exclude(passport_photo='')
+                total_candidates = candidates.count()
+                fixed_count = 0
+                error_count = 0
+                
+                for candidate in candidates:
+                    try:
+                        if fix_candidate_photo_orientation(candidate, dry_run):
+                            fixed_count += 1
+                    except Exception as e:
+                        error_count += 1
+                
+                if dry_run:
+                    messages.info(request, f'Dry run completed: Would fix {fixed_count} photos out of {total_candidates} candidates checked. Errors: {error_count}')
+                else:
+                    messages.success(request, f'Photo orientation fix completed: Fixed {fixed_count} photos out of {total_candidates} candidates checked. Errors: {error_count}')
+                    
+            except Exception as e:
+                messages.error(request, f'Error during batch photo fix: {str(e)}')
+    
+    return render(request, 'admin/fix_photos.html')
+
+
+def fix_candidate_photo_orientation(candidate, dry_run=False):
+    """Fix orientation for a single candidate's photo"""
+    if not candidate.passport_photo:
+        return False
+        
+    try:
+        # Open the existing photo
+        photo_path = candidate.passport_photo.path
+        if not os.path.exists(photo_path):
+            return False
+            
+        with Image.open(photo_path) as img:
+            # Check if image has EXIF orientation data
+            orientation_applied = False
+            
+            try:
+                for orientation in ExifTags.TAGS.keys():
+                    if ExifTags.TAGS[orientation] == 'Orientation':
+                        break
+                
+                exif = img._getexif()
+                if exif is not None:
+                    orientation_value = exif.get(orientation)
+                    
+                    if orientation_value and orientation_value != 1:  # 1 means normal orientation
+                        if dry_run:
+                            return True
+                        
+                        # Apply rotation based on EXIF orientation
+                        if orientation_value == 3:
+                            img = img.rotate(180, expand=True)
+                            orientation_applied = True
+                        elif orientation_value == 6:
+                            img = img.rotate(270, expand=True)
+                            orientation_applied = True
+                        elif orientation_value == 8:
+                            img = img.rotate(90, expand=True)
+                            orientation_applied = True
+                        
+                        if orientation_applied:
+                            # Convert to RGB if needed
+                            if img.mode != 'RGB':
+                                img = img.convert('RGB')
+                            
+                            # Save the corrected image
+                            buffer = io.BytesIO()
+                            img.save(buffer, format='JPEG', quality=85)
+                            buffer.seek(0)
+                            
+                            # Get the original filename
+                            original_name = os.path.basename(candidate.passport_photo.name)
+                            
+                            # Save the corrected image back to the same field
+                            candidate.passport_photo.save(
+                                original_name,
+                                ContentFile(buffer.getvalue()),
+                                save=True
+                            )
+                            
+                            return True
+                            
+            except (AttributeError, KeyError, TypeError):
+                # No EXIF data
+                pass
+                
+    except Exception as e:
+        raise Exception(f'Error processing photo: {str(e)}')
+        
+    return False
+
+
 from PIL import Image as PILImage, ImageDraw, ImageFont
 from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect
