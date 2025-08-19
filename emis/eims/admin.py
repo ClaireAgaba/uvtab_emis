@@ -2,7 +2,7 @@ from django.contrib import admin
 from django import forms  # ✅ this is the missing line
 
 from .models import (
-    SupportStaff, CenterRepresentative, Occupation, Module, Paper, Grade, AssessmentCenter,
+    SupportStaff, CenterRepresentative, Staff, Occupation, Module, Paper, Grade, AssessmentCenter,
     District, Village, AssessmentCenterCategory, OccupationCategory,
     RegistrationCategory, Level, Candidate, NatureOfDisability, AssessmentSeries
 )
@@ -195,5 +195,56 @@ class SupportStaffAdmin(admin.ModelAdmin):
     form = SupportStaffAdminForm
     list_display = ('name', 'department', 'contact', 'user')
 
+class StaffAdminForm(forms.ModelForm):
+    class Meta:
+        model = Staff
+        fields = ['name', 'contact', 'department', 'status']
+
+    def save(self, commit=True):
+        from django.contrib.auth.models import User, Group
+        from django.utils.text import slugify
+        
+        # Save staff profile
+        instance = super().save(commit=False)
+        
+        # Only create user if this is a new staff member (no existing user)
+        if not hasattr(instance, 'user') or not instance.user:
+            # Generate unique username
+            base_username = slugify(self.cleaned_data['name'])
+            username = f"{base_username}.staff"
+            email = f"{username}@uvtab.go.ug"
+            
+            # Ensure uniqueness
+            counter = 1
+            original_username = username
+            while User.objects.filter(username=username).exists():
+                username = f"{original_username}{counter}"
+                email = f"{username}@uvtab.go.ug"
+                counter += 1
+            
+            # Set password
+            password = "uvtab"
+            
+            user, created = User.objects.get_or_create(username=username, defaults={
+                'email': email,
+                'first_name': self.cleaned_data['name'],
+            })
+            if created:
+                user.set_password(password)
+                user.save()
+                group, _ = Group.objects.get_or_create(name='Staff')
+                user.groups.add(group)
+            
+            instance.user = user
+        
+        if commit:
+            instance.save()
+        return instance
+
+class StaffAdmin(admin.ModelAdmin):
+    form = StaffAdminForm
+    list_display = ('name', 'department', 'contact', 'status', 'user')
+
 admin.site.register(SupportStaff, SupportStaffAdmin)
 admin.site.register(CenterRepresentative, CenterRepresentativeAdmin)
+admin.site.register(Staff, StaffAdmin)

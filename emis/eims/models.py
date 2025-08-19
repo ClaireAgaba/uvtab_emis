@@ -1023,6 +1023,8 @@ class Staff(models.Model):
     DEPARTMENT_CHOICES = [
         ('Research', 'Research'),
         ('Data', 'Data'),
+        ('IT', 'IT'),
+        ('Admin', 'Admin'),
     ]
     
     # Account status field

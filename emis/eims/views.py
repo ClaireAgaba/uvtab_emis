@@ -6096,8 +6096,8 @@ def candidate_view(request, id):
             
             # Only True if ALL enrolled papers have results for this level
             level_has_results[str(lvl.id)] = bool(enrolled_paper_ids) and enrolled_paper_ids == result_paper_ids and len(result_paper_ids) > 0
-        
-        print(f"DEBUG level_has_results for level {lvl.id} (key='{str(lvl.id)}'): enrolled_papers={enrolled_paper_ids}, result_papers={result_paper_ids}, results_with_marks={results_with_marks}, final={level_has_results[str(lvl.id)]}")
+            
+            print(f"DEBUG level_has_results for level {lvl.id} (key='{str(lvl.id)}'): enrolled_papers={enrolled_paper_ids}, result_papers={result_paper_ids}, results_with_marks={results_with_marks}, final={level_has_results[str(lvl.id)]}")
     
     print(f"DEBUG: Final level_has_results dictionary: {level_has_results}")
     # Convert all keys to string for template consistency
