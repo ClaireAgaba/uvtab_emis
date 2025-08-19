@@ -2048,9 +2048,27 @@ def candidate_import_dual(request):
         if img_name and tmp_dir:
             img_path = os.path.join(tmp_dir, img_name)
             if os.path.exists(img_path):
-                from PIL import Image
+                from PIL import Image, ExifTags
                 import io
                 with Image.open(img_path) as img:
+                    # Handle EXIF orientation to prevent rotation issues
+                    try:
+                        for orientation in ExifTags.TAGS.keys():
+                            if ExifTags.TAGS[orientation] == 'Orientation':
+                                break
+                        exif = img._getexif()
+                        if exif is not None:
+                            orientation_value = exif.get(orientation)
+                            if orientation_value == 3:
+                                img = img.rotate(180, expand=True)
+                            elif orientation_value == 6:
+                                img = img.rotate(270, expand=True)
+                            elif orientation_value == 8:
+                                img = img.rotate(90, expand=True)
+                    except (AttributeError, KeyError, TypeError):
+                        # No EXIF data or orientation info, continue without rotation
+                        pass
+                    
                     if img.mode != 'RGB':
                         img = img.convert('RGB')
                     buffer = io.BytesIO()
