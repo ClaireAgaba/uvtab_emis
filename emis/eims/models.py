@@ -408,8 +408,9 @@ class Result(models.Model):
         """
         Determine status based on sitting history:
         - Normal: First sitting (always, regardless of mark)
+        - Updated: Mark correction within same assessment series
         - Missing Paper: Subsequent sitting where candidate didn't sit (mark = -1)
-        - Retake: Subsequent sitting where candidate sat (mark >= 0)
+        - Retake: Subsequent sitting in different assessment series where candidate sat (mark >= 0)
         """
         # Check if there are previous results for the same candidate, paper/module, and assessment type
         previous_results = Result.objects.filter(
@@ -422,6 +423,9 @@ class Result(models.Model):
             previous_results = previous_results.filter(paper=self.paper)
         elif self.module:
             previous_results = previous_results.filter(module=self.module)
+        elif self.level:
+            # For formal results without specific paper/module, filter by level
+            previous_results = previous_results.filter(level=self.level)
         
         # Exclude the current result if it already exists (for updates)
         if self.pk:
@@ -429,13 +433,21 @@ class Result(models.Model):
         
         # Check if there are any previous results
         if previous_results.exists():
-            # This is NOT the first sitting
-            if self.mark == -1:
-                # Candidate didn't sit for this subsequent attempt
-                self.status = 'Missing Paper'
+            # This is NOT the first sitting - check if same or different assessment date
+            same_date_results = previous_results.filter(assessment_date=self.assessment_date)
+            
+            if same_date_results.exists():
+                # Same assessment date = mark correction/update
+                if self.mark == -1:
+                    self.status = 'Missing Paper'
+                else:
+                    self.status = 'Updated'  # Mark correction within same assessment series
             else:
-                # Candidate sat for this subsequent attempt (regardless of pass/fail)
-                self.status = 'Retake'
+                # Different assessment date = actual retake
+                if self.mark == -1:
+                    self.status = 'Missing Paper'
+                else:
+                    self.status = 'Retake'  # Actual retake in different assessment series
         else:
             # No previous results found, this is the first sitting
             # Always "Normal" regardless of mark (even if -1)

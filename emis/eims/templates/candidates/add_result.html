@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="max-w-2xl mx-auto mt-12 bg-white shadow-lg p-8 rounded">
-  <h2 class="text-xl font-bold mb-5">Add Marks for {{ candidate.full_name }}</h2>
+  <h2 class="text-xl font-bold mb-5">
+    {% if edit_mode %}Edit Marks for{% else %}Add Marks for{% endif %} {{ candidate.full_name }}
+  </h2>
   <form method="post">
     {% csrf_token %}
     {{ form.non_field_errors }}
@@ -87,17 +89,33 @@
       </table>
     {% else %}
       <div class="mb-6 p-4 border border-gray-300 rounded bg-gray-50">
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block font-semibold mb-1">Assessment Month</label>
+            {{ form.month }}
+            {% for error in form.month.errors %}
+              <div class="text-red-600 text-xs">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">Assessment Year</label>
+            {{ form.year }}
+            {% for error in form.year.errors %}
+              <div class="text-red-600 text-xs">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
         <div class="mb-4">
           <label class="block font-semibold mb-1">Theory Mark (Combined for Level)</label>
-          {{ formal_mark_fields.0 }}
-          {% for error in formal_mark_fields.0.errors %}
+          {{ form.theory_mark }}
+          {% for error in form.theory_mark.errors %}
             <div class="text-red-600 text-xs">{{ error }}</div>
           {% endfor %}
         </div>
         <div class="mb-4">
           <label class="block font-semibold mb-1">Practical Mark (Combined for Level)</label>
-          {{ formal_mark_fields.1 }}
-          {% for error in formal_mark_fields.1.errors %}
+          {{ form.practical_mark }}
+          {% for error in form.practical_mark.errors %}
             <div class="text-red-600 text-xs">{{ error }}</div>
           {% endfor %}
         </div>

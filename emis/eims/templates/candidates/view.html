@@ -703,9 +703,13 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         <div class="bg-white p-4 rounded shadow mt-4">
           <div class="flex items-center justify-between mb-2">
             <h2 class="text-lg font-semibold">Results for {{ lvl.level.name }}</h2>
-            {% if request.user.is_superuser %}
+            {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
               {% if level_has_results|get_item:lvl.level.id|stringformat:"s" %}
-                <a href="{% url 'edit_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+                {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' %}
+                  <a href="{% url 'edit_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+                {% else %}
+                  <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Only IT and Admin can edit marks">Edit Marks</button>
+                {% endif %}
               {% elif lvl.modules and lvl.modules|length > 0 %}
                 <a href="{% url 'add_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
               {% else %}
@@ -779,16 +783,24 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     <div class="bg-white p-4 rounded shadow mt-4">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-lg font-semibold">Results</h2>
-        {% if request.user.is_superuser %}
+        {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
           {% if candidate.registration_category == 'Informal' or candidate.registration_category == "Worker's PAS" or candidate.registration_category == 'Workers PAS' %}
             {% if results and results.count %}
-              <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+              {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' %}
+                <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+              {% else %}
+                <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Only IT and Admin can edit marks">Edit Marks</button>
+              {% endif %}
             {% else %}
               <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
             {% endif %}
           {% elif candidate.registration_category == 'Modular' %}
             {% if results and results.count %}
-              <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+              {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' %}
+                <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+              {% else %}
+                <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Only IT and Admin can edit marks">Edit Marks</button>
+              {% endif %}
             {% elif module_enrollments.count > 0 %}
               <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
             {% else %}
@@ -797,7 +809,11 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
             {% endif %}
           {% else %}
             {% if results and results.count %}
-              <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+              {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' %}
+                <a href="{% url 'edit_result' candidate.id %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
+              {% else %}
+                <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Only IT and Admin can edit marks">Edit Marks</button>
+              {% endif %}
             {% elif level_enrollment %}
               <a href="{% url 'add_result' candidate.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
             {% else %}

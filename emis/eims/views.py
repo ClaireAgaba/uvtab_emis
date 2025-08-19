@@ -5123,7 +5123,16 @@ def edit_result(request, id):
     from .models import Candidate, Result, Module, CandidateLevel, OccupationLevel, Paper, AssessmentSeries
     from .forms import ModularResultsForm, ResultForm, PaperResultsForm, WorkerPASPaperResultsForm
     candidate = get_object_or_404(Candidate, id=id)
-    if not request.user.is_superuser:
+    
+    # Check if user has edit permissions (superuser, IT, or Admin)
+    user_department = None
+    try:
+        staff = Staff.objects.get(user=request.user)
+        user_department = staff.department
+    except Staff.DoesNotExist:
+        pass
+    
+    if not (request.user.is_superuser or user_department in ['IT', 'Admin']):
         return redirect('candidate_view', id=candidate.id)
     reg_cat = getattr(candidate, 'registration_category', '').lower().strip()
     print('DEBUG edit_result: candidate', candidate, 'reg_cat', reg_cat)
@@ -5239,7 +5248,16 @@ def edit_result(request, id):
             form = PaperResultsForm(candidate=candidate, initial=initial)
         context['form'] = form
         context['is_paper_based'] = True
-        context['paper_mark_fields'] = [(paper, form[f'mark_{paper.id}']) for paper in getattr(form, 'papers', [])]
+        # Debug: Check if form has papers
+        print('DEBUG edit_result paper-based: form.papers:', getattr(form, 'papers', 'No papers attribute'))
+        if hasattr(form, 'papers') and form.papers:
+            context['paper_mark_fields'] = [(paper, form[f'mark_{paper.id}']) for paper in form.papers]
+            print('DEBUG edit_result paper-based: paper_mark_fields created for', len(form.papers), 'papers')
+        else:
+            print('DEBUG edit_result paper-based: No papers found, falling back to formal fields')
+            # Fallback to formal fields if no papers found
+            context['is_paper_based'] = False
+            context['is_modular'] = False
         return render(request, 'candidates/add_result.html', context)
     # --- END paper-based FORMAL edit logic ---
 
@@ -5387,10 +5405,14 @@ def edit_result(request, id):
         elif practical_result and getattr(practical_result, 'assessment_date', None):
             assessment_date = practical_result.assessment_date
         if assessment_date:
-            initial['month'] = assessment_date.month
-            initial['year'] = assessment_date.year
+            initial['month'] = str(assessment_date.month)
+            initial['year'] = str(assessment_date.year)
+        
+        print('DEBUG edit_result: initial values:', initial)
+        print('DEBUG edit_result: existing_theory:', existing_theory)
+        print('DEBUG edit_result: existing_practical:', existing_practical)
         if request.method == 'POST':
-            form = FormalResultsForm(request.POST, candidate=candidate, initial=initial)
+            form = FormalResultsForm(request.POST, candidate=candidate)
             if form.is_valid() and level:
                 theory_mark = form.cleaned_data.get('theory_mark')
                 practical_mark = form.cleaned_data.get('practical_mark')
@@ -5400,8 +5422,20 @@ def edit_result(request, id):
                     assessment_date_str = f"{year}-{month:02d}-01"
                 else:
                     assessment_date_str = None
+                # Determine if this is an update (same assessment date) or retake (different assessment date)
+                def get_edit_status(existing_result, new_assessment_date_str):
+                    if not existing_result:
+                        return ''  # New result, no status needed
+                    
+                    existing_date_str = existing_result.assessment_date.strftime('%Y-%m-%d') if existing_result.assessment_date else None
+                    if existing_date_str == new_assessment_date_str:
+                        return 'Updated'  # Same assessment series - mark correction/update
+                    else:
+                        return 'Retake'   # Different assessment series - actual retake
+                
                 # Only create a new Result if the mark has changed
                 if theory_result and theory_result.mark != theory_mark:
+                    edit_status = get_edit_status(theory_result, assessment_date_str)
                     Result.objects.create(
                         candidate=candidate,
                         level=level,
@@ -5409,7 +5443,7 @@ def edit_result(request, id):
                         result_type='formal',
                         mark=theory_mark,
                         assessment_date=assessment_date_str,
-                        status='Updated',
+                        status=edit_status,
                         user=request.user
                     )
                 elif not theory_result and theory_mark is not None:
@@ -5424,6 +5458,7 @@ def edit_result(request, id):
                         user=request.user
                     )
                 if practical_result and practical_result.mark != practical_mark:
+                    edit_status = get_edit_status(practical_result, assessment_date_str)
                     Result.objects.create(
                         candidate=candidate,
                         level=level,
@@ -5431,7 +5466,7 @@ def edit_result(request, id):
                         result_type='formal',
                         mark=practical_mark,
                         assessment_date=assessment_date_str,
-                        status='Updated',
+                        status=edit_status,
                         user=request.user
                     )
                 elif not practical_result:
@@ -5450,7 +5485,8 @@ def edit_result(request, id):
             form = FormalResultsForm(candidate=candidate, initial=initial)
         context['form'] = form
         context['is_modular'] = False
-        context['formal_mark_fields'] = [form['theory_mark'], form['practical_mark']]
+        # Note: template now uses form.field_name directly instead of formal_mark_fields array
+        return render(request, 'candidates/add_result.html', context)
     else:
         return render(request, 'candidates/add_result.html', context)
 
@@ -5646,32 +5682,43 @@ def add_result(request, id):
         else:
             if request.method == 'POST':
                 form = FormalResultsForm(request.POST, candidate=candidate)
+                print(f"DEBUG: Form data received: {request.POST}")
+                print(f"DEBUG: Form is_valid: {form.is_valid()}")
+                if not form.is_valid():
+                    print(f"DEBUG: Form errors: {form.errors}")
                 if form.is_valid():
                     from datetime import date
                     today = date.today()
                     assessment_date = today.strftime("%Y-%m-01")
                     theory_mark = form.cleaned_data.get('theory_mark')
                     practical_mark = form.cleaned_data.get('practical_mark')
+                    print(f"DEBUG: theory_mark = {theory_mark}, practical_mark = {practical_mark}")
+                    print(f"DEBUG: assessment_date = {assessment_date}")
+                    
                     # Save theory result (combined for the level)
                     if theory_mark is not None:
-                        Result.objects.update_or_create(
+                        result, created = Result.objects.update_or_create(
                             candidate=candidate,
                             level=level,
                             assessment_date=assessment_date,
                             assessment_type='theory',
                             result_type='formal',
-                            defaults={'mark': theory_mark}
+                            defaults={'mark': theory_mark, 'user': request.user}
                         )
+                        print(f"DEBUG: Theory result {'created' if created else 'updated'}: {result}")
+                    
                     # Save practical result (combined for the level)
                     if practical_mark is not None:
-                        Result.objects.update_or_create(
+                        result, created = Result.objects.update_or_create(
                             candidate=candidate,
                             level=level,
                             assessment_date=assessment_date,
                             assessment_type='practical',
                             result_type='formal',
-                            defaults={'mark': practical_mark}
+                            defaults={'mark': practical_mark, 'user': request.user}
                         )
+                        print(f"DEBUG: Practical result {'created' if created else 'updated'}: {result}")
+                    
                     return redirect('candidate_view', id=candidate.id)
             else:
                 form = FormalResultsForm(candidate=candidate)
@@ -6295,6 +6342,14 @@ def candidate_view(request, id):
         results_summary_for_display = enrollment_summary
         enrollment_history = enrollment_summary
 
+    # Get user department for access control
+    user_department = None
+    try:
+        staff = Staff.objects.get(user=request.user)
+        user_department = staff.department
+    except Staff.DoesNotExist:
+        pass
+
     context = {
         "candidate":          candidate,
         "level_enrollment":   level_enrollment,
@@ -6307,6 +6362,7 @@ def candidate_view(request, id):
         "results_summary": results_summary_for_display,  # New comprehensive results summary
         "level_has_results": level_has_results,
         "results_released": results_released,
+        "user_department": user_department,  # Add user department for access control
     }
     return render(request, "candidates/view.html", context)
 
