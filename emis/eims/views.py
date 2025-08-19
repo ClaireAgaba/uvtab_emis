@@ -5151,11 +5151,28 @@ def edit_result(request, id):
             return render(request, 'candidates/add_result.html', context)
         existing_results = Result.objects.filter(candidate=candidate, result_type='modular')
         if request.method == 'POST':
+            print(f'DEBUG modular edit POST: request.POST = {request.POST}')
             form = ModularResultsForm(request.POST, candidate=candidate)
+            print(f'DEBUG modular edit: form created, is_valid = {form.is_valid()}')
+            if not form.is_valid():
+                print(f'DEBUG modular edit: form errors = {form.errors}')
             if form.is_valid():
                 month = int(form.cleaned_data['month'])
                 year = int(form.cleaned_data['year'])
                 assessment_date = f"{year}-{month:02d}-01"
+                
+                # Find the matching assessment series for the month/year
+                assessment_series = AssessmentSeries.objects.filter(
+                    start_date__year=year,
+                    start_date__month=month
+                ).first()
+                
+                # If no matching series found, use candidate's current assessment series
+                if not assessment_series:
+                    assessment_series = candidate.assessment_series
+                
+                print(f'DEBUG modular edit: month={month}, year={year}, assessment_series={assessment_series}')
+                
                 for module in form.modules:
                     mark = form.cleaned_data.get(f'mark_{module.id}')
                     # Only create a new result if the mark has changed
@@ -5166,16 +5183,25 @@ def edit_result(request, id):
                         result_type='modular',
                     ).first()
                     if mark is not None and (not existing_result or existing_result.mark != mark):
+                        # Determine edit status for audit trail
+                        edit_status = 'Updated' if existing_result else ''
+                        if existing_result:
+                            existing_date_str = existing_result.assessment_date.strftime('%Y-%m-%d') if existing_result.assessment_date else None
+                            if existing_date_str != assessment_date:
+                                edit_status = 'Retake'  # Different assessment date = retake
+                        
                         Result.objects.create(
                             candidate=candidate,
                             module=module,
                             assessment_date=assessment_date,
+                            assessment_series=assessment_series,
                             result_type='modular',
                             assessment_type='practical',
                             mark=mark,
                             user=request.user,
-                            status='Updated' if existing_result else ''
+                            status=edit_status
                         )
+                        print(f'DEBUG modular edit: created result for module {module.code}, mark={mark}, status={edit_status}')
                 return redirect('candidate_view', id=candidate.id)
         else:
             # Prepopulate with existing marks if present
@@ -5329,54 +5355,6 @@ def edit_result(request, id):
         return render(request, 'candidates/add_result.html', context)
     # --- END Informal/Worker's PAS edit logic ---
 
-    if reg_cat == 'modular':
-        from .models import Module, CandidateModule
-        # Get all enrolled modules for this candidate
-        enrolled_modules = Module.objects.filter(candidatemodule__candidate=candidate)
-        if not enrolled_modules.exists():
-            context['form'] = None
-            context['error'] = 'Candidate is not enrolled in any modules.'
-            return render(request, 'candidates/add_result.html', context)
-        existing_results = Result.objects.filter(candidate=candidate, result_type='modular')
-        if request.method == 'POST':
-            form = ModularResultsForm(request.POST, candidate=candidate)
-            if form.is_valid():
-                month = int(form.cleaned_data['month'])
-                year = int(form.cleaned_data['year'])
-                assessment_date = f"{year}-{month:02d}-01"
-                for module in form.modules:
-                    mark = form.cleaned_data.get(f'mark_{module.id}')
-                    # Only create a new result if the mark has changed
-                    existing_result = Result.objects.filter(
-                        candidate=candidate,
-                        module=module,
-                        assessment_date=assessment_date,
-                        result_type='modular',
-                    ).first()
-                    if mark is not None and (not existing_result or existing_result.mark != mark):
-                        Result.objects.create(
-                            candidate=candidate,
-                            module=module,
-                            assessment_date=assessment_date,
-                            result_type='modular',
-                            assessment_type='practical',
-                            mark=mark,
-                            user=request.user,
-                            status='Updated' if existing_result else ''
-                        )
-                return redirect('candidate_view', id=candidate.id)
-        else:
-            # Prepopulate with existing marks if present
-            initial = {}
-            results_by_module = {r.module_id: r for r in existing_results}
-            for module in enrolled_modules:
-                result = results_by_module.get(module.id)
-                if result:
-                    initial[f'mark_{module.id}'] = result.mark
-            form = ModularResultsForm(candidate=candidate, initial=initial)
-        context['form'] = form
-        context['is_modular'] = True
-        context['module_mark_fields'] = [(module, form[f'mark_{module.id}']) for module in form.modules]
     elif reg_cat == 'formal':
         from .forms import FormalResultsForm
         from .models import Level, CandidateLevel

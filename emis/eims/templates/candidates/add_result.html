@@ -47,6 +47,27 @@
         </tbody>
       </table>
     {% elif is_modular %}
+      <!-- Assessment Month/Year for Modular -->
+      <div class="mb-6 p-4 border border-gray-300 rounded bg-gray-50">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold mb-1">Assessment Month</label>
+            {{ form.month }}
+            {% for error in form.month.errors %}
+              <div class="text-red-600 text-xs">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">Assessment Year</label>
+            {{ form.year }}
+            {% for error in form.year.errors %}
+              <div class="text-red-600 text-xs">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Module Marks Table -->
       <table class="min-w-full mb-6 border border-gray-300">
         <thead>
           <tr class="bg-gray-100">
@@ -58,7 +79,12 @@
           {% for module, mark_field in module_mark_fields %}
             <tr>
               <td class="py-2 px-4">{{ module.code }} - {{ module.name }}</td>
-              <td class="py-2 px-4">{{ mark_field }}</td>
+              <td class="py-2 px-4">
+                {{ mark_field }}
+                {% for error in mark_field.errors %}
+                  <div class="text-red-600 text-xs">{{ error }}</div>
+                {% endfor %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>
