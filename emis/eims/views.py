@@ -6745,11 +6745,24 @@ def fix_candidate_photo_orientation(candidate, dry_run=False):
                             return True
                         
                         # Apply rotation based on EXIF orientation
-                        if orientation_value == 3:
+                        # Handle all 8 EXIF orientation values
+                        if orientation_value == 2:
+                            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+                            orientation_applied = True
+                        elif orientation_value == 3:
                             img = img.rotate(180, expand=True)
+                            orientation_applied = True
+                        elif orientation_value == 4:
+                            img = img.transpose(Image.FLIP_TOP_BOTTOM)
+                            orientation_applied = True
+                        elif orientation_value == 5:
+                            img = img.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
                             orientation_applied = True
                         elif orientation_value == 6:
                             img = img.rotate(270, expand=True)
+                            orientation_applied = True
+                        elif orientation_value == 7:
+                            img = img.rotate(270, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
                             orientation_applied = True
                         elif orientation_value == 8:
                             img = img.rotate(90, expand=True)

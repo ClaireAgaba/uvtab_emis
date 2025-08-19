@@ -20,6 +20,11 @@ class Command(BaseCommand):
             type=int,
             help='Fix orientation for a specific candidate ID only',
         )
+        parser.add_argument(
+            '--verbose',
+            action='store_true',
+            help='Show detailed information about each candidate processed',
+        )
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
@@ -39,6 +44,7 @@ class Command(BaseCommand):
         
         fixed_count = 0
         error_count = 0
+        error_details = []
         
         for candidate in candidates:
             try:
@@ -49,15 +55,27 @@ class Command(BaseCommand):
                     )
             except Exception as e:
                 error_count += 1
-                self.stdout.write(
-                    self.style.ERROR(f'❌ Error fixing photo for candidate {candidate.id}: {str(e)}')
-                )
+                error_msg = f'❌ Error fixing photo for candidate {candidate.id} ({candidate.full_name}): {str(e)}'
+                error_details.append(error_msg)
+                self.stdout.write(self.style.ERROR(error_msg))
         
         self.stdout.write(
             self.style.SUCCESS(
                 f'\nCompleted! Fixed: {fixed_count}, Errors: {error_count}, Total checked: {total_candidates}'
             )
         )
+        
+        # Show error details if any
+        if error_details:
+            self.stdout.write(self.style.WARNING('\n📋 Error Details:'))
+            for error_detail in error_details:
+                self.stdout.write(f'   {error_detail}')
+            
+            self.stdout.write(self.style.WARNING('\n💡 Common causes of errors:'))
+            self.stdout.write('   • Photo file missing from disk')
+            self.stdout.write('   • Corrupted image files')
+            self.stdout.write('   • Permission issues accessing files')
+            self.stdout.write('   • Invalid image format or metadata')
 
     def fix_candidate_photo(self, candidate, dry_run=False):
         """Fix orientation for a single candidate's photo"""
@@ -90,11 +108,24 @@ class Command(BaseCommand):
                                 return True
                             
                             # Apply rotation based on EXIF orientation
-                            if orientation_value == 3:
+                            # Handle all 8 EXIF orientation values
+                            if orientation_value == 2:
+                                img = img.transpose(Image.FLIP_LEFT_RIGHT)
+                                orientation_applied = True
+                            elif orientation_value == 3:
                                 img = img.rotate(180, expand=True)
+                                orientation_applied = True
+                            elif orientation_value == 4:
+                                img = img.transpose(Image.FLIP_TOP_BOTTOM)
+                                orientation_applied = True
+                            elif orientation_value == 5:
+                                img = img.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
                                 orientation_applied = True
                             elif orientation_value == 6:
                                 img = img.rotate(270, expand=True)
+                                orientation_applied = True
+                            elif orientation_value == 7:
+                                img = img.rotate(270, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
                                 orientation_applied = True
                             elif orientation_value == 8:
                                 img = img.rotate(90, expand=True)
