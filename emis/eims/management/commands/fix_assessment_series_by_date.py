@@ -2,11 +2,13 @@
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.utils import OperationalError
 from eims.models import Result, Candidate, AssessmentSeries, CandidateLevel, CandidateModule, CandidatePaper
 from collections import defaultdict
 import logging
 from datetime import datetime
 import calendar
+import time
 
 logger = logging.getLogger(__name__)
 

@@ -5529,8 +5529,8 @@ def generate_verified_results(request, id):
     else:
         elements.append(Paragraph("<b>No results recorded for this candidate.</b>", bold_style))
     
-    # Push footer to bottom of page 1 - perfect fit like image 2
-    elements.append(Spacer(1, 2.2*inch))  # Fine-tuned spacer for beautiful footer positioning
+    # Push footer to bottom of page 1 - static positioning to ensure signature always appears
+    elements.append(Spacer(1, 1.8*inch))  # Reduced spacer to ensure footer fits on page
     
     # Footer section (like image 2) - smaller fonts and better alignment
     # Add footer text with smaller fonts
@@ -6048,7 +6048,92 @@ def generate_testimonial(request, id):
     else:
         elements.append(Paragraph("<b>No results recorded for this candidate.</b>", bold_style))
     
-    # NO FOOTER - as requested (this is the key difference from verified results)
+    # Push footer to bottom of page 1 - static positioning to ensure signature always appears
+    elements.append(Spacer(1, 1.8*inch))  # Reduced spacer to ensure footer fits on page
+    
+    # Footer section (like image 2) - smaller fonts and better alignment
+    # Add footer text with smaller fonts
+    footer_text1 = Paragraph("THIS IS NOT A TRANSCRIPT", 
+                            ParagraphStyle('FooterBold', parent=bold_style, fontSize=8, alignment=TA_LEFT, leading=10))
+    footer_text2 = Paragraph("OFFICIAL TRANSCRIPT SHALL BE ISSUED AS SOON AS IT IS READY", 
+                            ParagraphStyle('FooterItalic', parent=normal_style, fontSize=7, fontName='Helvetica-Oblique', alignment=TA_LEFT, leading=9))
+    footer_text3 = Paragraph("*The medium of instruction is ENGLISH*", 
+                            ParagraphStyle('FooterItalic', parent=normal_style, fontSize=7, fontName='Helvetica-Oblique', alignment=TA_LEFT, leading=9))
+    footer_text4 = Paragraph("ANY ALTERATIONS WHATSOEVER RENDERS THIS VERIFICATION INVALID", 
+                            ParagraphStyle('FooterBold', parent=bold_style, fontSize=7, alignment=TA_LEFT, leading=9))
+    footer_text5 = Paragraph("See Reverse for Key Grades", 
+                            ParagraphStyle('FooterReverse', parent=normal_style, fontSize=7, alignment=TA_LEFT, leading=9))
+    
+    # ES Signature - smaller size to match image 2
+    es_signature = None
+    try:
+        signature_path = '/home/claire/Desktop/projects/emis/emis/eims/static/images/es_signature.jpg'
+        es_signature = RLImage(signature_path, width=1.2*inch, height=0.6*inch)
+        es_signature.hAlign = 'RIGHT'
+    except Exception:
+        es_signature = None
+    
+    # Create footer layout like image 2
+    if es_signature:
+        # Left footer text block
+        footer_left = [
+            footer_text1,
+            footer_text2, 
+            footer_text3,
+            Spacer(1, 0.05*inch),
+            footer_text4,
+            footer_text5
+        ]
+        
+        # Right signature block - well aligned signature and text
+        signature_text = Paragraph("EXECUTIVE SECRETARY<br/>Not Valid Without Official Stamp", 
+                                  ParagraphStyle('SignatureText', parent=normal_style, fontSize=6, alignment=TA_CENTER, leading=8))
+        
+        # Create signature section with proper alignment
+        signature_section = Table([
+            [es_signature],
+            [signature_text]
+        ], colWidths=[2.2*inch])
+        
+        signature_section.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'CENTER'),  # Center signature image
+            ('ALIGN', (0,1), (0,1), 'CENTER'),  # Center signature text
+            ('VALIGN', (0,0), (0,0), 'BOTTOM'), # Align signature to bottom
+            ('VALIGN', (0,1), (0,1), 'TOP'),    # Align text to top
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ]))
+        
+        # Create table with proper alignment like image 2
+        footer_table = Table([
+            [footer_left, signature_section]
+        ], colWidths=[4.8*inch, 2.2*inch])
+        
+        footer_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'RIGHT'),
+            ('VALIGN', (0,0), (0,0), 'BOTTOM'),  # Align footer text to bottom
+            ('VALIGN', (1,0), (1,0), 'BOTTOM'),  # Align signature to bottom
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        
+        elements.append(footer_table)
+    else:
+        # Fallback without signature image - smaller fonts
+        elements.append(footer_text1)
+        elements.append(footer_text2)
+        elements.append(footer_text3)
+        elements.append(Spacer(1, 0.05*inch))
+        elements.append(footer_text4)
+        elements.append(footer_text5)
+        elements.append(Spacer(1, 0.1*inch))
+        elements.append(Paragraph("EXECUTIVE SECRETARY<br/>Not Valid Without Official Stamp", 
+                                 ParagraphStyle('SignatureText', parent=normal_style, fontSize=6, alignment=TA_CENTER)))
     
     # Add page break for grading system back page
     from reportlab.platypus import PageBreak
