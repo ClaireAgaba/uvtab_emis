@@ -5145,43 +5145,6 @@ def get_registration_category_display(registration_category):
         # Return original if not recognized
         return registration_category
 
-def get_formal_level_info(candidate):
-    """
-    Get level information for Formal candidates and determine if level is module-based or paper-based
-    Returns: (candidate_level, is_module_based)
-    """
-    candidate_level = None
-    is_module_based = False
-    
-    reg_cat = getattr(candidate, 'registration_category', '').lower()
-    
-    if reg_cat == 'formal':
-        # Get the level this candidate enrolled for and was assessed in
-        from .models import CandidateLevel
-        candidate_levels = CandidateLevel.objects.filter(candidate=candidate).select_related('level')
-        if candidate_levels.exists():
-            candidate_level = candidate_levels.first().level
-            
-            # For formal candidates, check if results have modules vs papers
-            from .models import Result
-            results = Result.objects.filter(candidate=candidate)
-            has_modules = results.filter(module__isnull=False).exists()
-            has_papers = results.filter(paper__isnull=False).exists()
-            
-            # Determine if module-based:
-            # - If has modules and no papers: definitely module-based
-            # - If has both modules and papers: prefer module-based (mixed case)
-            # - If has only papers: paper-based
-            # - If has neither: default to module-based for formal candidates
-            if has_modules:
-                is_module_based = True  # Prefer module-based if modules exist
-            elif not has_papers and not has_modules:
-                is_module_based = True  # Default to module-based for formal candidates with no results
-            else:
-                is_module_based = False  # Only papers, use paper-based
-    
-    return candidate_level, is_module_based
-
 
 @login_required
 def generate_verified_results(request, id):
@@ -5190,9 +5153,6 @@ def generate_verified_results(request, id):
     Matches the reference layout with UVTAB logo, clean bio data, and organized results table.
     """
     candidate = Candidate.objects.select_related('occupation', 'assessment_center').get(id=id)
-    
-    # Get level information for Formal candidates
-    candidate_level, is_module_based = get_formal_level_info(candidate)
     
     # Get all results for this candidate
     results = Result.objects.filter(candidate=candidate).select_related(
@@ -5345,7 +5305,6 @@ def generate_verified_results(request, id):
     ]
     
     # Add level information for Formal candidates
-    reg_cat = getattr(candidate, 'registration_category', '').lower()
     if reg_cat == 'formal' and candidate_level:
         bio_left_content.append(f"<b>LEVEL:</b> {candidate_level.name}")
     elif reg_cat == 'formal':
@@ -5409,57 +5368,42 @@ def generate_verified_results(request, id):
         total_results = results.count()
         overall_success = passed_results == total_results and total_results > 0
         
-        # Check if formal candidate has only Theory/Practical (no actual modules or papers)
-        formal_theory_practical_only = False
-        if reg_cat == 'formal':
-            has_actual_modules = results.filter(module__isnull=False).exists()
-            has_actual_papers = results.filter(paper__isnull=False).exists()
-            formal_theory_practical_only = not has_actual_modules and not has_actual_papers
-        
-        if formal_theory_practical_only:
-            # Simplified layout for Formal candidates with only Theory/Practical assessments
+        if reg_cat == 'modular':
+            # Modular layout - Year and Module structure like image2
             elements.append(Paragraph("<b>ASSESSMENT RESULTS</b>", 
                                      ParagraphStyle('ResultsHeader', parent=bold_style, alignment=TA_CENTER)))
             elements.append(Spacer(1, 0.1*inch))
             
-            # Create simplified results table (only Assessment Type, Grade, Comment)
-            results_data = [
-                [Paragraph("<b>ASSESSMENT TYPE</b>", bold_style),
-                 Paragraph("<b>GRADE</b>", bold_style),
-                 Paragraph("<b>COMMENT</b>", bold_style)]
-            ]
+            # Group by assessment series (year) and modules
+            from collections import defaultdict
+            year_modules = defaultdict(lambda: defaultdict(list))
             
             for result in results:
-                assessment_type = result.get_assessment_type_display() if hasattr(result, 'get_assessment_type_display') else "Practical"
-                grade = result.grade
-                comment = result.comment if result.comment else ""
-                
-                results_data.append([assessment_type, grade, comment])
-        
-        elif reg_cat == 'modular' or (reg_cat == 'formal' and is_module_based):
-            # Module-based layout - for Modular candidates and Formal module-based levels
-            elements.append(Paragraph("<b>ASSESSMENT RESULTS</b>", 
-                                     ParagraphStyle('ResultsHeader', parent=bold_style, alignment=TA_CENTER)))
-            elements.append(Spacer(1, 0.1*inch))
+                year = result.assessment_series.name if result.assessment_series else "Unknown Year"
+                module_name = f"{result.module.code} - {result.module.name}" if result.module else "Unknown Module"
+                year_modules[year][module_name].append(result)
             
-            # Create module-based results table (no Paper Code/Name columns)
-            results_data = [
-                [Paragraph("<b>MODULE NAME</b>", bold_style), 
-                 Paragraph("<b>ASSESSMENT TYPE</b>", bold_style),
-                 Paragraph("<b>GRADE</b>", bold_style),
-                 Paragraph("<b>COMMENT</b>", bold_style)]
-            ]
+            # Create modular results table
+            results_data = []
             
-            for result in results:
-                module_name = result.module.name if result.module else ""
-                assessment_type = result.get_assessment_type_display() if hasattr(result, 'get_assessment_type_display') else "Practical"
-                grade = result.grade
-                comment = result.comment if result.comment else ""
-                
-                results_data.append([module_name, assessment_type, grade, comment])
+            # Add table headers once
+            results_data.append([Paragraph("<b>MODULE NAME</b>", bold_style), 
+                               Paragraph("<b>ASSESSMENT TYPE</b>", bold_style),
+                               Paragraph("<b>GRADE</b>", bold_style),
+                               Paragraph("<b>COMMENT</b>", bold_style)])
+            
+            for year, modules in year_modules.items():
+                for module_name, module_results in modules.items():
+                    for result in module_results:
+                        module_name = result.module.name if result.module else ""
+                        assessment_type = result.get_assessment_type_display() if hasattr(result, 'get_assessment_type_display') else "Practical"
+                        grade = result.grade
+                        comment = result.comment if result.comment else ""
+                        
+                        results_data.append([module_name, assessment_type, grade, comment])
         
         else:
-            # Paper-based layout - for Formal paper-based levels and Informal candidates
+            # Formal/Informal layout - Paper-based
             elements.append(Paragraph("<b>ASSESSMENT RESULTS</b>", 
                                      ParagraphStyle('ResultsHeader', parent=bold_style, alignment=TA_CENTER)))
             elements.append(Spacer(1, 0.1*inch))
@@ -5467,8 +5411,7 @@ def generate_verified_results(request, id):
             results_data = [
                 [Paragraph("<b>Paper Code</b>", bold_style), 
                  Paragraph("<b>Paper Name</b>", bold_style),
-                 Paragraph("<b>Level</b>", bold_style),
-                 Paragraph("<b>Assessment<br/>Type</b>", bold_style), 
+                 Paragraph("<b>Assessment Type</b>", bold_style), 
                  Paragraph("<b>Grade</b>", bold_style),
                  Paragraph("<b>Comment</b>", bold_style)]
             ]
@@ -5476,23 +5419,17 @@ def generate_verified_results(request, id):
             for result in results:
                 paper_code = result.paper.code if result.paper else (result.module.code if result.module else "")
                 paper_name = result.paper.name if result.paper else (result.module.name if result.module else "")
-                level_name = result.level.name if result.level else ""
                 assessment_type = result.get_assessment_type_display()
                 grade = result.grade
                 comment = result.comment if result.comment else ""
                 
-                results_data.append([paper_code, Paragraph(paper_name, normal_style), level_name, assessment_type, grade, comment])
+                results_data.append([paper_code, paper_name, assessment_type, grade, comment])
         
         # Create and style the results table
-        if formal_theory_practical_only:
-            # Simplified layout for Theory/Practical-only Formal candidates (3 columns)
-            results_table = Table(results_data, colWidths=[2.0*inch, 1.0*inch, 3.0*inch])
-        elif reg_cat == 'modular' or (reg_cat == 'formal' and is_module_based):
-            # Module-based layout (modular or formal module-based) (4 columns)
+        if reg_cat == 'modular':
             results_table = Table(results_data, colWidths=[2.5*inch, 1.5*inch, 0.8*inch, 1.2*inch])
         else:
-            # Paper-based layout (formal paper-based or informal) (5 columns)
-            results_table = Table(results_data, colWidths=[0.8*inch, 3.2*inch, 0.8*inch, 1.2*inch, 0.7*inch, 1.3*inch])
+            results_table = Table(results_data, colWidths=[1.2*inch, 2.2*inch, 1.2*inch, 0.8*inch, 1.1*inch])
         
         results_table.setStyle(TableStyle([
             # Header styling
@@ -5500,31 +5437,30 @@ def generate_verified_results(request, id):
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
             ('FONTSIZE', (0,0), (-1,-1), 10),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             
             # Table borders - only for results table
             ('GRID', (0,0), (-1,-1), 1, colors.black),
-            ('LEFTPADDING', (0,0), (-1,-1), 6),
-            ('RIGHTPADDING', (0,0), (-1,-1), 6),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ]))
         
         elements.append(results_table)
         elements.append(Spacer(1, 0.2*inch))
         
-        # Success/Failure summary comment - skip for modular candidates
-        if not (reg_cat == 'modular' or (reg_cat == 'formal' and is_module_based) or reg_cat == 'informal'):
-            if overall_success:
-                comment_text = "Comment: Successful"
-                comment_style = ParagraphStyle('Success', parent=bold_style, 
-                                             textColor=colors.green, alignment=TA_CENTER)
-            else:
-                comment_text = "Comment: Not successful"
-                comment_style = ParagraphStyle('Failure', parent=bold_style, 
-                                             textColor=colors.red, alignment=TA_CENTER)
-            
-            elements.append(Paragraph(comment_text, comment_style))
+        # Success/Failure summary comment
+        if overall_success:
+            comment_text = "Comment: Successful"
+            comment_style = ParagraphStyle('Success', parent=bold_style, 
+                                         textColor=colors.green, alignment=TA_CENTER)
+        else:
+            comment_text = "Comment: Not successful"
+            comment_style = ParagraphStyle('Failure', parent=bold_style, 
+                                         textColor=colors.red, alignment=TA_CENTER)
+        
+        elements.append(Paragraph(comment_text, comment_style))
         
     else:
         elements.append(Paragraph("<b>No results recorded for this candidate.</b>", bold_style))
@@ -5717,9 +5653,6 @@ def generate_testimonial(request, id):
     """
     candidate = get_object_or_404(Candidate, id=id)
     
-    # Get level information for Formal candidates
-    candidate_level, is_module_based = get_formal_level_info(candidate)
-    
     # Security check: Prevent testimonial generation if results haven't been released
     is_center_rep = request.user.groups.filter(name='CenterRep').exists()
     candidate_series = candidate.assessment_series
@@ -5852,13 +5785,6 @@ def generate_testimonial(request, id):
         f"<b>{programme_label}</b> {candidate.occupation.name if candidate.occupation else ''}"
     ]
     
-    # Add level information for Formal candidates
-    reg_cat = getattr(candidate, 'registration_category', '').lower()
-    if reg_cat == 'formal' and candidate_level:
-        bio_left_content.append(f"<b>LEVEL:</b> {candidate_level.name}")
-    elif reg_cat == 'formal':
-        bio_left_content.append(f"<b>LEVEL:</b> N/A")
-    
     bio_right_content = [
         f"<b>NATIONALITY:</b> {nationality}",
         f"<b>BIRTHDATE:</b> {birthdate}",
@@ -5917,34 +5843,7 @@ def generate_testimonial(request, id):
         total_results = results.count()
         overall_success = passed_results == total_results and total_results > 0
         
-        # Check if formal candidate has only Theory/Practical (no actual modules or papers) - same as verified results
-        formal_theory_practical_only = False
-        if reg_cat == 'formal':
-            has_actual_modules = results.filter(module__isnull=False).exists()
-            has_actual_papers = results.filter(paper__isnull=False).exists()
-            formal_theory_practical_only = not has_actual_modules and not has_actual_papers
-        
-        if formal_theory_practical_only:
-            # Simplified layout for Formal candidates with only Theory/Practical assessments
-            elements.append(Paragraph("<b>ASSESSMENT RESULTS</b>", 
-                                     ParagraphStyle('ResultsHeader', parent=bold_style, alignment=TA_CENTER)))
-            elements.append(Spacer(1, 0.1*inch))
-            
-            # Create simplified results table (only Assessment Type, Grade, Comment)
-            results_data = [
-                [Paragraph("<b>ASSESSMENT TYPE</b>", bold_style),
-                 Paragraph("<b>GRADE</b>", bold_style),
-                 Paragraph("<b>COMMENT</b>", bold_style)]
-            ]
-            
-            for result in results:
-                assessment_type = result.get_assessment_type_display() if hasattr(result, 'get_assessment_type_display') else "Practical"
-                grade = result.grade
-                comment = result.comment if result.comment else ""
-                
-                results_data.append([assessment_type, grade, comment])
-        
-        elif reg_cat == 'modular':
+        if reg_cat == 'modular':
             # Modular layout - Module structure
             elements.append(Paragraph("<b>ASSESSMENT RESULTS</b>", 
                                      ParagraphStyle('ResultsHeader', parent=bold_style, alignment=TA_CENTER)))
@@ -5987,8 +5886,7 @@ def generate_testimonial(request, id):
             results_data = [
                 [Paragraph("<b>Paper Code</b>", bold_style), 
                  Paragraph("<b>Paper Name</b>", bold_style),
-                 Paragraph("<b>Level</b>", bold_style),
-                 Paragraph("<b>Assessment<br/>Type</b>", bold_style), 
+                 Paragraph("<b>Assessment Type</b>", bold_style), 
                  Paragraph("<b>Grade</b>", bold_style),
                  Paragraph("<b>Comment</b>", bold_style)]
             ]
@@ -5996,23 +5894,17 @@ def generate_testimonial(request, id):
             for result in results:
                 paper_code = result.paper.code if result.paper else (result.module.code if result.module else "")
                 paper_name = result.paper.name if result.paper else (result.module.name if result.module else "")
-                level_name = result.level.name if result.level else ""
                 assessment_type = result.get_assessment_type_display()
                 grade = result.grade
                 comment = result.comment if result.comment else ""
                 
-                results_data.append([paper_code, Paragraph(paper_name, normal_style), level_name, assessment_type, grade, comment])
+                results_data.append([paper_code, paper_name, assessment_type, grade, comment])
         
         # Create and style the results table (same as verified results)
-        if formal_theory_practical_only:
-            # Simplified layout for Theory/Practical-only Formal candidates (3 columns)
-            results_table = Table(results_data, colWidths=[2.0*inch, 1.0*inch, 3.0*inch])
-        elif reg_cat == 'modular' or (reg_cat == 'formal' and is_module_based):
-            # Module-based layout (modular or formal module-based) (4 columns)
+        if reg_cat == 'modular':
             results_table = Table(results_data, colWidths=[2.5*inch, 1.5*inch, 0.8*inch, 1.2*inch])
         else:
-            # Paper-based layout (formal paper-based or informal) (5 columns)
-            results_table = Table(results_data, colWidths=[0.8*inch, 3.2*inch, 0.8*inch, 1.2*inch, 0.7*inch, 1.3*inch])
+            results_table = Table(results_data, colWidths=[1.2*inch, 2.2*inch, 1.2*inch, 0.8*inch, 1.1*inch])
         
         results_table.setStyle(TableStyle([
             # Header styling
@@ -6020,31 +5912,30 @@ def generate_testimonial(request, id):
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
             ('FONTSIZE', (0,0), (-1,-1), 10),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             
             # Table borders - only for results table
             ('GRID', (0,0), (-1,-1), 1, colors.black),
-            ('LEFTPADDING', (0,0), (-1,-1), 6),
-            ('RIGHTPADDING', (0,0), (-1,-1), 6),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ]))
         
         elements.append(results_table)
         elements.append(Spacer(1, 0.2*inch))
         
-        # Success/Failure summary comment - skip for modular candidates
-        if not (reg_cat == 'modular' or (reg_cat == 'formal' and is_module_based) or reg_cat == 'informal'):
-            if overall_success:
-                comment_text = "Comment: Successful"
-                comment_style = ParagraphStyle('Success', parent=bold_style, 
-                                             textColor=colors.green, alignment=TA_CENTER)
-            else:
-                comment_text = "Comment: Not successful"
-                comment_style = ParagraphStyle('NotSuccess', parent=bold_style, 
-                                             textColor=colors.red, alignment=TA_CENTER)
-            
-            elements.append(Paragraph(comment_text, comment_style))
+        # Success/Failure summary comment (same as verified results)
+        if overall_success:
+            comment_text = "Comment: Successful"
+            comment_style = ParagraphStyle('Success', parent=bold_style, 
+                                         textColor=colors.green, alignment=TA_CENTER)
+        else:
+            comment_text = "Comment: Not successful"
+            comment_style = ParagraphStyle('NotSuccess', parent=bold_style, 
+                                         textColor=colors.red, alignment=TA_CENTER)
+        
+        elements.append(Paragraph(comment_text, comment_style))
     else:
         elements.append(Paragraph("<b>No results recorded for this candidate.</b>", bold_style))
     
@@ -11313,9 +11204,11 @@ def candidate_portal_view(request, id):
     candidate = get_object_or_404(Candidate, id=id)
 
     # Check if results have been released for the candidate's assessment series
-    # Use same logic as regular candidate view - candidates should see results like non-center-reps
+    # For candidate portal, always check results release status
     candidate_series = candidate.assessment_series
-    results_released = candidate_series and candidate_series.results_released or True  # Candidates can always see their results
+    results_released = False
+    if candidate_series:
+        results_released = candidate_series.results_released
     
     # Get candidate results
     results = Result.objects.filter(candidate=candidate).select_related('level', 'module', 'paper').order_by('assessment_date')
@@ -11356,51 +11249,6 @@ def candidate_portal_view(request, id):
     # Determine if candidate has any results
     has_results = results.exists() if results_released else False
     
-    # Create results_summary for template (required for Worker's PAS/Informal display)
-    from .models import Level
-    results_summary_for_display = []
-    
-    if results.exists():
-        # Get all levels that have results
-        all_results_levels = results.values('level_id', 'level__name').distinct()
-        
-        # Create comprehensive results summary including historical results
-        levels_processed = set()
-        for level_data in all_results_levels:
-            level_id = level_data['level_id']
-            
-            # Skip if we've already processed this level
-            if level_id in levels_processed:
-                continue
-            levels_processed.add(level_id)
-            
-            level = Level.objects.get(id=level_id)
-            
-            # Get all results for this level
-            level_results = results.filter(level_id=level_id)
-            
-            # Group results by module, then by paper
-            modules_with_results = {}
-            for result in level_results:
-                module_id = result.module.id
-                if module_id not in modules_with_results:
-                    modules_with_results[module_id] = {
-                        'module': result.module,
-                        'papers': set(),  # Use set to avoid duplicate papers
-                        'results': []
-                    }
-                modules_with_results[module_id]['papers'].add(result.paper)
-                modules_with_results[module_id]['results'].append(result)
-            
-            # Convert paper sets back to lists
-            for module_data in modules_with_results.values():
-                module_data['papers'] = list(module_data['papers'])
-            
-            results_summary_for_display.append({
-                'level': level,
-                'modules': list(modules_with_results.values())
-            })
-    
     context = {
         'candidate': candidate,
         'results': results,
@@ -11412,7 +11260,6 @@ def candidate_portal_view(request, id):
         'results_by_module': results_by_module,
         'results_by_paper': results_by_paper,
         'has_results': has_results,
-        'results_summary': results_summary_for_display,  # Required for template display
         'is_candidate_portal': True,  # Flag to indicate this is candidate portal view
         'is_center_rep': False,  # Candidates are not center reps
     }
