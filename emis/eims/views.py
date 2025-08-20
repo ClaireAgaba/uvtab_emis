@@ -5345,27 +5345,21 @@ def generate_verified_results(request, id):
             # Create modular results table
             results_data = []
             
+            # Add table headers once
+            results_data.append([Paragraph("<b>MODULE NAME</b>", bold_style), 
+                               Paragraph("<b>ASSESSMENT TYPE</b>", bold_style),
+                               Paragraph("<b>GRADE</b>", bold_style),
+                               Paragraph("<b>COMMENT</b>", bold_style)])
+            
             for year, modules in year_modules.items():
-                # Year header
-                results_data.append([Paragraph(f"<b>Year {year}</b>", bold_style), "", "", "", ""])
-                results_data.append([Paragraph("<b>CODE</b>", bold_style), 
-                                   Paragraph("<b>SUBJECT NAME</b>", bold_style),
-                                   Paragraph("<b>CU</b>", bold_style), 
-                                   Paragraph("<b>GRADE</b>", bold_style),
-                                   Paragraph("<b>COMMENT</b>", bold_style)])
-                
                 for module_name, module_results in modules.items():
                     for result in module_results:
-                        code = result.module.code if result.module else ""
-                        subject = result.module.name if result.module else ""
-                        cu = "4"  # Default CU value
+                        module_name = result.module.name if result.module else ""
+                        assessment_type = result.get_assessment_type_display() if hasattr(result, 'get_assessment_type_display') else "Practical"
                         grade = result.grade
                         comment = result.comment if result.comment else ""
                         
-                        results_data.append([code, subject, cu, grade, comment])
-                
-                # Add spacer row between years
-                results_data.append(["", "", "", "", ""])
+                        results_data.append([module_name, assessment_type, grade, comment])
         
         else:
             # Formal/Informal layout - Paper-based
@@ -5392,7 +5386,7 @@ def generate_verified_results(request, id):
         
         # Create and style the results table
         if reg_cat == 'modular':
-            results_table = Table(results_data, colWidths=[1.2*inch, 2.5*inch, 0.8*inch, 0.8*inch, 1.2*inch])
+            results_table = Table(results_data, colWidths=[2.5*inch, 1.5*inch, 0.8*inch, 1.2*inch])
         else:
             results_table = Table(results_data, colWidths=[1.2*inch, 2.2*inch, 1.2*inch, 0.8*inch, 1.1*inch])
         
