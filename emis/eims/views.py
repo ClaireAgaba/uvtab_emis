@@ -5177,7 +5177,11 @@ def generate_verified_results(request, id):
     # Try to add UVTAB logo
     uvtab_logo = None
     try:
-        logo_path = '/home/claire/Desktop/projects/emis/emis/eims/static/images/uvtab_logo.png'
+        from django.conf import settings
+        import os
+        logo_path = os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab_logo.png')
+        if not os.path.exists(logo_path):
+            raise FileNotFoundError('Logo file not found')
         uvtab_logo = RLImage(logo_path, width=0.8*inch, height=0.8*inch)
         uvtab_logo.hAlign = 'CENTER'
     except Exception:
@@ -5560,7 +5564,11 @@ def generate_testimonial(request, id):
     # Try to add UVTAB logo
     uvtab_logo = None
     try:
-        logo_path = '/home/claire/Desktop/projects/emis/emis/eims/static/images/uvtab_logo.png'
+        from django.conf import settings
+        import os
+        logo_path = os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab_logo.png')
+        if not os.path.exists(logo_path):
+            raise FileNotFoundError('Logo file not found')
         uvtab_logo = RLImage(logo_path, width=0.8*inch, height=0.8*inch)
         uvtab_logo.hAlign = 'CENTER'
     except Exception:
