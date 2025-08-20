@@ -29,7 +29,7 @@
 <body class="bg-gray-100 min-h-screen">
 
     <!-- Navbar -->
-    {% if user.is_authenticated %}
+    {% if user.is_authenticated and not is_candidate_portal %}
     <nav class="bg-white shadow-md">
         <div class="px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
