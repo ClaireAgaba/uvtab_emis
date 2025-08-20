@@ -5515,6 +5515,93 @@ def generate_verified_results(request, id):
         elements.append(Paragraph("EXECUTIVE SECRETARY<br/>Not Valid Without Official Stamp", 
                                  ParagraphStyle('SignatureText', parent=normal_style, fontSize=6, alignment=TA_CENTER)))
     
+    # Add page break for grading system back page
+    from reportlab.platypus import PageBreak
+    elements.append(PageBreak())
+    
+    # Back page: UVTAB header and grading system
+    elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", 
+                             ParagraphStyle('BackPageTitle', parent=bold_style, fontSize=14, alignment=TA_CENTER)))
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Add UVTAB logo on back page
+    if uvtab_logo:
+        try:
+            uvtab_logo_back = RLImage(logo_path, width=0.8*inch, height=0.8*inch)
+            uvtab_logo_back.hAlign = 'CENTER'
+            elements.append(uvtab_logo_back)
+            elements.append(Spacer(1, 0.3*inch))
+        except:
+            pass
+    
+    # Grading system tables
+    elements.append(Paragraph("<b>KEY : GRADING</b>", 
+                             ParagraphStyle('GradingTitle', parent=bold_style, fontSize=12, alignment=TA_CENTER)))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Theory and Practical grading bands
+    theory_bands = [
+        ('85-100', 'A+'),
+        ('80-84', 'A'),
+        ('70-79', 'B'),
+        ('60-69', 'B-'),
+        ('50-59', 'C'),
+        ('40-49', 'C-'),
+        ('30-39', 'D'),
+        ('0-29', 'E'),
+    ]
+    practical_bands = [
+        ('90-100', 'A+'),
+        ('85-89', 'A'),
+        ('75-84', 'B+'),
+        ('65-74', 'B'),
+        ('60-64', 'B-'),
+        ('55-59', 'C'),
+        ('50-54', 'C-'),
+        ('40-49', 'D'),
+        ('30-39', 'D-'),
+        ('0-29', 'E'),
+    ]
+    
+    # Create grading table
+    grading_data = [
+        [Paragraph('<b>THEORY SCORES</b>', bold_style), '', Paragraph('<b>PRACTICAL SCORES</b>', bold_style), ''],
+        [Paragraph('<b>Grade</b>', bold_style), Paragraph('<b>Scores%</b>', bold_style), 
+         Paragraph('<b>Grade</b>', bold_style), Paragraph('<b>Scores%</b>', bold_style)],
+    ]
+    
+    # Add grading rows
+    max_rows = max(len(theory_bands), len(practical_bands))
+    for i in range(max_rows):
+        t_score, t_grade = theory_bands[i] if i < len(theory_bands) else ('', '')
+        p_score, p_grade = practical_bands[i] if i < len(practical_bands) else ('', '')
+        grading_data.append([
+            Paragraph(t_grade, normal_style), Paragraph(t_score, normal_style),
+            Paragraph(p_grade, normal_style), Paragraph(p_score, normal_style)
+        ])
+    
+    grading_table = Table(grading_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+    grading_table.setStyle(TableStyle([
+        ('SPAN', (0,0), (1,0)),  # Span THEORY SCORES
+        ('SPAN', (2,0), (3,0)),  # Span PRACTICAL SCORES
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('BACKGROUND', (0,0), (-1,1), colors.lightgrey),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+    
+    elements.append(grading_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Pass mark information
+    elements.append(Paragraph('<b>Pass mark is 50% in theory and 65% in practical assessment</b>', 
+                             ParagraphStyle('PassMark', parent=bold_style, fontSize=11, alignment=TA_CENTER)))
+    
     # Build PDF
     doc.build(elements)
     buffer.seek(0)
@@ -5816,6 +5903,93 @@ def generate_testimonial(request, id):
         elements.append(Paragraph("<b>No results recorded for this candidate.</b>", bold_style))
     
     # NO FOOTER - as requested (this is the key difference from verified results)
+    
+    # Add page break for grading system back page
+    from reportlab.platypus import PageBreak
+    elements.append(PageBreak())
+    
+    # Back page: UVTAB header and grading system
+    elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", 
+                             ParagraphStyle('BackPageTitle', parent=bold_style, fontSize=14, alignment=TA_CENTER)))
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Add UVTAB logo on back page
+    if uvtab_logo:
+        try:
+            uvtab_logo_back = RLImage(logo_path, width=0.8*inch, height=0.8*inch)
+            uvtab_logo_back.hAlign = 'CENTER'
+            elements.append(uvtab_logo_back)
+            elements.append(Spacer(1, 0.3*inch))
+        except:
+            pass
+    
+    # Grading system tables
+    elements.append(Paragraph("<b>KEY : GRADING</b>", 
+                             ParagraphStyle('GradingTitle', parent=bold_style, fontSize=12, alignment=TA_CENTER)))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Theory and Practical grading bands
+    theory_bands = [
+        ('85-100', 'A+'),
+        ('80-84', 'A'),
+        ('70-79', 'B'),
+        ('60-69', 'B-'),
+        ('50-59', 'C'),
+        ('40-49', 'C-'),
+        ('30-39', 'D'),
+        ('0-29', 'E'),
+    ]
+    practical_bands = [
+        ('90-100', 'A+'),
+        ('85-89', 'A'),
+        ('75-84', 'B+'),
+        ('65-74', 'B'),
+        ('60-64', 'B-'),
+        ('55-59', 'C'),
+        ('50-54', 'C-'),
+        ('40-49', 'D'),
+        ('30-39', 'D-'),
+        ('0-29', 'E'),
+    ]
+    
+    # Create grading table
+    grading_data = [
+        [Paragraph('<b>THEORY SCORES</b>', bold_style), '', Paragraph('<b>PRACTICAL SCORES</b>', bold_style), ''],
+        [Paragraph('<b>Grade</b>', bold_style), Paragraph('<b>Scores%</b>', bold_style), 
+         Paragraph('<b>Grade</b>', bold_style), Paragraph('<b>Scores%</b>', bold_style)],
+    ]
+    
+    # Add grading rows
+    max_rows = max(len(theory_bands), len(practical_bands))
+    for i in range(max_rows):
+        t_score, t_grade = theory_bands[i] if i < len(theory_bands) else ('', '')
+        p_score, p_grade = practical_bands[i] if i < len(practical_bands) else ('', '')
+        grading_data.append([
+            Paragraph(t_grade, normal_style), Paragraph(t_score, normal_style),
+            Paragraph(p_grade, normal_style), Paragraph(p_score, normal_style)
+        ])
+    
+    grading_table = Table(grading_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+    grading_table.setStyle(TableStyle([
+        ('SPAN', (0,0), (1,0)),  # Span THEORY SCORES
+        ('SPAN', (2,0), (3,0)),  # Span PRACTICAL SCORES
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('BACKGROUND', (0,0), (-1,1), colors.lightgrey),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+    
+    elements.append(grading_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Pass mark information
+    elements.append(Paragraph('<b>Pass mark is 50% in theory and 65% in practical assessment</b>', 
+                             ParagraphStyle('PassMark', parent=bold_style, fontSize=11, alignment=TA_CENTER)))
     
     # Build PDF
     doc.build(elements)
