@@ -772,7 +772,13 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
                     <td class="py-2 px-4">{{ result.paper.name }}</td>
                     <td class="py-2 px-4">{{ result.paper.type|capfirst }}</td>
                     <td class="py-2 px-4">{{ result.assessment_type }}</td>
-                    <td class="py-2 px-4">{{ result.mark }}</td>
+                    <td class="py-2 px-4">
+                      {% if is_center_rep %}
+                        <span class="text-green-600 font-medium">Uploaded</span>
+                      {% else %}
+                        {{ result.mark }}
+                      {% endif %}
+                    </td>
                     <td class="py-2 px-4">
                       {% if result.grade == 'Ms' or result.grade == 'F' %}
                         <span class="text-red-600 font-semibold">{{ result.grade }}</span>
@@ -900,7 +906,13 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
                </td>
                <td class="px-3 py-2 border">{{ result.get_result_type_display }}</td>
                <td class="px-3 py-2 border">{{ result.get_assessment_type_display }}</td>
-               <td class="px-3 py-2 border">{{ result.mark }}</td>
+               <td class="px-3 py-2 border">
+                  {% if is_center_rep %}
+                    <span class="text-green-600 font-medium">Uploaded</span>
+                  {% else %}
+                    {{ result.mark }}
+                  {% endif %}
+                </td>
                <td class="px-3 py-2 border">
                  {% if result.grade == 'Ms' or result.grade == 'F' %}
                    <span class="text-red-600 font-semibold">{{ result.grade }}</span>

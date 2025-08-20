@@ -5528,6 +5528,16 @@ def generate_testimonial(request, id):
     Generate a testimonial PDF for center users - identical to verified results but with different heading and no footer
     """
     candidate = get_object_or_404(Candidate, id=id)
+    
+    # Security check: Prevent testimonial generation if results haven't been released
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    candidate_series = candidate.assessment_series
+    results_released = candidate_series and candidate_series.results_released or not is_center_rep
+    
+    if not results_released:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Testimonial cannot be generated. Results have not been released for this assessment series.")
+    
     results = candidate.result_set.all().order_by('assessment_series__name', 'level__name', 'module__name')
     
     # Create PDF buffer
