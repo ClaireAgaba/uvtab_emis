@@ -4874,7 +4874,7 @@ def generate_transcript(request, id):
             ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('FONTSIZE', (0,0), (-1,-1), 10),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
             ('LEFTPADDING', (0,0), (-1,-1), 3),
             ('RIGHTPADDING', (0,0), (-1,-1), 3),
             ('TOPPADDING', (0,0), (-1,-1), 2),
@@ -4987,7 +4987,7 @@ def generate_transcript(request, id):
                 ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                ('FONTSIZE', (0,0), (-1,-1), 10),
+                ('FONTSIZE', (0,0), (-1,-1), 8),
                 ('LEFTPADDING', (0,0), (-1,-1), 3),
                 ('RIGHTPADDING', (0,0), (-1,-1), 3),
                 ('TOPPADDING', (0,0), (-1,-1), 2),
@@ -5048,7 +5048,7 @@ def generate_transcript(request, id):
                 ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                ('FONTSIZE', (0,0), (-1,-1), 10),
+                ('FONTSIZE', (0,0), (-1,-1), 8),
                 ('LEFTPADDING', (0,0), (-1,-1), 3),
                 ('RIGHTPADDING', (0,0), (-1,-1), 3),
                 ('TOPPADDING', (0,0), (-1,-1), 2),
@@ -5498,16 +5498,16 @@ def generate_verified_results(request, id):
             # Header styling
             ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,-1), 10),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
             
             # Table borders - only for results table
             ('GRID', (0,0), (-1,-1), 1, colors.black),
-            ('LEFTPADDING', (0,0), (-1,-1), 6),
-            ('RIGHTPADDING', (0,0), (-1,-1), 6),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ]))
         
         elements.append(results_table)
@@ -6018,16 +6018,16 @@ def generate_testimonial(request, id):
             # Header styling
             ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,-1), 10),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
             
             # Table borders - only for results table
             ('GRID', (0,0), (-1,-1), 1, colors.black),
-            ('LEFTPADDING', (0,0), (-1,-1), 6),
-            ('RIGHTPADDING', (0,0), (-1,-1), 6),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ]))
         
         elements.append(results_table)
