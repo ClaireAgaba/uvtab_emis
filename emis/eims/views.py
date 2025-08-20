@@ -5519,6 +5519,294 @@ def generate_verified_results(request, id):
     return response
 
 
+def generate_testimonial(request, id):
+    """
+    Generate a testimonial PDF for center users - identical to verified results but with different heading and no footer
+    """
+    candidate = get_object_or_404(Candidate, id=id)
+    results = candidate.result_set.all().order_by('assessment_series__name', 'level__name', 'module__name')
+    
+    # Create PDF buffer
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch,
+                          leftMargin=0.75*inch, rightMargin=0.75*inch)
+    elements = []
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Title'], 
+                                fontSize=16, spaceAfter=12, alignment=TA_CENTER, fontName='Helvetica-Bold')
+    header_style = ParagraphStyle('CustomHeader', parent=styles['Heading1'], 
+                                 fontSize=14, spaceAfter=6, alignment=TA_CENTER, fontName='Helvetica-Bold')
+    normal_style = styles['Normal']
+    bold_style = ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')
+    bio_style = ParagraphStyle('Bio', parent=normal_style, 
+                              fontSize=11, spaceAfter=3, fontName='Helvetica-Bold')
+    
+    # Main title first - above everything
+    elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", 
+                             ParagraphStyle('MainTitle', parent=bold_style, fontSize=14, alignment=TA_CENTER)))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # UVTAB Header with Logo and contact info (matching verified results)
+    # Left contact info
+    left_contact = Paragraph("Plot 7, Valley Drive, Ntinda-Kyambogo Road<br/>Email: info@uvtab.go.ug", 
+                            ParagraphStyle('LeftContact', parent=normal_style, fontSize=10, alignment=TA_LEFT))
+    
+    # Right contact info  
+    right_contact = Paragraph("P.O.Box 1499, Kampala,<br/>Tel: +256 414 289786", 
+                             ParagraphStyle('RightContact', parent=normal_style, fontSize=10, alignment=TA_RIGHT))
+    
+    # Try to add UVTAB logo
+    uvtab_logo = None
+    try:
+        logo_path = '/home/claire/Desktop/projects/emis/emis/eims/static/images/uvtab_logo.png'
+        uvtab_logo = RLImage(logo_path, width=0.8*inch, height=0.8*inch)
+        uvtab_logo.hAlign = 'CENTER'
+    except Exception:
+        uvtab_logo = None
+    
+    # Create header table
+    if uvtab_logo:
+        header_table = Table([
+            [left_contact, uvtab_logo, right_contact]
+        ], colWidths=[2.5*inch, 1.5*inch, 2.5*inch])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'CENTER'),
+            ('ALIGN', (2,0), (2,0), 'RIGHT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        elements.append(header_table)
+    else:
+        # Fallback without logo
+        header_table = Table([
+            [left_contact, right_contact]
+        ], colWidths=[3.5*inch, 3.5*inch])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'RIGHT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        elements.append(header_table)
+    
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Main heading - "TESTIMONIAL" instead of "VERIFICATION OF RESULTS"
+    elements.append(Paragraph("TESTIMONIAL", header_style))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Candidate photo (if available) - positioned on left like verified results
+    photo = None
+    if getattr(candidate, 'passport_photo', None) and candidate.passport_photo.name:
+        try:
+            photo_path = candidate.passport_photo.path
+            photo = RLImage(photo_path, width=1.0*inch, height=1.2*inch)
+            photo.hAlign = 'LEFT'
+        except Exception:
+            photo = None
+    
+    # Candidate details - Clean layout like verified results
+    from django_countries import countries
+    nationality = candidate.nationality if getattr(candidate, 'nationality', None) else ""
+    if nationality and len(nationality) == 2 and nationality.isupper():
+        code_to_name = dict(countries)
+        nationality = code_to_name.get(nationality, nationality)
+    
+    # Format dates - use today's date for print date
+    from datetime import datetime
+    birthdate = candidate.date_of_birth.strftime('%d %b, %Y') if getattr(candidate, 'date_of_birth', None) else ""
+    print_date = datetime.now().strftime('%d-%b-%Y')  # Today's date
+    
+    # Determine programme/occupation label based on registration category
+    reg_cat = getattr(candidate, 'registration_category', '').lower()
+    if reg_cat == 'informal':
+        programme_label = "OCCUPATION:"
+    else:
+        programme_label = "PROGRAMME:"
+    
+    # Bio data layout with photo on left (same as verified results)
+    bio_left_content = [
+        f"<b>NAME:</b> {candidate.full_name}",
+        f"<b>REG NO:</b> {candidate.reg_number}",
+        f"<b>GENDER:</b> {candidate.get_gender_display() if hasattr(candidate, 'get_gender_display') else candidate.gender}",
+        f"<b>CENTER NAME:</b> {candidate.assessment_center.center_name if candidate.assessment_center else ''}",
+        f"<b>REGISTRATION CATEGORY:</b> {candidate.registration_category if hasattr(candidate, 'registration_category') else ''}",
+        f"<b>{programme_label}</b> {candidate.occupation.name if candidate.occupation else ''}"
+    ]
+    
+    bio_right_content = [
+        f"<b>NATIONALITY:</b> {nationality}",
+        f"<b>BIRTHDATE:</b> {birthdate}",
+        f"<b>PRINTDATE:</b> {print_date}",
+        "",
+        "",
+        ""
+    ]
+    
+    # Create bio paragraphs with smaller font like verified results
+    bio_left = Paragraph("<br/>".join(bio_left_content), 
+                        ParagraphStyle('BioLeft', parent=normal_style, fontSize=9, leading=11))
+    bio_right = Paragraph("<br/>".join(bio_right_content), 
+                         ParagraphStyle('BioRight', parent=normal_style, fontSize=9, leading=11))
+    
+    # Layout with photo on left side like verified results
+    if photo:
+        # Photo and bio data in same row like verified results
+        bio_table = Table([
+            [photo, bio_left, bio_right]
+        ], colWidths=[1.2*inch, 3.0*inch, 2.8*inch])
+        bio_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'LEFT'),
+            ('ALIGN', (2,0), (2,0), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+    else:
+        # No photo - just bio data in two columns
+        bio_table = Table([
+            [bio_left, bio_right]
+        ], colWidths=[3.5*inch, 3.5*inch])
+        bio_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+    
+    elements.append(bio_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Results table - Only this table should have borders (same as verified results)
+    if results.exists():
+        # Group results by assessment series and organize by registration category
+        reg_cat = getattr(candidate, 'registration_category', '').lower()
+        
+        # Determine overall success
+        passed_results = results.filter(comment='Successful').count()
+        total_results = results.count()
+        overall_success = passed_results == total_results and total_results > 0
+        
+        if reg_cat == 'modular':
+            # Modular layout - Module structure
+            elements.append(Paragraph("<b>ASSESSMENT RESULTS</b>", 
+                                     ParagraphStyle('ResultsHeader', parent=bold_style, alignment=TA_CENTER)))
+            elements.append(Spacer(1, 0.1*inch))
+            
+            # Group by assessment series (year) and modules
+            from collections import defaultdict
+            year_modules = defaultdict(lambda: defaultdict(list))
+            
+            for result in results:
+                year = result.assessment_series.name if result.assessment_series else "Unknown Year"
+                module_name = f"{result.module.code} - {result.module.name}" if result.module else "Unknown Module"
+                year_modules[year][module_name].append(result)
+            
+            # Create modular results table
+            results_data = []
+            
+            # Add table headers once
+            results_data.append([Paragraph("<b>MODULE NAME</b>", bold_style), 
+                               Paragraph("<b>ASSESSMENT TYPE</b>", bold_style),
+                               Paragraph("<b>GRADE</b>", bold_style),
+                               Paragraph("<b>COMMENT</b>", bold_style)])
+            
+            for year, modules in year_modules.items():
+                for module_name, module_results in modules.items():
+                    for result in module_results:
+                        module_name = result.module.name if result.module else ""
+                        assessment_type = result.get_assessment_type_display() if hasattr(result, 'get_assessment_type_display') else "Practical"
+                        grade = result.grade
+                        comment = result.comment if result.comment else ""
+                        
+                        results_data.append([module_name, assessment_type, grade, comment])
+        
+        else:
+            # Formal/Informal layout - Paper-based
+            elements.append(Paragraph("<b>ASSESSMENT RESULTS</b>", 
+                                     ParagraphStyle('ResultsHeader', parent=bold_style, alignment=TA_CENTER)))
+            elements.append(Spacer(1, 0.1*inch))
+            
+            results_data = [
+                [Paragraph("<b>Paper Code</b>", bold_style), 
+                 Paragraph("<b>Paper Name</b>", bold_style),
+                 Paragraph("<b>Assessment Type</b>", bold_style), 
+                 Paragraph("<b>Grade</b>", bold_style),
+                 Paragraph("<b>Comment</b>", bold_style)]
+            ]
+            
+            for result in results:
+                paper_code = result.paper.code if result.paper else (result.module.code if result.module else "")
+                paper_name = result.paper.name if result.paper else (result.module.name if result.module else "")
+                assessment_type = result.get_assessment_type_display()
+                grade = result.grade
+                comment = result.comment if result.comment else ""
+                
+                results_data.append([paper_code, paper_name, assessment_type, grade, comment])
+        
+        # Create and style the results table (same as verified results)
+        if reg_cat == 'modular':
+            results_table = Table(results_data, colWidths=[2.5*inch, 1.5*inch, 0.8*inch, 1.2*inch])
+        else:
+            results_table = Table(results_data, colWidths=[1.2*inch, 2.2*inch, 1.2*inch, 0.8*inch, 1.1*inch])
+        
+        results_table.setStyle(TableStyle([
+            # Header styling
+            ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 10),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            
+            # Table borders - only for results table
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        
+        elements.append(results_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Success/Failure summary comment (same as verified results)
+        if overall_success:
+            comment_text = "Comment: Successful"
+            comment_style = ParagraphStyle('Success', parent=bold_style, 
+                                         textColor=colors.green, alignment=TA_CENTER)
+        else:
+            comment_text = "Comment: Not successful"
+            comment_style = ParagraphStyle('NotSuccess', parent=bold_style, 
+                                         textColor=colors.red, alignment=TA_CENTER)
+        
+        elements.append(Paragraph(comment_text, comment_style))
+    else:
+        elements.append(Paragraph("<b>No results recorded for this candidate.</b>", bold_style))
+    
+    # NO FOOTER - as requested (this is the key difference from verified results)
+    
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="testimonial_{candidate.reg_number}.pdf"'
+    return response
+
+
 def candidate_create(request):
     reg_cat = request.GET.get('registration_category')
     form_kwargs = {'user': request.user}
@@ -6774,6 +7062,7 @@ def candidate_view(request, id):
         "level_has_results": level_has_results,
         "results_released": results_released,
         "user_department": user_department,  # Add user department for access control
+        "is_center_rep": is_center_rep,  # Add center rep status for template access control
     }
     return render(request, "candidates/view.html", context)
 
