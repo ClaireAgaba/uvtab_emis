@@ -5124,6 +5124,407 @@ def generate_transcript(request, id):
     return response
 
 
+@login_required
+def generate_verified_results(request, id):
+    """
+    Generate a PDF verification of results document for a candidate.
+    Matches the reference layout with UVTAB logo, clean bio data, and organized results table.
+    """
+    candidate = Candidate.objects.select_related('occupation', 'assessment_center').get(id=id)
+    
+    # Get all results for this candidate
+    results = Result.objects.filter(candidate=candidate).select_related(
+        'level', 'module', 'paper', 'assessment_series', 'user'
+    ).order_by('assessment_date', 'level', 'module', 'paper')
+    
+    # PDF generation
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            title="Verification of Results",
+                            rightMargin=0.5*inch, leftMargin=0.5*inch,
+                            topMargin=0.3*inch, bottomMargin=0.5*inch)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], 
+                                fontSize=16, spaceAfter=12, alignment=TA_CENTER,
+                                fontName='Helvetica-Bold')
+    header_style = ParagraphStyle('Header', parent=styles['Heading2'], 
+                                 fontSize=14, spaceAfter=8, alignment=TA_CENTER,
+                                 fontName='Helvetica-Bold')
+    normal_style = ParagraphStyle('Normal', parent=styles['Normal'], 
+                                 fontSize=10, spaceAfter=6)
+    bold_style = ParagraphStyle('Bold', parent=normal_style, 
+                               fontName='Helvetica-Bold')
+    bio_style = ParagraphStyle('Bio', parent=normal_style, 
+                              fontSize=11, spaceAfter=3, fontName='Helvetica-Bold')
+    
+    # Main title first - above everything
+    elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", 
+                             ParagraphStyle('MainTitle', parent=bold_style, fontSize=14, alignment=TA_CENTER)))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # UVTAB Header with Logo and contact info (matching image 2)
+    # Left contact info
+    left_contact = Paragraph("Plot 7, Valley Drive, Ntinda-Kyambogo Road<br/>Email: info@uvtab.go.ug", 
+                            ParagraphStyle('LeftContact', parent=normal_style, fontSize=10, alignment=TA_LEFT))
+    
+    # Right contact info  
+    right_contact = Paragraph("P.O.Box 1499, Kampala,<br/>Tel: +256 414 289786", 
+                             ParagraphStyle('RightContact', parent=normal_style, fontSize=10, alignment=TA_RIGHT))
+    
+    # Try to add UVTAB logo
+    uvtab_logo = None
+    try:
+        logo_path = '/home/claire/Desktop/projects/emis/emis/eims/static/images/uvtab_logo.png'
+        uvtab_logo = RLImage(logo_path, width=0.8*inch, height=0.8*inch)
+        uvtab_logo.hAlign = 'CENTER'
+    except Exception:
+        uvtab_logo = None
+    
+    # Create header table
+    if uvtab_logo:
+        header_table = Table([
+            [left_contact, uvtab_logo, right_contact]
+        ], colWidths=[2.5*inch, 1.5*inch, 2.5*inch])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'CENTER'),
+            ('ALIGN', (2,0), (2,0), 'RIGHT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        elements.append(header_table)
+    else:
+        # Fallback without logo
+        header_table = Table([
+            [left_contact, right_contact]
+        ], colWidths=[3.5*inch, 3.5*inch])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'RIGHT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        elements.append(header_table)
+    
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Main heading
+    elements.append(Paragraph("VERIFICATION OF RESULTS", header_style))
+    elements.append(Spacer(1, 0.1*inch))
+    elements.append(Paragraph("TO WHOM IT MAY CONCERN", 
+                             ParagraphStyle('Concern', parent=normal_style, alignment=TA_CENTER)))
+    elements.append(Spacer(1, 0.1*inch))
+    
+    # Verification text
+    verification_text = "This is to verify that this candidate registered and sat for UVTAB assessments with the following particulars and obtained the following"
+    elements.append(Paragraph(f"<i>{verification_text}</i>", 
+                             ParagraphStyle('Italic', parent=normal_style, alignment=TA_CENTER)))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Candidate photo (if available) - positioned on left like image 2
+    photo = None
+    if getattr(candidate, 'passport_photo', None) and candidate.passport_photo.name:
+        try:
+            photo_path = candidate.passport_photo.path
+            photo = RLImage(photo_path, width=1.0*inch, height=1.2*inch)
+            photo.hAlign = 'LEFT'
+        except Exception:
+            photo = None
+    
+    # Candidate details - Clean layout like image 2
+    from django_countries import countries
+    nationality = candidate.nationality if getattr(candidate, 'nationality', None) else ""
+    if nationality and len(nationality) == 2 and nationality.isupper():
+        code_to_name = dict(countries)
+        nationality = code_to_name.get(nationality, nationality)
+    
+    # Format dates - use today's date for print date
+    from datetime import datetime
+    birthdate = candidate.date_of_birth.strftime('%d %b, %Y') if getattr(candidate, 'date_of_birth', None) else ""
+    print_date = datetime.now().strftime('%d-%b-%Y')  # Today's date
+    
+    # Determine programme/occupation label based on registration category
+    reg_cat = getattr(candidate, 'registration_category', '').lower()
+    if reg_cat == 'informal':
+        programme_label = "OCCUPATION:"
+    else:
+        programme_label = "PROGRAMME:"
+    
+    # Bio data layout with photo on left (like image 2)
+    bio_left_content = [
+        f"<b>NAME:</b> {candidate.full_name}",
+        f"<b>REG NO:</b> {candidate.reg_number}",
+        f"<b>GENDER:</b> {candidate.get_gender_display() if hasattr(candidate, 'get_gender_display') else candidate.gender}",
+        f"<b>CENTER NAME:</b> {candidate.assessment_center.center_name if candidate.assessment_center else ''}",
+        f"<b>REGISTRATION CATEGORY:</b> {candidate.registration_category if hasattr(candidate, 'registration_category') else ''}",
+        f"<b>{programme_label}</b> {candidate.occupation.name if candidate.occupation else ''}"
+    ]
+    
+    bio_right_content = [
+        f"<b>NATIONALITY:</b> {nationality}",
+        f"<b>BIRTHDATE:</b> {birthdate}",
+        f"<b>PRINTDATE:</b> {print_date}",
+        "",
+        "",
+        ""
+    ]
+    
+    # Create bio paragraphs with smaller font like image 2
+    bio_left = Paragraph("<br/>".join(bio_left_content), 
+                        ParagraphStyle('BioLeft', parent=normal_style, fontSize=9, leading=11))
+    bio_right = Paragraph("<br/>".join(bio_right_content), 
+                         ParagraphStyle('BioRight', parent=normal_style, fontSize=9, leading=11))
+    
+    # Layout with photo on left side like image 2
+    if photo:
+        # Photo and bio data in same row like image 2
+        bio_table = Table([
+            [photo, bio_left, bio_right]
+        ], colWidths=[1.2*inch, 3.0*inch, 2.8*inch])
+        bio_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'LEFT'),
+            ('ALIGN', (2,0), (2,0), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+    else:
+        # No photo - just bio data in two columns
+        bio_table = Table([
+            [bio_left, bio_right]
+        ], colWidths=[3.5*inch, 3.5*inch])
+        bio_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+    
+    elements.append(bio_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Results table - Only this table should have borders
+    if results.exists():
+        # Group results by assessment series and organize by registration category
+        reg_cat = getattr(candidate, 'registration_category', '').lower()
+        
+        # Determine overall success
+        passed_results = results.filter(comment='Successful').count()
+        total_results = results.count()
+        overall_success = passed_results == total_results and total_results > 0
+        
+        if reg_cat == 'modular':
+            # Modular layout - Year and Module structure like image2
+            elements.append(Paragraph("<b>ASSESSMENT RESULTS</b>", 
+                                     ParagraphStyle('ResultsHeader', parent=bold_style, alignment=TA_CENTER)))
+            elements.append(Spacer(1, 0.1*inch))
+            
+            # Group by assessment series (year) and modules
+            from collections import defaultdict
+            year_modules = defaultdict(lambda: defaultdict(list))
+            
+            for result in results:
+                year = result.assessment_series.name if result.assessment_series else "Unknown Year"
+                module_name = f"{result.module.code} - {result.module.name}" if result.module else "Unknown Module"
+                year_modules[year][module_name].append(result)
+            
+            # Create modular results table
+            results_data = []
+            
+            for year, modules in year_modules.items():
+                # Year header
+                results_data.append([Paragraph(f"<b>Year {year}</b>", bold_style), "", "", "", ""])
+                results_data.append([Paragraph("<b>CODE</b>", bold_style), 
+                                   Paragraph("<b>SUBJECT NAME</b>", bold_style),
+                                   Paragraph("<b>CU</b>", bold_style), 
+                                   Paragraph("<b>GRADE</b>", bold_style),
+                                   Paragraph("<b>COMMENT</b>", bold_style)])
+                
+                for module_name, module_results in modules.items():
+                    for result in module_results:
+                        code = result.module.code if result.module else ""
+                        subject = result.module.name if result.module else ""
+                        cu = "4"  # Default CU value
+                        grade = result.grade
+                        comment = result.comment if result.comment else ""
+                        
+                        results_data.append([code, subject, cu, grade, comment])
+                
+                # Add spacer row between years
+                results_data.append(["", "", "", "", ""])
+        
+        else:
+            # Formal/Informal layout - Paper-based
+            elements.append(Paragraph("<b>ASSESSMENT RESULTS</b>", 
+                                     ParagraphStyle('ResultsHeader', parent=bold_style, alignment=TA_CENTER)))
+            elements.append(Spacer(1, 0.1*inch))
+            
+            results_data = [
+                [Paragraph("<b>Paper Code</b>", bold_style), 
+                 Paragraph("<b>Paper Name</b>", bold_style),
+                 Paragraph("<b>Assessment Type</b>", bold_style), 
+                 Paragraph("<b>Grade</b>", bold_style),
+                 Paragraph("<b>Comment</b>", bold_style)]
+            ]
+            
+            for result in results:
+                paper_code = result.paper.code if result.paper else (result.module.code if result.module else "")
+                paper_name = result.paper.name if result.paper else (result.module.name if result.module else "")
+                assessment_type = result.get_assessment_type_display()
+                grade = result.grade
+                comment = result.comment if result.comment else ""
+                
+                results_data.append([paper_code, paper_name, assessment_type, grade, comment])
+        
+        # Create and style the results table
+        if reg_cat == 'modular':
+            results_table = Table(results_data, colWidths=[1.2*inch, 2.5*inch, 0.8*inch, 0.8*inch, 1.2*inch])
+        else:
+            results_table = Table(results_data, colWidths=[1.2*inch, 2.2*inch, 1.2*inch, 0.8*inch, 1.1*inch])
+        
+        results_table.setStyle(TableStyle([
+            # Header styling
+            ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 10),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            
+            # Table borders - only for results table
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        
+        elements.append(results_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Success/Failure summary comment
+        if overall_success:
+            comment_text = "Comment: Successful"
+            comment_style = ParagraphStyle('Success', parent=bold_style, 
+                                         textColor=colors.green, alignment=TA_CENTER)
+        else:
+            comment_text = "Comment: Not successful"
+            comment_style = ParagraphStyle('Failure', parent=bold_style, 
+                                         textColor=colors.red, alignment=TA_CENTER)
+        
+        elements.append(Paragraph(comment_text, comment_style))
+        
+    else:
+        elements.append(Paragraph("<b>No results recorded for this candidate.</b>", bold_style))
+    
+    # Push footer to bottom of page 1 - perfect fit like image 2
+    elements.append(Spacer(1, 2.2*inch))  # Fine-tuned spacer for beautiful footer positioning
+    
+    # Footer section (like image 2) - smaller fonts and better alignment
+    # Add footer text with smaller fonts
+    footer_text1 = Paragraph("THIS IS NOT A TRANSCRIPT", 
+                            ParagraphStyle('FooterBold', parent=bold_style, fontSize=8, alignment=TA_LEFT, leading=10))
+    footer_text2 = Paragraph("OFFICIAL TRANSCRIPT SHALL BE ISSUED AS SOON AS IT IS READY", 
+                            ParagraphStyle('FooterItalic', parent=normal_style, fontSize=7, fontName='Helvetica-Oblique', alignment=TA_LEFT, leading=9))
+    footer_text3 = Paragraph("*The medium of instruction is ENGLISH*", 
+                            ParagraphStyle('FooterNote', parent=normal_style, fontSize=7, fontName='Helvetica-Oblique', alignment=TA_LEFT, leading=9))
+    footer_text4 = Paragraph("ANY ALTERATIONS WHATSOEVER RENDERS THIS VERIFICATION INVALID", 
+                            ParagraphStyle('FooterWarning', parent=bold_style, fontSize=7, alignment=TA_LEFT, leading=9))
+    footer_text5 = Paragraph("See Reverse for Key Grades", 
+                            ParagraphStyle('FooterReverse', parent=normal_style, fontSize=7, alignment=TA_LEFT, leading=9))
+    
+    # ES Signature - smaller size to match image 2
+    es_signature = None
+    try:
+        signature_path = '/home/claire/Desktop/projects/emis/emis/eims/static/images/es_signature.jpg'
+        es_signature = RLImage(signature_path, width=1.2*inch, height=0.6*inch)
+        es_signature.hAlign = 'RIGHT'
+    except Exception:
+        es_signature = None
+    
+    # Create footer layout like image 2
+    if es_signature:
+        # Left footer text block
+        footer_left = [
+            footer_text1,
+            footer_text2, 
+            footer_text3,
+            Spacer(1, 0.05*inch),
+            footer_text4,
+            footer_text5
+        ]
+        
+        # Right signature block - well aligned signature and text
+        signature_text = Paragraph("EXECUTIVE SECRETARY<br/>Not Valid Without Official Stamp", 
+                                  ParagraphStyle('SignatureText', parent=normal_style, fontSize=6, alignment=TA_CENTER, leading=8))
+        
+        # Create signature section with proper alignment
+        signature_section = Table([
+            [es_signature],
+            [signature_text]
+        ], colWidths=[2.2*inch])
+        
+        signature_section.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'CENTER'),  # Center signature image
+            ('ALIGN', (0,1), (0,1), 'CENTER'),  # Center signature text
+            ('VALIGN', (0,0), (0,0), 'BOTTOM'), # Align signature to bottom
+            ('VALIGN', (0,1), (0,1), 'TOP'),    # Align text to top
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ]))
+        
+        # Create table with proper alignment like image 2
+        footer_table = Table([
+            [footer_left, signature_section]
+        ], colWidths=[4.8*inch, 2.2*inch])
+        
+        footer_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'RIGHT'),
+            ('VALIGN', (0,0), (0,0), 'BOTTOM'),  # Align footer text to bottom
+            ('VALIGN', (1,0), (1,0), 'BOTTOM'),  # Align signature to bottom
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        
+        elements.append(footer_table)
+    else:
+        # Fallback without signature image - smaller fonts
+        elements.append(footer_text1)
+        elements.append(footer_text2)
+        elements.append(footer_text3)
+        elements.append(Spacer(1, 0.05*inch))
+        elements.append(footer_text4)
+        elements.append(footer_text5)
+        elements.append(Spacer(1, 0.1*inch))
+        elements.append(Paragraph("EXECUTIVE SECRETARY<br/>Not Valid Without Official Stamp", 
+                                 ParagraphStyle('SignatureText', parent=normal_style, fontSize=6, alignment=TA_CENTER)))
+    
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="verified_results_{candidate.reg_number}.pdf"'
+    return response
+
+
 def candidate_create(request):
     reg_cat = request.GET.get('registration_category')
     form_kwargs = {'user': request.user}

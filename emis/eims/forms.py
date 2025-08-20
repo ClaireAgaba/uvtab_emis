@@ -581,7 +581,7 @@ class CandidateForm(forms.ModelForm):
         elif is_refugee == 'False':
             return False
         else:
-            return None  # Empty selection
+            return False  # Default to False instead of None to satisfy NOT NULL constraint
 
     def clean(self):
         cleaned_data = super().clean()

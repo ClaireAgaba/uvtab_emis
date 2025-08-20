@@ -126,6 +126,12 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       <a href="{% url 'generate_transcript' candidate.id %}" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition" title="Download transcript">
          Print Transcript
       </a>
+      <a href="{% url 'generate_verified_results' candidate.id %}" class="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded shadow transition" title="Download verified results">
+         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+         </svg>
+         Verified Results
+      </a>
       <a href="#" class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow transition" title="View certificate">
          Certificate
       </a>

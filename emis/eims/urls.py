@@ -127,6 +127,7 @@ urlpatterns = [
     path('users/support-staff/<int:pk>/edit/', views.edit_support_staff, name='edit_support_staff'),
     path('candidates/<int:id>/add-regno-to-photo/', views.add_regno_to_photo, name='add_regno_to_photo'),
     path('candidates/<int:id>/transcript/', views.generate_transcript, name='generate_transcript'),
+    path('candidates/<int:id>/verified-results/', views.generate_verified_results, name='generate_verified_results'),
     path('statistics/', views.statistics_home, name='statistics_home'),
     path('statistics/assessment-series/<int:year>/<int:month>/', views.assessment_series_detail, name='assessment_series_detail'),
     path('statistics/assessment-series/<int:year>/<int:month>/report/', views.generate_performance_report, name='generate_performance_report'),
