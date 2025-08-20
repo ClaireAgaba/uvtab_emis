@@ -5481,7 +5481,7 @@ def generate_verified_results(request, id):
                 grade = result.grade
                 comment = result.comment if result.comment else ""
                 
-                results_data.append([paper_code, Paragraph(paper_name, normal_style), level_name, assessment_type, grade, comment])
+                results_data.append([paper_code, Paragraph(paper_name, normal_style), Paragraph(level_name, normal_style), assessment_type, grade, comment])
         
         # Create and style the results table
         if formal_theory_practical_only:
@@ -5492,7 +5492,7 @@ def generate_verified_results(request, id):
             results_table = Table(results_data, colWidths=[2.5*inch, 1.5*inch, 0.8*inch, 1.2*inch])
         else:
             # Paper-based layout (formal paper-based or informal) (5 columns)
-            results_table = Table(results_data, colWidths=[0.8*inch, 3.2*inch, 0.8*inch, 1.2*inch, 0.7*inch, 1.3*inch])
+            results_table = Table(results_data, colWidths=[0.8*inch, 3.0*inch, 1.0*inch, 1.2*inch, 0.7*inch, 1.3*inch])
         
         results_table.setStyle(TableStyle([
             # Header styling
@@ -6001,7 +6001,7 @@ def generate_testimonial(request, id):
                 grade = result.grade
                 comment = result.comment if result.comment else ""
                 
-                results_data.append([paper_code, Paragraph(paper_name, normal_style), level_name, assessment_type, grade, comment])
+                results_data.append([paper_code, Paragraph(paper_name, normal_style), Paragraph(level_name, normal_style), assessment_type, grade, comment])
         
         # Create and style the results table (same as verified results)
         if formal_theory_practical_only:
@@ -6012,7 +6012,7 @@ def generate_testimonial(request, id):
             results_table = Table(results_data, colWidths=[2.5*inch, 1.5*inch, 0.8*inch, 1.2*inch])
         else:
             # Paper-based layout (formal paper-based or informal) (5 columns)
-            results_table = Table(results_data, colWidths=[0.8*inch, 3.2*inch, 0.8*inch, 1.2*inch, 0.7*inch, 1.3*inch])
+            results_table = Table(results_data, colWidths=[0.8*inch, 3.0*inch, 1.0*inch, 1.2*inch, 0.7*inch, 1.3*inch])
         
         results_table.setStyle(TableStyle([
             # Header styling
