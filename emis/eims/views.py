@@ -11101,3 +11101,130 @@ def api_all_levels_modules_papers(request):
         return JsonResponse({'error': 'Occupation not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ===== CANDIDATE PORTAL VIEWS =====
+
+def candidate_portal_login(request):
+    """Candidate portal login using registration number as both username and password"""
+    from django.contrib import messages
+    
+    if request.method == 'POST':
+        reg_number = request.POST.get('reg_number', '').strip()
+        
+        if not reg_number:
+            messages.error(request, 'Please enter your registration number.')
+            return render(request, 'candidate_portal/login.html')
+        
+        try:
+            # Find candidate by registration number
+            candidate = Candidate.objects.get(reg_number__iexact=reg_number)
+            
+            # Store candidate info in session for authentication
+            request.session['candidate_id'] = candidate.id
+            request.session['candidate_portal'] = True
+            request.session['candidate_reg_number'] = candidate.reg_number
+            
+            # Redirect to candidate view
+            return redirect('candidate_portal_view', id=candidate.id)
+            
+        except Candidate.DoesNotExist:
+            messages.error(request, 'Invalid registration number. Please check and try again.')
+    
+    return render(request, 'candidate_portal/login.html')
+
+
+def candidate_portal_logout(request):
+    """Logout from candidate portal"""
+    # Clear candidate portal session data
+    if 'candidate_id' in request.session:
+        del request.session['candidate_id']
+    if 'candidate_portal' in request.session:
+        del request.session['candidate_portal']
+    if 'candidate_reg_number' in request.session:
+        del request.session['candidate_reg_number']
+    
+    from django.contrib import messages
+    messages.success(request, 'You have been logged out successfully.')
+    return redirect('candidate_portal_login')
+
+
+def candidate_portal_view(request, id):
+    """Candidate portal view - same as candidate_view but without edit/enroll/testimonial buttons"""
+    # Check if candidate is authenticated via portal
+    candidate_id = request.session.get('candidate_id')
+    if not candidate_id or not request.session.get('candidate_portal'):
+        return redirect('candidate_portal_login')
+    
+    # Ensure candidate can only view their own record
+    if int(candidate_id) != int(id):
+        from django.contrib import messages
+        messages.error(request, 'Access denied. You can only view your own results.')
+        return redirect('candidate_portal_view', id=candidate_id)
+    
+    print('DEBUG: candidate_portal_view called for candidate', id)
+    from .models import AssessmentCenter, Occupation, Result, CandidateLevel, CandidateModule, Paper, Module, CandidatePaper, AssessmentSeries
+    candidate = get_object_or_404(Candidate, id=id)
+
+    # Check if results have been released for the candidate's assessment series
+    # For candidate portal, always check results release status
+    candidate_series = candidate.assessment_series
+    results_released = False
+    if candidate_series:
+        results_released = candidate_series.results_released
+    
+    # Get candidate results
+    results = Result.objects.filter(candidate=candidate).select_related('level', 'module', 'paper').order_by('assessment_date')
+    
+    # Only show results if they have been released
+    if not results_released:
+        results = []
+    
+    # Get enrollment information
+    enrolled_levels = CandidateLevel.objects.filter(candidate=candidate).select_related('level')
+    enrolled_modules = CandidateModule.objects.filter(candidate=candidate).select_related('module')
+    enrolled_papers = CandidatePaper.objects.filter(candidate=candidate).select_related('paper', 'module')
+    
+    # Organize results by category
+    reg_cat = getattr(candidate, 'registration_category', '').lower()
+    
+    # Get results organized by structure
+    results_by_level = {}
+    results_by_module = {}
+    results_by_paper = {}
+    
+    for result in results:
+        if result.level:
+            if result.level.id not in results_by_level:
+                results_by_level[result.level.id] = []
+            results_by_level[result.level.id].append(result)
+        
+        if result.module:
+            if result.module.id not in results_by_module:
+                results_by_module[result.module.id] = []
+            results_by_module[result.module.id].append(result)
+        
+        if result.paper:
+            if result.paper.id not in results_by_paper:
+                results_by_paper[result.paper.id] = []
+            results_by_paper[result.paper.id].append(result)
+    
+    # Determine if candidate has any results
+    has_results = results.exists() if results_released else False
+    
+    context = {
+        'candidate': candidate,
+        'results': results,
+        'results_released': results_released,
+        'enrolled_levels': enrolled_levels,
+        'enrolled_modules': enrolled_modules,
+        'enrolled_papers': enrolled_papers,
+        'results_by_level': results_by_level,
+        'results_by_module': results_by_module,
+        'results_by_paper': results_by_paper,
+        'has_results': has_results,
+        'is_candidate_portal': True,  # Flag to indicate this is candidate portal view
+        'is_center_rep': False,  # Candidates are not center reps
+    }
+    
+    return render(request, 'candidates/view.html', context)

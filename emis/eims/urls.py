@@ -154,6 +154,11 @@ urlpatterns = [
     path('statistical-reports/', views.statistical_reports_home, name='statistical_reports'),
     path('statistical-reports/series/<int:pk>/', views.assessment_series_statistical_report, name='assessment_series_statistical_report'),
     
+    # Candidate Portal URLs
+    path('portal/', views.candidate_portal_login, name='candidate_portal_login'),
+    path('portal/logout/', views.candidate_portal_logout, name='candidate_portal_logout'),
+    path('portal/candidate/<int:id>/', views.candidate_portal_view, name='candidate_portal_view'),
+    
     # Sector URLs
     path('sectors/', sector_views.sector_list, name='sector_list'),
     path('sectors/create/', sector_views.sector_create, name='sector_create'),

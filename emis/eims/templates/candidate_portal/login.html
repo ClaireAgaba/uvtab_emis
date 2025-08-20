@@ -1,0 +1,94 @@
+{% load static %}
+{% load widget_tweaks %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UVTAB Candidate Portal - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8">
+            <!-- Header -->
+            <div class="text-center">
+                <img src="{% static 'images/uvtab_logo.png' %}" alt="UVTAB Logo" 
+                     class="mx-auto h-24 w-24 mb-6" 
+                     onerror="this.onerror=null;this.src='https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg';">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">Candidate Portal</h2>
+                <p class="text-lg text-gray-600 mb-1">Uganda Vocational & Technical Assessment Board</p>
+                <p class="text-sm text-gray-500">View Your Assessment Results</p>
+            </div>
+
+            <!-- Login Form -->
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="mb-4 p-4 rounded-lg {% if message.tags == 'error' %}bg-red-100 border border-red-400 text-red-700{% else %}bg-green-100 border border-green-400 text-green-700{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post" class="space-y-6">
+                    {% csrf_token %}
+                    
+                    <div>
+                        <label for="reg_number" class="block text-sm font-medium text-gray-700 mb-2">
+                            Registration Number
+                        </label>
+                        <input type="text" 
+                               name="reg_number" 
+                               id="reg_number"
+                               required 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                               placeholder="Enter your registration number"
+                               autocomplete="username">
+                    </div>
+
+                    <div>
+                        <button type="submit" 
+                                class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                            </svg>
+                            Access My Results
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Help Section -->
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="text-center">
+                        <h3 class="text-sm font-medium text-gray-900 mb-3">Need Help?</h3>
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <p>• Use your registration number exactly as it appears on your documents</p>
+                            <p>• Contact your assessment center if you don't know your registration number</p>
+                            <p>• Results are only available after official release by UVTAB</p>
+                        </div>
+                        
+                        <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                            <p class="text-xs text-blue-800">
+                                <strong>Support:</strong> Contact your assessment center or UVTAB for assistance
+                            </p>
+                        </div>
+                        
+                        <div class="mt-4 text-center">
+                            <a href="{% url 'login' %}" class="text-xs text-gray-500 hover:text-blue-600 underline">
+                                Staff/Admin Login →
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center text-xs text-gray-500">
+                <p>&copy; {{ "now"|date:"Y" }} Uganda Vocational & Technical Assessment Board</p>
+                <p>Education Management Information System</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
