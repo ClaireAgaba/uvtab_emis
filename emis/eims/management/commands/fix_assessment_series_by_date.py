@@ -160,7 +160,7 @@ class Command(BaseCommand):
                         # Fix candidate enrollment assessment series
                         if current_series != correct_series:
                             self.stdout.write(
-                                f'Candidate {candidate.id} ({candidate.first_name} {candidate.last_name}): '
+                                f'Candidate {candidate.id} ({candidate.full_name}): '
                                 f'Assessment Date: {assessment_date.strftime("%B %d, %Y")} '
                                 f'Current Series: {current_series.name if current_series else "None"} '
                                 f'→ Correct Series: {correct_series.name}'
