@@ -5548,7 +5548,9 @@ def generate_verified_results(request, id):
     # ES Signature - smaller size to match image 2
     es_signature = None
     try:
-        signature_path = '/home/claire/Desktop/projects/emis/emis/eims/static/images/es_signature.jpg'
+        # NEW:
+        from django.contrib.staticfiles import finders
+        signature_path = finders.find('images/es_signature.jpg')    
         es_signature = RLImage(signature_path, width=1.2*inch, height=0.6*inch)
         es_signature.hAlign = 'RIGHT'
     except Exception:
@@ -6067,7 +6069,9 @@ def generate_testimonial(request, id):
     # ES Signature - smaller size to match image 2
     es_signature = None
     try:
-        signature_path = '/home/claire/Desktop/projects/emis/emis/eims/static/images/es_signature.jpg'
+        # NEW:
+        from django.contrib.staticfiles import finders
+        signature_path = finders.find('images/es_signature.jpg')    
         es_signature = RLImage(signature_path, width=1.2*inch, height=0.6*inch)
         es_signature.hAlign = 'RIGHT'
     except Exception:
