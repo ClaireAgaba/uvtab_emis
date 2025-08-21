@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.utils import IntegrityError
 from eims.models import Occupation, Module, Paper, Sector, format_title_case
 
 
@@ -89,13 +90,35 @@ class Command(BaseCommand):
                     if old_name != new_name:
                         # Show the change - handle models with/without code field
                         identifier = getattr(record, 'code', f'ID:{record.pk}')
-                        self.stdout.write(
-                            f'  {model_name} {identifier}: "{old_name}" → "{new_name}"'
-                        )
                         
-                        # Update the record directly in database to avoid triggering save() method
-                        model_class.objects.filter(pk=record.pk).update(name=new_name)
-                        updated_count += 1
+                        # Check if the new name already exists in another record
+                        existing_record = model_class.objects.filter(name=new_name).exclude(pk=record.pk).first()
+                        
+                        if existing_record:
+                            # Skip this update to avoid unique constraint violation
+                            existing_identifier = getattr(existing_record, 'code', f'ID:{existing_record.pk}')
+                            self.stdout.write(
+                                self.style.WARNING(
+                                    f'  {model_name} {identifier}: "{old_name}" → "{new_name}" '
+                                    f'SKIPPED (conflicts with {existing_identifier})'
+                                )
+                            )
+                        else:
+                            try:
+                                # Update the record directly in database to avoid triggering save() method
+                                model_class.objects.filter(pk=record.pk).update(name=new_name)
+                                self.stdout.write(
+                                    f'  {model_name} {identifier}: "{old_name}" → "{new_name}"'
+                                )
+                                updated_count += 1
+                            except IntegrityError:
+                                # Handle race condition where another record was created during our check
+                                self.stdout.write(
+                                    self.style.WARNING(
+                                        f'  {model_name} {identifier}: "{old_name}" → "{new_name}" '
+                                        f'SKIPPED (unique constraint violation)'
+                                    )
+                                )
                     else:
                         # Name is already in correct format
                         identifier = getattr(record, 'code', f'ID:{record.pk}')
@@ -112,10 +135,24 @@ class Command(BaseCommand):
                 
                 if old_name != new_name:
                     identifier = getattr(record, 'code', f'ID:{record.pk}')
-                    self.stdout.write(
-                        f'  {model_name} {identifier}: "{old_name}" → "{new_name}"'
-                    )
-                    updated_count += 1
+                    
+                    # Check if the new name already exists in another record
+                    existing_record = model_class.objects.filter(name=new_name).exclude(pk=record.pk).first()
+                    
+                    if existing_record:
+                        # Show potential conflict
+                        existing_identifier = getattr(existing_record, 'code', f'ID:{existing_record.pk}')
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f'  {model_name} {identifier}: "{old_name}" → "{new_name}" '
+                                f'WOULD BE SKIPPED (conflicts with {existing_identifier})'
+                            )
+                        )
+                    else:
+                        self.stdout.write(
+                            f'  {model_name} {identifier}: "{old_name}" → "{new_name}"'
+                        )
+                        updated_count += 1
         
         if not dry_run:
             self.stdout.write(f'Updated {updated_count} {model_name} records')
