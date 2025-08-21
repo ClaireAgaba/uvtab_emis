@@ -5182,16 +5182,30 @@ def generate_transcript(request, id):
     elements.append(Spacer(1, 0.5*inch))  # Reduced top margin
     
     # 1. UVTAB Logo - centered at top (smaller size for single page)
-    uvtab_logo_path = "/home/claire/Desktop/projects/emis/emis/eims/static/images/uvtab_logo.png"
     try:
-        if os.path.exists(uvtab_logo_path):
-            # RLImage already imported above for QR code
-            uvtab_logo = RLImage(uvtab_logo_path, width=1.5*inch, height=1.5*inch)  # Smaller logo
+        from django.contrib.staticfiles import finders
+        from django.conf import settings
+        import os
+        
+        # Try to find the logo using Django's static file system
+        logo_static_path = finders.find('images/uvtab_logo.png')
+        
+        if logo_static_path and os.path.exists(logo_static_path):
+            # Use the found static file path
+            uvtab_logo = RLImage(logo_static_path, width=1.5*inch, height=1.5*inch)
             uvtab_logo.hAlign = 'CENTER'
         else:
-            # Fallback if logo not found
-            uvtab_logo = Paragraph("UVTAB<br/>LOGO", 
-                                 ParagraphStyle('LogoPlaceholder', parent=bold, fontSize=12, alignment=TA_CENTER))
+            # Fallback: try direct path in static directory
+            static_root = getattr(settings, 'STATIC_ROOT', None)
+            if static_root:
+                fallback_path = os.path.join(static_root, 'images', 'uvtab_logo.png')
+                if os.path.exists(fallback_path):
+                    uvtab_logo = RLImage(fallback_path, width=1.5*inch, height=1.5*inch)
+                    uvtab_logo.hAlign = 'CENTER'
+                else:
+                    raise FileNotFoundError("Logo not found in static files")
+            else:
+                raise FileNotFoundError("STATIC_ROOT not configured")
     except:
         # Fallback if logo loading fails
         uvtab_logo = Paragraph("UVTAB<br/>LOGO", 
