@@ -1354,15 +1354,22 @@ class ResultForm(forms.ModelForm):
 # --------------------------------------------------
 
 class PaperResultsForm(forms.Form):
-    MONTH_CHOICES = [(i, calendar.month_name[i]) for i in range(1, 13)]
-    YEAR_CHOICES = [(y, y) for y in range(2020, 2031)]
-    month = forms.ChoiceField(choices=MONTH_CHOICES, label="Assessment Month", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
-    year = forms.ChoiceField(choices=YEAR_CHOICES, label="Assessment Year", widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}))
+    assessment_series = forms.ModelChoiceField(
+        queryset=None,  # Will be set in __init__
+        label="Assessment Series",
+        widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        help_text="Select the assessment series for these results"
+    )
 
     def __init__(self, *args, **kwargs):
         candidate = kwargs.pop('candidate', None)
         super().__init__(*args, **kwargs)
         self.papers = []
+        
+        # Set up assessment series queryset
+        from .models import AssessmentSeries
+        self.fields['assessment_series'].queryset = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
+        
         if candidate:
             from .models import Paper, Level, CandidateLevel
             # Get candidate's enrolled level
@@ -1389,9 +1396,10 @@ class PaperResultsForm(forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
-        month = int(cleaned_data.get('month'))
-        year = int(cleaned_data.get('year'))
-        cleaned_data['assessment_date'] = f"{year}-{month:02d}-01"
+        assessment_series = cleaned_data.get('assessment_series')
+        if assessment_series:
+            # Use the assessment series start date as the assessment date
+            cleaned_data['assessment_date'] = assessment_series.start_date.strftime('%Y-%m-%d')
         return cleaned_data
 
 

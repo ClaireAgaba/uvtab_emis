@@ -19,7 +19,7 @@ from .models import AssessmentSeries
 from .forms import AssessmentSeriesForm
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, BaseDocTemplate, PageTemplate, Frame
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -5199,12 +5199,72 @@ def generate_verified_results(request, id):
         'level', 'module', 'paper', 'assessment_series', 'user'
     ).order_by('assessment_date', 'level', 'module', 'paper')
     
-    # PDF generation
+    # PDF generation with fixed footer
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter,
-                            title="Verification of Results",
-                            rightMargin=0.5*inch, leftMargin=0.5*inch,
-                            topMargin=0.3*inch, bottomMargin=0.5*inch)
+    
+    # Create custom page template with fixed footer
+    def create_footer_canvas(canvas, doc):
+        """Draw fixed footer only on first page"""
+        canvas.saveState()
+        
+        # Only show footer on page 1 (page numbers start from 1)
+        if canvas.getPageNumber() == 1:
+            # Footer content - same as current footer but positioned absolutely
+            from django.contrib.staticfiles import finders
+            
+            # Footer text elements
+            footer_text1 = "THIS IS NOT A TRANSCRIPT"
+            footer_text2 = "OFFICIAL TRANSCRIPT SHALL BE ISSUED AS SOON AS IT IS READY"
+            footer_text3 = "*The medium of instruction is ENGLISH*"
+            footer_text4 = "ANY ALTERATIONS WHATSOEVER RENDERS THIS VERIFICATION INVALID"
+            footer_text5 = "See Reverse for Key Grades"
+            
+            # Position footer at bottom of page (1 inch from bottom)
+            footer_y = 1*inch
+            left_margin = 0.5*inch
+            
+            # Left side footer text
+            canvas.setFont("Helvetica", 7)
+            canvas.drawString(left_margin, footer_y + 40, footer_text1)
+            canvas.drawString(left_margin, footer_y + 30, footer_text2)
+            
+            canvas.setFont("Helvetica-Oblique", 7)
+            canvas.drawString(left_margin, footer_y + 20, footer_text3)
+            
+            canvas.setFont("Helvetica-Bold", 7)
+            canvas.drawString(left_margin, footer_y + 10, footer_text4)
+            
+            canvas.setFont("Helvetica", 7)
+            canvas.drawString(left_margin, footer_y, footer_text5)
+            
+            # Right side signature
+            signature_x = 6*inch
+            canvas.setFont("Helvetica", 6)
+            canvas.drawString(signature_x, footer_y + 20, "EXECUTIVE SECRETARY")
+            canvas.drawString(signature_x, footer_y + 10, "Not Valid Without Official Stamp")
+            
+            # Try to add signature image
+            try:
+                signature_path = finders.find('images/es_signature.jpg')
+                if signature_path:
+                    canvas.drawImage(signature_path, signature_x, footer_y + 25, width=1.2*inch, height=0.6*inch)
+            except:
+                pass
+        
+        canvas.restoreState()
+    
+    # Use BaseDocTemplate with custom page template
+    doc = BaseDocTemplate(buffer, pagesize=letter, title="Verification of Results")
+    
+    # Create frame for main content (leaving space for fixed footer)
+    main_frame = Frame(0.5*inch, 1.5*inch, 7*inch, 9*inch, 
+                       leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+    
+    # Create page template with fixed footer
+    page_template = PageTemplate(id='main', frames=[main_frame], 
+                                onPage=create_footer_canvas)
+    doc.addPageTemplates([page_template])
+    
     elements = []
     styles = getSampleStyleSheet()
     
@@ -5221,6 +5281,20 @@ def generate_verified_results(request, id):
                                fontName='Helvetica-Bold')
     bio_style = ParagraphStyle('Bio', parent=normal_style, 
                               fontSize=11, spaceAfter=3, fontName='Helvetica-Bold')
+    # Styles for highlighting failed results
+    failed_style = ParagraphStyle('Failed', parent=normal_style, 
+                                textColor=colors.red, fontName='Helvetica-Bold')
+    normal_text_style = ParagraphStyle('NormalText', parent=normal_style)
+    
+    # Helper function to check if a result is failed
+    def is_failed_result(grade, comment):
+        """Check if a result represents a failure based on grade and comment"""
+        failed_comments = ['CTR', 'Missing', 'Absent']
+        failed_grades = ['C-', 'D', 'D+', 'D-', 'E', 'F', 'Ms', 'Fail']
+        
+        return (comment in failed_comments or 
+                grade in failed_grades or
+                (grade and grade.endswith('-') and grade[0] in ['C', 'D']))
     
     # Main title first - above everything
     elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", 
@@ -5434,7 +5508,12 @@ def generate_verified_results(request, id):
                 grade = result.grade
                 comment = result.comment if result.comment else ""
                 
-                results_data.append([assessment_type, grade, comment])
+                # Apply conditional styling for failed results
+                is_failed = is_failed_result(grade, comment)
+                grade_cell = Paragraph(grade, failed_style if is_failed else normal_text_style)
+                comment_cell = Paragraph(comment, failed_style if is_failed else normal_text_style)
+                
+                results_data.append([assessment_type, grade_cell, comment_cell])
         
         elif reg_cat == 'modular' or (reg_cat == 'formal' and is_module_based):
             # Module-based layout - for Modular candidates and Formal module-based levels
@@ -5456,7 +5535,12 @@ def generate_verified_results(request, id):
                 grade = result.grade
                 comment = result.comment if result.comment else ""
                 
-                results_data.append([module_name, assessment_type, grade, comment])
+                # Apply conditional styling for failed results
+                is_failed = is_failed_result(grade, comment)
+                grade_cell = Paragraph(grade, failed_style if is_failed else normal_text_style)
+                comment_cell = Paragraph(comment, failed_style if is_failed else normal_text_style)
+                
+                results_data.append([module_name, assessment_type, grade_cell, comment_cell])
         
         else:
             # Paper-based layout - for Formal paper-based levels and Informal candidates
@@ -5481,18 +5565,23 @@ def generate_verified_results(request, id):
                 grade = result.grade
                 comment = result.comment if result.comment else ""
                 
-                results_data.append([paper_code, Paragraph(paper_name, normal_style), Paragraph(level_name, normal_style), assessment_type, grade, comment])
+                # Apply conditional styling for failed results
+                is_failed = is_failed_result(grade, comment)
+                grade_cell = Paragraph(grade, failed_style if is_failed else normal_text_style)
+                comment_cell = Paragraph(comment, failed_style if is_failed else normal_text_style)
+                
+                results_data.append([paper_code, Paragraph(paper_name, normal_style), Paragraph(level_name, normal_style), assessment_type, grade_cell, comment_cell])
         
-        # Create and style the results table
+        # Create results table with appropriate column widths based on layout (fixed to prevent overlap)
         if formal_theory_practical_only:
-            # Simplified layout for Theory/Practical-only Formal candidates (3 columns)
-            results_table = Table(results_data, colWidths=[2.0*inch, 1.0*inch, 3.0*inch])
+            # Simplified layout (theory/practical only) (3 columns) - Total: 6.0 inches
+            results_table = Table(results_data, colWidths=[2.5*inch, 1.0*inch, 2.5*inch])
         elif reg_cat == 'modular' or (reg_cat == 'formal' and is_module_based):
-            # Module-based layout (modular or formal module-based) (4 columns)
-            results_table = Table(results_data, colWidths=[2.5*inch, 1.5*inch, 0.8*inch, 1.2*inch])
+            # Module-based layout (modular or formal module-based) (4 columns) - Total: 6.0 inches
+            results_table = Table(results_data, colWidths=[2.2*inch, 1.3*inch, 0.8*inch, 1.7*inch])
         else:
-            # Paper-based layout (formal paper-based or informal) (5 columns)
-            results_table = Table(results_data, colWidths=[0.8*inch, 3.0*inch, 1.0*inch, 1.2*inch, 0.7*inch, 1.3*inch])
+            # Paper-based layout (formal paper-based or informal) (6 columns) - Total: 6.0 inches
+            results_table = Table(results_data, colWidths=[0.6*inch, 2.2*inch, 0.8*inch, 1.0*inch, 0.6*inch, 0.8*inch])
         
         results_table.setStyle(TableStyle([
             # Header styling
@@ -5516,11 +5605,11 @@ def generate_verified_results(request, id):
         # Success/Failure summary comment - skip for modular candidates
         if not (reg_cat == 'modular' or (reg_cat == 'formal' and is_module_based) or reg_cat == 'informal'):
             if overall_success:
-                comment_text = "Comment: Successful"
+                comment_text = "Overall Assessment Comment: Successful"
                 comment_style = ParagraphStyle('Success', parent=bold_style, 
                                              textColor=colors.green, alignment=TA_CENTER)
             else:
-                comment_text = "Comment: Not successful"
+                comment_text = "Overall Assessment Comment: Not successful"
                 comment_style = ParagraphStyle('Failure', parent=bold_style, 
                                              textColor=colors.red, alignment=TA_CENTER)
             
@@ -5529,94 +5618,7 @@ def generate_verified_results(request, id):
     else:
         elements.append(Paragraph("<b>No results recorded for this candidate.</b>", bold_style))
     
-    # Push footer to bottom of page 1 - static positioning to ensure signature always appears
-    elements.append(Spacer(1, 1.8*inch))  # Reduced spacer to ensure footer fits on page
-    
-    # Footer section (like image 2) - smaller fonts and better alignment
-    # Add footer text with smaller fonts
-    footer_text1 = Paragraph("THIS IS NOT A TRANSCRIPT", 
-                            ParagraphStyle('FooterBold', parent=bold_style, fontSize=8, alignment=TA_LEFT, leading=10))
-    footer_text2 = Paragraph("OFFICIAL TRANSCRIPT SHALL BE ISSUED AS SOON AS IT IS READY", 
-                            ParagraphStyle('FooterItalic', parent=normal_style, fontSize=7, fontName='Helvetica-Oblique', alignment=TA_LEFT, leading=9))
-    footer_text3 = Paragraph("*The medium of instruction is ENGLISH*", 
-                            ParagraphStyle('FooterNote', parent=normal_style, fontSize=7, fontName='Helvetica-Oblique', alignment=TA_LEFT, leading=9))
-    footer_text4 = Paragraph("ANY ALTERATIONS WHATSOEVER RENDERS THIS VERIFICATION INVALID", 
-                            ParagraphStyle('FooterWarning', parent=bold_style, fontSize=7, alignment=TA_LEFT, leading=9))
-    footer_text5 = Paragraph("See Reverse for Key Grades", 
-                            ParagraphStyle('FooterReverse', parent=normal_style, fontSize=7, alignment=TA_LEFT, leading=9))
-    
-    # ES Signature - smaller size to match image 2
-    es_signature = None
-    try:
-        # NEW:
-        from django.contrib.staticfiles import finders
-        signature_path = finders.find('images/es_signature.jpg')    
-        es_signature = RLImage(signature_path, width=1.2*inch, height=0.6*inch)
-        es_signature.hAlign = 'RIGHT'
-    except Exception:
-        es_signature = None
-    
-    # Create footer layout like image 2
-    if es_signature:
-        # Left footer text block
-        footer_left = [
-            footer_text1,
-            footer_text2, 
-            footer_text3,
-            Spacer(1, 0.05*inch),
-            footer_text4,
-            footer_text5
-        ]
-        
-        # Right signature block - well aligned signature and text
-        signature_text = Paragraph("EXECUTIVE SECRETARY<br/>Not Valid Without Official Stamp", 
-                                  ParagraphStyle('SignatureText', parent=normal_style, fontSize=6, alignment=TA_CENTER, leading=8))
-        
-        # Create signature section with proper alignment
-        signature_section = Table([
-            [es_signature],
-            [signature_text]
-        ], colWidths=[2.2*inch])
-        
-        signature_section.setStyle(TableStyle([
-            ('ALIGN', (0,0), (0,0), 'CENTER'),  # Center signature image
-            ('ALIGN', (0,1), (0,1), 'CENTER'),  # Center signature text
-            ('VALIGN', (0,0), (0,0), 'BOTTOM'), # Align signature to bottom
-            ('VALIGN', (0,1), (0,1), 'TOP'),    # Align text to top
-            ('LEFTPADDING', (0,0), (-1,-1), 0),
-            ('RIGHTPADDING', (0,0), (-1,-1), 0),
-            ('TOPPADDING', (0,0), (-1,-1), 0),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-        ]))
-        
-        # Create table with proper alignment like image 2
-        footer_table = Table([
-            [footer_left, signature_section]
-        ], colWidths=[4.8*inch, 2.2*inch])
-        
-        footer_table.setStyle(TableStyle([
-            ('ALIGN', (0,0), (0,0), 'LEFT'),
-            ('ALIGN', (1,0), (1,0), 'RIGHT'),
-            ('VALIGN', (0,0), (0,0), 'BOTTOM'),  # Align footer text to bottom
-            ('VALIGN', (1,0), (1,0), 'BOTTOM'),  # Align signature to bottom
-            ('LEFTPADDING', (0,0), (-1,-1), 0),
-            ('RIGHTPADDING', (0,0), (-1,-1), 0),
-            ('TOPPADDING', (0,0), (-1,-1), 0),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-        ]))
-        
-        elements.append(footer_table)
-    else:
-        # Fallback without signature image - smaller fonts
-        elements.append(footer_text1)
-        elements.append(footer_text2)
-        elements.append(footer_text3)
-        elements.append(Spacer(1, 0.05*inch))
-        elements.append(footer_text4)
-        elements.append(footer_text5)
-        elements.append(Spacer(1, 0.1*inch))
-        elements.append(Paragraph("EXECUTIVE SECRETARY<br/>Not Valid Without Official Stamp", 
-                                 ParagraphStyle('SignatureText', parent=normal_style, fontSize=6, alignment=TA_CENTER)))
+    # Footer is now handled by fixed page template - no need to add as elements
     
     # Add page break for grading system back page
     from reportlab.platypus import PageBreak
@@ -5944,7 +5946,12 @@ def generate_testimonial(request, id):
                 grade = result.grade
                 comment = result.comment if result.comment else ""
                 
-                results_data.append([assessment_type, grade, comment])
+                # Apply conditional styling for failed results
+                is_failed = is_failed_result(grade, comment)
+                grade_cell = Paragraph(grade, failed_style if is_failed else normal_text_style)
+                comment_cell = Paragraph(comment, failed_style if is_failed else normal_text_style)
+                
+                results_data.append([assessment_type, grade_cell, comment_cell])
         
         elif reg_cat == 'modular':
             # Modular layout - Module structure
@@ -5978,7 +5985,12 @@ def generate_testimonial(request, id):
                         grade = result.grade
                         comment = result.comment if result.comment else ""
                         
-                        results_data.append([module_name, assessment_type, grade, comment])
+                        # Apply conditional styling for failed results
+                is_failed = is_failed_result(grade, comment)
+                grade_cell = Paragraph(grade, failed_style if is_failed else normal_text_style)
+                comment_cell = Paragraph(comment, failed_style if is_failed else normal_text_style)
+                
+                results_data.append([module_name, assessment_type, grade_cell, comment_cell])
         
         else:
             # Formal/Informal layout - Paper-based
@@ -6003,7 +6015,12 @@ def generate_testimonial(request, id):
                 grade = result.grade
                 comment = result.comment if result.comment else ""
                 
-                results_data.append([paper_code, Paragraph(paper_name, normal_style), Paragraph(level_name, normal_style), assessment_type, grade, comment])
+                # Apply conditional styling for failed results
+                is_failed = is_failed_result(grade, comment)
+                grade_cell = Paragraph(grade, failed_style if is_failed else normal_text_style)
+                comment_cell = Paragraph(comment, failed_style if is_failed else normal_text_style)
+                
+                results_data.append([paper_code, Paragraph(paper_name, normal_style), Paragraph(level_name, normal_style), assessment_type, grade_cell, comment_cell])
         
         # Create and style the results table (same as verified results)
         if formal_theory_practical_only:
@@ -6071,9 +6088,10 @@ def generate_testimonial(request, id):
     try:
         # NEW:
         from django.contrib.staticfiles import finders
-        signature_path = finders.find('images/es_signature.jpg')    
-        es_signature = RLImage(signature_path, width=1.2*inch, height=0.6*inch)
-        es_signature.hAlign = 'RIGHT'
+        signature_path = finders.find('images/es_signature.jpg')
+        if signature_path:
+            es_signature = RLImage(signature_path, width=1.2*inch, height=0.6*inch)
+            es_signature.hAlign = 'RIGHT'
     except Exception:
         es_signature = None
     
