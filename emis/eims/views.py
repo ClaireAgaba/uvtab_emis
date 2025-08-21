@@ -4692,6 +4692,7 @@ def generate_transcript(request, id):
     """
     Generate a PDF transcript for a level-module-based candidate, following strict eligibility logic. Adds transcript serial and QR code.
     """
+    from .models import CandidateLevel
     candidate = Candidate.objects.select_related('occupation', 'assessment_center').get(id=id)
     reg_cat = getattr(candidate, 'registration_category', '').lower()
 
@@ -4711,11 +4712,17 @@ def generate_transcript(request, id):
         "regno": candidate.reg_number,
         "occupation": candidate.occupation.name if candidate.occupation else '',
         "level": level_name,
-        "serial": serial_number
     }
     import json
     qr_str = json.dumps(qr_data, ensure_ascii=False)
-    qr_img = qrcode.make(qr_str)
+
+    # --- QR Code Generation ---
+    import qrcode
+    from reportlab.platypus import Image as RLImage
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(qr_str)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="black", back_color="white")
     qr_buffer = BytesIO()
     qr_img.save(qr_buffer, format='PNG')
     qr_buffer.seek(0)
@@ -4738,28 +4745,13 @@ def generate_transcript(request, id):
             level = cl.level
     if candidate.occupation and level:
         occ_level = OccupationLevel.objects.filter(occupation=candidate.occupation, level=level).first()
-    # PDF generation (image2 style)
+    # PDF generation - both pages portrait orientation with landscape content layout
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
                             title="Transcript",
                             rightMargin=0.4*inch, leftMargin=0.4*inch,
                             topMargin=0.3*inch, bottomMargin=0.3*inch)
-    elements = []
-    styles = getSampleStyleSheet()
-    normal = styles['Normal']
-    normal.fontSize = 10
-    normal.leading = 12
-    normal.spaceAfter = 0
-    normal.spaceBefore = 0
-    bold = ParagraphStyle('Bold', parent=normal, fontName='Helvetica-Bold')
-    center = ParagraphStyle('Center', parent=normal, alignment=TA_CENTER)
-    red_center = ParagraphStyle('RedCenter', parent=center, textColor=colors.red, fontSize=12, spaceAfter=6)
-    # PDF generation (image2 style)
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter,
-                            title="Transcript",
-                            rightMargin=0.4*inch, leftMargin=0.4*inch,
-                            topMargin=0.3*inch, bottomMargin=0.3*inch)
+    
     elements = []
     styles = getSampleStyleSheet()
     normal = styles['Normal']
@@ -4800,19 +4792,8 @@ def generate_transcript(request, id):
     qr_rl_img.drawHeight = 0.65*inch
     qr_rl_img.hAlign = 'RIGHT'
 
-    # Prepare photo
-    photo = None
-    if getattr(candidate, 'passport_photo', None) and candidate.passport_photo.name:
-        try:
-            photo_path = candidate.passport_photo.path
-            photo = RLImage(photo_path, width=1.0*inch, height=1.2*inch)
-            photo.hAlign = 'RIGHT'
-        except Exception:
-            photo = Spacer(1, 1.2*inch)
-    else:
-        photo = Spacer(1, 1.2*inch)
-    # Stack QR, serial, photo vertically in right col
-    right_col = [qr_rl_img, Spacer(1, 0.02*inch), serial_para, Spacer(1, 0.06*inch), photo]
+    # Stack QR and serial only in right col (photo will be shown with biodata)
+    right_col = [qr_rl_img, Spacer(1, 0.02*inch), serial_para]
     top_row = Table([
         [heading_para, right_col]
     ], colWidths=[4.5*inch, 1.5*inch], hAlign='RIGHT')
@@ -4829,51 +4810,101 @@ def generate_transcript(request, id):
     elements.append(top_row)
     elements.append(Spacer(1, 0.035*inch))
 
-    period = candidate.assessment_date.strftime('%d %B %Y') if getattr(candidate, 'assessment_date', None) else ""
-    center_name = candidate.assessment_center.center_name if candidate.assessment_center else ""
-    center_number = candidate.assessment_center.center_number if candidate.assessment_center else ""
-    occupation = candidate.occupation.name if candidate.occupation else ""
-    elements.append(Paragraph(f"<b>Occupation :</b> {occupation}", normal))
-    elements.append(Paragraph(f"<b>Assessment Period:</b> {period}", normal))
-    elements.append(Paragraph(f"<b>Assessment Centre:</b> {center_name}", normal))
-    elements.append(Paragraph(f"<b>Centre Number:</b> {center_number}", normal))
-    elements.append(Spacer(1, 0.08*inch))
-
-    # 3. Personal data table
-    dob = candidate.date_of_birth.strftime('%d %B %Y') if getattr(candidate, 'date_of_birth', None) else ""
-    district = candidate.district.name if getattr(candidate, 'district', None) else ""
-    # Always display full country name for nationality
+    # Use verified results biodata layout - clean and professional
     from django_countries import countries
     nationality = candidate.nationality if getattr(candidate, 'nationality', None) else ""
-    # If nationality is a 2-letter code, convert to country name
     if nationality and len(nationality) == 2 and nationality.isupper():
         code_to_name = dict(countries)
         nationality = code_to_name.get(nationality, nationality)
-    sex = candidate.get_gender_display() if hasattr(candidate, 'get_gender_display') else candidate.gender
-    regno = candidate.reg_number
-    name = candidate.full_name
-    # --- Personal Data Table (image2 style) ---
-    personal_table_data = [
-        [Paragraph("<b>Name:</b>", normal), name, Paragraph("<b>District of Birth:</b>", normal), district],
-        [Paragraph("<b>Date of Birth:</b>", normal), dob, Paragraph("<b>Nationality:</b>", normal), nationality],
-        [Paragraph("<b>Sex:</b>", normal), sex, Paragraph("<b>Registration No:</b>", normal), regno],
+    
+    # Format dates
+    from datetime import datetime
+    birthdate = candidate.date_of_birth.strftime('%d %b, %Y') if getattr(candidate, 'date_of_birth', None) else ""
+    print_date = datetime.now().strftime('%d-%b-%Y')
+    
+    # Get level information for Formal candidates
+    candidate_level = None
+    reg_cat = getattr(candidate, 'registration_category', '').lower()
+    if reg_cat == 'formal':
+        from .models import CandidateLevel
+        candidate_levels = CandidateLevel.objects.filter(candidate=candidate).select_related('level')
+        if candidate_levels.exists():
+            candidate_level = candidate_levels.first().level
+    
+    # Bio data layout (same as verified results)
+    bio_left_content = [
+        f"<b>NAME:</b> {candidate.full_name}",
+        f"<b>REG NO:</b> {candidate.reg_number}",
+        f"<b>GENDER:</b> {candidate.get_gender_display() if hasattr(candidate, 'get_gender_display') else candidate.gender}",
+        f"<b>CENTER NAME:</b> {candidate.assessment_center.center_name if candidate.assessment_center else ''}",
+        f"<b>REGISTRATION CATEGORY:</b> {get_registration_category_display(candidate.registration_category) if hasattr(candidate, 'registration_category') else ''}",
+        f"<b>OCCUPATION:</b> {candidate.occupation.name if candidate.occupation else ''}"
     ]
-    personal_table = Table(personal_table_data, colWidths=[1.1*inch, 1.7*inch, 1.3*inch, 2.0*inch], hAlign='LEFT')
-    personal_table.setStyle(TableStyle([
-        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
-        ('FONTNAME', (2,0), (2,-1), 'Helvetica-Bold'),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
-        ('BOX', (0,0), (-1,-1), 0.7, colors.black),
-        ('FONTSIZE', (0,0), (-1,-1), 10),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0.5),
-        ('TOPPADDING', (0,0), (-1,-1), 0.5),
-        ('LEFTPADDING', (0,0), (-1,-1), 3),
-        ('RIGHTPADDING', (0,0), (-1,-1), 3),
-    ]))
-    elements.append(personal_table)
-    elements.append(Spacer(1, 0.08*inch))
+    
+    # Add level information for Formal candidates
+    if reg_cat == 'formal' and candidate_level:
+        bio_left_content.append(f"<b>LEVEL:</b> {candidate_level.name}")
+    elif reg_cat == 'formal':
+        bio_left_content.append(f"<b>LEVEL:</b> N/A")
+    
+    bio_right_content = [
+        f"<b>NATIONALITY:</b> {nationality}",
+        f"<b>BIRTHDATE:</b> {birthdate}",
+        f"<b>PRINTDATE:</b> {print_date}",
+        "",
+        "",
+        ""
+    ]
+    
+    # Create bio paragraphs with smaller font
+    bio_left = Paragraph("<br/>".join(bio_left_content), 
+                        ParagraphStyle('BioLeft', parent=normal, fontSize=9, leading=11))
+    bio_right = Paragraph("<br/>".join(bio_right_content), 
+                         ParagraphStyle('BioRight', parent=normal, fontSize=9, leading=11))
+    
+    # Prepare photo for biodata section
+    photo = None
+    if getattr(candidate, 'passport_photo', None) and candidate.passport_photo.name:
+        try:
+            photo_path = candidate.passport_photo.path
+            photo = RLImage(photo_path, width=1.0*inch, height=1.2*inch)
+            photo.hAlign = 'LEFT'
+        except Exception:
+            photo = None
+    
+    # Layout with photo on left side (same as verified results)
+    if photo:
+        # Photo and bio data in same row
+        bio_table = Table([
+            [photo, bio_left, bio_right]
+        ], colWidths=[1.2*inch, 3.0*inch, 2.8*inch])
+        bio_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'LEFT'),
+            ('ALIGN', (2,0), (2,0), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+    else:
+        # No photo - just bio data in two columns
+        bio_table = Table([
+            [bio_left, bio_right]
+        ], colWidths=[3.5*inch, 3.5*inch])
+        bio_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+    
+    elements.append(bio_table)
+    elements.append(Spacer(1, 0.2*inch))
 
 
     # 4. Assessment Result
@@ -5144,10 +5175,138 @@ def generate_transcript(request, id):
         ('BOTTOMPADDING', (0,0), (-1,-1), 2),
         # No BOX or INNERGRID: no visible borders
     ]))
-    elements.append(grading_key_table)
-    elements.append(Spacer(1, 0.08*inch))
-    elements.append(Paragraph('Pass mark is 50% in theory and 65% in practical assessment', normal))
-    # No trailing spacers after this point to prevent a blank second page
+    # Move key/grades to back page with vertical portrait-style content layout
+    elements.append(PageBreak())
+    
+    # Back page: Single-page vertical layout optimized for space
+    elements.append(Spacer(1, 0.5*inch))  # Reduced top margin
+    
+    # 1. UVTAB Logo - centered at top (smaller size for single page)
+    uvtab_logo_path = "/home/claire/Desktop/projects/emis/emis/eims/static/images/uvtab_logo.png"
+    try:
+        if os.path.exists(uvtab_logo_path):
+            # RLImage already imported above for QR code
+            uvtab_logo = RLImage(uvtab_logo_path, width=1.5*inch, height=1.5*inch)  # Smaller logo
+            uvtab_logo.hAlign = 'CENTER'
+        else:
+            # Fallback if logo not found
+            uvtab_logo = Paragraph("UVTAB<br/>LOGO", 
+                                 ParagraphStyle('LogoPlaceholder', parent=bold, fontSize=12, alignment=TA_CENTER))
+    except:
+        # Fallback if logo loading fails
+        uvtab_logo = Paragraph("UVTAB<br/>LOGO", 
+                             ParagraphStyle('LogoPlaceholder', parent=bold, fontSize=12, alignment=TA_CENTER))
+    
+    # Center the logo
+    logo_table = Table([[uvtab_logo]], colWidths=[7.7*inch])
+    logo_table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (0,0), 'CENTER'),
+        ('VALIGN', (0,0), (0,0), 'MIDDLE'),
+    ]))
+    elements.append(logo_table)
+    elements.append(Spacer(1, 0.2*inch))  # Reduced spacing
+    
+    # 2. Main Institution Header (smaller font for single page)
+    elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", 
+                             ParagraphStyle('MainHeader', parent=bold, fontSize=14, alignment=TA_CENTER, spaceAfter=8)))
+    
+    # 3. Sub-heading (smaller font)
+    elements.append(Paragraph("KEY : GRADING AND QUALIFICATIONS BOARD", 
+                             ParagraphStyle('SubHeader', parent=bold, fontSize=11, alignment=TA_CENTER, spaceAfter=6)))
+    
+    # 4. KEY : GRADING title (smaller font)
+    elements.append(Paragraph("KEY : GRADING", 
+                             ParagraphStyle('KeyTitle', parent=bold, fontSize=12, alignment=TA_CENTER, 
+                                          textColor=colors.blue, spaceAfter=12)))
+    
+    # 5. Create separate Theory and Practical grading tables (stacked vertically)
+    
+    # Theory Scores Table with proper column headers
+    theory_table_data = [
+        [Paragraph('<b>THEORY SCORES</b>', ParagraphStyle('TheoryHeader', parent=bold, fontSize=12, alignment=TA_CENTER)), ''],
+        [Paragraph('<b>Letter Grade</b>', ParagraphStyle('SubHeader', parent=bold, fontSize=10, alignment=TA_CENTER)), 
+         Paragraph('<b>Marks Boundary</b>', ParagraphStyle('SubHeader', parent=bold, fontSize=10, alignment=TA_CENTER))]
+    ]
+    
+    # Add theory grading bands
+    for score_range, grade in theory_bands:
+        theory_table_data.append([
+            Paragraph(f"<b>{grade}</b>", ParagraphStyle('GradeData', parent=normal, fontSize=10, alignment=TA_CENTER)),
+            Paragraph(f"{score_range}", ParagraphStyle('ScoreData', parent=normal, fontSize=10, alignment=TA_CENTER))
+        ])
+    
+    theory_table = Table(theory_table_data, colWidths=[1.5*inch, 2.0*inch])
+    theory_table.setStyle(TableStyle([
+        ('SPAN', (0,0), (1,0)),  # Span header
+        ('BACKGROUND', (0,0), (-1,1), colors.lightgrey),  # Header background
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('ROWBACKGROUNDS', (0,2), (-1,-1), [colors.white, colors.lightblue]),
+    ]))
+    
+    # Practical Scores Table with proper column headers
+    practical_table_data = [
+        [Paragraph('<b>PRACTICAL SCORES</b>', ParagraphStyle('PracticalHeader', parent=bold, fontSize=12, alignment=TA_CENTER)), ''],
+        [Paragraph('<b>Letter Grade</b>', ParagraphStyle('SubHeader', parent=bold, fontSize=10, alignment=TA_CENTER)), 
+         Paragraph('<b>Marks Boundary</b>', ParagraphStyle('SubHeader', parent=bold, fontSize=10, alignment=TA_CENTER))]
+    ]
+    
+    # Add practical grading bands
+    for score_range, grade in practical_bands:
+        practical_table_data.append([
+            Paragraph(f"<b>{grade}</b>", ParagraphStyle('GradeData', parent=normal, fontSize=10, alignment=TA_CENTER)),
+            Paragraph(f"{score_range}", ParagraphStyle('ScoreData', parent=normal, fontSize=10, alignment=TA_CENTER))
+        ])
+    
+    practical_table = Table(practical_table_data, colWidths=[1.5*inch, 2.0*inch])
+    practical_table.setStyle(TableStyle([
+        ('SPAN', (0,0), (1,0)),  # Span header
+        ('BACKGROUND', (0,0), (-1,1), colors.lightgrey),  # Header background
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('ROWBACKGROUNDS', (0,2), (-1,-1), [colors.white, colors.lightblue]),
+    ]))
+    
+    # 6. Create horizontal side-by-side layout for both tables
+    horizontal_tables = Table([
+        [theory_table, practical_table]
+    ], colWidths=[3.5*inch, 3.5*inch])  # Equal width for both tables
+    
+    horizontal_tables.setStyle(TableStyle([
+        ('ALIGN', (0,0), (0,0), 'CENTER'),  # Theory table center
+        ('ALIGN', (1,0), (1,0), 'CENTER'),  # Practical table center
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),   # Top alignment for both tables
+        ('LEFTPADDING', (0,0), (-1,-1), 10),
+        ('RIGHTPADDING', (0,0), (-1,-1), 10),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+    
+    # Center the horizontal tables layout
+    tables_container = Table([[horizontal_tables]], colWidths=[7.7*inch])
+    tables_container.setStyle(TableStyle([
+        ('ALIGN', (0,0), (0,0), 'CENTER'),
+        ('VALIGN', (0,0), (0,0), 'MIDDLE'),
+    ]))
+    elements.append(tables_container)
+    elements.append(Spacer(1, 0.15*inch))  # Reduced bottom spacing
+    elements.append(Paragraph('NOTE: Pass mark is 50% in theory and 65% in practical assessment', 
+                             ParagraphStyle('PassMark', parent=normal, fontSize=12, alignment=TA_CENTER, fontName='Helvetica-Bold')))
+    
     doc.build(elements)
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
@@ -7517,6 +7676,35 @@ def candidate_view(request, id):
     # Get user department for access control using session management utility
     staff, user_department, is_authenticated = get_user_staff_info(request)
 
+    # Determine transcript/certificate access control
+    can_generate_transcript = False
+    can_generate_certificate = False
+    
+    # Only formal candidates (module/paper-based) can have transcripts and certificates
+    if reg_cat_normalized == 'formal':
+        # Check if candidate has passed all papers (no "Ms" or "CTR" in comments)
+        all_results = results.filter(candidate=candidate)
+        
+        if all_results.exists():
+            # Check if any result has failed status (Ms or CTR in comment)
+            from django.db.models import Q
+            failed_results = all_results.filter(
+                Q(comment__icontains='Ms') | 
+                Q(comment__icontains='CTR') |
+                Q(comment__icontains='ms') |
+                Q(comment__icontains='ctr')
+            )
+            
+            # Enable transcript/certificate only if no failed results
+            can_generate_transcript = not failed_results.exists()
+            can_generate_certificate = not failed_results.exists()
+    
+    # Worker's Pass/Informal candidates: transcript and certificate buttons are hidden (always False)
+    # Modular candidates: can generate transcript/certificate if they have results (no failure check needed)
+    elif reg_cat_normalized == 'modular':
+        can_generate_transcript = results.exists()
+        can_generate_certificate = results.exists()
+
     context = {
         "candidate":          candidate,
         "level_enrollment":   level_enrollment,
@@ -7531,6 +7719,8 @@ def candidate_view(request, id):
         "results_released": results_released,
         "user_department": user_department,  # Add user department for access control
         "is_center_rep": is_center_rep,  # Add center rep status for template access control
+        "can_generate_transcript": can_generate_transcript,  # Access control for transcript
+        "can_generate_certificate": can_generate_certificate,  # Access control for certificate
     }
     return render(request, "candidates/view.html", context)
 

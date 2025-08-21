@@ -196,18 +196,37 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         Verify
       </button>
       {% endif %}
+      
+      <!-- Transcript Button - Only for formal/modular candidates who have passed all papers -->
+      {% if can_generate_transcript %}
       <a href="{% url 'generate_transcript' candidate.id %}" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition" title="Download transcript">
          Print Transcript
       </a>
+      {% elif candidate.registration_category == 'Formal' %}
+      <!-- Disabled transcript button for formal candidates who haven't passed all papers -->
+      <span class="flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded shadow cursor-not-allowed" title="Cannot generate transcript - candidate has failed papers (Ms/CTR)">
+         Print Transcript (Disabled)
+      </span>
+      {% endif %}
+      
       <a href="{% url 'generate_verified_results' candidate.id %}" class="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded shadow transition" title="Download verified results">
          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
          </svg>
          Verified Results
       </a>
+      
+      <!-- Certificate Button - Only for formal/modular candidates who have passed all papers -->
+      {% if can_generate_certificate %}
       <a href="#" class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow transition" title="View certificate">
          Certificate
       </a>
+      {% elif candidate.registration_category == 'Formal' %}
+      <!-- Disabled certificate button for formal candidates who haven't passed all papers -->
+      <span class="flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded shadow cursor-not-allowed" title="Cannot generate certificate - candidate has failed papers (Ms/CTR)">
+         Certificate (Disabled)
+      </span>
+      {% endif %}
       {% endif %}
       {% endif %}
       <!-- Action Dropdown (Hidden from center representatives and candidate portal) -->
