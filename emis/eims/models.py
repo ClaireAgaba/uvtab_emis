@@ -1,5 +1,26 @@
 from django.db import models
 from django.contrib.auth.models import User
+
+def format_title_case(text):
+    """
+    Convert text to title case, keeping small words lowercase except at the beginning.
+    Example: "horticulture in agriculture" -> "Horticulture in Agriculture"
+    """
+    if not text:
+        return text
+    
+    small_words = {'in', 'of', 'and', 'or', 'the', 'a', 'an', 'at', 'by', 'for', 'with', 'to', 'on'}
+    words = text.strip().split()
+    formatted_words = []
+    
+    for i, word in enumerate(words):
+        # Always capitalize first word, otherwise check if it's a small word
+        if i == 0 or word.lower() not in small_words:
+            formatted_words.append(word.capitalize())
+        else:
+            formatted_words.append(word.lower())
+    
+    return ' '.join(formatted_words)
 from django_countries.fields import CountryField
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -204,6 +225,12 @@ class Occupation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(get_user_model(), related_name='updated_occupations', null=True, blank=True, on_delete=models.SET_NULL)
 
+    def save(self, *args, **kwargs):
+        """Override save to enforce title case formatting for name"""
+        if self.name:
+            self.name = format_title_case(self.name)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.code} - {self.name}"
 
@@ -294,6 +321,11 @@ class Module(models.Model):
     occupation = models.ForeignKey('Occupation', on_delete=models.CASCADE)
     level = models.ForeignKey(Level, on_delete=models.CASCADE)
 
+    def save(self, *args, **kwargs):
+        """Override save to enforce title case formatting for name"""
+        if self.name:
+            self.name = format_title_case(self.name)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -316,6 +348,12 @@ class Paper(models.Model):
     module = models.ForeignKey('Module', on_delete=models.SET_NULL, null=True, blank=True, help_text="(Optional) Link this paper to a module for informal/worker's pas occupations.")
     grade_type = models.CharField(max_length=10, choices=PAPER_TYPE_CHOICES)
 
+    def save(self, *args, **kwargs):
+        """Override save to enforce title case formatting for name"""
+        if self.name:
+            self.name = format_title_case(self.name)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.code} - {self.name} ({self.grade_type})"
 
@@ -325,6 +363,12 @@ class Sector(models.Model):
     description = models.TextField(blank=True, help_text="Description of the sector")
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, related_name='created_sectors', null=True, blank=True, on_delete=models.SET_NULL)
+
+    def save(self, *args, **kwargs):
+        """Override save to enforce title case formatting for name"""
+        if self.name:
+            self.name = format_title_case(self.name)
+        super().save(*args, **kwargs)
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(User, related_name='updated_sectors', null=True, blank=True, on_delete=models.SET_NULL)
 

@@ -30,6 +30,42 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 
+# Session Management Utilities
+def get_user_staff_info(request):
+    """
+    Safely get staff information for authenticated users.
+    Returns tuple: (staff_object, user_department, is_authenticated)
+    """
+    if not request.user.is_authenticated:
+        return None, None, False
+    
+    try:
+        staff = Staff.objects.get(user=request.user)
+        return staff, staff.department, True
+    except Staff.DoesNotExist:
+        # User is authenticated but not a staff member
+        return None, None, True
+
+def require_staff_permissions(request, required_departments=None):
+    """
+    Check if user has required staff permissions.
+    Returns tuple: (has_permission, staff_object, user_department)
+    """
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    
+    if not is_authenticated:
+        return False, None, None
+    
+    # Superuser always has permission
+    if request.user.is_superuser:
+        return True, staff, user_department
+    
+    # Check specific department requirements
+    if required_departments and user_department not in required_departments:
+        return False, staff, user_department
+    
+    return True, staff, user_department
+
 @login_required
 def staff_list(request):
     """List all staff members with their departments"""
@@ -3127,13 +3163,8 @@ def dashboard(request):
     logger.info(f'Dashboard accessed by user: {request.user}')
     group_names = list(request.user.groups.values_list('name', flat=True))
     
-    # Get user department if they are staff (using new Staff model)
-    user_department = None
-    try:
-        staff = Staff.objects.get(user=request.user)  # Changed from SupportStaff to Staff
-        user_department = staff.department
-    except Staff.DoesNotExist:  # Changed from SupportStaff to Staff
-        pass
+    # Get user department if they are staff using session management utility
+    staff, user_department, is_authenticated = get_user_staff_info(request)
     
     context = {
         'group_names': group_names,
@@ -6285,20 +6316,16 @@ def candidate_create(request):
 
 from django.contrib.auth.decorators import user_passes_test
 
+@login_required
 def edit_result(request, id):
     from .models import Candidate, Result, Module, CandidateLevel, OccupationLevel, Paper, AssessmentSeries
     from .forms import ModularResultsForm, ResultForm, PaperResultsForm, WorkerPASPaperResultsForm
     candidate = get_object_or_404(Candidate, id=id)
     
-    # Check if user has edit permissions (superuser, IT, or Admin)
-    user_department = None
-    try:
-        staff = Staff.objects.get(user=request.user)
-        user_department = staff.department
-    except Staff.DoesNotExist:
-        pass
+    # Check if user has edit permissions (superuser, IT, or Admin) using session management utility
+    has_permission, staff, user_department = require_staff_permissions(request, ['IT', 'Admin'])
     
-    if not (request.user.is_superuser or user_department in ['IT', 'Admin']):
+    if not has_permission:
         return redirect('candidate_view', id=candidate.id)
     reg_cat = getattr(candidate, 'registration_category', '').lower().strip()
     print('DEBUG edit_result: candidate', candidate, 'reg_cat', reg_cat)
@@ -7205,6 +7232,7 @@ def change_registration_category(request, id):
         "reg_number": candidate.reg_number
     })
 
+@login_required
 def candidate_view(request, id):
     print('DEBUG: candidate_view (ACTIVE) called for candidate', id)
     from .models import AssessmentCenter, Occupation, Result, CandidateLevel, CandidateModule, Paper, Module, CandidatePaper, AssessmentSeries
@@ -7486,13 +7514,8 @@ def candidate_view(request, id):
         results_summary_for_display = enrollment_summary
         enrollment_history = enrollment_summary
 
-    # Get user department for access control
-    user_department = None
-    try:
-        staff = Staff.objects.get(user=request.user)
-        user_department = staff.department
-    except Staff.DoesNotExist:
-        pass
+    # Get user department for access control using session management utility
+    staff, user_department, is_authenticated = get_user_staff_info(request)
 
     context = {
         "candidate":          candidate,
@@ -8443,6 +8466,8 @@ def download_result_list_pdf(request):
         'papers_list': papers_list,
     }
     
+
+
     # Create custom PDF using ReportLab to match the preview template exactly
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
