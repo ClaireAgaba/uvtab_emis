@@ -190,6 +190,7 @@
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Reg No</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Full Name</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Occupation</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Sector</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Reg. Category</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Assessment Date</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Disability</th>
@@ -220,6 +221,14 @@
                 <option value="">All Occupations</option>
                 {% for occupation in occupations %}
                   <option value="{{ occupation.id }}" {% if filters.occupation == occupation.id|stringformat:"s" %}selected{% endif %}>{{ occupation.name }}</option>
+                {% endfor %}
+              </select>
+            </th>
+            <th class="px-3 py-2">
+              <select name="sector" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">All Sectors</option>
+                {% for sector in sectors %}
+                  <option value="{{ sector.id }}" {% if filters.sector == sector.id|stringformat:"s" %}selected{% endif %}>{{ sector.name }}</option>
                 {% endfor %}
               </select>
             </th>
@@ -308,6 +317,13 @@
           <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.reg_number }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.full_name }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.occupation.name }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900">
+            {% if candidate.occupation.sector %}
+              <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">{{ candidate.occupation.sector.name }}</span>
+            {% else %}
+              <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">Unknown</span>
+            {% endif %}
+          </td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.get_registration_category_display }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">
             {{ candidate.assessment_date|date:"d/m/Y"|default:"—" }}
@@ -353,7 +369,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="10" class="px-4 py-4 text-center text-gray-500">No candidates found.</td>
+          <td colspan="11" class="px-4 py-4 text-center text-gray-500">No candidates found.</td>
         </tr>
         {% endfor %}
       </tbody>

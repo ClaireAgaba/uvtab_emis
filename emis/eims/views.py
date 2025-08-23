@@ -4514,6 +4514,7 @@ def candidate_list(request):
             'occupation': request.GET.get('occupation', '').strip(),
             'registration_category': request.GET.get('registration_category', '').strip(),
             'assessment_center': request.GET.get('assessment_center', '').strip(),
+            'sector': request.GET.get('sector', '').strip(),
             'gender': request.GET.get('gender', '').strip(),
             'disability': request.GET.get('disability', '').strip(),
             'is_refugee': request.GET.get('is_refugee', '').strip(),
@@ -4536,6 +4537,7 @@ def candidate_list(request):
             'occupation': request.GET.get('occupation', '').strip(),
             'registration_category': request.GET.get('registration_category', '').strip(),
             'assessment_center': request.GET.get('assessment_center', '').strip(),
+            'sector': request.GET.get('sector', '').strip(),
             'assessment_month': request.GET.get('assessment_month', '').strip(),
             'assessment_year': request.GET.get('assessment_year', '').strip(),
             'disability': request.GET.get('disability', '').strip(),
@@ -4566,7 +4568,7 @@ def candidate_list(request):
             del request.session['candidate_filters']
         return redirect('candidate_list')
 
-    candidates = Candidate.objects.select_related('occupation', 'assessment_center').order_by('-created_at')
+    candidates = Candidate.objects.select_related('occupation', 'occupation__sector', 'assessment_center').order_by('-created_at')
     
     # Restrict for Center Representatives
     if request.user.groups.filter(name='CenterRep').exists():
@@ -4588,6 +4590,8 @@ def candidate_list(request):
         candidates = candidates.filter(registration_category=current_filters.get('registration_category'))
     if current_filters.get('assessment_center'):
         candidates = candidates.filter(assessment_center_id=current_filters.get('assessment_center'))
+    if current_filters.get('sector'):
+        candidates = candidates.filter(occupation__sector_id=current_filters.get('sector'))
     
     # NEW: Additional filters for statistics integration
     if current_filters.get('gender'):
@@ -4635,9 +4639,10 @@ def candidate_list(request):
             return reverse('candidate_list')
 
     
-    from .models import Occupation, AssessmentCenter
-    occupations = Occupation.objects.all().order_by('code')
+    from .models import Occupation, AssessmentCenter, Sector
+    occupations = Occupation.objects.select_related('sector').all().order_by('code')
     centers = AssessmentCenter.objects.all()
+    sectors = Sector.objects.all().order_by('name')
     
     # Get available assessment years for the dropdown
     from django.db.models import Q
@@ -4663,6 +4668,7 @@ def candidate_list(request):
         'total_candidates': paginator.count,
         'occupations': occupations,
         'centers': centers,
+        'sectors': sectors,
         'filters': current_filters,
         'filter_params': filter_params,
         'nature_of_disabilities': NatureOfDisability.objects.all(),
