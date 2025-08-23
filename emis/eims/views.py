@@ -2890,25 +2890,85 @@ def bulk_candidate_action(request):
 
 @login_required
 def export_candidates(request):
-    """Export selected candidates to Excel with comprehensive data"""
+    """Export selected candidates or all filtered candidates to Excel with comprehensive data"""
     from django.views.decorators.http import require_POST
     from datetime import datetime
     
     # Get selected candidate IDs from POST data
     candidate_ids = request.POST.getlist('candidate_ids')
+    export_all = request.POST.get('export_all', 'false').lower() == 'true'
     
-    if not candidate_ids:
+    if not candidate_ids and not export_all:
         return HttpResponse("No candidates selected for export", status=400)
     
-    # Get candidates with related data
-    candidates = Candidate.objects.filter(
-        id__in=candidate_ids
-    ).select_related(
-        'assessment_center', 'occupation', 'district', 'village', 'created_by', 'updated_by'
-    ).prefetch_related(
-        'nature_of_disability', 'candidatelevel_set__level', 'candidatemodule_set__module',
-        'candidatepaper_set__paper', 'result_set'
-    ).order_by('reg_number')
+    # If export_all is true, get all candidates with current filters applied
+    if export_all:
+        # Get current filters from session
+        current_filters = request.session.get('candidate_filters', {})
+        
+        # Start with base query
+        candidates = Candidate.objects.select_related('occupation', 'occupation__sector', 'assessment_center').order_by('-created_at')
+        
+        # Restrict for Center Representatives
+        if request.user.groups.filter(name='CenterRep').exists():
+            from .models import CenterRepresentative
+            try:
+                center_rep = CenterRepresentative.objects.get(user=request.user)
+                candidates = candidates.filter(assessment_center=center_rep.center)
+            except CenterRepresentative.DoesNotExist:
+                candidates = candidates.none()
+        
+        # Apply all current filters
+        if current_filters.get('reg_number'):
+            candidates = candidates.filter(reg_number__icontains=current_filters.get('reg_number'))
+        if current_filters.get('search'):
+            candidates = candidates.filter(full_name__icontains=current_filters.get('search'))
+        if current_filters.get('occupation'):
+            candidates = candidates.filter(occupation_id=current_filters.get('occupation'))
+        if current_filters.get('registration_category'):
+            candidates = candidates.filter(registration_category=current_filters.get('registration_category'))
+        if current_filters.get('assessment_center'):
+            candidates = candidates.filter(assessment_center_id=current_filters.get('assessment_center'))
+        if current_filters.get('sector'):
+            candidates = candidates.filter(occupation__sector_id=current_filters.get('sector'))
+        if current_filters.get('gender'):
+            candidates = candidates.filter(gender=current_filters.get('gender'))
+        if current_filters.get('disability'):
+            disability_filter = current_filters.get('disability').lower() == 'true'
+            candidates = candidates.filter(disability=disability_filter)
+        if current_filters.get('is_refugee'):
+            refugee_filter = current_filters.get('is_refugee').lower() == 'true'
+            candidates = candidates.filter(is_refugee=refugee_filter)
+        if current_filters.get('assessment_year'):
+            try:
+                year = int(current_filters.get('assessment_year'))
+                candidates = candidates.filter(assessment_date__year=year)
+            except (ValueError, TypeError):
+                pass
+        if current_filters.get('assessment_month'):
+            try:
+                month = int(current_filters.get('assessment_month'))
+                candidates = candidates.filter(assessment_date__month=month)
+            except (ValueError, TypeError):
+                pass
+        
+        # Add additional prefetch for export
+        candidates = candidates.select_related(
+            'assessment_center', 'occupation', 'occupation__sector', 'district', 'village', 'created_by', 'updated_by'
+        ).prefetch_related(
+            'nature_of_disability', 'candidatelevel_set__level', 'candidatemodule_set__module',
+            'candidatepaper_set__paper', 'result_set'
+        ).order_by('reg_number')
+    else:
+        # Get candidates with related data for selected IDs
+        candidates = Candidate.objects.filter(
+            id__in=candidate_ids
+        ).select_related(
+            'assessment_center', 'occupation', 'occupation__sector', 'district', 'village', 'created_by', 'updated_by'
+        ).prefetch_related(
+            'nature_of_disability', 'candidatelevel_set__level', 'candidatemodule_set__module',
+            'candidatepaper_set__paper', 'result_set'
+        ).order_by('reg_number')
     
     # Create workbook and worksheet
     wb = openpyxl.Workbook()

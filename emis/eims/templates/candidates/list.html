@@ -17,7 +17,8 @@
       <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
         <select id="bulk-action-select" class="border px-3 py-2 rounded text-sm touch-target min-w-0">
           <option value="">Select Action</option>
-          <option value="export">Export to Excel</option>
+          <option value="export">Export Selected to Excel</option>
+          <option value="export_all">Export All (Filtered) to Excel</option>
           <option value="enroll">Enroll</option>
           {% if user.is_staff or user.groups.all|length > 0 and 'CenterRep' not in user.groups.all.0.name %}
           <!-- Admin/Staff only actions -->
@@ -1208,7 +1209,7 @@ bulkApply && bulkApply.addEventListener('click', function() {
     bulkError.textContent = 'Please select an action.';
     return;
   }
-  if (checked.length === 0) {
+  if (checked.length === 0 && bulkSelect.value !== 'export_all') {
     bulkError.textContent = 'Please select at least one candidate.';
     return;
   }
@@ -1263,8 +1264,8 @@ bulkApply && bulkApply.addEventListener('click', function() {
       return;
     }
   }
-  // Handle export action
-  if (bulkSelect.value === 'export') {
+  // Handle export actions
+  if (bulkSelect.value === 'export' || bulkSelect.value === 'export_all') {
     // Create a form and submit to export endpoint
     const form = document.createElement('form');
     form.method = 'POST';
@@ -1278,14 +1279,23 @@ bulkApply && bulkApply.addEventListener('click', function() {
     csrfToken.value = (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken');
     form.appendChild(csrfToken);
     
-    // Add candidate IDs
-    checked.forEach(cb => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'candidate_ids';
-      input.value = cb.value;
-      form.appendChild(input);
-    });
+    if (bulkSelect.value === 'export_all') {
+      // Add export_all flag
+      const exportAllInput = document.createElement('input');
+      exportAllInput.type = 'hidden';
+      exportAllInput.name = 'export_all';
+      exportAllInput.value = 'true';
+      form.appendChild(exportAllInput);
+    } else {
+      // Add candidate IDs for selected export
+      checked.forEach(cb => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'candidate_ids';
+        input.value = cb.value;
+        form.appendChild(input);
+      });
+    }
     
     document.body.appendChild(form);
     form.submit();
