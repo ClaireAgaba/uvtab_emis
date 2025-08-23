@@ -2997,7 +2997,7 @@ def export_candidates(request):
         "District", "Village",
         
         # Assessment Information
-        "Assessment Center", "Occupation", "Registration Category", "Entry Year", "Intake",
+        "Assessment Center", "Occupation", "Sector", "Registration Category", "Entry Year", "Intake",
         "Assessment Date", "Assessment Series", "Start Date", "Finish Date",
         
         # Disability Information
@@ -3056,6 +3056,7 @@ def export_candidates(request):
             # Assessment Information
             candidate.assessment_center.center_name if candidate.assessment_center else "",
             candidate.occupation.name if candidate.occupation else "",
+            candidate.occupation.sector.name if candidate.occupation and candidate.occupation.sector else "Unknown",
             candidate.registration_category or "",
             candidate.entry_year or "",
             candidate.intake or "",
