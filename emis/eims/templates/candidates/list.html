@@ -490,7 +490,15 @@ bulkSelect.addEventListener('change', function() {
     // Show Assessment Series selector immediately when Enroll is selected
     const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
     if (checked.length > 0) {
-      bulkAssessmentSeriesWrapper.classList.remove('hidden');
+      // Use local references to avoid any timing/hoisting issues
+      const bulkAssessmentSeriesWrapperEl = document.getElementById('bulk-assessment-series-wrapper');
+      const bulkAssessmentSeriesSelectEl = document.getElementById('bulk-assessment-series-select');
+      console.log('[BulkEnroll] Enroll selected. Candidates checked:', checked.length);
+      if (bulkAssessmentSeriesWrapperEl) {
+        bulkAssessmentSeriesWrapperEl.classList.remove('hidden');
+        // As a fallback, ensure it's visible
+        bulkAssessmentSeriesWrapperEl.style.display = '';
+      }
       // Load Assessment Series data
       fetch('/eims/api/assessment-series/', {
         method: 'GET',
@@ -500,17 +508,45 @@ bulkSelect.addEventListener('change', function() {
       })
       .then(res => res.json())
       .then(data => {
-        bulkAssessmentSeriesSelect.innerHTML = '<option value="">Select Assessment Series...</option>';
-        data.series.forEach(series => {
-          const opt = document.createElement('option');
-          opt.value = series.id;
-          opt.textContent = series.name + (series.is_current ? ' (Current)' : '');
-          bulkAssessmentSeriesSelect.appendChild(opt);
-        });
+        try {
+          if (!bulkAssessmentSeriesSelectEl) return;
+          bulkAssessmentSeriesSelectEl.innerHTML = '<option value="">Select Assessment Series...</option>';
+          const list = (data && Array.isArray(data.assessment_series)) ? data.assessment_series : [];
+          if (list.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No assessment series found';
+            bulkAssessmentSeriesSelectEl.appendChild(opt);
+            return;
+          }
+          let selectedSet = false;
+          list.forEach(series => {
+            const opt = document.createElement('option');
+            opt.value = series.id;
+            opt.textContent = series.name + (series.is_current ? ' (Current)' : '');
+            if (!selectedSet && series.is_current) {
+              opt.selected = true;
+              selectedSet = true;
+            }
+            bulkAssessmentSeriesSelectEl.appendChild(opt);
+          });
+          if (!selectedSet && list.length === 1) {
+            // If only one series, select it by default
+            bulkAssessmentSeriesSelectEl.options[1].selected = true;
+          }
+          console.log('[BulkEnroll] Loaded assessment series:', list.length);
+        } catch (e) {
+          console.error('Error processing assessment series response:', e, data);
+          if (bulkAssessmentSeriesSelectEl) {
+            bulkAssessmentSeriesSelectEl.innerHTML = '<option value="">Error processing series...</option>';
+          }
+        }
       })
       .catch(err => {
         console.error('Error loading assessment series:', err);
-        bulkAssessmentSeriesSelect.innerHTML = '<option value="">Error loading series...</option>';
+        if (bulkAssessmentSeriesSelectEl) {
+          bulkAssessmentSeriesSelectEl.innerHTML = '<option value="">Error loading series...</option>';
+        }
       });
     }
   } else {
@@ -724,13 +760,14 @@ const bulkAssessmentSeriesSelect = document.getElementById('bulk-assessment-seri
 function getBulkRegcatAndOcc() {
   const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
   if (!checked.length) return {};
-  let row = checked[0].closest('tr');
+  const row = checked[0].closest('tr');
   if (!row) return {};
-  // Find columns by index: Reg. Category and Occupation
+  // Table columns order:
+  // [0]=checkbox, [1]=image, [2]=regno, [3]=full name, [4]=occupation, [5]=sector, [6]=registration category
   const tds = row.querySelectorAll('td');
-  let regcat = tds[5]?.textContent.trim();
-  let occ = tds[4]?.textContent.trim();
-  return {regcat, occ};
+  const occ = tds[4] ? tds[4].textContent.trim() : undefined;
+  const regcat = tds[6] ? tds[6].textContent.trim() : undefined;
+  return { regcat, occ };
 }
 
 function fetchLevelsForOccupation(occupationName, cb) {
@@ -889,9 +926,8 @@ function updateBulkSelectors() {
   }
   // Determine regcat and occupation
   const {regcat, occ} = getBulkRegcatAndOcc();
-  const occSel = document.querySelector('select[name="occupation"]');
-  let occId = occSel ? occSel.value : null;
-  if (!regcat || !occId) {
+  // Do not depend on occupation filter selection for showing assessment series
+  if (!regcat) {
     bulkAssessmentSeriesWrapper.classList.add('hidden');
     bulkAssessmentSeriesSelect.innerHTML = '';
     bulkLevelWrapper.classList.add('hidden');
@@ -911,13 +947,34 @@ function updateBulkSelectors() {
     })
     .then(res => res.json())
     .then(data => {
-      bulkAssessmentSeriesSelect.innerHTML = '<option value="">Select Assessment Series...</option>';
-      data.series.forEach(series => {
-        const opt = document.createElement('option');
-        opt.value = series.id;
-        opt.textContent = series.name;
-        bulkAssessmentSeriesSelect.appendChild(opt);
-      });
+      try {
+        bulkAssessmentSeriesSelect.innerHTML = '<option value="">Select Assessment Series...</option>';
+        const list = (data && Array.isArray(data.assessment_series)) ? data.assessment_series : [];
+        if (list.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = 'No assessment series found';
+          bulkAssessmentSeriesSelect.appendChild(opt);
+        } else {
+          let selectedSet2 = false;
+          list.forEach(series => {
+            const opt = document.createElement('option');
+            opt.value = series.id;
+            opt.textContent = series.name + (series.is_current ? ' (Current)' : '');
+            if (!selectedSet2 && series.is_current) {
+              opt.selected = true;
+              selectedSet2 = true;
+            }
+            bulkAssessmentSeriesSelect.appendChild(opt);
+          });
+          if (!selectedSet2 && list.length === 1 && bulkAssessmentSeriesSelect.options.length > 1) {
+            bulkAssessmentSeriesSelect.options[1].selected = true;
+          }
+        }
+      } catch (e) {
+        console.error('Error processing assessment series response:', e, data);
+        bulkAssessmentSeriesSelect.innerHTML = '<option value="">Error processing series...</option>';
+      }
       // For informal: show cross-level paper selection interface
       if (regcat === 'Informal' || regcat === "Worker's PAS") {
         bulkAssessmentSeriesSelect.onchange = function() {
@@ -934,7 +991,15 @@ function updateBulkSelectors() {
           bulkLevelSelect.innerHTML = '';
           
           // Fetch all levels, modules, and papers for cross-level selection
-          fetchAllLevelsModulesPapersForInformal(occId, function(data) {
+          // Obtain occupation_id from the occupation filter dropdown
+          const occSelLocal = document.querySelector('select[name="occupation"]');
+          const occIdLocal = occSelLocal ? occSelLocal.value : null;
+          if (!occIdLocal) {
+            bulkInformalBox.innerHTML = '<div class="text-red-600">Please select an Occupation in the filters to load papers.</div>';
+            bulkInformalBox.classList.remove('hidden');
+            return;
+          }
+          fetchAllLevelsModulesPapersForInformal(occIdLocal, function(data) {
             if (data.success && data.level_module_data && data.level_module_data.length > 0) {
               displayCrossLevelPaperSelection(data.level_module_data);
             } else {
@@ -943,6 +1008,10 @@ function updateBulkSelectors() {
             }
           });
         };
+        // If an assessment series is already selected (e.g., auto-selected), trigger load immediately
+        if (bulkAssessmentSeriesSelect.value) {
+          bulkAssessmentSeriesSelect.dispatchEvent(new Event('change'));
+        }
       } else if (regcat === 'Formal') {
         // For formal: just show level selector after Assessment Series selection
         bulkAssessmentSeriesSelect.onchange = function() {

@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
-from .models import Occupation, Level, Module, Paper, OccupationLevel
+from .models import Occupation, Level, Module, Paper, OccupationLevel, AssessmentSeries
 
 @login_required
 @require_POST
@@ -61,3 +61,22 @@ def api_informal_modules_papers(request):
             'papers': papers
         })
     return JsonResponse({'modules': modules})
+
+@login_required
+@require_GET
+def api_assessment_series(request):
+    """
+    Return all assessment series for bulk enrollment dropdown.
+    Response: { assessment_series: [ {id, name, start_date, end_date, is_current} ] }
+    """
+    assessment_series = AssessmentSeries.objects.all().order_by('-start_date')
+    series_data = []
+    for series in assessment_series:
+        series_data.append({
+            'id': series.id,
+            'name': series.name,
+            'start_date': series.start_date.strftime('%Y-%m-%d') if series.start_date else None,
+            'end_date': series.end_date.strftime('%Y-%m-%d') if series.end_date else None,
+            'is_current': series.is_current
+        })
+    return JsonResponse({'assessment_series': series_data})

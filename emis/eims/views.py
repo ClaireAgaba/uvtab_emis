@@ -2471,7 +2471,7 @@ def bulk_candidate_action(request):
                     paper_id__in=enrolled_papers
                 ).filter(
                     # Failed: CTR comment OR Missing: Ms grade
-                    models.Q(comment='CTR') | models.Q(grade='Ms')
+                    Q(comment='CTR') | Q(grade='Ms')
                 ).values_list('paper_id', flat=True))
                 
                 # Check eligibility for each selected paper

@@ -55,6 +55,7 @@ urlpatterns = [
     path('api/levels-for-occupation/', views.api_levels_for_occupation, name='api_levels_for_occupation'),
     path('api/levels-for-papers/', views.api_levels_for_papers, name='api_levels_for_papers'),
     path('api/informal-modules-papers/', views_api.api_informal_modules_papers, name='api_informal_modules_papers'),
+    path('api/assessment-series/', views_api.api_assessment_series, name='api_assessment_series'),
     path('api/occupations/<int:occupation_id>/add-level/', views_api.api_add_level, name='api_add_level'),
     path('api/occupations/<int:occupation_id>/remove-level/', views_api.api_remove_level, name='api_remove_level'),
     path('api/centers/', views.api_centers, name='api_centers'),

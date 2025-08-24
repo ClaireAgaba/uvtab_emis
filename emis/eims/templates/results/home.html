@@ -515,51 +515,45 @@
           try {
               const response = await fetch('/eims/api/assessment-series/');
               const data = await response.json();
-              
-              if (data.success) {
-                  selectElement.innerHTML = '<option value="">-- Select Assessment Series --</option>';
-                  data.series.forEach(series => {
-                      const option = document.createElement('option');
-                      option.value = series.id;
-                      option.textContent = series.name;
-                      option.dataset.startDate = series.start_date;
-                      option.dataset.endDate = series.end_date;
-                      option.dataset.isCurrent = series.is_current;
-                      
-                      // Mark current series as selected by default
-                      if (series.is_current) {
-                          option.selected = true;
-                      }
-                      
-                      selectElement.appendChild(option);
-                  });
-                  
-                  // Update info text when selection changes
-                  selectElement.addEventListener('change', function() {
-                      const selectedOption = this.options[this.selectedIndex];
-                      const infoDiv = document.getElementById('upload-series-info');
-                      
-                      if (selectedOption.value && infoDiv) {
-                          const startDate = new Date(selectedOption.dataset.startDate).toLocaleDateString();
-                          const endDate = new Date(selectedOption.dataset.endDate).toLocaleDateString();
-                          const isCurrent = selectedOption.dataset.isCurrent === 'true';
-                          
-                          infoDiv.innerHTML = `
-                              <span class="text-sm">
-                                  ${startDate} - ${endDate}
-                                  ${isCurrent ? '<span class="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Current</span>' : ''}
-                              </span>
-                          `;
-                      } else if (infoDiv) {
-                          infoDiv.innerHTML = '';
-                      }
-                  });
-              } else {
-                  console.error('Failed to fetch assessment series:', data.error);
-                  selectElement.innerHTML = '<option value="">Error loading series</option>';
+              selectElement.innerHTML = '<option value="">-- Select Assessment Series --</option>';
+              const list = (data && Array.isArray(data.assessment_series)) ? data.assessment_series : [];
+              if (list.length === 0) {
+                  const opt = document.createElement('option');
+                  opt.value = '';
+                  opt.textContent = 'No assessment series found';
+                  selectElement.appendChild(opt);
+                  return;
               }
+              list.forEach(series => {
+                  const option = document.createElement('option');
+                  option.value = series.id;
+                  option.textContent = series.name + (series.is_current ? ' (Current)' : '');
+                  option.dataset.startDate = series.start_date || '';
+                  option.dataset.endDate = series.end_date || '';
+                  option.dataset.isCurrent = series.is_current ? 'true' : 'false';
+                  if (series.is_current) option.selected = true;
+                  selectElement.appendChild(option);
+              });
+              // Update info text when selection changes
+              selectElement.addEventListener('change', function() {
+                  const selectedOption = this.options[this.selectedIndex];
+                  const infoDiv = document.getElementById('upload-series-info');
+                  if (selectedOption && selectedOption.value && infoDiv) {
+                      const start = selectedOption.dataset.startDate ? new Date(selectedOption.dataset.startDate).toLocaleDateString() : '';
+                      const end = selectedOption.dataset.endDate ? new Date(selectedOption.dataset.endDate).toLocaleDateString() : '';
+                      const isCurrent = selectedOption.dataset.isCurrent === 'true';
+                      infoDiv.innerHTML = `
+                          <span class="text-sm">
+                              ${start}${start && end ? ' - ' : ''}${end}
+                              ${isCurrent ? '<span class="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Current</span>' : ''}
+                          </span>
+                      `;
+                  } else if (infoDiv) {
+                      infoDiv.innerHTML = '';
+                  }
+              });
           } catch (error) {
-              console.error('Error fetching assessment series:', error);
+              console.error('Error loading assessment series:', error);
               selectElement.innerHTML = '<option value="">Error loading series</option>';
           }
       }
