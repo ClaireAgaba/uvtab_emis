@@ -2793,27 +2793,16 @@ def bulk_candidate_action(request):
         except AssessmentCenter.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Invalid Assessment Center selected.'}, status=400)
         
-        # Block if any candidate is enrolled
-        enrolled_candidates = []
-        for candidate in candidates:
-            if candidate.is_enrolled():
-                enrolled_candidates.append(candidate.reg_number or f"ID:{candidate.id}")
-        if enrolled_candidates:
-            enrolled_list = ', '.join(enrolled_candidates[:5])
-            if len(enrolled_candidates) > 5:
-                enrolled_list += f" and {len(enrolled_candidates) - 5} more"
-            return JsonResponse({
-                'success': False,
-                'error': f'Cannot change assessment center for enrolled candidates: {enrolled_list}'
-            }, status=400)
-        
-        # Update center and regenerate reg numbers
+        # Update center and regenerate reg numbers. Keep fees_balance intact so the
+        # candidate's outstanding bill moves with them (reports group by center).
+        from django.db import transaction
         updated = 0
-        for candidate in candidates:
-            candidate.assessment_center = new_center
-            candidate.build_reg_number()  # Rebuild reg_number since center code changes
-            candidate.save(update_fields=['assessment_center', 'reg_number'])
-            updated += 1
+        with transaction.atomic():
+            for candidate in candidates:
+                candidate.assessment_center = new_center
+                candidate.build_reg_number()  # Rebuild reg_number since center code changes
+                candidate.save(update_fields=['assessment_center', 'reg_number'])
+                updated += 1
         
         return JsonResponse({
             'success': True,
@@ -7442,10 +7431,6 @@ def change_occupation(request, id):
 def change_center(request, id):
     import json
     candidate = get_object_or_404(Candidate, id=id)
-
-    if candidate.is_enrolled():
-        return JsonResponse({"success": False,
-                             "error": "Enrolled candidates cannot be changed."})
 
     try:
         data = json.loads(request.body or "{}")

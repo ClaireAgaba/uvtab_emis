@@ -1091,7 +1091,10 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         {% endfor %}
       </select>
       <div id="centerChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
-      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply</button>
+      <div class="flex justify-between mt-2">
+        <button type="button" id="centerCancelBtn" class="text-gray-600 hover:underline">Cancel</button>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply</button>
+      </div>
     </form>
   </div>
 </div>
@@ -1254,7 +1257,8 @@ document.addEventListener('DOMContentLoaded', function() {
   function openCenterModal() {
     document.getElementById('changeCenterModal').classList.remove('hidden');
   }
-  function closeCenterModal() {
+  // Expose close function globally so inline onclick works
+  window.closeCenterModal = function() {
     document.getElementById('changeCenterModal').classList.add('hidden');
   }
   var centerForm = document.getElementById('changeCenterForm');
@@ -1282,7 +1286,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.success) {
           document.querySelector('[data-field="assessment_center"]').innerText = data.center_name;
           document.querySelectorAll('[data-field="reg_number"]').forEach(function(el) { el.innerText = data.reg_number; });
-          closeCenterModal();
+          window.closeCenterModal();
         } else {
           errorDiv.innerText = data.error || 'Failed to change center.';
           errorDiv.classList.remove('hidden');
@@ -1293,6 +1297,13 @@ document.addEventListener('DOMContentLoaded', function() {
         errorDiv.classList.remove('hidden');
       });
     };
+  }
+  // Cancel button closes the modal
+  var centerCancelBtn = document.getElementById('centerCancelBtn');
+  if (centerCancelBtn) {
+    centerCancelBtn.addEventListener('click', function() {
+      window.closeCenterModal();
+    });
   }
 });
 </script>
