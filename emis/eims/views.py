@@ -2782,6 +2782,44 @@ def bulk_candidate_action(request):
             'message': f'Successfully changed occupation for {updated} candidate{"s" if updated != 1 else ""}. Registration numbers have been updated.'
         })
     
+    elif action == 'change_center':
+        # Bulk change assessment center for candidates
+        center_id = data.get('assessment_center_id') or data.get('assessment_center')
+        if not center_id:
+            return JsonResponse({'success': False, 'error': 'Assessment Center is required.'}, status=400)
+        
+        try:
+            new_center = AssessmentCenter.objects.get(id=center_id)
+        except AssessmentCenter.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Invalid Assessment Center selected.'}, status=400)
+        
+        # Block if any candidate is enrolled
+        enrolled_candidates = []
+        for candidate in candidates:
+            if candidate.is_enrolled():
+                enrolled_candidates.append(candidate.reg_number or f"ID:{candidate.id}")
+        if enrolled_candidates:
+            enrolled_list = ', '.join(enrolled_candidates[:5])
+            if len(enrolled_candidates) > 5:
+                enrolled_list += f" and {len(enrolled_candidates) - 5} more"
+            return JsonResponse({
+                'success': False,
+                'error': f'Cannot change assessment center for enrolled candidates: {enrolled_list}'
+            }, status=400)
+        
+        # Update center and regenerate reg numbers
+        updated = 0
+        for candidate in candidates:
+            candidate.assessment_center = new_center
+            candidate.build_reg_number()  # Rebuild reg_number since center code changes
+            candidate.save(update_fields=['assessment_center', 'reg_number'])
+            updated += 1
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully changed assessment center to {new_center.center_name} for {updated} candidate' + ('' if updated == 1 else 's') + '. Registration numbers have been updated.'
+        })
+    
     elif action == 'verify':
         # Bulk verify candidates - only admin/staff can do this
         if not (request.user.is_staff or (request.user.groups.exists() and 'CenterRep' not in [g.name for g in request.user.groups.all()])):

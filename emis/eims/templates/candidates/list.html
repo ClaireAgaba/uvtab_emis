@@ -8,6 +8,26 @@
       <a href="{% url 'candidate_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center text-sm touch-target">+ Create Candidate</a>
       <a href="{% url 'candidate_import_dual' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center text-sm touch-target">Import Candidates & Photos</a>
     </div>
+
+  <!-- Bulk Change Assessment Center Modal -->
+  <div id="bulk-change-center-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-sm p-6 relative">
+      <h2 class="text-lg font-bold mb-4">Change Assessment Center</h2>
+      <label for="bulk-center-select" class="block mb-2 font-medium">Select New Center</label>
+      <select id="bulk-center-select" class="w-full border rounded px-3 py-2 mb-4" required>
+        <option value="">-- Select Center --</option>
+        {% for center in centers %}
+          <option value="{{ center.id }}">{{ center.center_name }}</option>
+        {% endfor %}
+      </select>
+      <div id="bulk-center-error" class="text-red-600 text-sm mb-2 hidden"></div>
+      <div class="flex justify-between mt-4">
+        <button id="bulk-center-cancel" class="text-gray-600 hover:underline">Cancel</button>
+        <button id="bulk-center-apply" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Apply</button>
+      </div>
+      <button id="bulk-center-close" class="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+    </div>
+  </div>
   </div>
 
   <!-- Bulk Action Bar (hidden by default) -->
@@ -26,6 +46,7 @@
           <option value="add_regno_photo">Add Regno on Photo</option>
           <option value="change_reg_cat">Change Reg Category</option>
           <option value="change_occupation">Change Occupation</option>
+          <option value="change_center">Change Assessment Center</option>
           <option value="mark_disabled">Mark as Disabled</option>
           <option value="mark_refugee">Mark as Refugee</option>
           <option value="verify">Verify</option>
@@ -1172,11 +1193,31 @@ function hideBulkOccupationModal() {
 if (bulkOccupationCancel) bulkOccupationCancel.onclick = hideBulkOccupationModal;
 if (bulkOccupationClose) bulkOccupationClose.onclick = hideBulkOccupationModal;
 
+// Bulk Change Center logic
+const bulkCenterModal = document.getElementById('bulk-change-center-modal');
+const bulkCenterSelect = document.getElementById('bulk-center-select');
+const bulkCenterApply = document.getElementById('bulk-center-apply');
+const bulkCenterCancel = document.getElementById('bulk-center-cancel');
+const bulkCenterClose = document.getElementById('bulk-center-close');
+const bulkCenterError = document.getElementById('bulk-center-error');
+
+function showBulkCenterModal() {
+  bulkCenterSelect.value = '';
+  bulkCenterError.textContent = '';
+  bulkCenterError.classList.add('hidden');
+  bulkCenterModal.classList.remove('hidden');
+}
+function hideBulkCenterModal() { bulkCenterModal.classList.add('hidden'); }
+if (bulkCenterCancel) bulkCenterCancel.onclick = hideBulkCenterModal;
+if (bulkCenterClose) bulkCenterClose.onclick = hideBulkCenterModal;
+
 bulkSelect.addEventListener('change', function() {
   if (bulkSelect.value === 'change_reg_cat') {
     showBulkRegcatModal();
   } else if (bulkSelect.value === 'change_occupation') {
     showBulkOccupationModal();
+  } else if (bulkSelect.value === 'change_center') {
+    showBulkCenterModal();
   }
 });
 
@@ -1265,6 +1306,50 @@ bulkOccupationApply && bulkOccupationApply.addEventListener('click', function() 
   .catch(() => {
     bulkOccupationError.textContent = 'Server error.';
     bulkOccupationError.classList.remove('hidden');
+  });
+});
+
+// Apply bulk change center
+bulkCenterApply && bulkCenterApply.addEventListener('click', function() {
+  const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
+  const newCenterId = bulkCenterSelect.value;
+  if (!newCenterId) {
+    bulkCenterError.textContent = 'Please select a center.';
+    bulkCenterError.classList.remove('hidden');
+    return;
+  }
+  if (checked.length === 0) {
+    bulkCenterError.textContent = 'Please select at least one candidate.';
+    bulkCenterError.classList.remove('hidden');
+    return;
+  }
+  bulkCenterError.textContent = '';
+  bulkCenterError.classList.add('hidden');
+  fetch("/eims/candidates/bulk-action/", {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      action: 'change_center',
+      candidate_ids: checked.map(cb => cb.value),
+      assessment_center_id: newCenterId
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(`Successfully changed assessment center for ${checked.length} candidate${checked.length>1?'s':''}. Registration numbers have been updated.`);
+      window.location.reload();
+    } else {
+      bulkCenterError.textContent = data.error || 'An error occurred.';
+      bulkCenterError.classList.remove('hidden');
+    }
+  })
+  .catch(() => {
+    bulkCenterError.textContent = 'Server error.';
+    bulkCenterError.classList.remove('hidden');
   });
 });
 
