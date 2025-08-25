@@ -4,18 +4,20 @@
 <div class="max-w-6xl mx-auto mt-10 px-4">
   <!-- Header Section -->
   <div class="mb-8">
-      <a href="{% url 'occupation_list' %}" class="text-blue-600 hover:underline mb-4 inline-block">
+      <a href="{{ back_url }}" class="text-blue-600 hover:underline mb-4 inline-block">
         ← Back to Occupations
       </a>
     <div class="flex justify-between items-center mt-4">
       <h1 class="text-3xl font-normal" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{{ occupation.name }} <span class="text-gray-500">({{ occupation.code }})</span></h1>
-      <a href="{% url 'occupation_edit' pk=occupation.pk %}" 
-         class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-        </svg>
-        Edit
-      </a>
+      {% if can_modify %}
+        <a href="{% url 'occupation_edit' pk=occupation.pk %}" 
+           class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          Edit
+        </a>
+      {% endif %}
     </div>
   </div>
 
@@ -65,15 +67,17 @@
           </div>
         {% endif %}
         
-        <!-- Edit Fees Button -->
-        <div class="mt-3">
-          <button onclick="toggleFeesEdit()" class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition">
-            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-            </svg>
-            Edit Fees
-          </button>
-        </div>
+        {% if can_modify %}
+          <!-- Edit Fees Button -->
+          <div class="mt-3">
+            <button onclick="toggleFeesEdit()" class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              Edit Fees
+            </button>
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -179,125 +183,127 @@
   // Initialize first tab
   tabContents.forEach((tc, i) => tc.style.display = i === 0 ? "block" : "none");
 
-  // Fees editing functionality
-  function toggleFeesEdit() {
-    const modal = document.getElementById('feesEditModal');
-    if (modal) {
-      modal.style.display = 'block';
-    } else {
-      createFeesEditModal();
+  {% if can_modify %}
+    // Fees editing functionality
+    function toggleFeesEdit() {
+      const modal = document.getElementById('feesEditModal');
+      if (modal) {
+        modal.style.display = 'block';
+      } else {
+        createFeesEditModal();
+      }
     }
-  }
 
-  function createFeesEditModal() {
-    const modalHTML = `
-      <div id="feesEditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-          <div class="mt-3">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Occupation Fees</h3>
-            <form id="feesEditForm">
-              {% csrf_token %}
-              
-              {% if occupation.has_modular %}
-                <div class="mb-4">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Single Module Fee (UGX)</label>
-                  <input type="number" name="modular_fee_single" step="0.01" min="0" 
-                         value="{{ levels.0.modular_fee_single }}" 
-                         class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div class="mb-4">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Double Module Fee (UGX)</label>
-                  <input type="number" name="modular_fee_double" step="0.01" min="0" 
-                         value="{{ levels.0.modular_fee_double }}" 
-                         class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-              {% endif %}
-              
-              {% if occupation.category.name == 'Formal' %}
-                <!-- Formal occupation: show fees per level -->
-                {% for level in levels %}
+    function createFeesEditModal() {
+      const modalHTML = `
+        <div id="feesEditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+              <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Occupation Fees</h3>
+              <form id="feesEditForm">
+                {% csrf_token %}
+                
+                {% if occupation.has_modular %}
                   <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ level.name }} Formal Fee (UGX)</label>
-                    <input type="number" name="formal_fee_{{ level.id }}" step="0.01" min="0" 
-                           value="{{ level.formal_fee }}" 
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Single Module Fee (UGX)</label>
+                    <input type="number" name="modular_fee_single" step="0.01" min="0" 
+                           value="{{ levels.0.modular_fee_single }}" 
                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                   </div>
-                {% endfor %}
-              {% elif occupation.category.name == 'Informal' or 'Worker' in occupation.category.name or 'PAS' in occupation.category.name %}
-                <!-- Worker's PAS: show single per-module fee -->
-                <div class="mb-4">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Per-Module Fee (UGX)</label>
-                  <input type="number" name="workers_pas_module_fee" step="0.01" min="0" 
-                         value="{{ levels.0.workers_pas_module_fee }}" 
-                         class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <p class="text-xs text-gray-500 mt-1">This fee will be multiplied by the number of modules each candidate enrolls in</p>
+                  <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Double Module Fee (UGX)</label>
+                    <input type="number" name="modular_fee_double" step="0.01" min="0" 
+                           value="{{ levels.0.modular_fee_double }}" 
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                {% endif %}
+                
+                {% if occupation.category.name == 'Formal' %}
+                  <!-- Formal occupation: show fees per level -->
+                  {% for level in levels %}
+                    <div class="mb-4">
+                      <label class="block text-sm font-medium text-gray-700 mb-1">{{ level.name }} Formal Fee (UGX)</label>
+                      <input type="number" name="formal_fee_{{ level.id }}" step="0.01" min="0" 
+                             value="{{ level.formal_fee }}" 
+                             class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                  {% endfor %}
+                {% elif occupation.category.name == 'Informal' or 'Worker' in occupation.category.name or 'PAS' in occupation.category.name %}
+                  <!-- Worker's PAS: show single per-module fee -->
+                  <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Per-Module Fee (UGX)</label>
+                    <input type="number" name="workers_pas_module_fee" step="0.01" min="0" 
+                           value="{{ levels.0.workers_pas_module_fee }}" 
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">This fee will be multiplied by the number of modules each candidate enrolls in</p>
+                  </div>
+                {% endif %}
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                  <button type="button" onclick="closeFeesModal()" 
+                          class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition">
+                    Cancel
+                  </button>
+                  <button type="submit" 
+                          class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+                    Save Changes
+                  </button>
                 </div>
-              {% endif %}
-              
-              <div class="flex justify-end space-x-3 mt-6">
-                <button type="button" onclick="closeFeesModal()" 
-                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition">
-                  Cancel
-                </button>
-                <button type="submit" 
-                        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
-                  Save Changes
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
-      </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    // Add form submission handler
-    document.getElementById('feesEditForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      submitFeesUpdate();
-    });
-  }
-
-  function closeFeesModal() {
-    const modal = document.getElementById('feesEditModal');
-    if (modal) {
-      modal.remove();
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+      
+      // Add form submission handler
+      document.getElementById('feesEditForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitFeesUpdate();
+      });
     }
-  }
 
-  function submitFeesUpdate() {
-    const form = document.getElementById('feesEditForm');
-    const formData = new FormData(form);
-    
-    fetch('{% url "update_occupation_fees" occupation.id %}', {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    function closeFeesModal() {
+      const modal = document.getElementById('feesEditModal');
+      if (modal) {
+        modal.remove();
       }
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        // Reload the page to show updated fees
-        window.location.reload();
-      } else {
-        alert('Error updating fees: ' + (data.error || 'Unknown error'));
-      }
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      alert('Error updating fees. Please try again.');
-    });
-  }
-
-  // Close modal when clicking outside
-  document.addEventListener('click', function(e) {
-    const modal = document.getElementById('feesEditModal');
-    if (modal && e.target === modal) {
-      closeFeesModal();
     }
-  });
+
+    function submitFeesUpdate() {
+      const form = document.getElementById('feesEditForm');
+      const formData = new FormData(form);
+      
+      fetch('{% url "update_occupation_fees" occupation.id %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Reload the page to show updated fees
+          window.location.reload();
+        } else {
+          alert('Error updating fees: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating fees. Please try again.');
+      });
+    }
+
+    // Close modal when clicking outside
+    document.addEventListener('click', function(e) {
+      const modal = document.getElementById('feesEditModal');
+      if (modal && e.target === modal) {
+        closeFeesModal();
+      }
+    });
+  {% endif %}
 </script>
 {% endblock %}

@@ -298,6 +298,26 @@
         <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Reports</div>
       </a>
       
+      <!-- UVTAB Fees for SupportStaff and CenterRep -->
+      <a href="{% url 'uvtab_fees_home' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+        <div class="bg-green-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+          <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+          </svg>
+        </div>
+        <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">UVTAB Fees</div>
+      </a>
+
+      <!-- Assessment Centers for SupportStaff and CenterRep -->
+      <a href="{% url 'assessment_center_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+        <div class="bg-orange-500 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+          <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 2a1 1 0 01.894.553l7 14A1 1 0 0117 18H3a1 1 0 01-.894-1.447l7-14A1 1 0 0110 2zM10 6l-4 8h8l-4-8z"/>
+          </svg>
+        </div>
+        <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Assessment Centers</div>
+      </a>
+      
     {% else %}
       <!-- Admin/Default user modules -->
       <a href="{% url 'candidate_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">

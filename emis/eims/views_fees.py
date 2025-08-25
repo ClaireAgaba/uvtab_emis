@@ -19,18 +19,29 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
-from .models import Candidate, AssessmentCenter, Occupation, Level, AssessmentSeries, CenterSeriesPayment
+from .models import Candidate, AssessmentCenter, Occupation, Level, AssessmentSeries, CenterSeriesPayment, CenterRepresentative
 
 def uvtab_fees_home(request):
     """
     UVTAB Fees dashboard with Candidate Fees and Center Fees tabs
     """
     # Calculate comprehensive financial metrics like the center fees list
+    # Restrict scope for Center Representatives
+    user_center = None
+    # Detect center by CenterRepresentative record rather than relying on group membership
+    try:
+        cr_obj = CenterRepresentative.objects.get(user=request.user)
+        user_center = cr_obj.center
+    except CenterRepresentative.DoesNotExist:
+        user_center = None
     
     # Get all enrolled candidates (both paid and unpaid)
-    all_enrolled_candidates = Candidate.objects.filter(
+    qs = Candidate.objects.filter(
         candidatelevel__isnull=False  # Must have level enrollment (been billed)
-    ).distinct()
+    )
+    if user_center:
+        qs = qs.filter(assessment_center=user_center)
+    all_enrolled_candidates = qs.distinct()
     
     # Get ALL enrolled candidates (both paid and unpaid) for dashboard table
     # Show all candidates with fees
@@ -146,8 +157,10 @@ def uvtab_fees_home(request):
     total_fees = original_billing_total  # Total amount ever billed
     amount_due = current_outstanding     # Current outstanding amount
     
-    # Get centers with highest total fees (top 10)
+    # Get centers with highest total fees (top 10) – for CenterRep, only their center
     centers = AssessmentCenter.objects.all()
+    if user_center:
+        centers = centers.filter(id=user_center.id)
     center_fees_data = []
     
     for center in centers:
@@ -166,15 +179,21 @@ def uvtab_fees_home(request):
     # Get fees breakdown by registration category
     fees_by_category = {}
     for category in ['Formal', 'Modular', 'Informal']:
-        category_fees = Candidate.objects.filter(
+        category_qs = Candidate.objects.filter(
             registration_category=category,
             fees_balance__gt=0
-        ).aggregate(total=models.Sum('fees_balance'))['total'] or Decimal('0.00')
-        
-        category_count = Candidate.objects.filter(
+        )
+        if user_center:
+            category_qs = category_qs.filter(assessment_center=user_center)
+        category_fees = category_qs.aggregate(total=models.Sum('fees_balance'))['total'] or Decimal('0.00')
+
+        category_count_qs = Candidate.objects.filter(
             registration_category=category,
             fees_balance__gt=0
-        ).count()
+        )
+        if user_center:
+            category_count_qs = category_count_qs.filter(assessment_center=user_center)
+        category_count = category_count_qs.count()
         
         fees_by_category[category] = {
             'total_fees': category_fees,
@@ -186,15 +205,21 @@ def uvtab_fees_home(request):
     assessment_series = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')[:5]  # Top 5 series
     
     for series in assessment_series:
-        series_fees = Candidate.objects.filter(
+        series_qs = Candidate.objects.filter(
             assessment_series=series,
             fees_balance__gt=0
-        ).aggregate(total=models.Sum('fees_balance'))['total'] or Decimal('0.00')
+        )
+        if user_center:
+            series_qs = series_qs.filter(assessment_center=user_center)
+        series_fees = series_qs.aggregate(total=models.Sum('fees_balance'))['total'] or Decimal('0.00')
         
-        series_count = Candidate.objects.filter(
+        series_count_qs = Candidate.objects.filter(
             assessment_series=series,
             fees_balance__gt=0
-        ).count()
+        )
+        if user_center:
+            series_count_qs = series_count_qs.filter(assessment_center=user_center)
+        series_count = series_count_qs.count()
         
         fees_by_series[series.name] = {
             'total_fees': series_fees,
@@ -204,7 +229,7 @@ def uvtab_fees_home(request):
     
     context = {
         'total_candidates': all_enrolled_candidates.count(),
-        'candidates_with_fees': Candidate.objects.filter(fees_balance__gt=0).count(),
+        'candidates_with_fees': (Candidate.objects.filter(fees_balance__gt=0, assessment_center=user_center).count() if user_center else Candidate.objects.filter(fees_balance__gt=0).count()),
         'total_fees': total_fees,
         'amount_paid': amount_paid,
         'amount_due': amount_due,
@@ -224,6 +249,12 @@ def candidate_fees_list(request):
     candidates = Candidate.objects.filter(fees_balance__gt=0).select_related(
         'assessment_center', 'occupation', 'assessment_series'
     ).order_by('-fees_balance')
+    # Restrict to CenterRepresentative's center if present
+    try:
+        cr = CenterRepresentative.objects.get(user=request.user)
+        candidates = candidates.filter(assessment_center=cr.center)
+    except CenterRepresentative.DoesNotExist:
+        pass
     
     # Add search functionality
     search_query = request.GET.get('search', '')
@@ -258,6 +289,12 @@ def candidate_fees_list(request):
     
     # Get filter options
     centers = AssessmentCenter.objects.all().order_by('center_name')
+    # Limit centers dropdown for CenterReps to only their center
+    try:
+        cr = CenterRepresentative.objects.get(user=request.user)
+        centers = centers.filter(id=cr.center_id)
+    except CenterRepresentative.DoesNotExist:
+        pass
     categories = ['Formal', 'Modular', 'Informal']
     assessment_series = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
     
@@ -293,7 +330,13 @@ def center_fees_list(request):
     candidates_with_billing = Candidate.objects.filter(
         candidatelevel__isnull=False,  # Must have level enrollment (been billed)
         assessment_center__isnull=False  # Must be assigned to a center
-    ).distinct().select_related('assessment_center', 'assessment_series', 'assessment_center__district', 'assessment_center__village')
+    )
+    try:
+        cr = CenterRepresentative.objects.get(user=request.user)
+        candidates_with_billing = candidates_with_billing.filter(assessment_center=cr.center)
+    except CenterRepresentative.DoesNotExist:
+        pass
+    candidates_with_billing = candidates_with_billing.distinct().select_related('assessment_center', 'assessment_series', 'assessment_center__district', 'assessment_center__village')
     
     # Group by center and assessment series
     center_series_data = {}
@@ -439,6 +482,14 @@ def center_candidates_report(request, center_id, series_id=None):
     AJAX view to generate invoice data for a specific center and assessment series
     Shows ALL billed candidates (both paid and unpaid) for complete financial records
     """
+    # Access control: CenterRep can only view their own center
+    if request.user.groups.filter(name='CenterRep').exists():
+        try:
+            cr = CenterRepresentative.objects.get(user=request.user)
+            if int(center_id) != int(cr.center.id):
+                return JsonResponse({'error': 'Forbidden'}, status=403)
+        except CenterRepresentative.DoesNotExist:
+            return JsonResponse({'error': 'Forbidden'}, status=403)
     try:
         center = AssessmentCenter.objects.get(id=center_id)
     except AssessmentCenter.DoesNotExist:

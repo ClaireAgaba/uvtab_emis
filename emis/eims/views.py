@@ -3269,6 +3269,15 @@ def district_villages_api(request, district_id):
 
 def assessment_center_list(request):
     centers = AssessmentCenter.objects.all().order_by('center_name')
+    # If user is a Center Representative, restrict to their own center
+    from .models import CenterRepresentative
+    is_center_rep = False
+    try:
+        cr = CenterRepresentative.objects.get(user=request.user)
+        centers = centers.filter(id=cr.center_id)
+        is_center_rep = True
+    except CenterRepresentative.DoesNotExist:
+        pass
     
     # Get filter parameters
     center_number = request.GET.get('center_number', '').strip()
@@ -3304,12 +3313,23 @@ def assessment_center_list(request):
         'page_obj': page_obj,
         'paginator': paginator,
         'categories': categories,
+        'is_center_rep': is_center_rep,
     })
 
 
 
 def assessment_center_view(request, id):
     center = get_object_or_404(AssessmentCenter, id=id)
+    # CenterRep can only view their own center
+    from .models import CenterRepresentative
+    is_center_rep = False
+    try:
+        cr = CenterRepresentative.objects.get(user=request.user)
+        if center.id != cr.center_id:
+            return HttpResponse(status=403)
+        is_center_rep = True
+    except CenterRepresentative.DoesNotExist:
+        pass
     candidates = Candidate.objects.filter(assessment_center=center)
     
     # Get unique occupations from candidates in this assessment center
@@ -3319,6 +3339,7 @@ def assessment_center_view(request, id):
         'center': center,
         'candidates': candidates,
         'occupations': occupations,
+        'is_center_rep': is_center_rep,
     })
 
 
@@ -3352,6 +3373,13 @@ def assessment_center_create(request):
 
 def edit_assessment_center(request, id):
     center = get_object_or_404(AssessmentCenter, id=id)
+    # Disallow CenterRep editing any center
+    from .models import CenterRepresentative
+    try:
+        CenterRepresentative.objects.get(user=request.user)
+        return HttpResponse(status=403)
+    except CenterRepresentative.DoesNotExist:
+        pass
     if request.method == 'POST':
         form = AssessmentCenterForm(request.POST, instance=center)
         if form.is_valid():
@@ -3458,6 +3486,13 @@ def assessment_center_branch_delete(request, center_id, branch_id):
 
 
 def occupation_list(request):
+    # Center Representatives are not allowed to access the full occupations list
+    from .models import CenterRepresentative
+    try:
+        CenterRepresentative.objects.get(user=request.user)
+        return HttpResponse(status=403)
+    except CenterRepresentative.DoesNotExist:
+        pass
     occupations = Occupation.objects.select_related('category', 'sector').all().order_by('code')
     code = request.GET.get('code', '').strip()
     name = request.GET.get('name', '').strip()
@@ -3493,6 +3528,13 @@ def occupation_list(request):
     })
 
 def occupation_create(request):
+    # Block Center Representatives from creating occupations
+    from .models import CenterRepresentative
+    try:
+        CenterRepresentative.objects.get(user=request.user)
+        return HttpResponse(status=403)
+    except CenterRepresentative.DoesNotExist:
+        pass
     from .models import Level, OccupationLevel
     error = None
     if request.method == 'POST':
@@ -3577,6 +3619,14 @@ def occupation_view(request, pk):
 
 def occupation_detail(request, pk):
     occupation = get_object_or_404(Occupation, pk=pk)
+    # Determine if the user is a Center Representative
+    from .models import CenterRepresentative
+    is_center_rep = False
+    try:
+        CenterRepresentative.objects.get(user=request.user)
+        is_center_rep = True
+    except CenterRepresentative.DoesNotExist:
+        pass
     from .models import OccupationLevel, Module, Paper
     occupation_levels = OccupationLevel.objects.filter(occupation=occupation).select_related('level')
     levels = [ol.level for ol in occupation_levels]
@@ -3595,15 +3645,36 @@ def occupation_detail(request, pk):
             content = Paper.objects.filter(occupation=occupation, level=ol.level)
         level_data.append({'level': ol.level, 'structure_type': ol.structure_type, 'content': content})
 
+    # Compute back URL: if linked from center view, go back there; else occupations list
+    from django.urls import reverse
+    from_center = request.GET.get('from_center')
+    if from_center:
+        try:
+            back_url = reverse('assessment_center_view', args=[int(from_center)])
+        except Exception:
+            back_url = reverse('occupation_list')
+    else:
+        back_url = reverse('occupation_list')
+
     return render(request, 'occupations/view.html', {
         'occupation': occupation,
         'levels': levels,
-        'level_data': level_data
+        'level_data': level_data,
+        'is_center_rep': is_center_rep,
+        'can_modify': not is_center_rep,
+        'back_url': back_url,
     })
 
 @login_required
 def update_occupation_fees(request, pk):
     """Update fees for all levels in an occupation via AJAX"""
+    # Center Representatives cannot update fees
+    from .models import CenterRepresentative
+    try:
+        CenterRepresentative.objects.get(user=request.user)
+        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+    except CenterRepresentative.DoesNotExist:
+        pass
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed'})
     
@@ -7967,6 +8038,13 @@ from django.contrib.auth.decorators import login_required
 
 @login_required
 def occupation_edit(request, pk):
+    # Center Representatives are not allowed to edit occupations
+    from .models import CenterRepresentative
+    try:
+        CenterRepresentative.objects.get(user=request.user)
+        return HttpResponse(status=403)
+    except CenterRepresentative.DoesNotExist:
+        pass
     from .models import Level, OccupationLevel
     occupation = get_object_or_404(Occupation, pk=pk)
     levels = Level.objects.filter(occupation=occupation)
