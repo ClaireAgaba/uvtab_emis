@@ -11779,6 +11779,38 @@ def api_all_levels_modules_papers(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+# ------------------------------
+# Awards Module
+# ------------------------------
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
+
+@login_required
+def awards_list(request):
+    """List candidates who have results and have passed (comment == 'Successful')."""
+    # Allow Staff group, Django staff, and superusers. Block others (centers, etc.)
+    if not (
+        request.user.is_superuser or
+        request.user.is_staff or
+        request.user.groups.filter(name='Staff').exists()
+    ):
+        return HttpResponseForbidden("You do not have permission to access this page.")
+    qs = Candidate.objects.filter(result__comment='Successful').distinct()
+
+    # Prefetch related to avoid N+1
+    qs = qs.select_related('assessment_center', 'assessment_series', 'occupation')
+
+    paginator = Paginator(qs.order_by('full_name'), 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'total_count': paginator.count,
+    }
+    return render(request, 'awards/list.html', context)
+
+
 # ===== CANDIDATE PORTAL VIEWS =====
 
 def candidate_portal_login(request):
@@ -11958,7 +11990,13 @@ from django.views.decorators.http import require_POST
 
 def _is_admin_or_staff(user):
     """Helper to determine elevated privileges for complaints handling."""
-    return getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False)
+    # Treat Django staff/superuser OR members of the "Staff" group as elevated
+    if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+        return True
+    try:
+        return user.groups.filter(name__in=['Staff']).exists()
+    except Exception:
+        return False
 
 
 @login_required

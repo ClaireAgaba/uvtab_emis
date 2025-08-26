@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 px-4 sm:px-6 py-6 sm:py-8">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl sm:text-3xl font-semibold text-gray-800">Awards</h1>
+      <a href="{% url 'dashboard' %}" class="text-blue-600 hover:text-blue-700 text-sm">Back to Dashboard</a>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Photo</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Reg No</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Name</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Assessment Center</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Reg Category</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Occupation</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Assessment Series</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Print Status</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for cand in page_obj.object_list %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 whitespace-nowrap">
+                {% if cand.passport_photo_with_regno %}
+                  <img src="{{ cand.passport_photo_with_regno.url }}" alt="{{ cand.full_name }}" class="h-10 w-10 rounded object-cover border" />
+                {% elif cand.passport_photo %}
+                  <img src="{{ cand.passport_photo.url }}" alt="{{ cand.full_name }}" class="h-10 w-10 rounded object-cover border" />
+                {% else %}
+                  <div class="h-10 w-10 rounded bg-gray-200 flex items-center justify-center text-gray-500 text-xs">N/A</div>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-800">{{ cand.reg_number|default:"—" }}</td>
+              <td class="px-4 py-3 text-sm text-gray-800">{{ cand.full_name }}</td>
+              <td class="px-4 py-3 text-sm text-gray-700">{{ cand.assessment_center }}</td>
+              <td class="px-4 py-3 text-sm text-gray-700">{{ cand.registration_category }}</td>
+              <td class="px-4 py-3 text-sm text-gray-700">{{ cand.occupation }}</td>
+              <td class="px-4 py-3 text-sm text-gray-700">{{ cand.assessment_series|default:"—" }}</td>
+              <td class="px-4 py-3 text-sm">
+                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">Not Printed</span>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="8" class="px-4 py-6 text-center text-gray-500">No awardees found.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="px-4 py-3 bg-gray-50 flex items-center justify-between">
+        <div class="text-sm text-gray-600">Total: {{ total_count }}</div>
+        <div class="flex items-center space-x-2">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border text-sm text-gray-700 hover:bg-white">Previous</a>
+          {% else %}
+            <span class="px-3 py-1 rounded border text-sm text-gray-400 cursor-not-allowed">Previous</span>
+          {% endif %}
+          <span class="text-sm text-gray-600">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border text-sm text-gray-700 hover:bg-white">Next</a>
+          {% else %}
+            <span class="px-3 py-1 rounded border text-sm text-gray-400 cursor-not-allowed">Next</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

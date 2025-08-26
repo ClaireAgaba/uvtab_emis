@@ -43,6 +43,7 @@ urlpatterns = [
     path('papers/add/<int:level_id>/', views.add_paper, name='add_paper'),
     path('candidates/', views.candidate_list, name='candidate_list'),
     path('results/', views.results_home, name='results_home'),
+    path('awards/', views.awards_list, name='awards_list'),
     path('results/generate-marksheet/', views.generate_marksheet, name='generate_marksheet'),
     path('results/download-marksheet/', views.download_marksheet, name='download_marksheet'),
     path('results/print-marksheet/', views.print_marksheet, name='print_marksheet'),
