@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Complaints</h1>
+                    <p class="text-gray-600">Manage support tickets and issues</p>
+                </div>
+
+        <!-- Pagination -->
+        {% if paginator.num_pages > 1 %}
+        <div class="mt-4 flex items-center justify-between">
+            <div class="text-sm text-gray-600">Page {{ page_obj.number }} of {{ paginator.num_pages }}</div>
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+                {% if page_obj.has_previous %}
+                    <a href="?{% if request.GET %}{{ request.GET.urlencode|cut:'page='|cut:'&' }}&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-l hover:bg-gray-50">Previous</a>
+                {% else %}
+                    <span class="px-3 py-2 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-l">Previous</span>
+                {% endif %}
+                {% if page_obj.has_next %}
+                    <a href="?{% if request.GET %}{{ request.GET.urlencode|cut:'page='|cut:'&' }}&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border-t border-b border-gray-300 hover:bg-gray-50">Next</a>
+                {% else %}
+                    <span class="px-3 py-2 text-sm font-medium text-gray-400 bg-gray-100 border-t border-b border-gray-200">Next</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+                <div class="flex space-x-3">
+                    {% if is_admin_or_staff %}
+                        <a href="{% url 'complaint_categories_list' %}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                            Manage Categories
+                        </a>
+                        <a href="{% url 'helpdesk_teams_list' %}" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                            Manage Teams
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'complaints_create' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Create New Complaint
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow mb-6 p-4">
+            <form method="get" class="grid grid-cols-1 lg:grid-cols-7 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select name="status" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Statuses</option>
+                        {% for value, label in statuses %}
+                            <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Assessment Center</label>
+                    <select name="center" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Centers</option>
+                        {% for center in centers %}
+                            <option value="{{ center.id }}" {% if request.GET.center == center.id|stringformat:"s" %}selected{% endif %}>{{ center.center_number }} - {{ center.center_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Assessment Series</label>
+                    <select name="series" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Series</option>
+                        {% for series in series_list %}
+                            <option value="{{ series.id }}" {% if request.GET.series == series.id|stringformat:"s" %}selected{% endif %}>{{ series.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Registration Category</label>
+                    <select name="regcat" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Categories</option>
+                        {% for rc in registration_categories %}
+                            <option value="{{ rc.id }}" {% if request.GET.regcat == rc.id|stringformat:"s" %}selected{% endif %}>{{ rc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
+                    <select name="occupation" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Occupations</option>
+                        {% for occ in occupations %}
+                            <option value="{{ occ.id }}" {% if request.GET.occupation == occ.id|stringformat:"s" %}selected{% endif %}>{{ occ.code }} - {{ occ.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if is_admin_or_staff %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Helpdesk Team</label>
+                    <select name="team" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Teams</option>
+                        {% for t in teams %}
+                            <option value="{{ t.id }}" {% if request.GET.team == t.id|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="flex items-end">
+                    <button type="submit" class="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md font-medium transition-colors">
+                        Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Summary -->
+        <div class="mb-2 text-sm text-gray-600">Total complaints: <span class="font-medium">{{ total_count }}</span></div>
+
+        <!-- Complaints List -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            {% if complaints %}
+                {% if is_admin_or_staff %}
+                <form method="post" action="{% url 'complaints_bulk_assign' %}" id="bulkAssignForm">
+                    {% csrf_token %}
+                    <div class="flex items-center justify-between p-3 border-b bg-gray-50">
+                        <div class="text-sm text-gray-700">Bulk actions for selected complaints</div>
+                        <div class="flex items-center space-x-2">
+                            <label for="bulkTeam" class="text-sm text-gray-700">Helpdesk Team</label>
+                            <select id="bulkTeam" name="team_id" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select team…</option>
+                                {% for t in teams %}
+                                    <option value="{{ t.id }}">{{ t.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">Assign</button>
+                        </div>
+                    </div>
+                {% endif %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                {% if is_admin_or_staff %}
+                                <th class="px-4 py-3 text-left">
+                                    <input type="checkbox" id="selectAll" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                                </th>
+                                {% endif %}
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticket</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg. Category</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Occupation</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment Center</th>
+                                {% if is_admin_or_staff %}
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Helpdesk Team</th>
+                                {% endif %}
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                {% if is_admin_or_staff %}
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
+                                {% endif %}
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for complaint in complaints %}
+                                <tr class="hover:bg-gray-50">
+                                    {% if is_admin_or_staff %}
+                                    <td class="px-4 py-3">
+                                        <input type="checkbox" name="complaint_ids" value="{{ complaint.id }}" class="rowChk h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                                    </td>
+                                    {% endif %}
+                                    <td class="px-6 py-3 whitespace-normal">
+                                        <div class="text-sm font-medium text-gray-900">{{ complaint.ticket_no }}</div>
+                                    </td>
+                                    <td class="px-6 py-3 whitespace-normal">
+                                        <div class="text-sm text-gray-900">{{ complaint.category.name|default:"N/A" }}</div>
+                                    </td>
+                                    <td class="px-6 py-3 whitespace-normal">
+                                        <div class="text-sm text-gray-900">{{ complaint.registration_category.name|default:"N/A" }}</div>
+                                    </td>
+                                    <td class="px-6 py-3 whitespace-normal">
+                                        <div class="text-sm text-gray-900">{{ complaint.occupation.code|default:"" }}{% if complaint.occupation %} - {{ complaint.occupation.name }}{% else %}N/A{% endif %}</div>
+                                    </td>
+                                    <td class="px-6 py-3 whitespace-normal">
+                                        <div class="text-sm text-gray-900">{{ complaint.assessment_center.center_name|default:"N/A" }}</div>
+                                    </td>
+                                    {% if is_admin_or_staff %}
+                                    <td class="px-6 py-3 whitespace-normal">
+                                        <div class="text-sm text-gray-900">{{ complaint.helpdesk_team.name|default:"N/A" }}</div>
+                                    </td>
+                                    {% endif %}
+                                    <td class="px-6 py-3 whitespace-nowrap">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                            {% if complaint.status == 'new' %}bg-blue-100 text-blue-800
+                                            {% elif complaint.status == 'in_progress' %}bg-yellow-100 text-yellow-800
+                                            {% elif complaint.status == 'pending' %}bg-orange-100 text-orange-800
+                                            {% elif complaint.status == 'done' %}bg-green-100 text-green-800
+                                            {% elif complaint.status == 'canceled' %}bg-red-100 text-red-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ complaint.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {{ complaint.created_at|date:"M d, Y" }}
+                                    </td>
+                                    {% if is_admin_or_staff %}
+                                    <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {{ complaint.created_by.get_full_name|default:complaint.created_by.username }}
+                                    </td>
+                                    {% endif %}
+                                    <td class="px-6 py-3 whitespace-nowrap text-sm font-medium">
+                                        <a href="{% url 'complaints_detail' complaint.pk %}" class="text-blue-600 hover:text-blue-900">View</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if is_admin_or_staff %}
+                </form>
+                {% endif %}
+                {% else %}
+                    <div class="text-center py-12">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No complaints found</h3>
+                        <p class="mt-1 text-sm text-gray-500">Get started by creating a new complaint.</p>
+                        <div class="mt-6">
+                            <a href="{% url 'complaints_create' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">Create New Complaint</a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function() {
+    const regcatSelect = document.querySelector('select[name="regcat"]');
+    const occupationSelect = document.querySelector('select[name="occupation"]');
+    if (!regcatSelect || !occupationSelect) return;
+
+    async function loadOccupations(regcatId) {
+      const url = new URL('{% url "api_occupations_by_category" %}', window.location.origin);
+      if (regcatId) url.searchParams.set('registration_category', regcatId);
+      try {
+        const resp = await fetch(url.toString(), {headers: {'X-Requested-With':'XMLHttpRequest'}});
+        const data = await resp.json();
+        const occupations = data.occupations || [];
+        const current = occupationSelect.value;
+        occupationSelect.innerHTML = '';
+        const optAll = document.createElement('option');
+        optAll.value = '';
+        optAll.textContent = 'All Occupations';
+        occupationSelect.appendChild(optAll);
+        occupations.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o.id;
+          opt.textContent = `${o.code} - ${o.name}`;
+          occupationSelect.appendChild(opt);
+        });
+        // Try to preserve selected if still available
+        if ([...occupationSelect.options].some(op => op.value === current)) {
+          occupationSelect.value = current;
+        }
+      } catch(e) {
+        // swallow, keep previous list
+      }
+    }
+
+    regcatSelect.addEventListener('change', (e) => {
+      loadOccupations(e.target.value);
+    });
+
+    // Initial populate when page loads if regcat provided
+    if (regcatSelect.value) loadOccupations(regcatSelect.value);
+  })();
+</script>
+<script>
+  (function() {
+    const selectAll = document.getElementById('selectAll');
+    const form = document.getElementById('bulkAssignForm');
+    if (!form) return; // center users won't have the form
+    const rowChks = () => Array.from(document.querySelectorAll('.rowChk'));
+    const assignBtn = form.querySelector('button[type="submit"]');
+    const teamSelect = form.querySelector('select[name="team_id"]');
+
+    function updateAssignState() {
+      const anyChecked = rowChks().some(c => c.checked);
+      assignBtn.disabled = !anyChecked || !teamSelect.value;
+      assignBtn.classList.toggle('opacity-50', assignBtn.disabled);
+      assignBtn.classList.toggle('cursor-not-allowed', assignBtn.disabled);
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener('change', (e) => {
+        rowChks().forEach(c => { c.checked = e.target.checked; });
+        updateAssignState();
+      });
+    }
+
+    document.addEventListener('change', (e) => {
+      if (e.target.classList && e.target.classList.contains('rowChk')) {
+        if (selectAll) {
+          const all = rowChks();
+          selectAll.checked = all.length > 0 && all.every(c => c.checked);
+        }
+        updateAssignState();
+      }
+      if (e.target === teamSelect) {
+        updateAssignState();
+      }
+    });
+
+    form.addEventListener('submit', (e) => {
+      const anyChecked = rowChks().some(c => c.checked);
+      if (!anyChecked || !teamSelect.value) {
+        e.preventDefault();
+        updateAssignState();
+      }
+    });
+
+    // initial state
+    updateAssignState();
+  })();
+</script>
+{% endblock %}

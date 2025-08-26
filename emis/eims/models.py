@@ -47,6 +47,18 @@ def validate_document_file(value):
                 'File size must be less than 10MB'
             )
 
+def validate_complaint_attachment(value):
+    """Validate complaint attachment types (images, PDF, Word) up to 20MB"""
+    if value:
+        ext = os.path.splitext(value.name)[1].lower()
+        valid_extensions = ['.png', '.jpg', '.jpeg', '.pdf', '.doc', '.docx']
+        if ext not in valid_extensions:
+            raise ValidationError(
+                f'Unsupported file type {ext}. Allowed: PNG, JPG, JPEG, PDF, DOC, DOCX.'
+            )
+        if value.size > 20 * 1024 * 1024:
+            raise ValidationError('File size must be less than 20MB')
+
 
 GENDER_CHOICES = [('M', 'Male'), ('F', 'Female')]
 INTAKE_CHOICES = [
@@ -378,6 +390,94 @@ class Sector(models.Model):
     def __str__(self):
         return self.name
 
+
+# =========================
+# Complaints Module Models
+# =========================
+class HelpdeskTeam(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class ComplaintCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Complaint Category'
+        verbose_name_plural = 'Complaint Categories'
+
+    def __str__(self):
+        return self.name
+
+
+def generate_ticket_no():
+    """Generate next ticket number in format TKT00001"""
+    last = Complaint.objects.order_by('-id').first()
+    next_num = 1 if not last else last.id + 1
+    return f"TKT{next_num:05d}"
+
+
+class Complaint(models.Model):
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('in_progress', 'In Progress'),
+        ('pending', 'Pending'),
+        ('done', 'Done'),
+        ('canceled', 'Canceled'),
+    ]
+
+    ticket_no = models.CharField(max_length=16, unique=True, editable=False, default='')
+    category = models.ForeignKey('ComplaintCategory', on_delete=models.SET_NULL, null=True, blank=True)
+    assessment_center = models.ForeignKey('AssessmentCenter', on_delete=models.SET_NULL, null=True, blank=True)
+    registration_category = models.ForeignKey('RegistrationCategory', on_delete=models.SET_NULL, null=True, blank=True)
+    occupation = models.ForeignKey('Occupation', on_delete=models.SET_NULL, null=True, blank=True)
+    assessment_series = models.ForeignKey('AssessmentSeries', on_delete=models.SET_NULL, null=True, blank=True)
+    helpdesk_team = models.ForeignKey('HelpdeskTeam', on_delete=models.SET_NULL, null=True, blank=True)
+    phone = models.CharField(max_length=32, blank=True)
+    issue_description = models.TextField()
+    team_response = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+
+    # Audit
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, null=True, blank=True, related_name='created_complaints', on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(User, null=True, blank=True, related_name='updated_complaints', on_delete=models.SET_NULL)
+
+    def save(self, *args, **kwargs):
+        if not self.ticket_no:
+            # Assign on first save
+            self.ticket_no = generate_ticket_no()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.ticket_no
+
+
+def complaint_attachment_upload_path(instance, filename):
+    return f"complaints/{instance.complaint.ticket_no}/{filename}"
+
+
+class ComplaintAttachment(models.Model):
+    complaint = models.ForeignKey('Complaint', related_name='attachments', on_delete=models.CASCADE)
+    file = models.FileField(upload_to=complaint_attachment_upload_path, validators=[validate_complaint_attachment])
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def filename(self):
+        return os.path.basename(self.file.name)
+
+    def __str__(self):
+        return f"{self.complaint.ticket_no} - {self.filename()}"
 
 class Result(models.Model):
     RESULT_TYPE_CHOICES = [

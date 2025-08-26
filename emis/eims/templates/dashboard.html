@@ -318,6 +318,16 @@
         </div>
         <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Assessment Centers</div>
       </a>
+
+      <!-- Complaints for SupportStaff and CenterRep -->
+      <a href="{% url 'complaints_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+        <div class="bg-red-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+          <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+          </svg>
+        </div>
+        <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Complaints</div>
+      </a>
       
     {% else %}
       <!-- Admin/Default user modules -->
@@ -421,6 +431,16 @@
           </svg>
         </div>
         <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Users</div>
+      </a>
+
+      <!-- Complaints for Admin/Default users -->
+      <a href="{% url 'complaints_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+        <div class="bg-red-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+          <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+          </svg>
+        </div>
+        <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Complaints</div>
       </a>
     {% endif %}
     </div>

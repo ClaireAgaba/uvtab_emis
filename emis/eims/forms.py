@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, AssessmentCenterBranch, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, Result, NatureOfDisability, Staff, AssessmentSeries, Sector
+from .models import AssessmentCenter, AssessmentCenterBranch, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, Result, NatureOfDisability, Staff, AssessmentSeries, Sector, HelpdeskTeam, ComplaintCategory, Complaint
 from datetime import datetime   
 
 from django_countries.fields import CountryField
@@ -18,6 +18,79 @@ class NatureOfDisabilityForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'description': forms.Textarea(attrs={'class': 'border rounded px-3 py-2 w-full', 'rows': 3}),
         }
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = single_file_clean(data, initial)
+        return result
+
+class ComplaintForm(forms.ModelForm):
+    attachments = MultipleFileField(
+        required=False,
+        help_text='Select multiple files (PNG, JPG, JPEG, PDF, DOC, DOCX). Max 20MB per file.'
+    )
+
+    class Meta:
+        model = Complaint
+        fields = [
+            'category', 'assessment_center', 'registration_category', 'occupation',
+            'assessment_series', 'helpdesk_team', 'phone', 'issue_description',
+            'team_response', 'status'
+        ]
+        widgets = {
+            'category': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'assessment_center': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'registration_category': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'occupation': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'assessment_series': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'helpdesk_team': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'phone': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'placeholder': 'e.g. +256 7XX XXX XXX'}),
+            'issue_description': forms.Textarea(attrs={'class': 'border rounded px-3 py-2 w-full', 'rows': 4, 'placeholder': 'Provide the issue in detail'}),
+            'team_response': forms.Textarea(attrs={'class': 'border rounded px-3 py-2 w-full', 'rows': 3}),
+            'status': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Ensure phone field is always available and enabled
+        if 'phone' in self.fields:
+            self.fields['phone'].widget.attrs.update({
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'placeholder': 'e.g. +256 7XX XXX XXX'
+            })
+            self.fields['phone'].required = False
+        
+        # Assessment center must be selected
+        if 'assessment_center' in self.fields:
+            self.fields['assessment_center'].required = True
+        
+        # Center reps: lock to their center if available
+        if user and hasattr(user, 'centerrepresentative') and user.centerrepresentative.center:
+            self.fields['assessment_center'].initial = user.centerrepresentative.center
+            self.fields['assessment_center'].queryset = AssessmentCenter.objects.filter(pk=user.centerrepresentative.center.pk)
+        
+        # Status and helpdesk team hidden for center reps on create
+        if not (user and (user.is_staff or user.is_superuser or hasattr(user, 'supportstaff') or hasattr(user, 'staff_profile'))):
+            self.fields['status'].widget.attrs['disabled'] = True
+            self.fields['status'].required = False
+            # Center users cannot assign helpdesk teams - only staff can do this
+            self.fields['helpdesk_team'].widget.attrs['disabled'] = True
+            self.fields['helpdesk_team'].required = False
+
 
 class AssessmentCenterForm(forms.ModelForm):
     class Meta:

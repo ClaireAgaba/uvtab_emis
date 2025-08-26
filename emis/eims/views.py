@@ -16,6 +16,8 @@ from .models import Staff
 from .forms import StaffForm
 from .forms import CenterRepForm
 from .models import AssessmentSeries
+from .models import Complaint, ComplaintAttachment, ComplaintCategory, HelpdeskTeam, RegistrationCategory
+from .forms import ComplaintForm
 from .forms import AssessmentSeriesForm
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
@@ -689,6 +691,7 @@ def results_home(request):
     })
 
 from django.views.decorators.http import require_POST
+from django.core.paginator import Paginator
 from django.http import JsonResponse
 from openpyxl import Workbook
 from openpyxl import load_workbook
@@ -11632,44 +11635,67 @@ def api_occupations_by_category(request):
     AJAX endpoint to get occupations filtered by registration category
     """
     from django.http import JsonResponse
-    from .models import Occupation, OccupationCategory
+    from .models import Occupation, OccupationCategory, RegistrationCategory
     
-    registration_category = request.GET.get('registration_category', '').lower()
+    registration_category_id = request.GET.get('registration_category', '')
     
-    if not registration_category:
+    if not registration_category_id:
         return JsonResponse({'occupations': []})
     
-    # Filter occupations based on registration category
-    if registration_category == 'modular':
-        # For modular, only show occupations that allow modular registration
-        occupations = Occupation.objects.filter(has_modular=True).order_by('code')
-    elif registration_category == 'formal':
-        # For formal, only show occupations in the "Formal" category
-        try:
-            formal_category = OccupationCategory.objects.get(name__iexact='Formal')
-            occupations = Occupation.objects.filter(category=formal_category).order_by('code')
-        except OccupationCategory.DoesNotExist:
-            # Fallback: show all non-modular occupations
-            occupations = Occupation.objects.filter(has_modular=False).order_by('code')
-    elif registration_category == 'informal':
-        # For informal/worker's PAS, only show occupations in the "Worker's PAS" category
-        try:
-            workers_pas_category = OccupationCategory.objects.filter(name__iregex=r"worker('?s)? pas").first()
-            if workers_pas_category:
-                occupations = Occupation.objects.filter(category=workers_pas_category).order_by('code')
-            else:
-                # Fallback: try alternative names
+    try:
+        # Get the registration category object
+        reg_category = RegistrationCategory.objects.get(id=registration_category_id)
+        reg_category_name = reg_category.name.lower()
+        
+        # Filter occupations based on registration category name
+        if 'modular' in reg_category_name:
+            # For modular, only show occupations that allow modular registration
+            occupations = Occupation.objects.filter(has_modular=True).order_by('code')
+        elif 'formal' in reg_category_name:
+            # For formal, try to find formal occupation category
+            try:
+                formal_category = OccupationCategory.objects.get(name__iexact='Formal')
+                occupations = Occupation.objects.filter(category=formal_category).order_by('code')
+            except OccupationCategory.DoesNotExist:
+                # Fallback: show all non-modular occupations
+                occupations = Occupation.objects.filter(has_modular=False).order_by('code')
+        elif any(keyword in reg_category_name for keyword in ['informal', 'worker', 'pas']):
+            # For informal/worker's PAS, try to find worker's PAS occupation category
+            try:
                 workers_pas_category = OccupationCategory.objects.filter(
-                    name__icontains='worker'
+                    name__iregex=r"worker('?s)? pas"
                 ).first()
                 if workers_pas_category:
                     occupations = Occupation.objects.filter(category=workers_pas_category).order_by('code')
                 else:
-                    occupations = Occupation.objects.none()
-        except Exception:
-            occupations = Occupation.objects.none()
-    else:
-        occupations = Occupation.objects.none()
+                    # Fallback: try alternative names
+                    workers_pas_category = OccupationCategory.objects.filter(
+                        name__icontains='worker'
+                    ).first()
+                    if workers_pas_category:
+                        occupations = Occupation.objects.filter(category=workers_pas_category).order_by('code')
+                    else:
+                        # For informal without specific category, show limited set
+                        occupations = Occupation.objects.filter(has_modular=False).order_by('code')[:10]
+            except Exception:
+                # For informal without specific category, show limited set
+                occupations = Occupation.objects.filter(has_modular=False).order_by('code')[:10]
+        else:
+            # For other registration categories like "Registration Anomaly", show a relevant subset
+            # Based on the name, try to determine appropriate occupations
+            if any(keyword in reg_category_name for keyword in ['anomaly', 'issue', 'problem']):
+                # For anomaly-related categories, show all occupations but prioritize common ones
+                occupations = Occupation.objects.all().order_by('code')
+            else:
+                # Default: show all occupations
+                occupations = Occupation.objects.all().order_by('code')
+    
+    except RegistrationCategory.DoesNotExist:
+        # If registration category doesn't exist, return empty
+        return JsonResponse({'occupations': []})
+    except Exception as e:
+        # For any other error, show all occupations as fallback
+        occupations = Occupation.objects.all().order_by('code')
     
     # Format occupations for JSON response
     occupation_data = []
@@ -11922,3 +11948,423 @@ def candidate_portal_view(request, id):
     }
     
     return render(request, 'candidates/view.html', context)
+
+
+# =========================
+# Complaints Module Views
+# =========================
+from django.contrib import messages
+from django.views.decorators.http import require_POST
+
+def _is_admin_or_staff(user):
+    """Helper to determine elevated privileges for complaints handling."""
+    return getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False)
+
+
+@login_required
+def complaints_list(request):
+    """List complaints. Center reps see their own; staff/admin see all."""
+    qs = Complaint.objects.select_related(
+        'category', 'assessment_center', 'registration_category', 'occupation', 'assessment_series', 'helpdesk_team', 'created_by'
+    ).order_by('-created_at')
+
+    if not _is_admin_or_staff(request.user):
+        user_center = getattr(getattr(request.user, 'centerrepresentative', None), 'center', None)
+        if user_center:
+            qs = qs.filter(assessment_center=user_center)
+        else:
+            qs = qs.none()
+
+    # Filters
+    status = request.GET.get('status', '').strip()
+    center = request.GET.get('center', '').strip()
+    series = request.GET.get('series', '').strip()
+    regcat = request.GET.get('regcat', '').strip()
+    occupation = request.GET.get('occupation', '').strip()
+    team = request.GET.get('team', '').strip()
+    if status:
+        qs = qs.filter(status=status)
+    if center:
+        qs = qs.filter(assessment_center_id=center)
+    if series:
+        qs = qs.filter(assessment_series_id=series)
+    if regcat:
+        qs = qs.filter(registration_category_id=regcat)
+    if occupation:
+        qs = qs.filter(occupation_id=occupation)
+    if team:
+        qs = qs.filter(helpdesk_team_id=team)
+
+    # For filter dropdowns
+    registration_categories = RegistrationCategory.objects.all().order_by('name')
+    # If a regcat is selected, pre-filter occupations for the dropdown
+    if regcat:
+        try:
+            from .models import OccupationCategory  # in case used elsewhere
+            occupations_qs = Occupation.objects.filter(registrationcategory=regcat)  # fallback if relation exists
+        except Exception:
+            occupations_qs = Occupation.objects.all()
+    else:
+        occupations_qs = Occupation.objects.all()
+
+    # Pagination
+    paginator = Paginator(qs, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Centers list for filter dropdown
+    if _is_admin_or_staff(request.user):
+        centers_qs = AssessmentCenter.objects.all().order_by('center_number')
+    else:
+        user_center = getattr(getattr(request.user, 'centerrepresentative', None), 'center', None)
+        centers_qs = AssessmentCenter.objects.filter(pk=user_center.pk).order_by('center_number') if user_center else AssessmentCenter.objects.none()
+
+    context = {
+        'complaints': page_obj.object_list,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'total_count': paginator.count,
+        'statuses': Complaint.STATUS_CHOICES,
+        'centers': centers_qs,
+        'series_list': AssessmentSeries.objects.all().order_by('-start_date'),
+        'registration_categories': registration_categories,
+        'occupations': occupations_qs.order_by('code'),
+        'teams': HelpdeskTeam.objects.all().order_by('name'),
+        'is_admin_or_staff': _is_admin_or_staff(request.user),
+    }
+    return render(request, 'complaints/list.html', context)
+
+
+@login_required
+@require_POST
+def complaints_bulk_assign(request):
+    """Bulk-assign helpdesk team for selected complaints (staff/admin only)."""
+    if not _is_admin_or_staff(request.user):
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('complaints_list')
+
+    team_id = request.POST.get('team_id', '').strip()
+    ids = request.POST.getlist('complaint_ids')
+
+    if not team_id:
+        messages.error(request, 'Select a helpdesk team to assign.')
+        return redirect('complaints_list')
+    if not ids:
+        messages.error(request, 'Select at least one complaint.')
+        return redirect('complaints_list')
+
+    qs = Complaint.objects.filter(id__in=ids)
+    updated = qs.update(helpdesk_team_id=team_id, updated_by=request.user)
+    messages.success(request, f'Assigned helpdesk team to {updated} complaint(s).')
+
+    # Redirect back to list with original filters if present
+    next_url = request.META.get('HTTP_REFERER') or reverse('complaints_list')
+    return redirect(next_url)
+
+
+@login_required
+def complaints_create(request):
+    """Create a new complaint with multiple attachments."""
+    if request.method == 'POST':
+        form = ComplaintForm(request.POST, request.FILES, user=request.user)
+        if form.is_valid():
+            complaint = form.save(commit=False)
+            complaint.created_by = request.user
+            complaint.updated_by = request.user
+            
+            if not _is_admin_or_staff(request.user):
+                complaint.status = 'new'
+            
+            complaint.save()
+            
+            # Handle file attachments
+            attachment_files = request.FILES.getlist('attachments')
+            for f in attachment_files:
+                if f:  # Only create attachment if file exists
+                    ComplaintAttachment.objects.create(complaint=complaint, file=f)
+            
+            messages.success(request, f"Complaint {complaint.ticket_no} created successfully.")
+            return redirect('complaints_detail', pk=complaint.pk)
+        else:
+            # Add form errors to messages for debugging
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+    else:
+        form = ComplaintForm(user=request.user)
+
+    context = {
+        'form': form,
+        'categories': ComplaintCategory.objects.all().order_by('name'),
+        'teams': HelpdeskTeam.objects.all().order_by('name'),
+        'registration_categories': RegistrationCategory.objects.all().order_by('name'),
+        'occupations': Occupation.objects.all().order_by('code'),
+        'assessment_centers': AssessmentCenter.objects.all().order_by('center_number'),
+        'series_list': AssessmentSeries.objects.all().order_by('-start_date'),
+    }
+    return render(request, 'complaints/create.html', context)
+
+
+@login_required
+def complaints_detail(request, pk):
+    """Detail view. Staff can update status/response and add attachments inline."""
+    complaint = get_object_or_404(Complaint.objects.select_related(
+        'category', 'assessment_center', 'registration_category', 'occupation', 'assessment_series', 'helpdesk_team', 'created_by'
+    ), pk=pk)
+
+    if not _is_admin_or_staff(request.user):
+        user_center = getattr(getattr(request.user, 'centerrepresentative', None), 'center', None)
+        is_creator = (complaint.created_by_id == request.user.id)
+        in_user_center = (user_center is not None and complaint.assessment_center_id == getattr(user_center, 'id', None))
+        if not (is_creator or in_user_center):
+            messages.error(request, 'You do not have permission to view this complaint.')
+            return redirect('complaints_list')
+
+    if request.method == 'POST' and _is_admin_or_staff(request.user):
+        status = request.POST.get('status', complaint.status)
+        team_response = request.POST.get('team_response', complaint.team_response)
+        center_id = request.POST.get('assessment_center', '').strip()
+        complaint.status = status
+        complaint.team_response = team_response
+        if center_id:
+            try:
+                complaint.assessment_center = AssessmentCenter.objects.get(pk=center_id)
+            except AssessmentCenter.DoesNotExist:
+                pass
+        else:
+            complaint.assessment_center = None
+        complaint.updated_by = request.user
+        complaint.save()
+        for f in request.FILES.getlist('attachments'):
+            ComplaintAttachment.objects.create(complaint=complaint, file=f)
+        messages.success(request, 'Complaint updated successfully.')
+        return redirect('complaints_detail', pk=complaint.pk)
+
+    context = {
+        'complaint': complaint,
+        'is_admin_or_staff': _is_admin_or_staff(request.user),
+        'statuses': Complaint.STATUS_CHOICES,
+        'assessment_centers': AssessmentCenter.objects.all().order_by('center_number'),
+    }
+    return render(request, 'complaints/detail.html', context)
+
+
+@login_required
+def complaint_categories_list(request):
+    """List and create complaint categories."""
+    categories = ComplaintCategory.objects.all().order_by('name')
+    
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        
+        if name:
+            if not ComplaintCategory.objects.filter(name__iexact=name).exists():
+                ComplaintCategory.objects.create(
+                    name=name,
+                    description=description
+                )
+                messages.success(request, f'Complaint category "{name}" created successfully.')
+            else:
+                messages.error(request, f'Complaint category "{name}" already exists.')
+        else:
+            messages.error(request, 'Category name is required.')
+        
+        return redirect('complaint_categories_list')
+    
+    context = {
+        'categories': categories,
+        'is_admin_or_staff': _is_admin_or_staff(request.user),
+    }
+    return render(request, 'complaints/categories.html', context)
+
+
+@login_required
+def complaint_category_edit(request, pk):
+    """Edit a complaint category."""
+    if not _is_admin_or_staff(request.user):
+        messages.error(request, 'You do not have permission to edit complaint categories.')
+        return redirect('complaint_categories_list')
+    
+    category = get_object_or_404(ComplaintCategory, pk=pk)
+    
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        
+        if name:
+            if not ComplaintCategory.objects.filter(name__iexact=name).exclude(pk=pk).exists():
+                category.name = name
+                category.description = description
+                category.save()
+                messages.success(request, f'Complaint category "{name}" updated successfully.')
+                return redirect('complaint_categories_list')
+            else:
+                messages.error(request, f'Complaint category "{name}" already exists.')
+        else:
+            messages.error(request, 'Category name is required.')
+    
+    context = {
+        'category': category,
+        'is_admin_or_staff': _is_admin_or_staff(request.user),
+    }
+    return render(request, 'complaints/category_edit.html', context)
+
+
+@login_required
+def complaint_category_delete(request, pk):
+    """Delete a complaint category."""
+    if not _is_admin_or_staff(request.user):
+        messages.error(request, 'You do not have permission to delete complaint categories.')
+        return redirect('complaint_categories_list')
+    
+    category = get_object_or_404(ComplaintCategory, pk=pk)
+    
+    # Check if category is in use
+    if category.complaint_set.exists():
+        messages.error(request, f'Cannot delete category "{category.name}" as it is being used by existing complaints.')
+        return redirect('complaint_categories_list')
+    
+    if request.method == 'POST':
+        category_name = category.name
+        category.delete()
+        messages.success(request, f'Complaint category "{category_name}" deleted successfully.')
+        return redirect('complaint_categories_list')
+    
+    context = {
+        'category': category,
+        'is_admin_or_staff': _is_admin_or_staff(request.user),
+    }
+    return render(request, 'complaints/category_delete.html', context)
+
+
+@login_required
+def helpdesk_teams_list(request):
+    """List and create helpdesk teams."""
+    teams = HelpdeskTeam.objects.all().order_by('name')
+    
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        
+        if name:
+            if not HelpdeskTeam.objects.filter(name__iexact=name).exists():
+                HelpdeskTeam.objects.create(
+                    name=name,
+                    description=description
+                )
+                messages.success(request, f'Helpdesk team "{name}" created successfully.')
+            else:
+                messages.error(request, f'Helpdesk team "{name}" already exists.')
+        else:
+            messages.error(request, 'Team name is required.')
+        
+        return redirect('helpdesk_teams_list')
+    
+    context = {
+        'teams': teams,
+        'is_admin_or_staff': _is_admin_or_staff(request.user),
+    }
+    return render(request, 'complaints/helpdesk_teams.html', context)
+
+
+@login_required
+def helpdesk_team_edit(request, pk):
+    """Edit a helpdesk team."""
+    if not _is_admin_or_staff(request.user):
+        messages.error(request, 'You do not have permission to edit helpdesk teams.')
+        return redirect('helpdesk_teams_list')
+    
+    team = get_object_or_404(HelpdeskTeam, pk=pk)
+    
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        
+        if name:
+            if not HelpdeskTeam.objects.filter(name__iexact=name).exclude(pk=pk).exists():
+                team.name = name
+                team.description = description
+                team.save()
+                messages.success(request, f'Helpdesk team "{name}" updated successfully.')
+                return redirect('helpdesk_teams_list')
+            else:
+                messages.error(request, f'Helpdesk team "{name}" already exists.')
+        else:
+            messages.error(request, 'Team name is required.')
+    
+    context = {
+        'team': team,
+        'is_admin_or_staff': _is_admin_or_staff(request.user),
+    }
+    return render(request, 'complaints/helpdesk_team_edit.html', context)
+
+
+@login_required
+def helpdesk_team_delete(request, pk):
+    """Delete a helpdesk team."""
+    if not _is_admin_or_staff(request.user):
+        messages.error(request, 'You do not have permission to delete helpdesk teams.')
+        return redirect('helpdesk_teams_list')
+    
+    team = get_object_or_404(HelpdeskTeam, pk=pk)
+    
+    # Check if team is in use
+    if team.complaint_set.exists():
+        messages.error(request, f'Cannot delete team "{team.name}" as it is being used by existing complaints.')
+        return redirect('helpdesk_teams_list')
+    
+    if request.method == 'POST':
+        team_name = team.name
+        team.delete()
+        messages.success(request, f'Helpdesk team "{team_name}" deleted successfully.')
+        return redirect('helpdesk_teams_list')
+    
+    context = {
+        'team': team,
+        'is_admin_or_staff': _is_admin_or_staff(request.user),
+    }
+    return render(request, 'complaints/helpdesk_team_delete.html', context)
+
+
+@login_required
+def complaint_attachment_view(request, attachment_id):
+    """Serve complaint attachment files."""
+    from django.http import HttpResponse, Http404
+    from django.shortcuts import get_object_or_404
+    import mimetypes
+    import os
+    
+    attachment = get_object_or_404(ComplaintAttachment, id=attachment_id)
+    complaint = attachment.complaint
+    
+    # Check permissions: users can only view attachments for complaints they have access to
+    if not _is_admin_or_staff(request.user):
+        # Center reps can only view attachments for their center's complaints
+        if hasattr(request.user, 'centerrepresentative'):
+            if complaint.assessment_center != request.user.centerrepresentative.center:
+                raise Http404("Attachment not found")
+        else:
+            raise Http404("Attachment not found")
+    
+    try:
+        # Get the file path
+        file_path = attachment.file.path
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            raise Http404("File not found")
+        
+        # Determine content type
+        content_type, _ = mimetypes.guess_type(file_path)
+        if not content_type:
+            content_type = 'application/octet-stream'
+        
+        # Read and serve the file
+        with open(file_path, 'rb') as f:
+            response = HttpResponse(f.read(), content_type=content_type)
+            response['Content-Disposition'] = f'inline; filename="{attachment.filename}"'
+            return response
+            
+    except Exception as e:
+        raise Http404("File not found")

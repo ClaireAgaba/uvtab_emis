@@ -50,6 +50,7 @@ urlpatterns = [
     path('results/upload-marks/', views.upload_marks, name='upload_marks'),
     path('api/occupations/', views.api_occupations, name='api_occupations'),
     path('api/occupations-by-category/', views.api_occupations_by_category, name='api_occupations_by_category'),
+    path('complaints/bulk-assign/', views.complaints_bulk_assign, name='complaints_bulk_assign'),
     path('api/all-levels-modules-papers/', views.api_all_levels_modules_papers, name='api_all_levels_modules_papers'),
     path('api/levels/', views.api_levels, name='api_levels'),
     path('api/levels-for-occupation/', views.api_levels_for_occupation, name='api_levels_for_occupation'),
@@ -169,4 +170,16 @@ urlpatterns = [
     
     # API endpoints
     path('api/assessment-series/', views.api_assessment_series, name='api_assessment_series'),
+    
+    # Complaints Module
+    path('complaints/', views.complaints_list, name='complaints_list'),
+    path('complaints/create/', views.complaints_create, name='complaints_create'),
+    path('complaints/<int:pk>/', views.complaints_detail, name='complaints_detail'),
+    path('complaints/categories/', views.complaint_categories_list, name='complaint_categories_list'),
+    path('complaints/categories/<int:pk>/edit/', views.complaint_category_edit, name='complaint_category_edit'),
+    path('complaints/categories/<int:pk>/delete/', views.complaint_category_delete, name='complaint_category_delete'),
+    path('complaints/helpdesk-teams/', views.helpdesk_teams_list, name='helpdesk_teams_list'),
+    path('complaints/helpdesk-teams/<int:pk>/edit/', views.helpdesk_team_edit, name='helpdesk_team_edit'),
+    path('complaints/helpdesk-teams/<int:pk>/delete/', views.helpdesk_team_delete, name='helpdesk_team_delete'),
+    path('complaints/attachment/<int:attachment_id>/', views.complaint_attachment_view, name='complaint_attachment_view'),
  ]

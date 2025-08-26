@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-6">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-6">
+            <div class="flex items-center">
+                <a href="{% url 'helpdesk_teams_list' %}" class="text-gray-500 hover:text-gray-700 mr-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Delete Team</h1>
+                    <p class="text-gray-600">Confirm team deletion</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                </div>
+                <div class="ml-3 w-0 flex-1">
+                    <h3 class="text-lg font-medium text-gray-900">Delete Helpdesk Team</h3>
+                    <div class="mt-2 text-sm text-gray-500">
+                        <p>Are you sure you want to delete the team <strong>"{{ team.name }}"</strong>?</p>
+                        {% if team.description %}
+                            <p class="mt-2 italic">{{ team.description }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Team Details -->
+                    <div class="mt-4 bg-gray-50 rounded-md p-4">
+                        <h4 class="text-sm font-medium text-gray-900 mb-2">Team Details</h4>
+                        <dl class="grid grid-cols-1 gap-2 text-sm">
+                            <div>
+                                <dt class="font-medium text-gray-500">Team name:</dt>
+                                <dd class="text-gray-900">{{ team.name }}</dd>
+                            </div>
+                            {% if team.description %}
+                            <div>
+                                <dt class="font-medium text-gray-500">Description:</dt>
+                                <dd class="text-gray-900">{{ team.description }}</dd>
+                            </div>
+                            {% endif %}
+                            <div>
+                                <dt class="font-medium text-gray-500">Created:</dt>
+                                <dd class="text-gray-900">{{ team.created_at|date:"M d, Y g:i A" }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500">Last Updated:</dt>
+                                <dd class="text-gray-900">{{ team.updated_at|date:"M d, Y g:i A" }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500">Complaints assigned to this team:</dt>
+                                <dd class="text-gray-900">{{ team.complaint_set.count }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    {% if team.complaint_set.count > 0 %}
+                        <!-- Warning for teams in use -->
+                        <div class="mt-4 bg-red-50 border border-red-200 rounded-md p-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <h3 class="text-sm font-medium text-red-800">Cannot Delete Team</h3>
+                                    <div class="mt-2 text-sm text-red-700">
+                                        <p>This team cannot be deleted because it is currently assigned to {{ team.complaint_set.count }} complaint{{ team.complaint_set.count|pluralize }}.</p>
+                                        <p class="mt-1">To delete this team, you must first reassign or delete all complaints that are assigned to it.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- Confirmation form for unused teams -->
+                        <div class="mt-6">
+                            <form method="post" class="inline">
+                                {% csrf_token %}
+                                <div class="flex justify-end space-x-4">
+                                    <a href="{% url 'helpdesk_teams_list' %}" 
+                                       class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium transition-colors">
+                                        Cancel
+                                    </a>
+                                    <button type="submit" 
+                                            class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors">
+                                        Delete Team
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if team.complaint_set.count > 0 %}
+                <!-- Back button for teams that can't be deleted -->
+                <div class="mt-6 flex justify-end">
+                    <a href="{% url 'helpdesk_teams_list' %}" 
+                       class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium transition-colors">
+                        Back to Teams
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

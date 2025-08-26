@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-6">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <a href="{% url 'complaints_list' %}" class="text-gray-500 hover:text-gray-700 mr-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </a>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">{{ complaint.ticket_no }}</h1>
+                        <p class="text-gray-600">{{ complaint.category.name|default:"General Complaint" }}</p>
+                    </div>
+                </div>
+                <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full
+                    {% if complaint.status == 'new' %}bg-blue-100 text-blue-800
+                    {% elif complaint.status == 'in_progress' %}bg-yellow-100 text-yellow-800
+                    {% elif complaint.status == 'pending' %}bg-orange-100 text-orange-800
+                    {% elif complaint.status == 'done' %}bg-green-100 text-green-800
+                    {% elif complaint.status == 'canceled' %}bg-red-100 text-red-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    {{ complaint.get_status_display }}
+                </span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Main Content -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Complaint Details -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Complaint Details</h2>
+                    
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Assessment Center</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.assessment_center.center_name|default:"N/A" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Registration Category</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.registration_category.name|default:"N/A" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Occupation</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.occupation.code|default:"N/A" }} - {{ complaint.occupation.name|default:"N/A" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Assessment Series</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.assessment_series.name|default:"N/A" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Phone Number</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.phone|default:"N/A" }}</dd>
+                        </div>
+                        {% if is_admin_or_staff or complaint.helpdesk_team %}
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Helpdesk Team</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.helpdesk_team.name|default:"" }}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
+                </div>
+
+                <!-- Issue Description -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Issue Description</h2>
+                    <div class="prose max-w-none">
+                        <p class="text-gray-700 whitespace-pre-wrap">{{ complaint.issue_description }}</p>
+                    </div>
+                </div>
+
+                <!-- Team Response -->
+                {% if complaint.team_response or is_admin_or_staff %}
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Team Response</h2>
+                    {% if is_admin_or_staff %}
+                        <!-- Staff can edit response -->
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Assessment Center</label>
+                                    <select name="assessment_center" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">-- None --</option>
+                                        {% for c in assessment_centers %}
+                                            <option value="{{ c.id }}" {% if complaint.assessment_center_id == c.id %}selected{% endif %}>{{ c.center_number }} - {{ c.center_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                    <select name="status" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        {% for value, label in statuses %}
+                                            <option value="{{ value }}" {% if complaint.status == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Response</label>
+                                    <textarea name="team_response" rows="4" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your response...">{{ complaint.team_response }}</textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Additional Attachments</label>
+                                    <input type="file" name="attachments" multiple class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <p class="mt-1 text-sm text-gray-500">Optional: Add additional files to this complaint.</p>
+                                </div>
+                                <div class="flex justify-end">
+                                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors">
+                                        Update Complaint
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    {% else %}
+                        <!-- Read-only for non-staff -->
+                        {% if complaint.team_response %}
+                            <div class="prose max-w-none">
+                                <div class="border-l-4 border-blue-500 bg-blue-50 text-blue-900 p-3 rounded">
+                                    <p class="text-sm whitespace-pre-wrap">{{ complaint.team_response }}</p>
+                                </div>
+                            </div>
+                        {% else %}
+                            <p class="text-gray-500 italic">No response yet.</p>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Attachments -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Attachments</h2>
+                    {% if complaint.attachments.exists %}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {% for attachment in complaint.attachments.all %}
+                                <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                                    <div class="flex items-center">
+                                        <svg class="w-8 h-8 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                                        </svg>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-gray-900 truncate">
+                                                {{ attachment.filename }}
+                                            </p>
+                                            <p class="text-sm text-gray-500">
+                                                Uploaded {{ attachment.uploaded_at|date:"M d, Y" }}
+                                            </p>
+                                        </div>
+                                        <a href="{% url 'complaint_attachment_view' attachment.id %}" target="_blank" class="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                            View
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-8">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                            </svg>
+                            <h3 class="mt-2 text-sm font-medium text-gray-900">No attachments</h3>
+                            <p class="mt-1 text-sm text-gray-500">No files were attached to this complaint.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="space-y-6">
+                <!-- Metadata -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Information</h2>
+                    <dl class="space-y-3">
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Created</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.created_at|date:"M d, Y g:i A" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Last Updated</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.updated_at|date:"M d, Y g:i A" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Created By</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.created_by.get_full_name|default:complaint.created_by.username }}</dd>
+                        </div>
+                        {% if complaint.updated_by and complaint.updated_by != complaint.created_by %}
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Last Updated By</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ complaint.updated_by.get_full_name|default:complaint.updated_by.username }}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
+                </div>
+
+                <!-- Quick Actions -->
+                {% if is_admin_or_staff %}
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
+                    <div class="space-y-2">
+                        {% if complaint.status != 'done' %}
+                        <form method="post" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="done">
+                            <input type="hidden" name="team_response" value="{{ complaint.team_response }}">
+                            <button type="submit" class="w-full text-left px-3 py-2 text-sm text-green-700 hover:bg-green-50 rounded-md transition-colors">
+                                Mark as Done
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% if complaint.status != 'in_progress' %}
+                        <form method="post" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="in_progress">
+                            <input type="hidden" name="team_response" value="{{ complaint.team_response }}">
+                            <button type="submit" class="w-full text-left px-3 py-2 text-sm text-yellow-700 hover:bg-yellow-50 rounded-md transition-colors">
+                                Mark as In Progress
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
