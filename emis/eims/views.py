@@ -11800,6 +11800,23 @@ def awards_list(request):
     # Prefetch related to avoid N+1
     qs = qs.select_related('assessment_center', 'assessment_series', 'occupation')
 
+    # Filters
+    series = request.GET.get('series', '').strip()
+    center = request.GET.get('center', '').strip()
+    if series:
+        qs = qs.filter(assessment_series_id=series)
+    if center:
+        qs = qs.filter(assessment_center_id=center)
+
+    # Build querystring (without page) for pagination links
+    from urllib.parse import urlencode
+    params = {}
+    if series:
+        params['series'] = series
+    if center:
+        params['center'] = center
+    querystring = urlencode(params)
+
     paginator = Paginator(qs.order_by('full_name'), 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -11807,6 +11824,11 @@ def awards_list(request):
     context = {
         'page_obj': page_obj,
         'total_count': paginator.count,
+        'series_list': AssessmentSeries.objects.all().order_by('-start_date'),
+        'selected_series': series,
+        'centers_list': AssessmentCenter.objects.all().order_by('center_number'),
+        'selected_center': center,
+        'awards_querystring': querystring,
     }
     return render(request, 'awards/list.html', context)
 
