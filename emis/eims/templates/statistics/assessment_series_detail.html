@@ -533,7 +533,10 @@
         </div>
         <div class="flex space-x-3">
           <button onclick="generateReport()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
-            Generate Report
+            Generate PDF
+          </button>
+          <button onclick="generateExcelReport()" class="flex-1 bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            Export Excel
           </button>
           <button onclick="closeReportModal()" class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
             Cancel
@@ -624,6 +627,21 @@ function generateReport() {
   // Open report in new window/tab
   window.open(url, '_blank');
   
+  // Close modal
+  closeReportModal();
+}
+
+function generateExcelReport() {
+  // Build the URL for Excel export
+  let url = `/eims/statistics/assessment-series/{{ year }}/{{ month }}/report-excel/?category=${encodeURIComponent(selectedReportCategory)}`;
+
+  if (selectedReportLevel) {
+    url += `&level=${selectedReportLevel}`;
+  }
+
+  // Trigger download
+  window.open(url, '_blank');
+
   // Close modal
   closeReportModal();
 }

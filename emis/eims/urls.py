@@ -135,6 +135,7 @@ urlpatterns = [
     path('statistics/', views.statistics_home, name='statistics_home'),
     path('statistics/assessment-series/<int:year>/<int:month>/', views.assessment_series_detail, name='assessment_series_detail'),
     path('statistics/assessment-series/<int:year>/<int:month>/report/', views.generate_performance_report, name='generate_performance_report'),
+    path('statistics/assessment-series/<int:year>/<int:month>/report-excel/', views.generate_assessment_series_excel, name='generate_assessment_series_excel'),
     # Staff Management
     path('users/staff/', views.staff_list, name='staff_list'),
     path('users/staff/create/', views.staff_create, name='staff_create'),

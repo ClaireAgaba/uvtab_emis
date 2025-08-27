@@ -1201,6 +1201,232 @@ def download_printed_marksheet(request):
         buffer.close()
         return response
 
+@login_required
+def generate_assessment_series_excel(request, year, month):
+    """Generate Excel export of candidate-level data for an assessment series.
+    Filters by registration category and optional level (Formal only), and returns
+    an .xlsx file with candidate details and an overall comment derived from results.
+    """
+    from django.http import HttpResponse
+    from django.db.models import Q
+    from io import BytesIO
+    import time
+    try:
+        import openpyxl
+        from openpyxl.utils import get_column_letter
+        from openpyxl.styles import Font, Alignment
+    except Exception:
+        return HttpResponse("openpyxl is required for Excel export", status=500)
+
+    # Params
+    category = request.GET.get('category') or ''
+    level = request.GET.get('level')
+
+    # Locate assessment series
+    assessment_series = AssessmentSeries.objects.filter(
+        start_date__year=year,
+        start_date__month=month
+    ).first()
+    if not assessment_series:
+        return HttpResponse("Assessment series not found", status=404)
+
+    # Category mapping consistent with PDF view
+    category_mapping = {
+        'Modular': 'Modular',
+        'Formal': 'Formal',
+        "Worker's PAS": 'Informal',
+        'Workers PAS': 'Informal',
+        'Worker PAS': 'Informal',
+        'Informal': 'Informal',
+        'informal': 'Informal',
+        "worker's pas": 'Informal',
+        'workers pas': 'Informal',
+        'worker pas': 'Informal',
+    }
+    db_category = category_mapping.get(category, category)
+
+    # Build combined category filter (same approach as PDF)
+    candidate_filters = [
+        Q(registration_category=db_category),
+        Q(registration_category=category)
+    ]
+    if category and any(term in category.lower() for term in ['informal', 'worker', 'pas']):
+        candidate_filters.extend([
+            Q(registration_category='Informal'),
+            Q(registration_category='informal'),
+            Q(registration_category="Worker's PAS"),
+            Q(registration_category='Workers PAS'),
+            Q(registration_category='Worker PAS'),
+        ])
+    combined_filter = candidate_filters[0]
+    for f in candidate_filters[1:]:
+        combined_filter |= f
+
+    # Base queryset
+    qs = Candidate.objects.filter(
+        assessment_series=assessment_series
+    ).filter(
+        combined_filter
+    ).select_related(
+        'occupation', 'occupation__sector', 'assessment_center'
+    ).prefetch_related(
+        'result_set', 'candidatelevel_set__level'
+    )
+
+    # Level filter for Formal only
+    if level and category == 'Formal':
+        try:
+            from .models import Level
+            level_obj = Level.objects.get(id=level)
+            qs = qs.filter(candidatelevel__level=level_obj)
+        except Exception:
+            # Ignore invalid level
+            pass
+
+    # Prepare workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Candidates"
+
+    # Header
+    headers = [
+        'Reg Number', 'Full Name', 'Center', 'Gender', 'Nationality',
+        'Disability', 'Occupation', 'Sector', 'Refugee', 'Overall Comment'
+    ]
+    ws.append(headers)
+    header_font = Font(bold=True)
+    for col_idx in range(1, len(headers) + 1):
+        ws.cell(row=1, column=col_idx).font = header_font
+        ws.cell(row=1, column=col_idx).alignment = Alignment(horizontal='center')
+
+    # Helper to derive overall comment based on results
+    # Rule: consider ALL results across series and, for each paper/module/level,
+    # pick the best representative result using the following priority:
+    # 1) Prefer any with status "Updated" (comment reflects corrected mark)
+    # 2) Otherwise, prefer non-missing over missing
+    # 3) If tie remains, pick the one with the latest timestamp (date -> assessment_date)
+    def derive_overall_comment(candidate):
+        # Fetch results robustly (explicit query, fallback to reverse relation)
+        try:
+            from .models import Result as ResultModel
+            results_qs = ResultModel.objects.filter(candidate=candidate)
+            results = list(results_qs)
+        except Exception:
+            try:
+                results = list(candidate.result_set.all())
+            except Exception:
+                results = []
+        if not results:
+            return 'No Results'
+
+        # Group by assessment target: prefer paper > module > level
+        # Key includes assessment_type to avoid mixing theory/practical
+        from collections import defaultdict
+        latest_by_target = {}
+
+        for r in results:
+            key = (
+                getattr(r, 'assessment_type', None),
+                getattr(r, 'paper_id', None) or None,
+                getattr(r, 'module_id', None) or None,
+                getattr(r, 'level_id', None) or None,
+            )
+
+            current = latest_by_target.get(key)
+            # Compute attributes
+            r_comment = str(getattr(r, 'comment', '')).strip().lower()
+            r_status = str(getattr(r, 'status', '')).strip().lower()
+            r_is_missing = (getattr(r, 'mark', None) == -1) or (r_comment == 'missing')
+            if current is None:
+                latest_by_target[key] = r
+                continue
+
+            cur_comment = str(getattr(current, 'comment', '')).strip().lower()
+            cur_status = str(getattr(current, 'status', '')).strip().lower()
+            cur_is_missing = (getattr(current, 'mark', None) == -1) or (cur_comment == 'missing')
+
+            # 1) Prefer Updated
+            if cur_status != 'updated' and r_status == 'updated':
+                latest_by_target[key] = r
+                continue
+            if cur_status == 'updated' and r_status != 'updated':
+                continue
+
+            # 2) Prefer non-missing over missing
+            if cur_is_missing and not r_is_missing:
+                latest_by_target[key] = r
+                continue
+            if (not cur_is_missing and r_is_missing):
+                # Keep existing non-missing over new missing
+                continue
+
+            # If both missing or both non-missing, pick by latest timestamp
+            # Prefer 'date' (auto_now_add) then fallback to assessment_date
+            current_dt = getattr(current, 'date', None) or getattr(current, 'assessment_date', None)
+            r_dt = getattr(r, 'date', None) or getattr(r, 'assessment_date', None)
+            try:
+                if r_dt and current_dt and r_dt > current_dt:
+                    latest_by_target[key] = r
+            except Exception:
+                pass
+
+        # Evaluate overall from the per-target latest results
+        final_comments = [str(getattr(rv, 'comment', '') or '').strip().lower() for rv in latest_by_target.values()]
+        if any(c in ['unsuccessful', 'ctr', 'fail'] for c in final_comments):
+            return 'Unsuccessful'
+        # Count only present comments; if at least one and all are successful -> Successful
+        present = [c for c in final_comments if c]
+        if present and all(c == 'successful' for c in present):
+            return 'Successful'
+        # If only missing present after reduction
+        if present and all(c == 'missing' for c in present):
+            return 'Missing'
+        return 'Mixed'
+
+    # Populate rows
+    row_count = 1
+    for c in qs:
+        row = [
+            getattr(c, 'reg_number', '') or '',
+            getattr(c, 'full_name', '') or str(c),
+            getattr(getattr(c, 'assessment_center', None), 'center_name', '') or '',
+            getattr(c, 'gender', '') or '',
+            getattr(c, 'nationality', '') if hasattr(c, 'nationality') else '',
+            'Yes' if getattr(c, 'disability', False) else 'No',
+            getattr(getattr(c, 'occupation', None), 'name', '') or '',
+            getattr(getattr(getattr(c, 'occupation', None), 'sector', None), 'name', '') or '',
+            'Yes' if getattr(c, 'is_refugee', False) else 'No',
+            derive_overall_comment(c),
+        ]
+        ws.append(row)
+        row_count += 1
+
+    # Autosize columns
+    for col_idx in range(1, len(headers) + 1):
+        max_len = 0
+        col_letter = get_column_letter(col_idx)
+        for cell in ws[col_letter]:
+            try:
+                v = str(cell.value) if cell.value is not None else ''
+                if len(v) > max_len:
+                    max_len = len(v)
+            except Exception:
+                pass
+        ws.column_dimensions[col_letter].width = min(max(12, max_len + 2), 50)
+
+    # Stream the workbook
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"assessment_series_{year}_{month}_{db_category or 'All'}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
     # 6. Get related objects
     occupation = Occupation.objects.get(pk=occupation_id)
     level = Level.objects.get(pk=level_id) if level_id else None
@@ -9697,6 +9923,39 @@ def statistics_home(request):
             'special_needs_count': series.special_needs_count,
             'occupation_count': series.occupation_count
         })
+
+    # Group by year for better presentation across long-running series
+    from collections import defaultdict
+    assessment_series_by_year = defaultdict(list)
+    for row in assessment_series:
+        assessment_series_by_year[row['year']].append(row)
+
+    # Compute per-year totals (accurately) using Candidate-level aggregation
+    assessment_series_year_totals = {}
+    years_sorted_desc = sorted(assessment_series_by_year.keys(), reverse=True)
+    for y in years_sorted_desc:
+        year_candidates = Candidate.objects.filter(assessment_series__start_date__year=y)
+        total = year_candidates.count()
+        male = year_candidates.filter(gender='M').count()
+        female = year_candidates.filter(gender='F').count()
+        special = year_candidates.filter(disability=True).count()
+        occ_count = year_candidates.values('occupation').distinct().count()
+        assessment_series_year_totals[y] = {
+            'total_candidates': total,
+            'male_count': male,
+            'female_count': female,
+            'special_needs_count': special,
+            'occupation_count': occ_count,
+        }
+
+    # Build template-friendly blocks per year to avoid dict indexing in templates
+    assessment_series_year_blocks = []
+    for y in years_sorted_desc:
+        assessment_series_year_blocks.append({
+            'year': y,
+            'totals': assessment_series_year_totals.get(y, {}),
+            'series_list': assessment_series_by_year.get(y, []),
+        })
     
     context = {
         'total_candidates': total_candidates,
@@ -9708,7 +9967,11 @@ def statistics_home(request):
         'special_needs_breakdown': special_needs_breakdown,
         'special_needs_by_gender': special_needs_by_gender,
         'reg_cat_by_gender': reg_cat_by_gender,
-        'assessment_series': assessment_series,
+        'assessment_series': assessment_series,  # flat list kept for backward compatibility
+        'assessment_series_by_year': dict(assessment_series_by_year),
+        'assessment_series_year_totals': assessment_series_year_totals,
+        'years_sorted_desc': years_sorted_desc,
+        'assessment_series_year_blocks': assessment_series_year_blocks,
     }
     
     return render(request, 'statistics/home.html', context)
