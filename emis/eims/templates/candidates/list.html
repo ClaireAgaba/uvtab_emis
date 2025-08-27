@@ -51,6 +51,9 @@
           <option value="mark_refugee">Mark as Refugee</option>
           <option value="verify">Verify</option>
           <option value="decline">Decline</option>
+          {% if user.is_superuser %}
+          <option value="clear_enrollment">Clear Enrollment (De-Enrol)</option>
+          {% endif %}
           {% endif %}
         </select>
         <!-- Assessment Series selector for bulk enroll -->
@@ -1503,6 +1506,11 @@ bulkApply && bulkApply.addEventListener('click', function() {
   // Handle verify action with confirmation
   if (bulkSelect.value === 'verify') {
     const confirmMsg = `Are you sure you want to verify ${checked.length} candidate${checked.length !== 1 ? 's' : ''}?\n\nThis will mark them as verified and prevent centers from editing them.`;
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+  } else if (bulkSelect.value === 'clear_enrollment') {
+    const confirmMsg = `De-enrol ${checked.length} candidate${checked.length !== 1 ? 's' : ''}?\n\nOnly candidates WITHOUT any marks/results will be cleared. Others will be skipped.`;
     if (!confirm(confirmMsg)) {
       return;
     }

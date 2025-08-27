@@ -2911,9 +2911,43 @@ def bulk_candidate_action(request):
         message = '. '.join(message_parts) + '.'
         
         return JsonResponse({
-            'success': True,
+            'success': True, 
             'message': message
         })
+    
+    elif action == 'clear_enrollment':
+        # Bulk clear enrollment (De-Enrol) – same behavior as single candidate view
+        # Permission: restrict to superuser to match `clear_enrollment` view
+        if not request.user.is_superuser:
+            return JsonResponse({'success': False, 'error': 'Permission denied. Only superusers can clear enrollment.'}, status=403)
+
+        from .models import Result, CandidateLevel, CandidateModule, CandidatePaper
+
+        cleared = 0
+        blocked = []  # candidates that have results/marks
+        for c in candidates:
+            if Result.objects.filter(candidate=c).exists():
+                blocked.append(c.reg_number or f"ID:{c.id}")
+                continue
+            # Remove enrollment records
+            CandidateLevel.objects.filter(candidate=c).delete()
+            CandidateModule.objects.filter(candidate=c).delete()
+            CandidatePaper.objects.filter(candidate=c).delete()
+            # Clear assessment series and reset fees balance
+            c.assessment_series = None
+            c.fees_balance = 0.00
+            c.save(update_fields=['assessment_series', 'fees_balance'])
+            cleared += 1
+
+        # Compose a concise message
+        if blocked:
+            blocked_preview = ', '.join(blocked[:5])
+            more = '' if len(blocked) <= 5 else f" and {len(blocked) - 5} more"
+            msg = f"Cleared enrollment for {cleared} candidate{'s' if cleared != 1 else ''}. Skipped {len(blocked)} with marks: {blocked_preview}{more}."
+        else:
+            msg = f"Cleared enrollment for {cleared} candidate{'s' if cleared != 1 else ''}."
+
+        return JsonResponse({'success': True, 'message': msg})
     
     else:
         return JsonResponse({'success': False, 'error': 'Unknown action.'}, status=400)
