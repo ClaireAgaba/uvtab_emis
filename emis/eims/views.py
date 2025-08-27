@@ -12313,7 +12313,14 @@ def _is_admin_or_staff(user):
     if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
         return True
     try:
-        return user.groups.filter(name__in=['Staff']).exists()
+        # Membership in Django group "Staff"
+        if user.groups.filter(name__in=['Staff']).exists():
+            return True
+        # Staff model department-based elevation (Admin, IT, Data)
+        from .models import Staff as StaffModel
+        if StaffModel.objects.filter(user=user, department__in=['Admin', 'IT', 'Data']).exists():
+            return True
+        return False
     except Exception:
         return False
 
