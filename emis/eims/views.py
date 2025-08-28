@@ -1275,10 +1275,11 @@ def generate_assessment_series_excel(request, year, month):
 
     # Level filter for Formal only
     if level and category == 'Formal':
+        # Match Level names across occupations (e.g., "Level 1", "Level 2")
         try:
-            from .models import Level
-            level_obj = Level.objects.get(id=level)
-            qs = qs.filter(candidatelevel__level=level_obj)
+            level_str = str(level).strip()
+            name_prefix = f"Level {level_str}"
+            qs = qs.filter(candidatelevel__level__name__istartswith=name_prefix)
         except Exception:
             # Ignore invalid level
             pass
@@ -10393,22 +10394,22 @@ def generate_performance_report(request, year, month):
     if level and category == 'Formal':
         print(f"[DEBUG] Step 4 - Applying level filter for category: {category}")
         pre_level_count = filtered_candidates.count()
-        
+
+        # Support level-number filtering across all occupations.
+        # The modal sends '1', '2', '3'. Match Level names like "Level 1", "Level 2", ...
         try:
-            from .models import Level
-            level_obj = Level.objects.get(id=level)
-            print(f"[DEBUG] Found level object: {level_obj.name} (ID: {level_obj.id})")
-            
-            # Check how many candidates have this level enrollment
-            candidates_with_level = filtered_candidates.filter(candidatelevel__level=level_obj)
-            print(f"[DEBUG] Candidates with level {level_obj.name}: {candidates_with_level.count()}")
-            
+            level_str = str(level).strip()
+            # Build a startswith filter for the Level name
+            name_prefix = f"Level {level_str}"
+            candidates_with_level = filtered_candidates.filter(
+                candidatelevel__level__name__istartswith=name_prefix
+            )
+            print(f"[DEBUG] Candidates with level name starting '{name_prefix}': {candidates_with_level.count()}")
             filtered_candidates = candidates_with_level
             print(f"[DEBUG] After level filter: {pre_level_count} -> {filtered_candidates.count()}")
-            
-        except (Level.DoesNotExist, ValueError) as e:
-            print(f"[DEBUG] Level filtering error: {e}")
-            # If level not found, don't filter by level
+        except Exception as e:
+            print(f"[DEBUG] Level filtering error (name-based): {e}")
+            # Fallback: keep unfiltered if anything goes wrong
             pass
     else:
         print(f"[DEBUG] Step 4 - No level filtering applied for category: {category} (showing all candidates)")
