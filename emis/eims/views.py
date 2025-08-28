@@ -1268,7 +1268,7 @@ def generate_assessment_series_excel(request, year, month):
     ).filter(
         combined_filter
     ).select_related(
-        'occupation', 'occupation__sector', 'assessment_center'
+        'occupation', 'occupation__sector', 'assessment_center', 'district'
     ).prefetch_related(
         'result_set', 'candidatelevel_set__level'
     )
@@ -1289,10 +1289,10 @@ def generate_assessment_series_excel(request, year, month):
     ws = wb.active
     ws.title = "Candidates"
 
-    # Header
+    # Header (added District and Region)
     headers = [
-        'Reg Number', 'Full Name', 'Center', 'Gender', 'Nationality',
-        'Disability', 'Occupation', 'Sector', 'Refugee', 'Overall Comment'
+        'Reg Number', 'Full Name', 'Center', 'District', 'Region',
+        'Gender', 'Nationality', 'Disability', 'Occupation', 'Sector', 'Refugee', 'Overall Comment'
     ]
     ws.append(headers)
     header_font = Font(bold=True)
@@ -1387,10 +1387,15 @@ def generate_assessment_series_excel(request, year, month):
     # Populate rows
     row_count = 1
     for c in qs:
+        district_obj = getattr(c, 'district', None)
+        district_name = getattr(district_obj, 'name', '') if district_obj else ''
+        region_name = getattr(district_obj, 'region', '') if district_obj else ''
         row = [
             getattr(c, 'reg_number', '') or '',
             getattr(c, 'full_name', '') or str(c),
             getattr(getattr(c, 'assessment_center', None), 'center_name', '') or '',
+            district_name,
+            region_name,
             getattr(c, 'gender', '') or '',
             getattr(c, 'nationality', '') if hasattr(c, 'nationality') else '',
             'Yes' if getattr(c, 'disability', False) else 'No',
