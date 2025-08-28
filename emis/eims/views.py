@@ -10099,6 +10099,62 @@ def assessment_series_detail(request, year, month):
             'count': count,
             'percentage': round(percentage, 1)
         })
+
+    # Formal levels breakdown (Level 1, Level 2, Level 3, ...)
+    # Count candidates by enrolled level for those in Formal category in this series
+    formal_levels_breakdown = []
+    formal_levels_by_occupation = []
+    try:
+        formal_candidates = candidates_in_period.filter(registration_category__iexact='Formal')
+        levels_data = formal_candidates.values('candidatelevel__level__name').annotate(
+            total=Count('id'),
+            male=Count('id', filter=Q(gender='M')),
+            female=Count('id', filter=Q(gender='F'))
+        ).order_by('-total')
+        for row in levels_data:
+            level_name = row['candidatelevel__level__name'] or 'Unassigned Level'
+            formal_levels_breakdown.append({
+                'level_name': level_name,
+                'male': row['male'],
+                'female': row['female'],
+                'total': row['total']
+            })
+
+        # By occupation inside each level
+        lvl_occ_qs = formal_candidates.values(
+            'candidatelevel__level__name', 'occupation__name'
+        ).annotate(
+            total=Count('id'),
+            male=Count('id', filter=Q(gender='M')),
+            female=Count('id', filter=Q(gender='F'))
+        ).order_by('candidatelevel__level__name', '-total')
+
+        # Group rows by level
+        grouped = {}
+        for r in lvl_occ_qs:
+            lvl = r['candidatelevel__level__name'] or 'Unassigned Level'
+            occ = r['occupation__name'] or 'Unknown Occupation'
+            grouped.setdefault(lvl, {'level_name': lvl, 'rows': [], 'level_total': 0})
+            grouped[lvl]['rows'].append({
+                'occupation': occ,
+                'male': r['male'],
+                'female': r['female'],
+                'total': r['total']
+            })
+            grouped[lvl]['level_total'] += r['total']
+
+        # Keep order consistent with levels_data totals desc
+        lvl_order = [item['level_name'] for item in formal_levels_breakdown]
+        for lvl in lvl_order:
+            if lvl in grouped:
+                formal_levels_by_occupation.append(grouped[lvl])
+        # Add any remaining groups not present in levels list
+        for lvl, payload in grouped.items():
+            if lvl not in lvl_order:
+                formal_levels_by_occupation.append(payload)
+    except Exception as e:
+        # Keep page robust if relation names change
+        print(f"[WARN] Formal levels breakdown failed: {e}")
     # Sector-based analytics
     # 1. Occupation by Sector analysis
     sector_occupation_analysis = []
@@ -10191,6 +10247,8 @@ def assessment_series_detail(request, year, month):
         'special_needs_breakdown': special_needs_breakdown,
         'occupation_breakdown': occupation_breakdown,
         'assessment_series': assessment_series,  # Pass the series object for template use
+        'formal_levels_breakdown': formal_levels_breakdown,
+        'formal_levels_by_occupation': formal_levels_by_occupation,
         # Sector-based analytics
         'sector_occupation_analysis': sector_occupation_analysis,
         'gender_occupation_sector_analysis': gender_occupation_sector_analysis,
