@@ -10233,43 +10233,52 @@ def generate_performance_report(request, year, month):
     if not assessment_series:
         return HttpResponse("Assessment series not found", status=404)
     
-    # Map category parameter to database registration_category values
-    # Handle all possible variations of Informal/Worker's PAS
+    # Map category parameter to database registration_category values (robust to variations)
+    # We will also filter case-insensitively using __iexact so capitalization differences don't exclude candidates
     category_mapping = {
-        'Modular': 'Modular',
-        'Formal': 'Formal', 
-        "Worker's PAS": 'Informal',  # Frontend sends "Worker's PAS" but DB stores "Informal"
-        'Workers PAS': 'Informal',   # Handle without apostrophe
-        'Worker PAS': 'Informal',    # Handle without 's
-        'Informal': 'Informal',      # Handle direct informal
-        'informal': 'Informal',      # Handle lowercase
-        "worker's pas": 'Informal',  # Handle lowercase
-        'workers pas': 'Informal',   # Handle lowercase without apostrophe
-        'worker pas': 'Informal'     # Handle lowercase without 's
+        'Modular': 'Modular', 'modular': 'Modular',
+        'Formal': 'Formal',   'formal': 'Formal',
+        "Worker's PAS": 'Informal', 'Workers PAS': 'Informal', 'Worker PAS': 'Informal',
+        'Informal': 'Informal', 'informal': 'Informal',
+        "worker's pas": 'Informal', 'workers pas': 'Informal', 'worker pas': 'Informal'
     }
-    
-    # Get the correct database category value
+
+    # Get the normalized category we should use
     db_category = category_mapping.get(category, category)
-    print(f"[DEBUG] Frontend category: '{category}', Database category: '{db_category}'")
-    
+    print(f"[DEBUG] Frontend category: '{category}', Normalized DB category: '{db_category}'")
+
     # Additional debugging: Check what registration categories actually exist in the database
     existing_categories = Candidate.objects.values_list('registration_category', flat=True).distinct()
     print(f"[DEBUG] Existing registration categories in database: {list(existing_categories)}")
-    
-    # Try both the mapped category and original category to be extra safe
+
+    # Build case-insensitive filters. Always include an iexact filter for the normalized value
     candidate_filters = [
-        Q(registration_category=db_category),
-        Q(registration_category=category)  # Fallback to original
+        Q(registration_category__iexact=db_category)
     ]
-    
-    # If it's an informal/worker's pas related category, also try common variations
-    if any(term in category.lower() for term in ['informal', 'worker', 'pas']):
+
+    # Also include a fallback to the original value (in case it's something custom/unmapped)
+    if category:
+        candidate_filters.append(Q(registration_category__iexact=category))
+
+    # Add common variants explicitly for each group
+    cat_lower = (category or '').lower()
+    if any(term in cat_lower for term in ['informal', 'worker', 'pas']):
         candidate_filters.extend([
-            Q(registration_category='Informal'),
-            Q(registration_category='informal'),
-            Q(registration_category="Worker's PAS"),
-            Q(registration_category='Workers PAS'),
-            Q(registration_category='Worker PAS')
+            Q(registration_category__iexact='Informal'),
+            Q(registration_category__iregex=r'^\s*informal\s*$'),
+            Q(registration_category__iexact="Worker's PAS"),
+            Q(registration_category__iexact='Workers PAS'),
+            Q(registration_category__iexact='Worker PAS')
+        ])
+    elif 'formal' in cat_lower:
+        candidate_filters.extend([
+            Q(registration_category__iexact='Formal'),
+            Q(registration_category__iregex=r'^\s*formal\s*$')
+        ])
+    elif 'modular' in cat_lower:
+        candidate_filters.extend([
+            Q(registration_category__iexact='Modular'),
+            Q(registration_category__iregex=r'^\s*modular\s*$')
         ])
     
     # Combine all filters with OR
