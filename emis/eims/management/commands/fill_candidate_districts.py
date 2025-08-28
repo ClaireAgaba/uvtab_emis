@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import transaction, OperationalError, connection
+import time
 
 from eims.models import Candidate
 
@@ -33,6 +34,14 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         limit = options["limit"]
         chunk_size = max(1, options["chunk_size"])  # ensure positive
+
+        # Reduce likelihood of "database is locked" on SQLite by setting busy timeout
+        # Safe no-op on non-SQLite backends
+        try:
+            with connection.cursor() as cur:
+                cur.execute("PRAGMA busy_timeout = 5000")  # 5 seconds
+        except Exception:
+            pass
 
         qs = (
             Candidate.objects
@@ -84,8 +93,32 @@ class Command(BaseCommand):
 
     @staticmethod
     def _bulk_update(candidates):
+        """
+        Bulk update with retry/backoff to handle SQLite 'database is locked'.
+        Fallback to per-row saves if bulk update continues to fail.
+        """
         if not candidates:
             return
-        # Use a transaction per bulk chunk
-        with transaction.atomic():
-            Candidate.objects.bulk_update(candidates, ["district"]) 
+        max_retries = 5
+        delay = 0.5
+        for attempt in range(1, max_retries + 1):
+            try:
+                with transaction.atomic():
+                    Candidate.objects.bulk_update(candidates, ["district"]) 
+                return
+            except OperationalError as exc:
+                # Typical for SQLite when another writer holds the lock
+                if "locked" in str(exc).lower() and attempt < max_retries:
+                    time.sleep(delay)
+                    delay *= 2  # exponential backoff
+                    continue
+                # Fallback: per-row update to make progress
+                for cand in candidates:
+                    try:
+                        with transaction.atomic():
+                            Candidate.objects.filter(pk=cand.pk).update(district=cand.district)
+                    except OperationalError:
+                        # Last resort: small sleep then try save()
+                        time.sleep(0.1)
+                        cand.save(update_fields=["district"]) 
+                return
