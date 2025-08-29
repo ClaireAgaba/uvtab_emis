@@ -51,7 +51,7 @@
           <option value="mark_refugee">Mark as Refugee</option>
           <option value="verify">Verify</option>
           <option value="decline">Decline</option>
-          {% if user.is_superuser %}
+          {% if user.is_superuser or user.is_staff or user_department == "Admin" or user_department == "IT" %}
           <option value="clear_enrollment">Clear Enrollment (De-Enrol)</option>
           {% endif %}
           {% endif %}

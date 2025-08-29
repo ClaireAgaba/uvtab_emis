@@ -4929,6 +4929,9 @@ from django.core.paginator import Paginator
 
 @login_required
 def candidate_list(request):
+    # Get user department information
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    
     # Get current filters from session or initialize
     current_filters = request.session.get('candidate_filters', {})
     
@@ -5101,6 +5104,7 @@ def candidate_list(request):
         'filter_params': filter_params,
         'nature_of_disabilities': NatureOfDisability.objects.all(),
         'assessment_years': assessment_years,
+        'user_department': user_department,
     })
 
 
