@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Generate Practical Marksheet{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .btn-generate {
+        background: #14b8a6;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        font-weight: 500;
+        transition: background-color 0.2s;
+    }
+    
+    .btn-generate:hover {
+        background: #0d9488;
+        color: white;
+    }
+    
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        font-weight: 500;
+        transition: background-color 0.2s;
+    }
+    
+    .btn-secondary:hover {
+        background: #4b5563;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Generate Practical Marksheet</h1>
+                <a href="{% url 'practical_assessment_home' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to List
+                </a>
+            </div>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <div class="form-container">
+                <p class="text-muted mb-4">Select the parameters below to generate a new practical assessment marksheet.</p>
+                
+                <form id="generateMarksheetForm" method="post" action="{% url 'generate_practical_marksheet' %}">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="assessment_center" class="form-label">Assessment Center <span class="text-danger">*</span></label>
+                            <select class="form-select" id="assessment_center" name="assessment_center" required>
+                                <option value="">Select Assessment Center</option>
+                                {% for center in assessment_centers %}
+                                    <option value="{{ center.id }}">{{ center.center_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="assessment_series" class="form-label">Assessment Series <span class="text-danger">*</span></label>
+                            <select class="form-select" id="assessment_series" name="assessment_series" required>
+                                <option value="">Select Assessment Series</option>
+                                {% for series in assessment_series %}
+                                    <option value="{{ series.id }}">{{ series.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="registration_category" class="form-label">Registration Category <span class="text-danger">*</span></label>
+                            <select class="form-select" id="registration_category" name="registration_category" required>
+                                <option value="">Select Registration Category</option>
+                                {% for category in registration_categories %}
+                                    <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="occupation" class="form-label">Occupation <span class="text-danger">*</span></label>
+                            <select class="form-select" id="occupation" name="occupation" required>
+                                <option value="">Select Occupation</option>
+                                {% for occupation in occupations %}
+                                    <option value="{{ occupation.id }}">{{ occupation.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'practical_assessment_home' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-generate">
+                            <i class="fas fa-plus me-2"></i>Generate Marksheet
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="fallbackSubmit" style="display:none;">
+                            <i class="fas fa-sync me-2"></i>Try Alternative Method
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Simple vanilla JavaScript approach (no jQuery dependency)
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up form handler');
+    
+    const form = document.getElementById('generateMarksheetForm');
+    const submitBtn = document.querySelector('.btn-generate');
+    const fallbackBtn = document.getElementById('fallbackSubmit');
+    
+    if (!form) {
+        console.error('Form not found!');
+        return;
+    }
+    
+    console.log('Form found, adding event listener');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        console.log('Form submitted - preventDefault called');
+        
+        const formData = new FormData(form);
+        const originalText = submitBtn.innerHTML;
+        
+        // Debug: Log form data
+        console.log('Form data:');
+        for (let [key, value] of formData.entries()) {
+            console.log(key + ': ' + value);
+        }
+        
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+        
+        // Use fetch instead of jQuery AJAX
+        fetch('{% url "generate_practical_marksheet" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            console.log('Response received:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Success:', data);
+            
+            if (data.success) {
+                // Show success message
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                form.parentNode.insertBefore(alert, form);
+                
+                // Redirect immediately to see any errors
+                console.log('Redirecting to:', data.redirect_url);
+                window.location.href = data.redirect_url || '{% url "practical_assessment_home" %}';
+            } else {
+                throw new Error(data.message || 'Unknown error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            
+            // Show error message
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.innerHTML = `
+                <i class="fas fa-exclamation-circle me-2"></i>Error: ${error.message}
+                <br><small>Check console for details.</small>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            form.parentNode.insertBefore(alert, form);
+            
+            // Reset button
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            
+            // Show fallback button
+            if (fallbackBtn) {
+                fallbackBtn.style.display = 'inline-block';
+            }
+        });
+    });
+    
+    // Fallback method - regular form submission
+    if (fallbackBtn) {
+        fallbackBtn.addEventListener('click', function() {
+            console.log('Using fallback method');
+            form.action = '{% url "generate_practical_marksheet" %}';
+            form.method = 'POST';
+            form.submit();
+        });
+    }
+});
+</script>
+{% endblock %}

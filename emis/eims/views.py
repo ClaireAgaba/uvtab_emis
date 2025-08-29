@@ -1,5 +1,8 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
+from django.db import transaction
+from django.urls import reverse
+from django.contrib import messages
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
@@ -9985,6 +9988,380 @@ def statistics_home(request):
     }
     
     return render(request, 'statistics/home.html', context)
+
+
+# =========================
+# Practical Assessment Module Views
+# =========================
+
+from .models import PracticalMarksheet, PracticalMark, RegistrationCategory
+from django.contrib import messages
+from django.db import transaction
+from django.core.exceptions import ValidationError
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import inch
+from django.core.files.base import ContentFile
+import tempfile
+import os
+
+
+@login_required
+def generate_practical_marksheet_page(request):
+    """Display the generate marksheet form page"""
+    context = {
+        'assessment_centers': AssessmentCenter.objects.all(),
+        'assessment_series': AssessmentSeries.objects.all(),
+        'registration_categories': RegistrationCategory.objects.all(),
+        'occupations': Occupation.objects.all(),
+    }
+    return render(request, 'practical_assessment/generate.html', context)
+
+@login_required
+def practical_assessment_home(request):
+    """
+    Home page for Practical Assessment module
+    Shows marksheet generator form and list of submitted marksheets
+    """
+    # Get user's staff info for role-based access
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    
+    if not is_authenticated:
+        messages.error(request, "You must be logged in to access this page.")
+        return redirect('login')
+    
+    # Get filter options for the form
+    assessment_centers = AssessmentCenter.objects.all().order_by('center_name')
+    assessment_series = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
+    registration_categories = RegistrationCategory.objects.all().order_by('name')
+    occupations = Occupation.objects.all().order_by('name')
+    
+    # Get marksheets based on user role
+    if user_department in ['IT', 'Data', 'Admin'] or request.user.is_superuser:
+        # Staff can view all marksheets
+        marksheets = PracticalMarksheet.objects.all().order_by('-created_at')
+    else:
+        # Practical Assessors can only view their own marksheets
+        marksheets = PracticalMarksheet.objects.filter(assessor=request.user).order_by('-created_at')
+    
+    context = {
+        'assessment_centers': assessment_centers,
+        'assessment_series': assessment_series,
+        'registration_categories': registration_categories,
+        'occupations': occupations,
+        'marksheets': marksheets,
+        'user_department': user_department,
+        'is_staff': user_department in ['IT', 'Data', 'Admin'] or request.user.is_superuser,
+    }
+    
+    return render(request, 'practical_assessment/home.html', context)
+
+
+@login_required
+@require_POST
+def generate_practical_marksheet(request):
+    """
+    Generate a practical marksheet based on the provided parameters
+    """
+    try:
+        # Get form parameters
+        assessment_center_id = request.POST.get('assessment_center')
+        assessment_series_id = request.POST.get('assessment_series')
+        registration_category_id = request.POST.get('registration_category')
+        occupation_id = request.POST.get('occupation')
+        
+        # Validate required parameters
+        if not all([assessment_center_id, assessment_series_id, registration_category_id, occupation_id]):
+            return JsonResponse({
+                'success': False,
+                'error': 'All parameters are required: Assessment Center, Assessment Series, Registration Category, and Occupation.'
+            })
+        
+        # Get objects
+        assessment_center = get_object_or_404(AssessmentCenter, id=assessment_center_id)
+        assessment_series = get_object_or_404(AssessmentSeries, id=assessment_series_id)
+        registration_category = get_object_or_404(RegistrationCategory, id=registration_category_id)
+        occupation = get_object_or_404(Occupation, id=occupation_id)
+        
+        # Check if marksheet already exists for this combination
+        existing_marksheet = PracticalMarksheet.objects.filter(
+            assessment_center=assessment_center,
+            assessment_series=assessment_series,
+            registration_category=registration_category,
+            occupation=occupation,
+            assessor=request.user
+        ).first()
+        
+        if existing_marksheet:
+            return JsonResponse({
+                'success': False,
+                'error': f'A marksheet already exists for this combination. You can edit it instead.',
+                'marksheet_id': existing_marksheet.id
+            })
+        
+        # Get candidates matching the criteria
+        candidates = Candidate.objects.filter(
+            assessment_center=assessment_center,
+            assessment_series=assessment_series,
+            registration_category=registration_category.name,
+            occupation=occupation
+        ).order_by('full_name')
+        
+        if not candidates.exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'No candidates found matching the specified criteria.'
+            })
+        
+        # Create the marksheet
+        with transaction.atomic():
+            marksheet = PracticalMarksheet.objects.create(
+                assessment_center=assessment_center,
+                assessment_series=assessment_series,
+                registration_category=registration_category,
+                occupation=occupation,
+                assessor=request.user
+            )
+            
+            # Create PracticalMark entries for each candidate
+            for candidate in candidates:
+                PracticalMark.objects.create(
+                    marksheet=marksheet,
+                    candidate=candidate
+                )
+        
+        # Handle both AJAX and regular form submissions
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # AJAX request - return JSON
+            return JsonResponse({
+                'success': True,
+                'message': f'Marksheet generated successfully with {candidates.count()} candidates.',
+                'marksheet_id': marksheet.id,
+                'redirect_url': reverse('edit_practical_marksheet', args=[marksheet.id])
+            })
+        else:
+            # Regular form submission - redirect directly
+            messages.success(request, f'Marksheet generated successfully with {candidates.count()} candidates.')
+            return redirect('edit_practical_marksheet', marksheet_id=marksheet.id)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        })
+
+
+@login_required
+def edit_practical_marksheet(request, marksheet_id):
+    """
+    Edit a practical marksheet - allows entering marks for candidates
+    """
+    marksheet = get_object_or_404(PracticalMarksheet, id=marksheet_id)
+    
+    # Check permissions
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    print(f"Edit marksheet access check: user={request.user.username}, department={user_department}, is_authenticated={is_authenticated}")
+    print(f"Marksheet assessor: {marksheet.assessor.username}, current user: {request.user.username}")
+    
+    if not is_authenticated:
+        messages.error(request, "You must be logged in to access this page.")
+        return redirect('login')
+    
+    # Only allow the assessor who created it or staff to edit
+    if marksheet.assessor != request.user and user_department not in ['IT', 'Data', 'Admin'] and not request.user.is_superuser:
+        print(f"Permission denied: assessor mismatch and not staff")
+        messages.error(request, "You don't have permission to edit this marksheet.")
+        return redirect('practical_assessment_home')
+    
+    # Don't allow editing if already submitted (unless staff)
+    if marksheet.status == 'submitted' and user_department not in ['IT', 'Data', 'Admin'] and not request.user.is_superuser:
+        print(f"Permission denied: marksheet already submitted")
+        messages.error(request, "Cannot edit a submitted marksheet.")
+        return redirect('practical_assessment_home')
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Process the marks from the form
+                for key, value in request.POST.items():
+                    if key.startswith('mark_'):
+                        mark_id = key.replace('mark_', '')
+                        try:
+                            practical_mark = PracticalMark.objects.get(id=mark_id, marksheet=marksheet)
+                            if value.strip():
+                                mark_value = float(value)
+                                # Validate: only allow -1 (missing) or 0-100 (actual marks)
+                                if mark_value == -1 or (0 <= mark_value <= 100):
+                                    practical_mark.mark = mark_value
+                                else:
+                                    # Skip invalid marks
+                                    continue
+                            else:
+                                practical_mark.mark = None
+                            practical_mark.save()
+                        except (PracticalMark.DoesNotExist, ValueError):
+                            continue
+                
+                # Process comments
+                for key, value in request.POST.items():
+                    if key.startswith('comments_'):
+                        mark_id = key.replace('comments_', '')
+                        try:
+                            practical_mark = PracticalMark.objects.get(id=mark_id, marksheet=marksheet)
+                            practical_mark.comments = value.strip()
+                            practical_mark.save()
+                        except PracticalMark.DoesNotExist:
+                            continue
+                
+                # Update marksheet status if requested
+                if 'submit_marksheet' in request.POST:
+                    marksheet.status = 'submitted'
+                    marksheet.save()
+                    messages.success(request, 'Marksheet submitted successfully!')
+                else:
+                    messages.success(request, 'Marks saved successfully!')
+                
+                return redirect('edit_practical_marksheet', marksheet_id=marksheet.id)
+                
+        except Exception as e:
+            messages.error(request, f'Error saving marks: {str(e)}')
+    
+    # Get the practical marks for this marksheet
+    practical_marks = marksheet.practical_marks.all().order_by('candidate__full_name')
+    
+    context = {
+        'marksheet': marksheet,
+        'practical_marks': practical_marks,
+        'can_edit': marksheet.status != 'submitted' or user_department in ['IT', 'Data', 'Admin'] or request.user.is_superuser,
+        'user_department': user_department,
+    }
+    
+    return render(request, 'practical_assessment/edit_marksheet.html', context)
+
+
+@login_required
+def view_practical_marksheet(request, marksheet_id):
+    """
+    View a practical marksheet (read-only)
+    """
+    print(f"View marksheet request: marksheet_id={marksheet_id}, user={request.user.username}")
+    
+    marksheet = get_object_or_404(PracticalMarksheet, id=marksheet_id)
+    
+    # Check permissions
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    print(f"View marksheet access check: user={request.user.username}, department={user_department}, is_authenticated={is_authenticated}")
+    print(f"Marksheet assessor: {marksheet.assessor.username}, current user: {request.user.username}")
+    
+    if not is_authenticated:
+        print("Permission denied: not authenticated")
+        messages.error(request, "You must be logged in to access this page.")
+        return redirect('login')
+    
+    # Only allow the assessor who created it or staff to view
+    if marksheet.assessor != request.user and user_department not in ['IT', 'Data', 'Admin', 'Practical Assessors'] and not request.user.is_superuser:
+        print(f"Permission denied: assessor mismatch and not staff")
+        messages.error(request, "You don't have permission to view this marksheet.")
+        return redirect('practical_assessment_home')
+    
+    # Get the practical marks for this marksheet
+    practical_marks = marksheet.practical_marks.all().order_by('candidate__full_name')
+    
+    context = {
+        'marksheet': marksheet,
+        'practical_marks': practical_marks,
+        'user_department': user_department,
+    }
+    
+    return render(request, 'practical_assessment/view_marksheet.html', context)
+
+
+@login_required
+def download_practical_marksheet(request, marksheet_id):
+    """
+    Generate and download a PDF marksheet document
+    """
+    marksheet = get_object_or_404(PracticalMarksheet, id=marksheet_id)
+    
+    # Check permissions
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    if not is_authenticated:
+        return HttpResponse("Unauthorized", status=401)
+    
+    # Only allow the assessor who created it or staff to download
+    if marksheet.assessor != request.user and user_department not in ['IT', 'Data', 'Admin'] and not request.user.is_superuser:
+        return HttpResponse("Forbidden", status=403)
+    
+    # Create PDF
+    response = HttpResponse(content_type='application/pdf')
+    filename = f"practical_marksheet_{marksheet.assessment_center.center_number}_{marksheet.occupation.code}_{marksheet.assessment_series.name.replace(' ', '_')}.pdf"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # Generate PDF content
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+    
+    # Header
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(50, height - 50, "PRACTICAL ASSESSMENT MARKSHEET")
+    
+    # Marksheet details
+    p.setFont("Helvetica", 12)
+    y_position = height - 100
+    
+    details = [
+        f"Assessment Center: {marksheet.assessment_center.center_name}",
+        f"Assessment Series: {marksheet.assessment_series.name}",
+        f"Registration Category: {marksheet.registration_category.name}",
+        f"Occupation: {marksheet.occupation.name}",
+        f"Assessor: {marksheet.assessor.get_full_name() or marksheet.assessor.username}",
+        f"Generated: {marksheet.created_at.strftime('%Y-%m-%d %H:%M')}",
+        f"Status: {marksheet.get_status_display()}",
+    ]
+    
+    for detail in details:
+        p.drawString(50, y_position, detail)
+        y_position -= 20
+    
+    # Table header
+    y_position -= 30
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(50, y_position, "No.")
+    p.drawString(80, y_position, "Registration Number")
+    p.drawString(200, y_position, "Candidate Name")
+    p.drawString(350, y_position, "Mark")
+    p.drawString(400, y_position, "Grade")
+    p.drawString(450, y_position, "Comments")
+    
+    # Draw line under header
+    y_position -= 5
+    p.line(50, y_position, width - 50, y_position)
+    y_position -= 15
+    
+    # Table content
+    p.setFont("Helvetica", 9)
+    practical_marks = marksheet.practical_marks.all().order_by('candidate__full_name')
+    
+    for i, practical_mark in enumerate(practical_marks, 1):
+        if y_position < 100:  # Start new page if needed
+            p.showPage()
+            y_position = height - 50
+            p.setFont("Helvetica", 9)
+        
+        p.drawString(50, y_position, str(i))
+        p.drawString(80, y_position, practical_mark.candidate.reg_number or 'N/A')
+        p.drawString(200, y_position, practical_mark.candidate.full_name[:20])  # Truncate long names
+        p.drawString(350, y_position, str(practical_mark.mark) if practical_mark.mark is not None else '')
+        p.drawString(400, y_position, practical_mark.grade or '')
+        p.drawString(450, y_position, (practical_mark.comments or '')[:15])  # Truncate long comments
+        y_position -= 15
+    
+    # Footer
+    p.setFont("Helvetica", 8)
+    p.drawString(50, 50, f"Generated by EMIS - Practical Assessment Module")
+    
+    p.save()
+    return response
 
 
 @login_required

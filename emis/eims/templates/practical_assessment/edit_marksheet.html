@@ -1,0 +1,502 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Practical Marksheet{% endblock %}
+
+{% block extra_css %}
+<style>
+    .marksheet-header {
+        background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+        border-radius: 12px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+    }
+    
+    .candidate-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+        overflow: hidden;
+        transition: all 0.3s;
+    }
+    
+    .candidate-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+    
+    .candidate-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        padding: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .candidate-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0;
+    }
+    
+    .candidate-details {
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-top: 0.25rem;
+    }
+    
+    .mark-section {
+        padding: 1rem;
+    }
+    
+    .mark-input {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        text-align: center;
+        width: 100%;
+        transition: all 0.3s;
+        background: #f8fafc;
+    }
+    
+    .mark-input:focus {
+        border-color: #0f766e;
+        box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+        outline: none;
+        background: white;
+    }
+    
+    .mark-input.has-value {
+        background: #ecfdf5;
+        border-color: #10b981;
+    }
+    
+    .mark-input.missing {
+        background: #fef2f2;
+        border-color: #ef4444;
+    }
+    
+    .comments-input {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.75rem;
+        width: 100%;
+        resize: vertical;
+        min-height: 80px;
+        transition: all 0.3s;
+    }
+    
+    .comments-input:focus {
+        border-color: #0f766e;
+        box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.1);
+        outline: none;
+    }
+    
+    @media (max-width: 768px) {
+        .candidate-card {
+            margin-bottom: 0.75rem;
+        }
+        
+        .candidate-header {
+            padding: 0.75rem;
+        }
+        
+        .mark-section {
+            padding: 0.75rem;
+        }
+        
+        .mark-input {
+            font-size: 1.5rem;
+            padding: 1.25rem;
+        }
+    }
+    
+    .grade-display {
+        background: #f3f4f6;
+        border-radius: 8px;
+        padding: 0.75rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-align: center;
+        min-height: 3rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .comments-input {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 0.75rem;
+        resize: vertical;
+        min-height: 3rem;
+    }
+    
+    .comments-input:focus {
+        border-color: #14b8a6;
+        box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+        outline: none;
+    }
+    
+    .btn-save {
+        background: #059669;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .btn-save:hover {
+        background: #047857;
+        transform: translateY(-2px);
+    }
+    
+    .btn-submit {
+        background: #dc2626;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .btn-submit:hover {
+        background: #b91c1c;
+        transform: translateY(-2px);
+    }
+    
+    .btn-back {
+        background: #6b7280;
+        border: none;
+        padding: 0.5rem 1.5rem;
+        border-radius: 8px;
+        color: white;
+        text-decoration: none;
+        transition: all 0.3s;
+    }
+    
+    .btn-back:hover {
+        background: #4b5563;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .status-draft {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-submitted {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .candidate-info {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .progress-bar {
+        background: #e5e7eb;
+        border-radius: 9999px;
+        height: 8px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+    
+    .progress-fill {
+        background: linear-gradient(90deg, #14b8a6, #059669);
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.5s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="marksheet-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div class="d-flex align-items-center mb-3">
+                            <a href="{% url 'practical_assessment_home' %}" class="btn-back me-3">
+                                <i class="fas fa-arrow-left me-2"></i>Back
+                            </a>
+                            <h1 class="h3 mb-0">Edit Practical Marksheet</h1>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Assessment Center:</strong> {{ marksheet.assessment_center.center_name }}</p>
+                                <p class="mb-1"><strong>Assessment Series:</strong> {{ marksheet.assessment_series.name }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Registration Category:</strong> {{ marksheet.registration_category.name }}</p>
+                                <p class="mb-1"><strong>Occupation:</strong> {{ marksheet.occupation.name }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="status-badge status-{{ marksheet.status }} mb-3">
+                            {{ marksheet.get_status_display }}
+                        </div>
+                        <p class="mb-0 opacity-75">
+                            <i class="fas fa-users me-2"></i>
+                            {{ practical_marks|length }} candidate{{ practical_marks|length|pluralize }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                        <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <!-- Progress Bar -->
+            {% if can_edit %}
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">Progress</h6>
+                            <span class="text-muted" id="progress-text">0 of {{ practical_marks|length }} completed</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Marksheet Form -->
+            <form method="post" id="marksheetForm">
+                {% csrf_token %}
+                
+                <!-- Candidates List -->
+                <div class="candidates-container">
+                    {% for practical_mark in practical_marks %}
+                        <div class="candidate-card">
+                            <!-- Candidate Header -->
+                            <div class="candidate-header">
+                                <h5 class="candidate-name">{{ practical_mark.candidate.full_name }}</h5>
+                                <div class="candidate-details">
+                                    <span class="me-3">
+                                        <i class="fas fa-id-card me-1"></i>
+                                        {{ practical_mark.candidate.reg_number|default:"Not assigned" }}
+                                    </span>
+                                    <span>
+                                        <i class="fas fa-building me-1"></i>
+                                        {{ practical_mark.candidate.assessment_center.center_name }}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- Mark Entry Section -->
+                            <div class="mark-section">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Mark</label>
+                                        <small class="text-muted d-block mb-2">-1 = Missing | 0-100 = Score</small>
+                                        {% if can_edit %}
+                                            <input type="number" 
+                                                   name="mark_{{ practical_mark.id }}" 
+                                                   class="mark-input" 
+                                                   value="{{ practical_mark.mark|default:'' }}"
+                                                   min="-1" 
+                                                   max="100" 
+                                                   step="0.01"
+                                                   placeholder="Enter mark"
+                                                   onchange="updateProgress()"
+                                                   oninput="validateMark(this)">
+                                        {% else %}
+                                            <div class="mark-display">
+                                                {{ practical_mark.mark|default:"No Mark" }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label fw-bold">Comments (Optional)</label>
+                                        {% if can_edit %}
+                                            <textarea name="comments_{{ practical_mark.id }}" 
+                                                      class="comments-input" 
+                                                      placeholder="Enter comments about performance...">{{ practical_mark.comments|default:"" }}</textarea>
+                                        {% else %}
+                                            <div class="comments-display">
+                                                {{ practical_mark.comments|default:"No comments" }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Action Buttons -->
+                {% if can_edit %}
+                    <div class="card mt-4">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-2">Ready to submit?</h6>
+                                    <p class="text-muted mb-0">Save your progress or submit the completed marksheet.</p>
+                                </div>
+                                <div>
+                                    <button type="submit" name="save_draft" class="btn-save me-3">
+                                        <i class="fas fa-save me-2"></i>Save Progress
+                                    </button>
+                                    {% if marksheet.status == 'draft' %}
+                                        <button type="submit" name="submit_marksheet" class="btn-submit" onclick="return confirm('Are you sure you want to submit this marksheet? You will not be able to edit it after submission.')">
+                                            <i class="fas fa-paper-plane me-2"></i>Submit Marksheet
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card mt-4">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted">This marksheet has been submitted and cannot be edited.</h6>
+                            <a href="{% url 'download_practical_marksheet' marksheet.id %}" class="btn btn-success mt-2">
+                                <i class="fas fa-download me-2"></i>Download PDF
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Grade calculation function
+function calculateGrade(mark) {
+    if (mark === null || mark === undefined || mark === '') return '—';
+    
+    const numMark = parseFloat(mark);
+    if (isNaN(numMark)) return '—';
+    
+    // Handle missing candidate (-1)
+    if (numMark === -1) return 'Missing';
+    
+    // Basic grading system - can be customized
+    if (numMark >= 80) return 'A';
+    if (numMark >= 70) return 'B';
+    if (numMark >= 60) return 'C';
+    if (numMark >= 50) return 'D';
+    return 'F';
+}
+
+// Validate mark input: only allow -1 or 0-100
+function validateMark(input) {
+    const value = parseFloat(input.value);
+    
+    // Remove any existing styling classes
+    input.classList.remove('has-value', 'missing');
+    
+    if (input.value === '') {
+        input.setCustomValidity('');
+        return;
+    }
+    
+    if (isNaN(value)) {
+        input.setCustomValidity('Please enter a valid number');
+        return;
+    }
+    
+    // Allow -1 (missing) or 0-100 (actual marks)
+    if (value === -1 || (value >= 0 && value <= 100)) {
+        input.setCustomValidity('');
+        
+        // Add visual feedback
+        if (value === -1) {
+            input.classList.add('missing');
+        } else {
+            input.classList.add('has-value');
+        }
+    } else {
+        input.setCustomValidity('Enter -1 for missing candidates or 0-100 for actual marks');
+    }
+}
+
+// Update grades when marks are entered
+document.addEventListener('DOMContentLoaded', function() {
+    const markInputs = document.querySelectorAll('.mark-input');
+    
+    markInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const markId = this.name.replace('mark_', '');
+            const gradeDisplay = document.getElementById('grade_' + markId);
+            const grade = calculateGrade(this.value);
+            gradeDisplay.textContent = grade;
+        });
+    });
+    
+    // Initialize progress
+    updateProgress();
+});
+
+// Update progress bar
+function updateProgress() {
+    const markInputs = document.querySelectorAll('.mark-input');
+    const totalCandidates = markInputs.length;
+    let completedCandidates = 0;
+    
+    markInputs.forEach(input => {
+        if (input.value.trim() !== '') {
+            completedCandidates++;
+        }
+    });
+    
+    const percentage = totalCandidates > 0 ? (completedCandidates / totalCandidates) * 100 : 0;
+    
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    
+    if (progressFill) {
+        progressFill.style.width = percentage + '%';
+    }
+    
+    if (progressText) {
+        progressText.textContent = `${completedCandidates} of ${totalCandidates} completed`;
+    }
+}
+
+// Auto-save functionality (optional)
+let autoSaveTimeout;
+document.addEventListener('input', function(e) {
+    if (e.target.matches('.mark-input, .comments-input')) {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(() => {
+            // Could implement auto-save here if needed
+            console.log('Auto-save triggered');
+        }, 5000); // Auto-save after 5 seconds of inactivity
+    }
+});
+</script>
+{% endblock %}

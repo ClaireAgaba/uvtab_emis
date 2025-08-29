@@ -1185,6 +1185,7 @@ class Staff(models.Model):
         ('Data', 'Data'),
         ('IT', 'IT'),
         ('Admin', 'Admin'),
+        ('Practical Assessors', 'Practical Assessors'),
     ]
     
     # Account status field
@@ -1262,3 +1263,137 @@ class CenterSeriesPayment(models.Model):
     def __str__(self):
         series_name = self.assessment_series.name if self.assessment_series else 'No series'
         return f"{self.assessment_center.center_name} - {series_name}: {self.amount_paid}"
+
+
+# =========================
+# Practical Assessment Module Models
+# =========================
+
+def practical_marksheet_upload_path(instance, filename):
+    """Generate upload path for practical marksheet documents"""
+    return f'practical_marksheets/{instance.assessment_series.name}/{instance.assessment_center.center_number}/{filename}'
+
+
+class PracticalMarksheet(models.Model):
+    """
+    Model for storing practical assessment marksheets
+    """
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    # Basic Information
+    assessment_center = models.ForeignKey('AssessmentCenter', on_delete=models.CASCADE, help_text="Assessment center where practical assessment was conducted")
+    assessment_series = models.ForeignKey('AssessmentSeries', on_delete=models.CASCADE, help_text="Assessment series for this marksheet")
+    registration_category = models.ForeignKey('RegistrationCategory', on_delete=models.CASCADE, help_text="Registration category (Formal, Modular, Worker's PAS)")
+    occupation = models.ForeignKey('Occupation', on_delete=models.CASCADE, help_text="Occupation being assessed")
+    
+    # Assessor Information
+    assessor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='practical_marksheets', help_text="Staff member who created this marksheet")
+    
+    # Document and Status
+    marksheet_document = models.FileField(
+        upload_to=practical_marksheet_upload_path, 
+        blank=True, 
+        null=True,
+        help_text="Generated marksheet document (PDF)"
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    
+    # Audit Trail
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    submitted_at = models.DateTimeField(null=True, blank=True, help_text="When the marksheet was submitted")
+    
+    class Meta:
+        verbose_name = 'Practical Marksheet'
+        verbose_name_plural = 'Practical Marksheets'
+        ordering = ['-created_at']
+        unique_together = ['assessment_center', 'assessment_series', 'registration_category', 'occupation', 'assessor']
+    
+    def __str__(self):
+        return f"{self.assessment_center.center_name} - {self.occupation.name} ({self.registration_category.name}) - {self.assessment_series.name}"
+    
+    def get_candidate_count(self):
+        """Get the number of candidates in this marksheet"""
+        return self.practical_marks.count()
+    
+    def save(self, *args, **kwargs):
+        # Set submitted_at when status changes to submitted
+        if self.status == 'submitted' and not self.submitted_at:
+            self.submitted_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
+class PracticalMark(models.Model):
+    """
+    Model for storing individual candidate marks in practical assessments
+    """
+    marksheet = models.ForeignKey('PracticalMarksheet', on_delete=models.CASCADE, related_name='practical_marks')
+    candidate = models.ForeignKey('Candidate', on_delete=models.CASCADE, help_text="Candidate being assessed")
+    
+    # Marks (using DecimalField to allow for decimal marks like 85.5)
+    mark = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Practical assessment mark (0-100)"
+    )
+    
+    # Additional fields for tracking
+    grade = models.CharField(max_length=5, blank=True, help_text="Calculated grade based on mark")
+    comments = models.TextField(blank=True, help_text="Optional comments about the candidate's performance")
+    
+    # Audit trail
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Practical Mark'
+        verbose_name_plural = 'Practical Marks'
+        unique_together = ['marksheet', 'candidate']
+        ordering = ['candidate__full_name']
+    
+    def __str__(self):
+        mark_display = f"{self.mark}" if self.mark is not None else "No Mark"
+        return f"{self.candidate.full_name} - {mark_display}"
+    
+    def save(self, *args, **kwargs):
+        # Auto-calculate grade based on mark
+        if self.mark is not None:
+            self.grade = self.calculate_grade()
+        super().save(*args, **kwargs)
+    
+    def calculate_grade(self):
+        """Calculate grade based on the mark using the Grade model"""
+        if self.mark is None:
+            return ""
+        
+        try:
+            # Get the appropriate grade for practical assessments
+            grade_obj = Grade.objects.filter(
+                type='practical',
+                min_score__lte=self.mark,
+                max_score__gte=self.mark
+            ).first()
+            
+            if grade_obj:
+                return grade_obj.grade
+            else:
+                # Fallback grading system if no Grade objects exist
+                if self.mark >= 80:
+                    return "A"
+                elif self.mark >= 70:
+                    return "B"
+                elif self.mark >= 60:
+                    return "C"
+                elif self.mark >= 50:
+                    return "D"
+                else:
+                    return "F"
+        except:
+            return ""

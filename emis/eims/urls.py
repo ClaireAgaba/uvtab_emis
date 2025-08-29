@@ -184,4 +184,12 @@ urlpatterns = [
     path('complaints/helpdesk-teams/<int:pk>/edit/', views.helpdesk_team_edit, name='helpdesk_team_edit'),
     path('complaints/helpdesk-teams/<int:pk>/delete/', views.helpdesk_team_delete, name='helpdesk_team_delete'),
     path('complaints/attachment/<int:attachment_id>/', views.complaint_attachment_view, name='complaint_attachment_view'),
+    
+    # Practical Assessment URLs
+    path('practical-assessment/', views.practical_assessment_home, name='practical_assessment_home'),
+    path('practical-assessment/generate-page/', views.generate_practical_marksheet_page, name='generate_practical_marksheet_page'),
+    path('practical-assessment/generate/', views.generate_practical_marksheet, name='generate_practical_marksheet'),
+    path('practical-assessment/edit/<int:marksheet_id>/', views.edit_practical_marksheet, name='edit_practical_marksheet'),
+    path('practical-assessment/view/<int:marksheet_id>/', views.view_practical_marksheet, name='view_practical_marksheet'),
+    path('practical-assessment/download/<int:marksheet_id>/', views.download_practical_marksheet, name='download_practical_marksheet'),
  ]
