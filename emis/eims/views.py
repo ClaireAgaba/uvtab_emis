@@ -2634,7 +2634,7 @@ def bulk_candidate_action(request):
         except AssessmentSeries.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Invalid Assessment Series selected.'}, status=400)
     
-        from .models import Level, Module, Paper, CandidateLevel, CandidateModule, CandidatePaper
+        from .models import Level, Module, Paper, CandidateLevel, CandidateModule, CandidatePaper, Result
         enrolled = 0
     
          # --- FORMAL ---
@@ -10267,10 +10267,25 @@ def view_practical_marksheet(request, marksheet_id):
     # Get the practical marks for this marksheet
     practical_marks = marksheet.practical_marks.all().order_by('candidate__full_name')
     
+    # Calculate statistics server-side
+    total_registered = practical_marks.count()
+    assessed_count = 0
+    missing_count = 0
+    
+    for mark in practical_marks:
+        if mark.mark is not None:
+            if mark.mark == -1:
+                missing_count += 1
+            elif 0 <= mark.mark <= 100:
+                assessed_count += 1
+    
     context = {
         'marksheet': marksheet,
         'practical_marks': practical_marks,
         'user_department': user_department,
+        'total_registered': total_registered,
+        'assessed_count': assessed_count,
+        'missing_count': missing_count,
     }
     
     return render(request, 'practical_assessment/view_marksheet.html', context)
@@ -10301,13 +10316,24 @@ def download_practical_marksheet(request, marksheet_id):
     p = canvas.Canvas(response, pagesize=A4)
     width, height = A4
     
-    # Header
+    # Add logo
+    from django.conf import settings
+    import os
+    logo_path = os.path.join(settings.STATIC_ROOT or settings.STATICFILES_DIRS[0], 'images', 'uvtab_logo.png')
+    if os.path.exists(logo_path):
+        p.drawImage(logo_path, 50, height - 80, width=60, height=60)
+    
+    # UVTAB Header
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(120, height - 40, "UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD")
+    
+    # Subheader
     p.setFont("Helvetica-Bold", 16)
-    p.drawString(50, height - 50, "PRACTICAL ASSESSMENT MARKSHEET")
+    p.drawString(120, height - 60, "PRACTICAL ASSESSMENT MARKSHEET")
     
     # Marksheet details
     p.setFont("Helvetica", 12)
-    y_position = height - 100
+    y_position = height - 120
     
     details = [
         f"Assessment Center: {marksheet.assessment_center.center_name}",
@@ -10323,22 +10349,30 @@ def download_practical_marksheet(request, marksheet_id):
         p.drawString(50, y_position, detail)
         y_position -= 20
     
-    # Table header
+    # Table setup with borders
     y_position -= 30
+    table_start_y = y_position
+    
+    # Define column positions and widths
+    col_positions = [50, 80, 200, 350, 400, 500]  # x positions for columns
+    row_height = 20
+    
+    # Draw table header with background
+    p.setFillColorRGB(0.9, 0.9, 0.9)  # Light gray background
+    p.rect(50, y_position - 15, width - 100, row_height, fill=1, stroke=1)
+    
+    # Header text
+    p.setFillColorRGB(0, 0, 0)  # Black text
     p.setFont("Helvetica-Bold", 10)
-    p.drawString(50, y_position, "No.")
-    p.drawString(80, y_position, "Registration Number")
-    p.drawString(200, y_position, "Candidate Name")
-    p.drawString(350, y_position, "Mark")
-    p.drawString(400, y_position, "Grade")
-    p.drawString(450, y_position, "Comments")
+    p.drawString(55, y_position - 10, "No.")
+    p.drawString(85, y_position - 10, "Registration Number")
+    p.drawString(205, y_position - 10, "Candidate Name")
+    p.drawString(355, y_position - 10, "Mark")
+    p.drawString(405, y_position - 10, "Comments")
     
-    # Draw line under header
-    y_position -= 5
-    p.line(50, y_position, width - 50, y_position)
-    y_position -= 15
+    y_position -= row_height
     
-    # Table content
+    # Table content with borders
     p.setFont("Helvetica", 9)
     practical_marks = marksheet.practical_marks.all().order_by('candidate__full_name')
     
@@ -10348,13 +10382,28 @@ def download_practical_marksheet(request, marksheet_id):
             y_position = height - 50
             p.setFont("Helvetica", 9)
         
-        p.drawString(50, y_position, str(i))
-        p.drawString(80, y_position, practical_mark.candidate.reg_number or 'N/A')
-        p.drawString(200, y_position, practical_mark.candidate.full_name[:20])  # Truncate long names
-        p.drawString(350, y_position, str(practical_mark.mark) if practical_mark.mark is not None else '')
-        p.drawString(400, y_position, practical_mark.grade or '')
-        p.drawString(450, y_position, (practical_mark.comments or '')[:15])  # Truncate long comments
-        y_position -= 15
+        # Draw row background (alternating colors)
+        if i % 2 == 0:
+            p.setFillColorRGB(0.98, 0.98, 0.98)  # Very light gray for even rows
+            p.rect(50, y_position - 15, width - 100, row_height, fill=1, stroke=0)
+        
+        # Draw cell borders
+        p.setFillColorRGB(0, 0, 0)  # Black for borders
+        p.rect(50, y_position - 15, width - 100, row_height, fill=0, stroke=1)
+        
+        # Draw vertical lines for columns
+        for x_pos in col_positions[1:-1]:  # Skip first and last positions
+            p.line(x_pos, y_position - 15, x_pos, y_position + 5)
+        
+        # Cell content
+        p.setFillColorRGB(0, 0, 0)  # Black text
+        p.drawString(55, y_position - 10, str(i))
+        p.drawString(85, y_position - 10, practical_mark.candidate.reg_number or 'N/A')
+        p.drawString(205, y_position - 10, practical_mark.candidate.full_name[:18])  # Truncate long names
+        p.drawString(355, y_position - 10, str(practical_mark.mark) if practical_mark.mark is not None else '')
+        p.drawString(405, y_position - 10, (practical_mark.comments or '')[:20])  # Truncate long comments
+        
+        y_position -= row_height
     
     # Footer
     p.setFont("Helvetica", 8)

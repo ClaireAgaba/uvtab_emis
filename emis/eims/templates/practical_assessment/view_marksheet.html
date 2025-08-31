@@ -232,28 +232,22 @@
                     Marksheet Summary
                 </h5>
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="stat-item">
-                            <div class="stat-number">{{ practical_marks|length }}</div>
-                            <div class="stat-label">Total Candidates</div>
+                            <div class="stat-number">{{ total_registered }}</div>
+                            <div class="stat-label">Total Registered Candidates</div>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="stat-item">
-                            <div class="stat-number" id="completed-count">0</div>
-                            <div class="stat-label">Marks Entered</div>
+                            <div class="stat-number">{{ assessed_count }}</div>
+                            <div class="stat-label">Total Assessed</div>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="stat-item">
-                            <div class="stat-number" id="average-mark">—</div>
-                            <div class="stat-label">Average Mark</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-item">
-                            <div class="stat-number" id="pass-rate">—</div>
-                            <div class="stat-label">Pass Rate (%)</div>
+                            <div class="stat-number">{{ missing_count }}</div>
+                            <div class="stat-label">Missing</div>
                         </div>
                     </div>
                 </div>
@@ -307,7 +301,7 @@
                                         </small>
                                     </div>
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <label class="form-label">Mark</label>
                                     <div class="info-display mark-display" data-mark="{{ practical_mark.mark }}">
                                         {% if practical_mark.mark is not None %}
@@ -317,13 +311,7 @@
                                         {% endif %}
                                     </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Grade</label>
-                                    <div class="info-display grade-display">
-                                        {{ practical_mark.grade|default:"—" }}
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-5">
                                     <label class="form-label">Comments</label>
                                     <div class="info-display comments-display">
                                         {% if practical_mark.comments %}
@@ -353,39 +341,6 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Calculate and display statistics
-    const markElements = document.querySelectorAll('[data-mark]');
-    let totalMarks = 0;
-    let completedCount = 0;
-    let passCount = 0;
-    
-    markElements.forEach(element => {
-        const mark = element.getAttribute('data-mark');
-        if (mark && mark !== 'None' && mark !== '') {
-            const numMark = parseFloat(mark);
-            if (!isNaN(numMark)) {
-                totalMarks += numMark;
-                completedCount++;
-                if (numMark >= 50) { // Assuming 50 is the pass mark
-                    passCount++;
-                }
-            }
-        }
-    });
-    
-    // Update completed count
-    document.getElementById('completed-count').textContent = completedCount;
-    
-    // Update average mark
-    if (completedCount > 0) {
-        const averageMark = (totalMarks / completedCount).toFixed(1);
-        document.getElementById('average-mark').textContent = averageMark;
-        
-        // Update pass rate
-        const passRate = ((passCount / completedCount) * 100).toFixed(1);
-        document.getElementById('pass-rate').textContent = passRate;
-    }
-});
+// Statistics are now calculated server-side and displayed directly in the template
 </script>
 {% endblock %}
