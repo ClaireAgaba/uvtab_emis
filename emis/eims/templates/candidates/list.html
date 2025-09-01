@@ -17,9 +17,18 @@
       <select id="bulk-center-select" class="w-full border rounded px-3 py-2 mb-4" required>
         <option value="">-- Select Center --</option>
         {% for center in centers %}
-          <option value="{{ center.id }}">{{ center.center_name }}</option>
+          <option value="{{ center.id }}" data-has-branches="{{ center.has_branches|yesno:'true,false' }}">{{ center.center_name }}</option>
         {% endfor %}
       </select>
+      
+      <!-- Branch Selection (hidden by default) -->
+      <div id="bulk-branch-wrapper" class="hidden mb-4">
+        <label for="bulk-branch-select" class="block mb-2 font-medium">Select Branch</label>
+        <select id="bulk-branch-select" class="w-full border rounded px-3 py-2" required>
+          <option value="">-- Select Branch --</option>
+        </select>
+      </div>
+      
       <div id="bulk-center-error" class="text-red-600 text-sm mb-2 hidden"></div>
       <div class="flex justify-between mt-4">
         <button id="bulk-center-cancel" class="text-gray-600 hover:underline">Cancel</button>
@@ -1199,6 +1208,8 @@ if (bulkOccupationClose) bulkOccupationClose.onclick = hideBulkOccupationModal;
 // Bulk Change Center logic
 const bulkCenterModal = document.getElementById('bulk-change-center-modal');
 const bulkCenterSelect = document.getElementById('bulk-center-select');
+const bulkBranchWrapper = document.getElementById('bulk-branch-wrapper');
+const bulkBranchSelect = document.getElementById('bulk-branch-select');
 const bulkCenterApply = document.getElementById('bulk-center-apply');
 const bulkCenterCancel = document.getElementById('bulk-center-cancel');
 const bulkCenterClose = document.getElementById('bulk-center-close');
@@ -1206,6 +1217,8 @@ const bulkCenterError = document.getElementById('bulk-center-error');
 
 function showBulkCenterModal() {
   bulkCenterSelect.value = '';
+  bulkBranchWrapper.classList.add('hidden');
+  bulkBranchSelect.innerHTML = '<option value="">-- Select Branch --</option>';
   bulkCenterError.textContent = '';
   bulkCenterError.classList.add('hidden');
   bulkCenterModal.classList.remove('hidden');
@@ -1213,6 +1226,43 @@ function showBulkCenterModal() {
 function hideBulkCenterModal() { bulkCenterModal.classList.add('hidden'); }
 if (bulkCenterCancel) bulkCenterCancel.onclick = hideBulkCenterModal;
 if (bulkCenterClose) bulkCenterClose.onclick = hideBulkCenterModal;
+
+// Handle center selection for bulk modal
+bulkCenterSelect && bulkCenterSelect.addEventListener('change', function() {
+  const selectedOption = this.options[this.selectedIndex];
+  const hasBranches = selectedOption.getAttribute('data-has-branches') === 'true';
+  
+  if (hasBranches && this.value) {
+    // Load branches for selected center
+    fetch(`/eims/api/center-branches/?center_id=${this.value}`)
+      .then(response => response.json())
+      .then(data => {
+        bulkBranchSelect.innerHTML = '<option value="">-- Select Branch --</option>';
+        
+        // Add "Main Branch" option for centers with branches
+        const mainOption = document.createElement('option');
+        mainOption.value = 'main';
+        mainOption.textContent = 'Main Branch (No specific branch)';
+        bulkBranchSelect.appendChild(mainOption);
+        
+        if (data.branches && data.branches.length > 0) {
+          data.branches.forEach(branch => {
+            const option = document.createElement('option');
+            option.value = branch.id;
+            option.textContent = branch.branch_code;
+            bulkBranchSelect.appendChild(option);
+          });
+        }
+        bulkBranchWrapper.classList.remove('hidden');
+      })
+      .catch(error => {
+        console.error('Error loading branches:', error);
+        bulkBranchWrapper.classList.add('hidden');
+      });
+  } else {
+    bulkBranchWrapper.classList.add('hidden');
+  }
+});
 
 bulkSelect.addEventListener('change', function() {
   if (bulkSelect.value === 'change_reg_cat') {
@@ -1316,8 +1366,17 @@ bulkOccupationApply && bulkOccupationApply.addEventListener('click', function() 
 bulkCenterApply && bulkCenterApply.addEventListener('click', function() {
   const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
   const newCenterId = bulkCenterSelect.value;
+  const newBranchId = bulkBranchSelect.value;
+  const selectedOption = bulkCenterSelect.options[bulkCenterSelect.selectedIndex];
+  const hasBranches = selectedOption.getAttribute('data-has-branches') === 'true';
+  
   if (!newCenterId) {
     bulkCenterError.textContent = 'Please select a center.';
+    bulkCenterError.classList.remove('hidden');
+    return;
+  }
+  if (hasBranches && !newBranchId) {
+    bulkCenterError.textContent = 'Please select a branch for this center.';
     bulkCenterError.classList.remove('hidden');
     return;
   }
@@ -1328,17 +1387,24 @@ bulkCenterApply && bulkCenterApply.addEventListener('click', function() {
   }
   bulkCenterError.textContent = '';
   bulkCenterError.classList.add('hidden');
+  
+  const requestData = {
+    action: 'change_center',
+    candidate_ids: checked.map(cb => cb.value),
+    assessment_center_id: newCenterId
+  };
+  
+  if (newBranchId) {
+    requestData.assessment_center_branch_id = newBranchId;
+  }
+  
   fetch("/eims/candidates/bulk-action/", {
     method: "POST",
     headers: {
       'Content-Type': 'application/json',
       'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || getCookie('csrftoken')
     },
-    body: JSON.stringify({
-      action: 'change_center',
-      candidate_ids: checked.map(cb => cb.value),
-      assessment_center_id: newCenterId
-    })
+    body: JSON.stringify(requestData)
   })
   .then(res => res.json())
   .then(data => {

@@ -3031,6 +3031,23 @@ def bulk_candidate_action(request):
         except AssessmentCenter.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Invalid Assessment Center selected.'}, status=400)
         
+        # Handle branch selection for centers with branches
+        new_branch = None
+        branch_id = data.get('assessment_center_branch_id')
+        if branch_id:
+            if branch_id == 'main':
+                # "Main Branch" selected - set branch to None
+                new_branch = None
+            else:
+                try:
+                    branch_id = int(branch_id)
+                    new_branch = AssessmentCenterBranch.objects.get(pk=branch_id, assessment_center=new_center)
+                except (ValueError, AssessmentCenterBranch.DoesNotExist):
+                    return JsonResponse({'success': False, 'error': 'Invalid branch selection'})
+        elif new_center.has_branches:
+            # If center has branches but no branch selected, require branch selection
+            return JsonResponse({'success': False, 'error': 'Please select a branch for this center'})
+        
         # Update center and regenerate reg numbers. Keep fees_balance intact so the
         # candidate's outstanding bill moves with them (reports group by center).
         from django.db import transaction
@@ -3038,13 +3055,19 @@ def bulk_candidate_action(request):
         with transaction.atomic():
             for candidate in candidates:
                 candidate.assessment_center = new_center
+                candidate.assessment_center_branch = new_branch
                 candidate.build_reg_number()  # Rebuild reg_number since center code changes
-                candidate.save(update_fields=['assessment_center', 'reg_number'])
+                candidate.save(update_fields=['assessment_center', 'assessment_center_branch', 'reg_number'])
                 updated += 1
+        
+        # Prepare response message
+        center_display = new_center.center_name
+        if new_branch:
+            center_display = f"{new_center.center_name} - {new_branch.branch_code}"
         
         return JsonResponse({
             'success': True,
-            'message': f'Successfully changed assessment center to {new_center.center_name} for {updated} candidate' + ('' if updated == 1 else 's') + '. Registration numbers have been updated.'
+            'message': f'Successfully changed assessment center to {center_display} for {updated} candidate' + ('' if updated == 1 else 's') + '. Registration numbers have been updated.'
         })
     
     elif action == 'verify':
@@ -7783,18 +7806,63 @@ def change_center(request, id):
         data = json.loads(request.body or "{}")
         new_center_id = int(data["assessment_center"])
         new_center = AssessmentCenter.objects.get(pk=new_center_id)
+        
+        # Handle branch selection for centers with branches
+        new_branch = None
+        branch_id = data.get("assessment_center_branch")
+        if branch_id:
+            if branch_id == 'main':
+                # "Main Branch" selected - set branch to None
+                new_branch = None
+            else:
+                try:
+                    branch_id = int(branch_id)
+                    new_branch = AssessmentCenterBranch.objects.get(pk=branch_id, assessment_center=new_center)
+                except (ValueError, AssessmentCenterBranch.DoesNotExist):
+                    return JsonResponse({"success": False, "error": "Invalid branch selection"})
+        elif new_center.has_branches:
+            # If center has branches but no branch selected, require branch selection
+            return JsonResponse({"success": False, "error": "Please select a branch for this center"})
+            
     except (KeyError, ValueError, AssessmentCenter.DoesNotExist):
-        return HttpResponseBadRequest("Invalid center")
+        return JsonResponse({"success": False, "error": "Invalid center selection"})
 
+    # Update candidate with new center and branch
     candidate.assessment_center = new_center
+    candidate.assessment_center_branch = new_branch
     candidate.build_reg_number()     # helper that rebuilds reg_number
-    candidate.save(update_fields=["assessment_center", "reg_number"])
+    candidate.save(update_fields=["assessment_center", "assessment_center_branch", "reg_number"])
+
+    # Prepare response with center and branch info
+    center_display = new_center.center_name
+    if new_branch:
+        center_display = f"{new_center.center_name} - {new_branch.branch_code}"
 
     return JsonResponse({
         "success": True,
-        "center_name": new_center.center_name,
+        "center_name": center_display,
         "reg_number": candidate.reg_number
     })
+
+def api_center_branches(request):
+    """API endpoint to get branches for a specific center"""
+    center_id = request.GET.get('center_id')
+    if not center_id:
+        return JsonResponse({'error': 'Center ID required'}, status=400)
+    
+    try:
+        center = AssessmentCenter.objects.get(pk=center_id)
+        branches = []
+        
+        if center.has_branches:
+            branches = list(center.branches.values('id', 'branch_code'))
+        
+        return JsonResponse({
+            'has_branches': center.has_branches,
+            'branches': branches
+        })
+    except AssessmentCenter.DoesNotExist:
+        return JsonResponse({'error': 'Center not found'}, status=404)
 
 @require_POST
 def change_registration_category(request, id):
@@ -8162,7 +8230,7 @@ def candidate_view(request, id):
         "module_enrollments": module_enrollments,
         "results":            results,
         "occupations": Occupation.objects.exclude(pk=candidate.occupation_id).order_by('code'),
-        "centers":     AssessmentCenter.objects.exclude(pk=candidate.assessment_center_id),
+        "centers":     AssessmentCenter.objects.all().order_by('center_name'),
         "enrollment_summary": enrollment_summary,
         "enrollment_history": enrollment_history,  # New comprehensive enrollment history
         "results_summary": results_summary_for_display,  # New comprehensive results summary

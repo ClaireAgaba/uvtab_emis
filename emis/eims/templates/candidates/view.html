@@ -1085,11 +1085,20 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       <select id="centerSelect" name="assessment_center" class="w-full border rounded px-3 py-2 mb-4" required>
         <option value="">-- Select Center --</option>
         {% for center in centers %}
-          <option value="{{ center.id }}" {% if center.id == candidate.assessment_center.id %}disabled selected{% endif %}>
-            {{ center.center_number }} - {{ center.center_name }}
+          <option value="{{ center.id }}" data-has-branches="{{ center.has_branches|yesno:'true,false' }}" {% if center.id == candidate.assessment_center.id and not center.has_branches %}disabled selected{% elif center.id == candidate.assessment_center.id %}selected{% endif %}>
+            {{ center.center_number }} - {{ center.center_name }}{% if center.id == candidate.assessment_center.id %} (Current){% endif %}
           </option>
         {% endfor %}
       </select>
+      
+      <!-- Branch Selection (shown only when center has branches) -->
+      <div id="branchSelectContainer" class="hidden">
+        <label for="branchSelect" class="block mb-2 font-medium">Select Branch</label>
+        <select id="branchSelect" name="assessment_center_branch" class="w-full border rounded px-3 py-2 mb-4">
+          <option value="">-- Select Branch --</option>
+        </select>
+      </div>
+      
       <div id="centerChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
       <div class="flex justify-between mt-2">
         <button type="button" id="centerCancelBtn" class="text-gray-600 hover:underline">Cancel</button>
@@ -1254,24 +1263,157 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('actionDropdownMenu').classList.add('hidden');
     });
   }
+  
   function openCenterModal() {
     document.getElementById('changeCenterModal').classList.remove('hidden');
+    // Reset branch selection
+    document.getElementById('branchSelectContainer').classList.add('hidden');
+    document.getElementById('branchSelect').innerHTML = '<option value="">-- Select Branch --</option>';
+    
+    // Check if current center has branches and auto-load them
+    setTimeout(function() {
+      const centerSelect = document.getElementById('centerSelect');
+      const currentCenterId = '{{ candidate.assessment_center.id }}';
+      
+      // Find the current center option and check if it has branches
+      console.log('Looking for center ID:', currentCenterId);
+      console.log('Available options:', centerSelect.options.length);
+      
+      for (let i = 0; i < centerSelect.options.length; i++) {
+        const option = centerSelect.options[i];
+        console.log('Option', i, '- Value:', option.value, 'Text:', option.text, 'Has branches attr:', option.getAttribute('data-has-branches'));
+        
+        if (option.value == currentCenterId) {
+          const hasBranches = option.getAttribute('data-has-branches') === 'true';
+          console.log('Found current center! Has branches:', hasBranches);
+          console.log('Current center option:', option);
+          
+          if (hasBranches) {
+            console.log('Loading branches for center:', currentCenterId);
+            loadBranchesForCenter(currentCenterId, true);
+          } else {
+            console.log('Current center does not have branches enabled');
+          }
+          break;
+        }
+      }
+    }, 100);
   }
+  
   // Expose close function globally so inline onclick works
   window.closeCenterModal = function() {
     document.getElementById('changeCenterModal').classList.add('hidden');
   }
+  
+  // Function to load branches for a center
+  function loadBranchesForCenter(centerId, isCurrentCenter = false) {
+    console.log('loadBranchesForCenter called with:', centerId, 'isCurrentCenter:', isCurrentCenter);
+    const branchContainer = document.getElementById('branchSelectContainer');
+    const branchSelect = document.getElementById('branchSelect');
+    
+    if (!centerId) {
+      console.log('No center ID provided, hiding branch container');
+      branchContainer.classList.add('hidden');
+      branchSelect.innerHTML = '<option value="">-- Select Branch --</option>';
+      return;
+    }
+    
+    console.log('Showing branch container and loading branches...');
+    // Show branch selection and load branches
+    branchContainer.classList.remove('hidden');
+    branchSelect.innerHTML = '<option value="">Loading branches...</option>';
+    
+    fetch('/eims/api/center-branches/?center_id=' + centerId)
+      .then(response => response.json())
+      .then(data => {
+        if (data.has_branches && data.branches) {
+          branchSelect.innerHTML = '<option value="">-- Select Branch --</option>';
+          
+          // Add "Main Branch" option for centers with branches
+          const mainOption = document.createElement('option');
+          mainOption.value = 'main';
+          mainOption.textContent = 'Main Branch (No specific branch)';
+          
+          // Pre-select main branch if current candidate has no branch
+          if (isCurrentCenter && '{{ candidate.assessment_center_branch.id|default:"" }}' === '') {
+            mainOption.selected = true;
+            mainOption.textContent += ' (Current)';
+          }
+          
+          branchSelect.appendChild(mainOption);
+          
+          data.branches.forEach(function(branch) {
+            const option = document.createElement('option');
+            option.value = branch.id;
+            option.textContent = branch.branch_code;
+            
+            // Pre-select current branch if this is the current center
+            if (isCurrentCenter && '{{ candidate.assessment_center_branch.id|default:"" }}' == branch.id) {
+              option.selected = true;
+              option.textContent += ' (Current)';
+            }
+            
+            branchSelect.appendChild(option);
+          });
+        } else {
+          branchSelect.innerHTML = '<option value="">No branches available</option>';
+        }
+      })
+      .catch(error => {
+        console.error('Error loading branches:', error);
+        branchSelect.innerHTML = '<option value="">Error loading branches</option>';
+      });
+  }
+
+  // Handle center selection change to load branches
+  var centerSelect = document.getElementById('centerSelect');
+  if (centerSelect) {
+    centerSelect.addEventListener('change', function() {
+      const centerId = this.value;
+      const selectedOption = this.options[this.selectedIndex];
+      const hasBranches = selectedOption.getAttribute('data-has-branches') === 'true';
+      
+      if (centerId && hasBranches) {
+        const isCurrentCenter = centerId == '{{ candidate.assessment_center.id }}';
+        loadBranchesForCenter(centerId, isCurrentCenter);
+      } else {
+        // Hide branch selection for centers without branches
+        document.getElementById('branchSelectContainer').classList.add('hidden');
+        document.getElementById('branchSelect').innerHTML = '<option value="">-- Select Branch --</option>';
+      }
+    });
+  }
+  
   var centerForm = document.getElementById('changeCenterForm');
   if (centerForm) {
     centerForm.onsubmit = function (e) {
       e.preventDefault();
       const centerId = document.getElementById('centerSelect').value;
+      const branchId = document.getElementById('branchSelect').value;
+      const selectedOption = document.getElementById('centerSelect').options[document.getElementById('centerSelect').selectedIndex];
+      const hasBranches = selectedOption.getAttribute('data-has-branches') === 'true';
       const errorDiv = document.getElementById('centerChangeError');
+      
+      // Clear previous errors
+      errorDiv.classList.add('hidden');
+      
       if (!centerId) {
         errorDiv.innerText = 'Please select a center.';
         errorDiv.classList.remove('hidden');
         return;
       }
+      
+      if (hasBranches && !branchId) {
+        errorDiv.innerText = 'Please select a branch for this center.';
+        errorDiv.classList.remove('hidden');
+        return;
+      }
+      
+      const requestData = { assessment_center: centerId };
+      if (branchId) {
+        requestData.assessment_center_branch = branchId;
+      }
+      
       fetch("{% url 'change_center' candidate.id %}", {
         method: 'POST',
         headers: {
@@ -1279,7 +1421,7 @@ document.addEventListener('DOMContentLoaded', function() {
           'X-CSRFToken': '{{ csrf_token }}',
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ assessment_center: centerId })
+        body: JSON.stringify(requestData)
       })
       .then(resp => resp.json())
       .then(data => {
@@ -1287,6 +1429,8 @@ document.addEventListener('DOMContentLoaded', function() {
           document.querySelector('[data-field="assessment_center"]').innerText = data.center_name;
           document.querySelectorAll('[data-field="reg_number"]').forEach(function(el) { el.innerText = data.reg_number; });
           window.closeCenterModal();
+          // Refresh page to show updated branch information
+          window.location.reload();
         } else {
           errorDiv.innerText = data.error || 'Failed to change center.';
           errorDiv.classList.remove('hidden');
@@ -1298,6 +1442,7 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     };
   }
+  
   // Cancel button closes the modal
   var centerCancelBtn = document.getElementById('centerCancelBtn');
   if (centerCancelBtn) {
