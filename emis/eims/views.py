@@ -2591,6 +2591,10 @@ def bulk_candidate_modules(request):
 @require_POST
 def bulk_candidate_action(request):
     import json
+    
+    # Get user department for permission checks using the proper function
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    
     try:
         data = json.loads(request.body.decode()) if request.body else request.POST
         print(f"[DEBUG] bulk_candidate_action raw data: {data}")
@@ -3175,9 +3179,10 @@ def bulk_candidate_action(request):
     
     elif action == 'clear_enrollment':
         # Bulk clear enrollment (De-Enrol) – same behavior as single candidate view
-        # Permission: restrict to superuser to match `clear_enrollment` view
-        if not request.user.is_superuser:
-            return JsonResponse({'success': False, 'error': 'Permission denied. Only superusers can clear enrollment.'}, status=403)
+        # Permission: allow superusers, staff, and admin department users
+        print(f"[DEBUG] Permission check - is_superuser: {request.user.is_superuser}, is_staff: {request.user.is_staff}, user_department: '{user_department}'")
+        if not (request.user.is_superuser or request.user.is_staff or user_department == "Admin"):
+            return JsonResponse({'success': False, 'error': 'Permission denied. Only admins can clear enrollment.'}, status=403)
 
         from .models import Result, CandidateLevel, CandidateModule, CandidatePaper
 
@@ -7740,7 +7745,9 @@ from django.views.decorators.http import require_POST
 @login_required
 @require_POST
 def clear_enrollment(request, id):
-    if not request.user.is_superuser:
+    # Allow superusers, staff, and admin department users
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    if not (request.user.is_superuser or request.user.is_staff or user_department == "Admin"):
         return redirect('candidate_view', id=id)
     candidate = get_object_or_404(Candidate, id=id)
     from .models import Result
