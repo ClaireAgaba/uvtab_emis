@@ -2643,19 +2643,58 @@ def bulk_candidate_action(request):
     
          # --- FORMAL ---
         if regcat == 'formal':
+            print(f"[DEBUG] FORMAL enrollment - level_id: {level_id}")
             if not level_id:
                 return JsonResponse({'success': False, 'error': 'Level is required.'})
             level = Level.objects.filter(id=level_id).first()
             if not level:
                 return JsonResponse({'success': False, 'error': 'Invalid level.'})
+            
+            print(f"[DEBUG] Target level: {level.name} (ID: {level.id})")
+            print(f"[DEBUG] Candidates to enroll: {[c.full_name for c in candidates]}")
+            
+            # Check for already enrolled candidates - FORMAL candidates can only be in ONE level
+            already_enrolled = []
             for c in candidates:
-                CandidateLevel.objects.get_or_create(candidate=c, level=level)
+                print(f"[DEBUG] Checking candidate ID {c.id} ({c.full_name}) for level ID {level.id} ({level.name})")
+                
+                # For FORMAL candidates, check if they're enrolled in ANY level (not just the target level)
+                all_enrollments = CandidateLevel.objects.filter(candidate=c)
+                print(f"[DEBUG] All enrollments for {c.full_name}: {all_enrollments.count()}")
+                
+                if all_enrollments.exists():
+                    # Candidate is already enrolled in some level
+                    enrolled_levels = []
+                    for enr in all_enrollments:
+                        enrolled_levels.append(f"{enr.level.name}")
+                        print(f"[DEBUG]   - Level {enr.level.id}: {enr.level.name}")
+                    
+                    already_enrolled.append(f"{c.full_name} ({c.reg_number}) - currently in {', '.join(enrolled_levels)}")
+                    print(f"[DEBUG] FORMAL candidate {c.full_name} already enrolled in: {', '.join(enrolled_levels)}")
+                else:
+                    print(f"[DEBUG] {c.full_name} has no existing enrollments - OK to enroll")
+            
+            print(f"[DEBUG] Already enrolled candidates: {already_enrolled}")
+            
+            if already_enrolled:
+                error_msg = f"FORMAL candidates can only be enrolled in one level at a time. The following candidates are already enrolled: {'; '.join(already_enrolled[:3])}"
+                if len(already_enrolled) > 3:
+                    error_msg += f" and {len(already_enrolled) - 3} more candidates."
+                print(f"[DEBUG] RETURNING ERROR: {error_msg}")
+                return JsonResponse({'success': False, 'error': error_msg})
+            
+            print(f"[DEBUG] No duplicates found, proceeding with enrollment")
+            # Proceed with enrollment only if no duplicates
+            for c in candidates:
+                print(f"[DEBUG] Creating enrollment for {c.full_name} in {level.name}")
+                CandidateLevel.objects.create(candidate=c, level=level)
                 # Update candidate's assessment series
                 c.assessment_series = assessment_series
                 # Calculate and set billing fees
                 if hasattr(c, 'calculate_fees_balance'):
                     calculated_fees = c.calculate_fees_balance()
                     c.fees_balance = calculated_fees
+                    print(f"[DEBUG] Updated fees for {c.full_name}: {calculated_fees}")
                 c.save()
                 enrolled += 1
             return JsonResponse({'success': True, 'message': f'Enrolled and billed {enrolled} candidates in {level.name}.'})
@@ -2814,8 +2853,24 @@ def bulk_candidate_action(request):
             print(f"[DEBUG] Found modules: {modules.count()}/{len(module_ids)} - {list(modules.values_list('name', flat=True))}")
             if modules.count() != len(module_ids):
                 return JsonResponse({'success': False, 'error': 'Invalid module selection.'}, status=400)
+            
+            # Check for already enrolled candidates in any of the selected modules
+            already_enrolled = []
             for c in candidates:
-                CandidateModule.objects.filter(candidate=c).delete()
+                existing_modules = CandidateModule.objects.filter(candidate=c, module__in=modules).select_related('module')
+                if existing_modules.exists():
+                    module_names = [em.module.name for em in existing_modules]
+                    already_enrolled.append(f"{c.full_name} ({c.reg_number}) - {', '.join(module_names)}")
+            
+            if already_enrolled:
+                error_msg = f"The following candidates are already enrolled in selected modules: {'; '.join(already_enrolled[:3])}"
+                if len(already_enrolled) > 3:
+                    error_msg += f" and {len(already_enrolled) - 3} more candidates."
+                return JsonResponse({'success': False, 'error': error_msg})
+            
+            # Proceed with enrollment only if no duplicates
+            for c in candidates:
+                # Don't delete existing modules, just add new ones
                 for m in modules:
                     CandidateModule.objects.create(
                         candidate=c, 
@@ -7741,6 +7796,66 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.views.decorators.http import require_POST
+
+@login_required
+def enrollment_list(request):
+    """List all enrolled candidates with enrollment details"""
+    # Permission check: superusers, admins, IT, data departments
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    
+    if not (request.user.is_superuser or user_department in ['Admin', 'IT', 'Data']):
+        messages.error(request, 'Permission denied. Only Admin, IT, and Data departments can view enrollments.')
+        return redirect('candidate_list')
+    
+    # Get all candidates with enrollment data
+    from django.db.models import Prefetch
+    
+    enrolled_candidates = Candidate.objects.filter(
+        candidatelevel__isnull=False
+    ).distinct().select_related(
+        'assessment_center',
+        'assessment_center_branch',
+        'occupation',
+        'occupation__sector'
+    ).prefetch_related(
+        Prefetch('candidatelevel_set', queryset=CandidateLevel.objects.select_related('level')),
+        Prefetch('candidatemodule_set', queryset=CandidateModule.objects.select_related('module')),
+        'assessment_series'
+    ).order_by('reg_number')
+    
+    # Apply filters if provided
+    reg_number = request.GET.get('reg_number', '').strip()
+    name = request.GET.get('name', '').strip()
+    center = request.GET.get('center', '').strip()
+    occupation = request.GET.get('occupation', '').strip()
+    
+    if reg_number:
+        enrolled_candidates = enrolled_candidates.filter(reg_number__icontains=reg_number)
+    if name:
+        enrolled_candidates = enrolled_candidates.filter(full_name__icontains=name)
+    if center:
+        enrolled_candidates = enrolled_candidates.filter(assessment_center__center_name__icontains=center)
+    if occupation:
+        enrolled_candidates = enrolled_candidates.filter(occupation__name__icontains=occupation)
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(enrolled_candidates, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'candidates': page_obj,
+        'user_department': user_department,
+        'filters': {
+            'reg_number': reg_number,
+            'name': name,
+            'center': center,
+            'occupation': occupation,
+        }
+    }
+    
+    return render(request, 'candidates/enrollment_list.html', context)
 
 @login_required
 @require_POST

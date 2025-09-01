@@ -73,12 +73,21 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
                 Back to Results
             </a>
         {% else %}
-            <a href="{% url 'candidate_list' %}" class="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-sm transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                </svg>
-                Back to Candidates
-            </a>
+            {% if request.GET.return_to == 'enrollment_list' %}
+                <a href="{% url 'enrollment_list' %}{% if request.GET.page %}?page={{ request.GET.page }}{% endif %}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}" class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    Back to Enrollments
+                </a>
+            {% else %}
+                <a href="{% url 'candidate_list' %}" class="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-sm transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    Back to Candidates
+                </a>
+            {% endif %}
         {% endif %}
     </div>
 </div>

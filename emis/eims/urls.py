@@ -42,6 +42,7 @@ urlpatterns = [
     path('modules/add/<int:level_id>/', views.add_module, name='add_module'),
     path('papers/add/<int:level_id>/', views.add_paper, name='add_paper'),
     path('candidates/', views.candidate_list, name='candidate_list'),
+    path('candidates/enrollments/', views.enrollment_list, name='enrollment_list'),
     path('results/', views.results_home, name='results_home'),
     path('awards/', views.awards_list, name='awards_list'),
     path('results/generate-marksheet/', views.generate_marksheet, name='generate_marksheet'),
