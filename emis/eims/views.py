@@ -3234,10 +3234,10 @@ def bulk_candidate_action(request):
     
     elif action == 'clear_enrollment':
         # Bulk clear enrollment (De-Enrol) – same behavior as single candidate view
-        # Permission: allow superusers, staff, and admin department users
+        # Permission: allow superusers, staff, and admin/IT/data department users
         print(f"[DEBUG] Permission check - is_superuser: {request.user.is_superuser}, is_staff: {request.user.is_staff}, user_department: '{user_department}'")
-        if not (request.user.is_superuser or request.user.is_staff or user_department == "Admin"):
-            return JsonResponse({'success': False, 'error': 'Permission denied. Only admins can clear enrollment.'}, status=403)
+        if not (request.user.is_superuser or request.user.is_staff or user_department in ["Admin", "IT", "Data"]):
+            return JsonResponse({'success': False, 'error': 'Permission denied. Only admins, IT, and data departments can clear enrollment.'}, status=403)
 
         from .models import Result, CandidateLevel, CandidateModule, CandidatePaper
 
@@ -7828,6 +7828,8 @@ def enrollment_list(request):
     name = request.GET.get('name', '').strip()
     center = request.GET.get('center', '').strip()
     occupation = request.GET.get('occupation', '').strip()
+    assessment_series = request.GET.get('assessment_series', '').strip()
+    registration_category = request.GET.get('registration_category', '').strip()
     
     if reg_number:
         enrolled_candidates = enrolled_candidates.filter(reg_number__icontains=reg_number)
@@ -7837,6 +7839,10 @@ def enrollment_list(request):
         enrolled_candidates = enrolled_candidates.filter(assessment_center__center_name__icontains=center)
     if occupation:
         enrolled_candidates = enrolled_candidates.filter(occupation__name__icontains=occupation)
+    if assessment_series:
+        enrolled_candidates = enrolled_candidates.filter(assessment_series_id=assessment_series)
+    if registration_category:
+        enrolled_candidates = enrolled_candidates.filter(registration_category__iexact=registration_category)
     
     # Pagination
     from django.core.paginator import Paginator
@@ -7844,14 +7850,20 @@ def enrollment_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # Get assessment series for dropdown
+    assessment_series_list = AssessmentSeries.objects.all().order_by('-start_date')
+    
     context = {
         'candidates': page_obj,
         'user_department': user_department,
+        'assessment_series_list': assessment_series_list,
         'filters': {
             'reg_number': reg_number,
             'name': name,
             'center': center,
             'occupation': occupation,
+            'assessment_series': assessment_series,
+            'registration_category': registration_category,
         }
     }
     
