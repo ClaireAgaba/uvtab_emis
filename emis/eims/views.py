@@ -3641,6 +3641,7 @@ def assessment_center_list(request):
     region = request.GET.get('region', '').strip()
     village = request.GET.get('village', '').strip()
     category = request.GET.get('category', '').strip()
+    has_branches = request.GET.get('has_branches', '').strip()
     
     # Apply filters
     if center_number:
@@ -3655,6 +3656,8 @@ def assessment_center_list(request):
         centers = centers.filter(village__name__icontains=village)
     if category:
         centers = centers.filter(category_id=category)
+    if has_branches:
+        centers = centers.filter(has_branches=(has_branches.lower() == 'true'))
     
     # Get all categories for the filter dropdown
     from .models import AssessmentCenterCategory
@@ -3705,7 +3708,8 @@ def export_centers(request):
             'Region',
             'Village',
             'Contact',
-            'Assessment Category'
+            'Assessment Category',
+            'Has Branches'
         ]
         
         # Add headers with styling
@@ -3729,7 +3733,8 @@ def export_centers(request):
                 region_name,
                 center.village.name if center.village else 'N/A',
                 center.contact or 'N/A',
-                center.category.name if center.category else 'N/A'
+                center.category.name if center.category else 'N/A',
+                'Yes' if center.has_branches else 'No'
             ]
             
             for col, value in enumerate(data, 1):
