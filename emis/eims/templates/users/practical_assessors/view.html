@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+
+{% block title %}View Practical Assessor{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8">
+  <div class="container mx-auto max-w-4xl">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Practical Assessor Details</h1>
+        <p class="text-gray-600 mt-2">View and manage practical assessor information</p>
+      </div>
+      <div class="flex gap-3">
+        <a href="{% url 'edit_practical_assessor' assessor.pk %}" 
+           class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="m18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          Edit
+        </a>
+        <a href="{% url 'practical_assessor_list' %}" 
+           class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19 12H5m7-7l-7 7 7 7"/>
+          </svg>
+          Back to List
+        </a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Main Content -->
+      <div class="lg:col-span-2">
+        <!-- Status Badge -->
+        <div class="mb-6">
+          {% if assessor.status == 'Active' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+              <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Active
+            </span>
+          {% else %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+              <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Inactive
+            </span>
+          {% endif %}
+        </div>
+
+        <!-- Basic Information Card -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <p class="text-gray-900 font-medium">{{ assessor.fullname }}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+              <p class="text-gray-900">{{ assessor.user.username|default:"Not assigned" }}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <p class="text-gray-900">{{ assessor.email|default:"Not provided" }}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Contact</label>
+              <p class="text-gray-900">{{ assessor.contact|default:"Not provided" }}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <p class="text-gray-900">{{ assessor.status }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Location Information Card -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Location Information</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">District</label>
+              <p class="text-gray-900">{{ assessor.district.name }}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Village</label>
+              <p class="text-gray-900">{{ assessor.village.name }}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Created</label>
+              <p class="text-gray-900">{{ assessor.created_at|date:"M d, Y" }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Assessment Assignments Card -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">Assessment Assignments</h2>
+            <a href="{% url 'assign_practical_assessor' assessor.pk %}" 
+               class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 4v16m8-8H4"/>
+              </svg>
+              Assign Assessment Center
+            </a>
+          </div>
+          
+          {% if assignments %}
+            <div class="space-y-3">
+              {% for assignment in assignments %}
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                      <h4 class="font-medium text-gray-900">{{ assignment.assessment_center.center_name }}</h4>
+                      <p class="text-sm text-gray-600 mt-1">
+                        <span class="font-medium">Series:</span> {{ assignment.assessment_series.series_name }}
+                      </p>
+                      {% if assignment.occupation %}
+                      <p class="text-sm text-gray-600 mt-1">
+                        <span class="font-medium">Occupation:</span> {{ assignment.occupation.name }}
+                      </p>
+                      {% endif %}
+                      {% if assignment.level %}
+                      <p class="text-sm text-gray-600 mt-1">
+                        <span class="font-medium">Level:</span> {{ assignment.level.name }}
+                      </p>
+                      {% elif assignment.module %}
+                      <p class="text-sm text-gray-600 mt-1">
+                        <span class="font-medium">Module:</span> {{ assignment.module.name }}
+                      </p>
+                      {% endif %}
+                      <p class="text-sm text-gray-500 mt-1">
+                        <span class="font-medium">Assigned:</span> {{ assignment.assigned_at|date:"M d, Y" }}
+                      </p>
+                      
+                      <!-- Marksheet Status -->
+                      <div class="mt-2">
+                        {% with status=assignment.get_marksheet_status %}
+                        {% if status == 'not_generated' %}
+                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Marksheet Not Generated
+                          </span>
+                        {% elif status == 'draft' %}
+                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Draft
+                          </span>
+                        {% elif status == 'submitted' %}
+                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Submitted
+                          </span>
+                        {% elif status == 'approved' %}
+                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Approved
+                          </span>
+                        {% elif status == 'not_configured' %}
+                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            Not Configured
+                          </span>
+                        {% endif %}
+                        {% endwith %}
+                      </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex flex-col gap-2 ml-4">
+                      {% with status=assignment.get_marksheet_status %}
+                      {% if status == 'not_generated' and assignment.occupation and assignment.registration_category %}
+                        <form method="post" action="{% url 'generate_assignment_marksheet' assignment.pk %}" class="inline">
+                          {% csrf_token %}
+                          <button type="submit" 
+                                  class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium">
+                            Generate Marksheet
+                          </button>
+                        </form>
+                      {% elif status == 'draft' or status == 'submitted' %}
+                        <a href="{% url 'practical_assessment_home' %}" 
+                           class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium text-center">
+                          Edit Marksheet
+                        </a>
+                      {% endif %}
+                      {% endwith %}
+                      
+                      <form method="post" action="{% url 'remove_practical_assessor_assignment' assessor.pk assignment.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" 
+                                class="text-red-600 hover:text-red-800 text-sm font-medium"
+                                onclick="return confirm('Are you sure you want to remove this assignment?')">
+                          Remove
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-gray-600 text-center py-8">
+              <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+              <p>No assessment center assignments yet.</p>
+              <p class="text-sm">Click "Assign Assessment Center" to get started.</p>
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Recent Activity Card -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
+          <div class="text-gray-600">
+            <p>No recent activity to display.</p>
+            <!-- Future: Add activity tracking here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="lg:col-span-1">
+        <!-- Quick Actions Card -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <div class="space-y-3">
+            <a href="{% url 'edit_practical_assessor' assessor.pk %}" 
+               class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                <path d="m18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Edit Details
+            </a>
+            
+            {% if assessor.status == 'Active' %}
+              <form method="post" action="{% url 'toggle_practical_assessor_status' assessor.pk %}" class="w-full">
+                {% csrf_token %}
+                <button type="submit" 
+                        class="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                        onclick="return confirm('Are you sure you want to deactivate this practical assessor?')">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  Deactivate
+                </button>
+              </form>
+            {% else %}
+              <form method="post" action="{% url 'toggle_practical_assessor_status' assessor.pk %}" class="w-full">
+                {% csrf_token %}
+                <button type="submit" 
+                        class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                        onclick="return confirm('Are you sure you want to activate this practical assessor?')">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  Activate
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Information Card -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Information</h3>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between">
+              <span class="text-gray-600">Created:</span>
+              <span class="text-gray-900">{{ assessor.created_at|date:"M d, Y" }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Status:</span>
+              <span class="text-gray-900">{{ assessor.status }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">User Account:</span>
+              <span class="text-gray-900">{{ assessor.user.username }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

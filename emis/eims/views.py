@@ -22,6 +22,8 @@ from .models import AssessmentSeries
 from .models import Complaint, ComplaintAttachment, ComplaintCategory, HelpdeskTeam, RegistrationCategory
 from .forms import ComplaintForm
 from .forms import AssessmentSeriesForm
+from .models import PracticalAssessor, PracticalAssessorAssignment
+from .forms import PracticalAssessorForm, PracticalAssessorAssignmentForm
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, BaseDocTemplate, PageTemplate, Frame
@@ -44,11 +46,18 @@ def get_user_staff_info(request):
     if not request.user.is_authenticated:
         return None, None, False
     
+    # Check if user is a Practical Assessor first
+    try:
+        practical_assessor = PracticalAssessor.objects.get(user=request.user)
+        return practical_assessor, "Practical Assessors", True
+    except PracticalAssessor.DoesNotExist:
+        pass
+    
     try:
         staff = Staff.objects.get(user=request.user)
         return staff, staff.department, True
     except Staff.DoesNotExist:
-        # User is authenticated but not a staff member
+        # User is authenticated but not a staff member or practical assessor
         return None, None, True
 
 def require_staff_permissions(request, required_departments=None):
@@ -1138,9 +1147,12 @@ def download_printed_marksheet(request):
     """
     # 1. Imports and setup
     from io import BytesIO
-    from .models import Candidate, Occupation, Level, Module, Paper, Result, AssessmentCenter, OccupationLevel
-    from collections import defaultdict
-    import calendar
+    from .models import (
+        Candidate, District, Village, Level, Module, Paper, Occupation, 
+        AssessmentCenter, AssessmentSeries, Enrollment, Result, Staff, 
+        RegistrationCategory, NatureOfDisability, PracticalMarksheet, 
+        PracticalMark, PracticalAssessor, PracticalAssessorAssignment
+    )
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib.pagesizes import letter, landscape
@@ -3620,6 +3632,15 @@ def district_villages_api(request, district_id):
     villages = Village.objects.filter(district_id=district_id).values('id', 'name')
     # returns [{"id": 3, "name": "Ntare"}, ...]
     return JsonResponse(list(villages), safe=False)
+
+
+def api_villages(request):
+    """API endpoint to get villages filtered by district"""
+    district_id = request.GET.get('district')
+    if district_id:
+        villages = Village.objects.filter(district_id=district_id).values('id', 'name').order_by('name')
+        return JsonResponse(list(villages), safe=False)
+    return JsonResponse([], safe=False)
 
 
 def assessment_center_list(request):
@@ -10315,20 +10336,51 @@ import os
 @login_required
 def generate_practical_marksheet_page(request):
     """Display the generate marksheet form page"""
+    # Get user's staff info for role-based access
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    
+    assessment_centers = AssessmentCenter.objects.all()
+    assessment_series = AssessmentSeries.objects.all()
+    
+    # If user is a practical assessor, restrict to assigned centers and series
+    if user_department == 'Practical Assessors' and not request.user.is_superuser:
+        try:
+            practical_assessor = PracticalAssessor.objects.get(user=request.user)
+            assignments = PracticalAssessorAssignment.objects.filter(
+                assessor=practical_assessor,
+                is_active=True
+            )
+            
+            if assignments.exists():
+                assigned_centers = [a.assessment_center for a in assignments]
+                assigned_series = [a.assessment_series for a in assignments]
+                assessment_centers = assessment_centers.filter(id__in=[c.id for c in assigned_centers])
+                assessment_series = assessment_series.filter(id__in=[s.id for s in assigned_series])
+            else:
+                # No assignments, show empty querysets
+                assessment_centers = AssessmentCenter.objects.none()
+                assessment_series = AssessmentSeries.objects.none()
+                
+        except PracticalAssessor.DoesNotExist:
+            pass
+    
     context = {
-        'assessment_centers': AssessmentCenter.objects.all(),
-        'assessment_series': AssessmentSeries.objects.all(),
-        'registration_categories': RegistrationCategory.objects.all(),
-        'occupations': Occupation.objects.all(),
+        'assessment_centers': assessment_centers,
+        'assessment_series': assessment_series,
+        'user_department': user_department,
+        'is_practical_assessor': user_department == 'Practical Assessors',
     }
     return render(request, 'practical_assessment/generate.html', context)
+
 
 @login_required
 def practical_assessment_home(request):
     """
     Home page for Practical Assessment module
-    Shows marksheet generator form and list of submitted marksheets
+    Shows assignments and marksheets for practical assessors
     """
+    from django.core.paginator import Paginator
+    
     # Get user's staff info for role-based access
     staff, user_department, is_authenticated = get_user_staff_info(request)
     
@@ -10336,31 +10388,88 @@ def practical_assessment_home(request):
         messages.error(request, "You must be logged in to access this page.")
         return redirect('login')
     
-    # Get filter options for the form
-    assessment_centers = AssessmentCenter.objects.all().order_by('center_name')
-    assessment_series = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
-    registration_categories = RegistrationCategory.objects.all().order_by('name')
-    occupations = Occupation.objects.all().order_by('name')
+    # Check if user has access to practical assessment
+    if user_department not in ['IT', 'Data', 'Admin', 'Practical Assessors'] and not request.user.is_superuser:
+        # Special case: if department is None but user is staff, allow access
+        if not (user_department is None and request.user.is_staff):
+            messages.error(request, "You don't have permission to access the Practical Assessment module.")
+            return redirect('dashboard')
     
-    # Get marksheets based on user role
-    if user_department in ['IT', 'Data', 'Admin'] or request.user.is_superuser:
-        # Staff can view all marksheets
-        marksheets = PracticalMarksheet.objects.all().order_by('-created_at')
-    else:
-        # Practical Assessors can only view their own marksheets
+    print(f"Practical assessment access granted for user: {request.user.username}, department: {user_department}")
+    
+    # Initialize context variables
+    assignments = None
+    
+    # Role-based marksheet access
+    if user_department == 'Practical Assessors' and not request.user.is_superuser:
+        # Practical assessors see only their own marksheets
         marksheets = PracticalMarksheet.objects.filter(assessor=request.user).order_by('-created_at')
+    elif user_department in ['IT', 'Data', 'Admin'] or request.user.is_superuser or (user_department is None and request.user.is_staff):
+        # Staff see all submitted marksheets for review
+        marksheets = PracticalMarksheet.objects.filter(status__in=['submitted', 'approved']).order_by('-created_at')
+    else:
+        marksheets = PracticalMarksheet.objects.none()
+    
+    # Apply filters for admin/staff view
+    if not (user_department == 'Practical Assessors' and not request.user.is_superuser):
+        center_filter = request.GET.get('center')
+        series_filter = request.GET.get('series')
+        status_filter = request.GET.get('status')
+        
+        if center_filter:
+            marksheets = marksheets.filter(assessment_center_id=center_filter)
+        if series_filter:
+            marksheets = marksheets.filter(assessment_series_id=series_filter)
+        if status_filter:
+            marksheets = marksheets.filter(status=status_filter)
+    
+    # If user is a practical assessor, show their assignments
+    if user_department == 'Practical Assessors' and not request.user.is_superuser:
+        try:
+            practical_assessor = PracticalAssessor.objects.get(user=request.user)
+            # Get active assignments
+            assignments = PracticalAssessorAssignment.objects.filter(
+                assessor=practical_assessor,
+                is_active=True
+            ).select_related('assessment_center', 'assessment_series', 'occupation', 'registration_category', 'level', 'module')
+            
+            if assignments.exists():
+                # Filter marksheets to only show those from assigned centers and series
+                assigned_centers = [a.assessment_center for a in assignments]
+                assigned_series = [a.assessment_series for a in assignments]
+                marksheets = marksheets.filter(
+                    assessment_center__in=assigned_centers,
+                    assessment_series__in=assigned_series
+                )
+            else:
+                # No assignments, show no marksheets
+                marksheets = marksheets.none()
+                messages.warning(request, "You have no assessment center assignments. Contact admin for assignment.")
+                
+        except PracticalAssessor.DoesNotExist:
+            marksheets = marksheets.filter(assessor=request.user)
+        
+        print(f"Filtered marksheets for practical assessor: {marksheets.count()} marksheets found")
+    
+    # Pagination
+    paginator = Paginator(marksheets, 15)  # Show 15 marksheets per page
+    page_number = request.GET.get('page')
+    marksheets_page = paginator.get_page(page_number)
+    
+    # Get filter options for dropdowns
+    assessment_centers = AssessmentCenter.objects.all().order_by('center_name')
+    assessment_series = AssessmentSeries.objects.all().order_by('-name')
     
     context = {
+        'marksheets': marksheets_page,
+        'assignments': assignments,
         'assessment_centers': assessment_centers,
         'assessment_series': assessment_series,
-        'registration_categories': registration_categories,
-        'occupations': occupations,
-        'marksheets': marksheets,
         'user_department': user_department,
-        'is_staff': user_department in ['IT', 'Data', 'Admin'] or request.user.is_superuser,
+        'is_practical_assessor': user_department == 'Practical Assessors',
     }
     
-    return render(request, 'practical_assessment/home.html', context)
+    return render(request, 'practical_assessment/generate.html', context)
 
 
 @login_required
@@ -10370,29 +10479,55 @@ def generate_practical_marksheet(request):
     Generate a practical marksheet based on the provided parameters
     """
     try:
+        # Get user's staff info for role-based access
+        staff, user_department, is_authenticated = get_user_staff_info(request)
+        
         # Get form parameters
         assessment_center_id = request.POST.get('assessment_center')
         assessment_series_id = request.POST.get('assessment_series')
-        registration_category_id = request.POST.get('registration_category')
-        occupation_id = request.POST.get('occupation')
+        level_id = request.POST.get('level')
+        module_id = request.POST.get('module')
+        paper_id = request.POST.get('paper')
         
-        # Validate required parameters
-        if not all([assessment_center_id, assessment_series_id, registration_category_id, occupation_id]):
-            return JsonResponse({
-                'success': False,
-                'error': 'All parameters are required: Assessment Center, Assessment Series, Registration Category, and Occupation.'
-            })
+        print(f"Generate marksheet request: center={assessment_center_id}, series={assessment_series_id}, level={level_id}, module={module_id}, paper={paper_id}")
+        
+        # Validate required fields
+        if not all([assessment_center_id, assessment_series_id, level_id, module_id, paper_id]):
+            messages.error(request, "All fields are required to generate a marksheet.")
+            return redirect('practical_assessment_home')
         
         # Get objects
         assessment_center = get_object_or_404(AssessmentCenter, id=assessment_center_id)
         assessment_series = get_object_or_404(AssessmentSeries, id=assessment_series_id)
-        registration_category = get_object_or_404(RegistrationCategory, id=registration_category_id)
-        occupation = get_object_or_404(Occupation, id=occupation_id)
+        level = get_object_or_404(Level, id=level_id)
+        module = get_object_or_404(Module, id=module_id)
+        paper = get_object_or_404(Paper, id=paper_id)
+        
+        # Check if practical assessor has permission for this center/series
+        if user_department == 'Practical Assessors' and not request.user.is_superuser:
+            try:
+                practical_assessor = PracticalAssessor.objects.get(user=request.user)
+                has_assignment = PracticalAssessorAssignment.objects.filter(
+                    assessor=practical_assessor,
+                    assessment_center=assessment_center,
+                    assessment_series=assessment_series,
+                    is_active=True
+                ).exists()
+                
+                if not has_assignment:
+                    messages.error(request, "You don't have permission to generate marksheets for this center/series combination.")
+                    return redirect('practical_assessment_home')
+            except PracticalAssessor.DoesNotExist:
+                messages.error(request, "Practical assessor profile not found.")
+                return redirect('practical_assessment_home')
         
         # Check if marksheet already exists for this combination
         existing_marksheet = PracticalMarksheet.objects.filter(
             assessment_center=assessment_center,
             assessment_series=assessment_series,
+            level=level,
+            module=module,
+            paper=paper,
             registration_category=registration_category,
             occupation=occupation,
             assessor=request.user
@@ -10585,6 +10720,25 @@ def view_practical_marksheet(request, marksheet_id):
             elif 0 <= mark.mark <= 100:
                 assessed_count += 1
     
+    # Try to infer display-only level/module from a matching assignment
+    display_level = None
+    display_module = None
+    try:
+        from .models import PracticalAssessorAssignment
+        matching_assignment = PracticalAssessorAssignment.objects.filter(
+            assessor__user=marksheet.assessor,
+            assessment_center=marksheet.assessment_center,
+            assessment_series=marksheet.assessment_series,
+            registration_category=marksheet.registration_category,
+            occupation=marksheet.occupation,
+            is_active=True,
+        ).order_by('-assigned_at').first()
+        if matching_assignment:
+            display_level = getattr(matching_assignment, 'level', None)
+            display_module = getattr(matching_assignment, 'module', None)
+    except Exception:
+        pass
+
     context = {
         'marksheet': marksheet,
         'practical_marks': practical_marks,
@@ -10592,9 +10746,11 @@ def view_practical_marksheet(request, marksheet_id):
         'total_registered': total_registered,
         'assessed_count': assessed_count,
         'missing_count': missing_count,
+        'display_level': display_level,
+        'display_module': display_module,
     }
     
-    return render(request, 'practical_assessment/view_marksheet.html', context)
+    return render(request, 'practical_assessment/marksheet_view.html', context)
 
 
 @login_required
@@ -10641,15 +10797,38 @@ def download_practical_marksheet(request, marksheet_id):
     p.setFont("Helvetica", 12)
     y_position = height - 120
     
+    # Try to infer level/module from a matching assignment for header details
+    header_level = None
+    header_module = None
+    try:
+        from .models import PracticalAssessorAssignment
+        assignment = PracticalAssessorAssignment.objects.filter(
+            assessor__user=marksheet.assessor,
+            assessment_center=marksheet.assessment_center,
+            assessment_series=marksheet.assessment_series,
+            registration_category=marksheet.registration_category,
+            occupation=marksheet.occupation,
+            is_active=True,
+        ).order_by('-assigned_at').first()
+        if assignment:
+            header_level = getattr(assignment, 'level', None)
+            header_module = getattr(assignment, 'module', None)
+    except Exception:
+        pass
+
     details = [
         f"Assessment Center: {marksheet.assessment_center.center_name}",
         f"Assessment Series: {marksheet.assessment_series.name}",
         f"Registration Category: {marksheet.registration_category.name}",
         f"Occupation: {marksheet.occupation.name}",
+        *( [f"Level: {getattr(header_level, 'name', '')}"] if header_level else [] ),
+        *( [f"Module: {getattr(header_module, 'name', '')}"] if header_module else [] ),
         f"Assessor: {marksheet.assessor.get_full_name() or marksheet.assessor.username}",
         f"Generated: {marksheet.created_at.strftime('%Y-%m-%d %H:%M')}",
         f"Status: {marksheet.get_status_display()}",
     ]
+    
+    # Module/Level included above when derivable from assignment
     
     for detail in details:
         p.drawString(50, y_position, detail)
@@ -13541,3 +13720,595 @@ def complaint_attachment_view(request, attachment_id):
             
     except Exception as e:
         raise Http404("File not found")
+
+
+# Practical Assessor Management Views
+@login_required
+def practical_assessor_list(request):
+    """List all practical assessors with filtering and pagination"""
+    assessors = PracticalAssessor.objects.all().order_by('fullname')
+    
+    # Get filter parameters
+    username = request.GET.get('username', '').strip()
+    fullname = request.GET.get('fullname', '').strip()
+    email = request.GET.get('email', '').strip()
+    contact = request.GET.get('contact', '').strip()
+    district = request.GET.get('district', '').strip()
+    status = request.GET.get('status', '').strip()
+    
+    # Apply filters
+    if username:
+        assessors = assessors.filter(user__username__icontains=username)
+    if fullname:
+        assessors = assessors.filter(fullname__icontains=fullname)
+    if email:
+        assessors = assessors.filter(email__icontains=email)
+    if contact:
+        assessors = assessors.filter(contact__icontains=contact)
+    if district:
+        assessors = assessors.filter(district_id=district)
+    if status:
+        assessors = assessors.filter(status=status)
+    
+    # Pagination: 50 per page
+    from django.core.paginator import Paginator
+    paginator = Paginator(assessors, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get all districts for filter dropdown
+    districts = District.objects.all().order_by('name')
+    
+    return render(request, 'users/practical_assessors/list.html', {
+        'assessors': page_obj.object_list,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'districts': districts,
+    })
+
+
+@login_required
+def create_practical_assessor(request):
+    """Create a new practical assessor"""
+    if request.method == 'POST':
+        form = PracticalAssessorForm(request.POST)
+        if form.is_valid():
+            # Create user account first
+            from django.contrib.auth.models import User
+            email = form.cleaned_data['email']
+            fullname = form.cleaned_data['fullname']
+            
+            # Create user with email as username and default password 'uvtab'
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password='uvtab',
+                first_name=fullname.split()[0] if fullname else '',
+                last_name=' '.join(fullname.split()[1:]) if len(fullname.split()) > 1 else ''
+            )
+            
+            # Create practical assessor and link to user
+            assessor = form.save(commit=False)
+            assessor.user = user
+            assessor.save()
+            
+            messages.success(request, f'Practical assessor "{assessor.fullname}" created successfully with login credentials.')
+            return redirect('practical_assessor_view', pk=assessor.pk)
+    else:
+        form = PracticalAssessorForm()
+    
+    return render(request, 'users/practical_assessors/create.html', {'form': form})
+
+
+@login_required
+def practical_assessor_view(request, pk):
+    """View practical assessor details"""
+    assessor = get_object_or_404(PracticalAssessor, pk=pk)
+    
+    # Get current assignments
+    assignments = PracticalAssessorAssignment.objects.filter(
+        assessor=assessor, 
+        is_active=True
+    ).select_related('assessment_center', 'assessment_series')
+    
+    return render(request, 'users/practical_assessors/view.html', {
+        'assessor': assessor,
+        'assignments': assignments,
+    })
+
+
+@login_required
+def edit_practical_assessor(request, pk):
+    """Edit practical assessor details"""
+    assessor = get_object_or_404(PracticalAssessor, pk=pk)
+    
+    if request.method == 'POST':
+        form = PracticalAssessorForm(request.POST, instance=assessor)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Practical assessor "{assessor.fullname}" updated successfully.')
+            return redirect('practical_assessor_view', pk=assessor.pk)
+    else:
+        form = PracticalAssessorForm(instance=assessor)
+    
+    return render(request, 'users/practical_assessors/edit.html', {
+        'form': form,
+        'assessor': assessor,
+    })
+
+
+@login_required
+def delete_practical_assessor(request, pk):
+    """Delete practical assessor"""
+    assessor = get_object_or_404(PracticalAssessor, pk=pk)
+    
+    if request.method == 'POST':
+        name = assessor.fullname
+        # Delete associated user account if it exists
+        if assessor.user:
+            assessor.user.delete()
+        assessor.delete()
+        messages.success(request, f'Practical assessor "{name}" deleted successfully.')
+        return redirect('practical_assessor_list')
+    
+    return redirect('practical_assessor_view', pk=pk)
+
+
+@login_required
+def toggle_practical_assessor_status(request, pk):
+    """Toggle practical assessor active/inactive status"""
+    assessor = get_object_or_404(PracticalAssessor, pk=pk)
+    
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        if new_status in ['Active', 'Inactive']:
+            assessor.status = new_status
+            assessor.save()
+            messages.success(request, f'Practical assessor "{assessor.fullname}" status changed to {new_status}.')
+    
+    return redirect('practical_assessor_view', pk=pk)
+
+
+@login_required
+def assign_practical_assessor(request, pk):
+    """Assign practical assessor to assessment center and series"""
+    assessor = get_object_or_404(PracticalAssessor, pk=pk)
+    
+    if request.method == 'POST':
+        form = PracticalAssessorAssignmentForm(request.POST)
+        if form.is_valid():
+            assignment = form.save(commit=False)
+            assignment.assessor = assessor
+            assignment.assigned_by = request.user
+            assignment.save()
+            
+            # Auto-generate marksheet when assignment is created
+            result = generate_marksheets_for_assignment(assignment)
+            if result['success']:
+                messages.success(request, f'Assignment and marksheet created successfully for {assessor.fullname}')
+            else:
+                messages.warning(request, f'Assignment created but marksheet generation failed: {result["message"]}')
+            
+            return redirect('practical_assessor_view', pk=assessor.pk)
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = PracticalAssessorAssignmentForm()
+    
+    return render(request, 'users/practical_assessors/assign.html', {
+        'form': form,
+        'practical_assessor': assessor,
+        'assessor': assessor,
+    })
+
+
+@login_required
+def remove_practical_assessor_assignment(request, pk, assignment_id):
+    """Remove/deactivate practical assessor assignment"""
+    assessor = get_object_or_404(PracticalAssessor, pk=pk)
+    assignment = get_object_or_404(PracticalAssessorAssignment, pk=assignment_id, assessor=assessor)
+    
+    if request.method == 'POST':
+        assignment.is_active = False
+        assignment.save()
+        messages.success(request, f'Assignment removed for {assessor.fullname}.')
+    
+    return redirect('practical_assessor_view', pk=pk)
+
+
+@login_required
+def practical_marksheet_view(request, assignment_id):
+    """View and edit marksheet for a specific assignment"""
+    assignment = get_object_or_404(PracticalAssessorAssignment, pk=assignment_id, is_active=True)
+    
+    # Check if user has permission (either admin or the assigned assessor)
+    if not (request.user.is_staff or assignment.assessor.user == request.user):
+        messages.error(request, 'You do not have permission to access this marksheet.')
+        return redirect('practical_assessment_home')
+    
+    # Get or create marksheet
+    marksheet, created = PracticalMarksheet.objects.get_or_create(
+        assessment_center=assignment.assessment_center,
+        assessment_series=assignment.assessment_series,
+        registration_category=assignment.registration_category,
+        occupation=assignment.occupation,
+        assessor=assignment.assessor.user,
+        defaults={
+            'status': 'draft',
+            'level': assignment.level,
+            'module': assignment.module
+        }
+    )
+    
+    # Get candidates for this assignment
+    candidates_query = Candidate.objects.filter(
+        assessment_center=assignment.assessment_center,
+        assessment_series=assignment.assessment_series,
+        occupation=assignment.occupation,
+        registration_category=assignment.registration_category
+    )
+    
+    # Filter by level or module
+    if assignment.registration_category.name == 'Formal' and assignment.level:
+        candidates = candidates_query.filter(candidatelevel__level=assignment.level).distinct()
+    elif assignment.registration_category.name == 'Modular' and assignment.module:
+        candidates = candidates_query.filter(candidatemodule__module=assignment.module).distinct()
+    else:
+        candidates = candidates_query
+    
+    # Get existing marks for these candidates
+    existing_marks = {mark.candidate.id: mark.mark for mark in marksheet.practical_marks.all()}
+    existing_comments = {mark.candidate.id: mark.comments for mark in marksheet.practical_marks.all()}
+    
+    # Add marks and comments to candidates
+    for candidate in candidates:
+        candidate.practical_marks = existing_marks.get(candidate.id)
+        candidate.practical_comments = existing_comments.get(candidate.id)
+    
+    if request.method == 'POST' and marksheet.status != 'approved':
+        action = request.POST.get('action')
+        print(f"DEBUG: Action received: '{action}'")
+        print(f"DEBUG: POST data: {dict(request.POST)}")
+        
+        # Save marks and comments to PracticalMark model
+        for candidate in candidates:
+            marks = request.POST.get(f'marks_{candidate.id}')
+            comments = request.POST.get(f'comments_{candidate.id}')
+            
+            if marks and marks.strip():
+                try:
+                    mark_value = float(marks.strip())
+                    mark, created = PracticalMark.objects.get_or_create(
+                        marksheet=marksheet,
+                        candidate=candidate,
+                        defaults={'mark': mark_value, 'comments': comments or ''}
+                    )
+                    if not created:
+                        mark.mark = mark_value
+                        mark.comments = comments or ''
+                        mark.save()
+                except ValueError:
+                    print(f"Invalid mark value: {marks}")
+            elif comments and comments.strip():
+                # Save comment even without mark
+                mark, created = PracticalMark.objects.get_or_create(
+                    marksheet=marksheet,
+                    candidate=candidate,
+                    defaults={'comments': comments}
+                )
+                if not created:
+                    mark.comments = comments
+                    mark.save()
+        
+        # Update marksheet status
+        print(f"DEBUG: Current marksheet status before update: {marksheet.status}")
+        if action == 'submit':
+            print("DEBUG: Setting status to submitted")
+            marksheet.status = 'submitted'
+            marksheet.save()
+            print(f"DEBUG: Marksheet status after save: {marksheet.status}")
+            messages.success(request, 'Marksheet submitted for review successfully.')
+        elif action == 'approve' and request.user.is_superuser:
+            print("DEBUG: Setting status to approved")
+            marksheet.status = 'approved'
+            marksheet.save()
+            messages.success(request, 'Marksheet approved successfully.')
+        elif action == 'save_draft':
+            print("DEBUG: Setting status to draft")
+            marksheet.status = 'draft'
+            marksheet.save()
+            messages.success(request, 'Marksheet saved as draft.')
+        else:
+            print(f"DEBUG: Unknown action '{action}', defaulting to draft")
+            marksheet.status = 'draft'
+            marksheet.save()
+            messages.success(request, 'Marksheet saved as draft.')
+        
+        return redirect('practical_marksheet_view', assignment_id=assignment_id)
+    
+    context = {
+        'assignment': assignment,
+        'marksheet': marksheet,
+        'candidates': candidates,
+    }
+    
+    return render(request, 'practical_assessment/marksheet_view.html', context)
+
+
+def generate_marksheets_for_assignment(assignment):
+    """
+    Generate marksheet for a practical assessor assignment
+    """
+    from django.db import transaction
+    
+    if not assignment.registration_category or not assignment.occupation:
+        return {'success': False, 'message': 'Assignment is not properly configured with registration category and occupation.'}
+    
+    registration_category = assignment.registration_category
+    occupation = assignment.occupation
+    level = assignment.level
+    module = assignment.module
+    
+    with transaction.atomic():
+        # Find candidates enrolled in this center, series, occupation, and registration category
+        candidates_query = Candidate.objects.filter(
+            assessment_center=assignment.assessment_center,
+            assessment_series=assignment.assessment_series,
+            occupation=occupation,
+            registration_category=registration_category
+        )
+        
+        # Further filter based on level or module
+        if registration_category.name == 'Formal' and level:
+            # For formal, check candidates enrolled in this level
+            candidates_with_level = candidates_query.filter(
+                candidatelevel__level=level
+            ).distinct()
+        elif registration_category.name == 'Modular' and module:
+            # For modular, check candidates enrolled in this module
+            candidates_with_level = candidates_query.filter(
+                candidatemodule__module=module
+            ).distinct()
+        else:
+            # For Informal (Worker's PAS), use all candidates in the occupation
+            candidates_with_level = candidates_query
+        
+        if candidates_with_level.exists():
+            # Check if marksheet already exists
+            existing_marksheet = PracticalMarksheet.objects.filter(
+                assessment_center=assignment.assessment_center,
+                assessment_series=assignment.assessment_series,
+                registration_category=registration_category,
+                occupation=occupation,
+                assessor=assignment.assessor.user
+            ).first()
+            
+            if not existing_marksheet:
+                # Create new marksheet
+                marksheet = PracticalMarksheet.objects.create(
+                    assessment_center=assignment.assessment_center,
+                    assessment_series=assignment.assessment_series,
+                    registration_category=registration_category,
+                    occupation=occupation,
+                    assessor=assignment.assessor.user,
+                    status='draft'
+                )
+                
+                # Create practical marks for all candidates
+                for candidate in candidates_with_level:
+                    PracticalMark.objects.create(
+                        marksheet=marksheet,
+                        candidate=candidate
+                    )
+                
+                return {'success': True, 'message': f"Generated marksheet for {candidates_with_level.count()} candidates"}
+            else:
+                return {'success': False, 'message': 'Marksheet already exists for this assignment'}
+        else:
+            return {'success': False, 'message': 'No candidates found for this assignment configuration'}
+
+
+@login_required
+def api_occupations_by_category(request):
+    """API endpoint to get occupations filtered by registration category"""
+    registration_category = request.GET.get('registration_category')
+    
+    if registration_category == 'Modular':
+        # Only show occupations that support modular registration
+        occupations = Occupation.objects.filter(has_modular=True)
+    else:
+        # Show all occupations for Formal and Informal categories
+        occupations = Occupation.objects.all()
+    
+    data = [{'id': occ.id, 'name': f"{occ.code} - {occ.name}"} for occ in occupations]
+    return JsonResponse({'occupations': data})
+
+
+@login_required
+def api_levels_for_occupation(request):
+    """API endpoint to get levels for a specific occupation"""
+    occupation_id = request.GET.get('occupation_id')
+    
+    if occupation_id:
+        try:
+            occupation = Occupation.objects.get(id=occupation_id)
+            # Get levels associated with this occupation through OccupationLevel
+            levels = Level.objects.filter(
+                occupation_levels__occupation=occupation
+            ).distinct()
+            data = [{'id': level.id, 'name': level.name} for level in levels]
+            return JsonResponse({'levels': data})
+        except Occupation.DoesNotExist:
+            pass
+    
+    return JsonResponse({'levels': []})
+
+
+@login_required
+def api_modules_for_occupation(request):
+    """API endpoint to get modules for a specific occupation"""
+    occupation_id = request.GET.get('occupation_id')
+    
+    if occupation_id:
+        try:
+            occupation = Occupation.objects.get(id=occupation_id)
+            # Get modules associated with this occupation
+            modules = Module.objects.filter(occupation=occupation)
+            data = [{'id': module.id, 'name': module.name} for module in modules]
+            return JsonResponse({'modules': data})
+        except Occupation.DoesNotExist:
+            pass
+    
+    return redirect('practical_assessment_home')
+
+
+@login_required
+@require_POST
+def approve_practical_marksheet(request, marksheet_id):
+    """
+    Approve a submitted practical marksheet (superuser only)
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Only superusers can approve marksheets.')
+        return redirect('practical_assessment_home')
+    
+    marksheet = get_object_or_404(PracticalMarksheet, id=marksheet_id)
+    
+    if marksheet.status != 'submitted':
+        messages.error(request, 'Only submitted marksheets can be approved.')
+        return redirect('practical_assessment_home')
+    
+    marksheet.status = 'approved'
+    marksheet.save()
+    
+    messages.success(request, f'Marksheet for {marksheet.assessment_center.center_name} - {marksheet.occupation.name} has been approved.')
+    return redirect('practical_assessment_home')
+
+
+@login_required
+def api_assignment_candidates(request):
+    """API endpoint to get candidates for a specific assignment with their marks"""
+    assignment_id = request.GET.get('assignment_id')
+    
+    if not assignment_id:
+        return JsonResponse({'candidates': []})
+    
+    try:
+        assignment = PracticalAssessorAssignment.objects.get(pk=assignment_id, is_active=True)
+        
+        # Check if user has permission
+        if not (request.user.is_staff or assignment.assessor.user == request.user):
+            return JsonResponse({'error': 'Permission denied'}, status=403)
+        
+        # Get or create marksheet
+        marksheet, created = PracticalMarksheet.objects.get_or_create(
+            assessment_center=assignment.assessment_center,
+            assessment_series=assignment.assessment_series,
+            registration_category=assignment.registration_category,
+            occupation=assignment.occupation,
+            assessor=assignment.assessor.user,
+            defaults={'status': 'draft'}
+        )
+        
+        # Get existing marks
+        existing_marks = {mark.candidate.id: mark.mark for mark in marksheet.practical_marks.all()}
+        
+        # Find candidates for this assignment
+        candidates_query = Candidate.objects.filter(
+            assessment_center=assignment.assessment_center,
+            assessment_series=assignment.assessment_series,
+            occupation=assignment.occupation,
+            registration_category=assignment.registration_category
+        )
+        
+        # Filter by level or module
+        if assignment.registration_category.name == 'Formal' and assignment.level:
+            candidates_query = candidates_query.filter(candidatelevel__level=assignment.level).distinct()
+        elif assignment.registration_category.name == 'Modular' and assignment.module:
+            candidates_query = candidates_query.filter(candidatemodule__module=assignment.module).distinct()
+        
+        # Prepare candidate data
+        candidates_data = []
+        for candidate in candidates_query:
+            candidates_data.append({
+                'id': candidate.id,
+                'registration_number': candidate.registration_number,
+                'name': f"{candidate.first_name} {candidate.last_name}",
+                'marks': existing_marks.get(candidate.id)
+            })
+        
+        return JsonResponse({'candidates': candidates_data})
+        
+    except PracticalAssessorAssignment.DoesNotExist:
+        return JsonResponse({'error': 'Assignment not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def save_practical_marks(request):
+    """Save practical marks for an assignment"""
+    if request.method != 'POST':
+        return redirect('practical_assessment_home')
+    
+    assignment_id = request.POST.get('assignment_id')
+    action = request.POST.get('action', 'save')
+    
+    try:
+        assignment = PracticalAssessorAssignment.objects.get(pk=assignment_id, is_active=True)
+        
+        # Check permission
+        if not (request.user.is_staff or assignment.assessor.user == request.user):
+            messages.error(request, 'You do not have permission to save marks for this assignment.')
+            return redirect('practical_assessment_home')
+        
+        # Get or create marksheet
+        marksheet, created = PracticalMarksheet.objects.get_or_create(
+            assessment_center=assignment.assessment_center,
+            assessment_series=assignment.assessment_series,
+            registration_category=assignment.registration_category,
+            occupation=assignment.occupation,
+            assessor=assignment.assessor.user,
+            defaults={'status': 'draft'}
+        )
+        
+        # Save marks
+        marks_saved = 0
+        for key, value in request.POST.items():
+            if key.startswith('marks_') and value.strip():
+                candidate_id = key.replace('marks_', '')
+                try:
+                    candidate = Candidate.objects.get(id=candidate_id)
+                    mark_value = float(value.strip())
+                    
+                    mark, created = PracticalMark.objects.get_or_create(
+                        marksheet=marksheet,
+                        candidate=candidate,
+                        defaults={'mark': mark_value}
+                    )
+                    if not created:
+                        mark.mark = mark_value
+                        mark.save()
+                    marks_saved += 1
+                except (Candidate.DoesNotExist, ValueError) as e:
+                    print(f"Error saving mark for candidate {candidate_id}: {e}")
+                    continue
+        
+        # Update marksheet status
+        if action == 'submit':
+            marksheet.status = 'submitted'
+            from django.utils import timezone
+            marksheet.submitted_at = timezone.now()
+            marksheet.save()
+            messages.success(request, f'Marksheet submitted successfully with {marks_saved} marks.')
+        else:
+            marksheet.status = 'draft'
+            marksheet.save()
+            messages.success(request, f'Draft saved with {marks_saved} marks.')
+        
+    except PracticalAssessorAssignment.DoesNotExist:
+        messages.error(request, 'Assignment not found.')
+    except Exception as e:
+        messages.error(request, f'Error saving marks: {str(e)}')
+    
+    return redirect('practical_assessment_home')

@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Practical Assessor{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8">
+  <div class="container mx-auto max-w-2xl">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Edit Practical Assessor</h1>
+        <p class="text-gray-600 mt-2">Update practical assessor information</p>
+      </div>
+      <a href="{% url 'practical_assessor_view' assessor.pk %}" 
+         class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19 12H5m7-7l-7 7 7 7"/>
+        </svg>
+        Back to View
+      </a>
+    </div>
+
+    <!-- Form Card -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Full Name Field -->
+        <div>
+          <label for="{{ form.fullname.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Full Name <span class="text-red-500">*</span>
+          </label>
+          {{ form.fullname }}
+          {% if form.fullname.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.fullname.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.fullname.help_text %}
+            <p class="text-xs text-gray-500 mt-1">{{ form.fullname.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Email Field -->
+        <div>
+          <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Email <span class="text-red-500">*</span>
+          </label>
+          {{ form.email }}
+          {% if form.email.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.email.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.email.help_text %}
+            <p class="text-xs text-gray-500 mt-1">{{ form.email.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Contact Field -->
+        <div>
+          <label for="{{ form.contact.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Contact
+          </label>
+          {{ form.contact }}
+          {% if form.contact.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.contact.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.contact.help_text %}
+            <p class="text-xs text-gray-500 mt-1">{{ form.contact.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- District Field -->
+        <div>
+          <label for="{{ form.district.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            District <span class="text-red-500">*</span>
+          </label>
+          {{ form.district }}
+          {% if form.district.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.district.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.district.help_text %}
+            <p class="text-xs text-gray-500 mt-1">{{ form.district.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Village Field -->
+        <div>
+          <label for="{{ form.village.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Village <span class="text-red-500">*</span>
+          </label>
+          {{ form.village }}
+          {% if form.village.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.village.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.village.help_text %}
+            <p class="text-xs text-gray-500 mt-1">{{ form.village.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Status Field -->
+        <div>
+          <label for="{{ form.status.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Status <span class="text-red-500">*</span>
+          </label>
+          {{ form.status }}
+          {% if form.status.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.status.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.status.help_text %}
+            <p class="text-xs text-gray-500 mt-1">{{ form.status.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- District Field -->
+        <div>
+          <label for="{{ form.district.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            District <span class="text-red-500">*</span>
+          </label>
+          {{ form.district }}
+          {% if form.district.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.district.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.district.help_text %}
+            <p class="text-xs text-gray-500 mt-1">{{ form.district.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Village Field -->
+        <div>
+          <label for="{{ form.village.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Village <span class="text-red-500">*</span>
+          </label>
+          {{ form.village }}
+          {% if form.village.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.village.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.village.help_text %}
+            <p class="text-xs text-gray-500 mt-1">{{ form.village.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Status Field -->
+        <div>
+          <label for="{{ form.status.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Status <span class="text-red-500">*</span>
+          </label>
+          {{ form.status }}
+          {% if form.status.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.status.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.status.help_text %}
+            <p class="text-xs text-gray-500 mt-1">{{ form.status.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+          <div class="flex gap-3">
+            <button type="submit" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"/>
+              </svg>
+              Update Assessor
+            </button>
+            <a href="{% url 'practical_assessor_view' assessor.pk %}" 
+               class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg transition-colors duration-200">
+              Cancel
+            </a>
+          </div>
+          
+          <!-- Delete Button -->
+          <button type="button" 
+                  onclick="if(confirm('Are you sure you want to delete this practical assessor? This action cannot be undone.')) { document.getElementById('delete-form').submit(); }"
+                  class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Delete
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Hidden Delete Form -->
+    <form id="delete-form" method="post" action="{% url 'delete_practical_assessor' assessor.pk %}" style="display: none;">
+      {% csrf_token %}
+    </form>
+
+    <!-- Information Card -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div class="flex items-start">
+        <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div class="text-sm text-blue-800">
+          <p class="font-medium mb-1">Edit Guidelines</p>
+          <ul class="list-disc list-inside space-y-1 text-blue-700">
+            <li>The user account cannot be changed after creation</li>
+            <li>Name and contact information can be updated as needed</li>
+            <li>Status can be toggled between Active and Inactive</li>
+            <li>Deleting a practical assessor will permanently remove all associated data</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

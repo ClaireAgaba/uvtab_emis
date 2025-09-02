@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Practical Marksheet{% endblock %}
+
+{% block extra_css %}
+<style>
+  .container-fluid { max-width: 1200px; margin: 0 auto; padding: 1.25rem; }
+  .page-header { background:#374151; color:#fff; border-radius:10px; padding:1.25rem 1.5rem; margin:1rem 0 1.25rem; }
+  .page-title { font-size:1.4rem; font-weight:600; margin:0; }
+  .subtext { opacity:.9; font-size:.95rem; }
+
+  .card { border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+  .card-header { background:#f9fafb; border-bottom:1px solid #e5e7eb; padding:1rem 1.25rem; }
+  .card-body { padding:1rem 1.25rem; }
+
+  .details-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:.75rem 1rem; }
+  @media (min-width: 992px){ .details-grid { grid-template-columns:repeat(4, minmax(0,1fr)); } }
+  .details-item .label { color:#6b7280; font-size:.85rem; text-transform:uppercase; letter-spacing:.02em; }
+  .details-item .value { font-weight:600; }
+  .badge-outline { background:rgba(59,130,246,.08); color:#1d4ed8; border:1px solid rgba(59,130,246,.25); padding:.15rem .5rem; border-radius:6px; font-size:.8rem; }
+
+  .toolbar { display:flex; gap:.5rem; flex-wrap:wrap; }
+  .btn { border-radius:8px; }
+  .btn-info { color:#000; }
+
+  .table-responsive { position:relative; }
+  .table thead th { position:sticky; top:0; z-index:1; background:#111827; color:#fff; font-size:.85rem; }
+  .table tbody tr:nth-child(even){ background:#fcfcfd; }
+  .marks-input { min-width: 140px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- Header -->
+  <div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+      <h1 class="page-title mb-1"><i class="fas fa-clipboard-list me-2"></i>Practical Assessment Marksheet</h1>
+      <div class="subtext">{{ assignment.assessment_center.center_name }} • {{ assignment.assessment_series.name }}</div>
+    </div>
+    <div class="toolbar">
+      <a href="{% url 'practical_assessment_home' %}" class="btn btn-outline-light">
+        <i class="fas fa-arrow-left me-1"></i>Back
+      </a>
+      {% if marksheet %}
+        <a href="{% url 'download_practical_marksheet' marksheet.id %}" class="btn btn-success">
+          <i class="fas fa-download me-1"></i>Download PDF
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Assignment details -->
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Assignment Details</strong>
+      <div>
+        {% if marksheet.status == 'draft' %}
+          <span class="badge bg-warning text-dark">Draft</span>
+        {% elif marksheet.status == 'submitted' %}
+          <span class="badge bg-info text-dark">Submitted</span>
+        {% elif marksheet.status == 'approved' %}
+          <span class="badge bg-success">Approved</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="details-grid">
+        <div class="details-item">
+          <div class="label">Registration Category</div>
+          <div class="value"><span class="badge-outline">{% firstof assignment.registration_category.name marksheet.registration_category.name '—' %}</span></div>
+        </div>
+        <div class="details-item">
+          <div class="label">Occupation</div>
+          <div class="value">{% firstof assignment.occupation.name marksheet.occupation.name '—' %}</div>
+        </div>
+        {% if assignment.level or display_level %}
+        <div class="details-item">
+          <div class="label">Level</div>
+          <div class="value"><span class="badge-outline">{% firstof assignment.level.name display_level.name '—' %}</span></div>
+        </div>
+        {% endif %}
+        {% if assignment.module or display_module %}
+        <div class="details-item">
+          <div class="label">Module</div>
+          <div class="value"><span class="badge-outline">{% firstof assignment.module.name display_module.name '—' %}</span></div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Marksheet form -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Candidate Marks</strong>
+      {% if marksheet.status == 'submitted' %}
+        <small class="text-muted">Submitted at {{ marksheet.submitted_at|date:"M d, Y H:i" }}</small>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      {% if practical_marks %}
+      <form method="post" id="marksheet-form">
+        {% csrf_token %}
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th style="min-width:140px;">Candidate No.</th>
+                <th style="min-width:220px;">Full Name</th>
+                <th style="min-width:180px;">Marks (-1=Missing, 0-100)</th>
+                <th style="min-width:220px;">Comments</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for practical_mark in practical_marks %}
+              <tr>
+                <td class="align-middle">{% firstof practical_mark.candidate.reg_number practical_mark.candidate.registration_no practical_mark.candidate.registration_number 'N/A' %}</td>
+                <td class="align-middle">{{ practical_mark.candidate.full_name }}</td>
+                <td>
+                  <input type="text" name="marks_{{ practical_mark.candidate.id }}" value="{% if practical_mark.mark != None %}{{ practical_mark.mark }}{% endif %}" class="form-control marks-input" placeholder="-1 or 0-100" {% if marksheet.status == 'submitted' and not request.user.is_superuser %}readonly{% elif marksheet.status == 'approved' %}readonly{% endif %}>
+                </td>
+                <td>
+                  <textarea name="comments_{{ practical_mark.candidate.id }}" class="form-control" rows="2" placeholder="Enter comments..." {% if marksheet.status == 'submitted' and not request.user.is_superuser %}readonly{% elif marksheet.status == 'approved' %}readonly{% endif %}>{{ practical_mark.comments|default:'' }}</textarea>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if marksheet.status == 'draft' %}
+        <div class="d-flex justify-content-between mt-3">
+          <button type="submit" name="action" value="save_draft" class="btn btn-outline-primary"><i class="fas fa-save me-1"></i>Save as Draft</button>
+          <button type="submit" name="action" value="submit" class="btn btn-success"><i class="fas fa-paper-plane me-1"></i>Submit for Review</button>
+        </div>
+        {% elif marksheet.status == 'submitted' %}
+        <div class="d-flex justify-content-between align-items-center mt-3">
+          <div class="alert alert-info mb-0"><i class="fas fa-info-circle me-2"></i>This marksheet has been submitted for review.{% if request.user.is_superuser %} Superadmins can still edit if needed.{% endif %}</div>
+          {% if request.user.is_superuser %}
+          <button type="submit" name="action" value="approve" class="btn btn-success"><i class="fas fa-check me-1"></i>Approve Marksheet</button>
+          {% endif %}
+        </div>
+        {% elif marksheet.status == 'approved' %}
+        <div class="alert alert-success mt-3"><i class="fas fa-check-circle me-2"></i>This marksheet has been approved and is locked.</div>
+        {% endif %}
+      </form>
+      {% elif candidates %}
+      <form method="post" id="marksheet-form">
+        {% csrf_token %}
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th style="min-width:140px;">Candidate No.</th>
+                <th style="min-width:220px;">Full Name</th>
+                <th style="min-width:180px;">Marks (-1=Missing, 0-100)</th>
+                <th style="min-width:220px;">Comments</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for candidate in candidates %}
+              <tr>
+                <td class="align-middle">{% firstof candidate.reg_number candidate.registration_no candidate.registration_number 'N/A' %}</td>
+                <td class="align-middle">{{ candidate.full_name }}</td>
+                <td>
+                  <input type="text" name="marks_{{ candidate.id }}" value="{% if candidate.practical_marks != None %}{{ candidate.practical_marks }}{% endif %}" class="form-control marks-input" placeholder="-1 or 0-100" {% if marksheet.status == 'submitted' and not request.user.is_superuser %}readonly{% elif marksheet.status == 'approved' %}readonly{% endif %}>
+                </td>
+                <td>
+                  <textarea name="comments_{{ candidate.id }}" class="form-control" rows="2" placeholder="Enter comments..." {% if marksheet.status == 'submitted' and not request.user.is_superuser %}readonly{% elif marksheet.status == 'approved' %}readonly{% endif %}>{{ candidate.practical_comments|default:'' }}</textarea>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if marksheet.status == 'draft' %}
+        <div class="d-flex justify-content-between mt-3">
+          <button type="submit" name="action" value="save_draft" class="btn btn-outline-primary"><i class="fas fa-save me-1"></i>Save as Draft</button>
+          <button type="submit" name="action" value="submit" class="btn btn-success"><i class="fas fa-paper-plane me-1"></i>Submit for Review</button>
+        </div>
+        {% elif marksheet.status == 'submitted' %}
+        <div class="d-flex justify-content-between align-items-center mt-3">
+          <div class="alert alert-info mb-0"><i class="fas fa-info-circle me-2"></i>This marksheet has been submitted for review.{% if request.user.is_superuser %} Superadmins can still edit if needed.{% endif %}</div>
+          {% if request.user.is_superuser %}
+          <button type="submit" name="action" value="approve" class="btn btn-success"><i class="fas fa-check me-1"></i>Approve Marksheet</button>
+          {% endif %}
+        </div>
+        {% elif marksheet.status == 'approved' %}
+        <div class="alert alert-success mt-3"><i class="fas fa-check-circle me-2"></i>This marksheet has been approved and is locked.</div>
+        {% endif %}
+      </form>
+      {% else %}
+      <div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>No candidates found for this marksheet.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('marksheet-form');
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const submitter = e.submitter;
+            const action = submitter ? submitter.value : '';
+            console.log('Form submit action:', action);
+            console.log('Submitter element:', submitter);
+            
+            if (action === 'submit') {
+                if (!confirm('Are you sure you want to submit this marksheet for review? You will not be able to edit it after submission.')) {
+                    e.preventDefault();
+                    return;
+                }
+            }
+            
+            // Add hidden input to ensure action is sent
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'action';
+            hiddenInput.value = action;
+            form.appendChild(hiddenInput);
+            
+            console.log('Form submitting with action:', action);
+        });
+    }
+});
+
+// Add client-side validation for marks input
+document.querySelectorAll('.marks-input').forEach(input => {
+    input.addEventListener('input', function() {
+        const value = this.value.trim();
+        
+        // Allow empty value
+        if (value === '') {
+            this.style.borderColor = '';
+            return;
+        }
+        
+        // Check if it's a valid number
+        const num = parseFloat(value);
+        if (isNaN(num)) {
+            this.style.borderColor = 'red';
+            return;
+        }
+        
+        // Check if it's -1 (missing) or between 0-100
+        if (num === -1 || (num >= 0 && num <= 100)) {
+            this.style.borderColor = 'green';
+        } else {
+            this.style.borderColor = 'red';
+        }
+    });
+});
+</script>
+{% endblock %}

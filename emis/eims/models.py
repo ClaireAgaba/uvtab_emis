@@ -362,12 +362,6 @@ class Paper(models.Model):
 
     def save(self, *args, **kwargs):
         """Override save to enforce title case formatting for name"""
-        if self.name:
-            self.name = format_title_case(self.name)
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.code} - {self.name} ({self.grade_type})"
 
 
 class Sector(models.Model):
@@ -1185,7 +1179,6 @@ class Staff(models.Model):
         ('Data', 'Data'),
         ('IT', 'IT'),
         ('Admin', 'Admin'),
-        ('Practical Assessors', 'Practical Assessors'),
     ]
     
     # Account status field
@@ -1217,6 +1210,99 @@ class Staff(models.Model):
     class Meta:
         verbose_name = "Staff Member"
         verbose_name_plural = "Staff Members"
+
+
+class PracticalAssessor(models.Model):
+    """Practical Assessors for conducting practical assessments"""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='practical_assessor_profile', null=True, blank=True)
+    fullname = models.CharField(max_length=100, default="Unknown", help_text="Full name of the practical assessor")
+    contact = models.CharField(max_length=15, null=True, blank=True, help_text="Phone number or contact information")
+    email = models.EmailField(default="unknown@example.com", help_text="Email address")
+    district = models.ForeignKey(District, on_delete=models.CASCADE, default=1, help_text="District where assessor is based")
+    village = models.ForeignKey(Village, on_delete=models.CASCADE, default=1, help_text="Village where assessor is based")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['fullname']
+        verbose_name = "Practical Assessor"
+        verbose_name_plural = "Practical Assessors"
+    
+    def __str__(self):
+        return f"{self.fullname} - {self.district.name}"
+
+
+class PracticalAssessorAssignment(models.Model):
+    """Assignment of Practical Assessors to Assessment Centers and Series"""
+    
+    assessor = models.ForeignKey(PracticalAssessor, on_delete=models.CASCADE, related_name='assignments')
+    assessment_center = models.ForeignKey(AssessmentCenter, on_delete=models.CASCADE)
+    assessment_series = models.ForeignKey('AssessmentSeries', on_delete=models.CASCADE)
+    registration_category = models.ForeignKey('RegistrationCategory', on_delete=models.CASCADE, null=True, blank=True)
+    occupation = models.ForeignKey('Occupation', on_delete=models.CASCADE, null=True, blank=True)
+    level = models.ForeignKey('Level', on_delete=models.CASCADE, null=True, blank=True)
+    module = models.ForeignKey('Module', on_delete=models.CASCADE, null=True, blank=True)
+    assigned_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='practical_assessor_assignments')
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ['assessor', 'assessment_center', 'assessment_series', 'registration_category', 'occupation', 'level', 'module']
+        ordering = ['-assigned_at']
+        verbose_name = "Practical Assessor Assignment"
+        verbose_name_plural = "Practical Assessor Assignments"
+
+    def __str__(self):
+        level_module = ""
+        if self.level:
+            level_module = f" - {self.level.name}"
+        elif self.module:
+            level_module = f" - {self.module.name}"
+        
+        occupation_name = self.occupation.name if self.occupation else "All Occupations"
+        return f"{self.assessor.fullname} - {self.assessment_center.center_name} - {occupation_name}{level_module}"
+    
+    def get_marksheet_status(self):
+        """Check if marksheet exists and its status"""
+        if not self.occupation or not self.registration_category:
+            return 'not_configured'
+            
+        try:
+            marksheet = PracticalMarksheet.objects.get(
+                assessment_center=self.assessment_center,
+                assessment_series=self.assessment_series,
+                registration_category=self.registration_category,
+                occupation=self.occupation,
+                assessor=self.assessor.user
+            )
+            return marksheet.status
+        except PracticalMarksheet.DoesNotExist:
+            return 'not_generated'
+    
+    def get_marksheet_id(self):
+        """Get the marksheet ID for this assignment if it exists"""
+        if not self.occupation or not self.registration_category:
+            return None
+            
+        try:
+            marksheet = PracticalMarksheet.objects.get(
+                assessment_center=self.assessment_center,
+                assessment_series=self.assessment_series,
+                registration_category=self.registration_category,
+                occupation=self.occupation,
+                assessor=self.assessor.user
+            )
+            return marksheet.id
+        except PracticalMarksheet.DoesNotExist:
+            return None
 
 
 class AssessmentSeries(models.Model):

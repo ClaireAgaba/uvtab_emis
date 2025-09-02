@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Assign Assessment Center</h1>
+      <p class="text-gray-600">Assign {{ assessor.fullname }} to an assessment center and series</p>
+    </div>
+    <a href="{% url 'practical_assessor_view' assessor.pk %}" 
+       class="text-blue-600 hover:text-blue-800 flex items-center gap-2">
+      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M15 19l-7-7 7-7"/>
+      </svg>
+      Back to View
+    </a>
+  </div>
+
+  <!-- Form Card -->
+  <div class="bg-white rounded-lg shadow-md p-6">
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      <!-- Assessment Center Field -->
+      <div>
+        <label for="{{ form.assessment_center.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+          Assessment Center <span class="text-red-500">*</span>
+        </label>
+        {{ form.assessment_center }}
+        {% if form.assessment_center.errors %}
+          <div class="mt-1 text-sm text-red-600">
+            {% for error in form.assessment_center.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if form.assessment_center.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.assessment_center.help_text }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Assessment Series Field -->
+      <div>
+        <label for="{{ form.assessment_series.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+          Assessment Series <span class="text-red-500">*</span>
+        </label>
+        {{ form.assessment_series }}
+        {% if form.assessment_series.errors %}
+          <div class="mt-1 text-sm text-red-600">
+            {% for error in form.assessment_series.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if form.assessment_series.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.assessment_series.help_text }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Registration Category Field -->
+      <div>
+        <label for="{{ form.registration_category.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+          Registration Category <span class="text-red-500">*</span>
+        </label>
+        {{ form.registration_category }}
+        {% if form.registration_category.errors %}
+          <div class="mt-1 text-sm text-red-600">
+            {% for error in form.registration_category.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if form.registration_category.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.registration_category.help_text }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Occupation Field -->
+      <div>
+        <label for="{{ form.occupation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+          Occupation <span class="text-red-500">*</span>
+        </label>
+        {{ form.occupation }}
+        {% if form.occupation.errors %}
+          <div class="mt-1 text-sm text-red-600">
+            {% for error in form.occupation.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if form.occupation.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.occupation.help_text }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Level Field (for Formal category) -->
+      <div id="level-field" style="display: none;">
+        <label for="{{ form.level.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+          Level
+        </label>
+        {{ form.level }}
+        {% if form.level.errors %}
+          <div class="mt-1 text-sm text-red-600">
+            {% for error in form.level.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if form.level.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.level.help_text }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Module Field (for Modular category) -->
+      <div id="module-field" style="display: none;">
+        <label for="{{ form.module.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+          Module
+        </label>
+        {{ form.module }}
+        {% if form.module.errors %}
+          <div class="mt-1 text-sm text-red-600">
+            {% for error in form.module.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if form.module.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.module.help_text }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Form Actions -->
+      <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+        <div class="flex gap-3">
+          <button type="submit" 
+                  class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M5 13l4 4L19 7"/>
+            </svg>
+            Create Assignment
+          </button>
+          <a href="{% url 'practical_assessor_view' assessor.pk %}" 
+             class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors duration-200">
+            Cancel
+          </a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const registrationCategoryField = document.getElementById('id_registration_category');
+    const occupationField = document.getElementById('id_occupation');
+    const levelField = document.getElementById('level-field');
+    const moduleField = document.getElementById('module-field');
+    const levelSelect = document.getElementById('id_level');
+    const moduleSelect = document.getElementById('id_module');
+    
+    function toggleFields() {
+        const selectedCategory = registrationCategoryField.value;
+        
+        // Hide both fields initially
+        levelField.style.display = 'none';
+        moduleField.style.display = 'none';
+        
+        // Show appropriate field based on selection
+        const categoryText = registrationCategoryField.options[registrationCategoryField.selectedIndex]?.text || '';
+        if (categoryText === 'Formal') {
+            levelField.style.display = 'block';
+        } else if (categoryText === 'Modular') {
+            moduleField.style.display = 'block';
+        }
+    }
+    
+    function loadOccupations() {
+        const categoryText = registrationCategoryField.options[registrationCategoryField.selectedIndex]?.text || '';
+        if (!categoryText) return;
+        
+        fetch(`/eims/api/occupations-by-category/?registration_category=${categoryText}`)
+            .then(response => response.json())
+            .then(data => {
+                // Clear current options
+                occupationField.innerHTML = '<option value="">---------</option>';
+                
+                // Add new options
+                data.occupations.forEach(occupation => {
+                    const option = document.createElement('option');
+                    option.value = occupation.id;
+                    option.textContent = occupation.name;
+                    occupationField.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading occupations:', error));
+    }
+    
+    function loadLevels() {
+        const occupationId = occupationField.value;
+        if (!occupationId) {
+            levelSelect.innerHTML = '<option value="">---------</option>';
+            return;
+        }
+        
+        fetch(`/eims/api/levels-for-occupation/?occupation_id=${occupationId}`)
+            .then(response => response.json())
+            .then(data => {
+                // Clear current options
+                levelSelect.innerHTML = '<option value="">---------</option>';
+                
+                // Add new options
+                data.levels.forEach(level => {
+                    const option = document.createElement('option');
+                    option.value = level.id;
+                    option.textContent = level.name;
+                    levelSelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading levels:', error));
+    }
+    
+    function loadModules() {
+        const occupationId = occupationField.value;
+        if (!occupationId) {
+            moduleSelect.innerHTML = '<option value="">---------</option>';
+            return;
+        }
+        
+        // Show loading state
+        moduleSelect.innerHTML = '<option value="">Loading modules...</option>';
+        
+        fetch(`/eims/api/modules-by-occupation/?occupation_id=${occupationId}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Modules API response:', data); // Debug log
+                
+                // Clear current options
+                moduleSelect.innerHTML = '<option value="">---------</option>';
+                
+                // Add new options - only modules for this occupation
+                if (data.modules && data.modules.length > 0) {
+                    data.modules.forEach(module => {
+                        const option = document.createElement('option');
+                        option.value = module.id;
+                        option.textContent = module.name;
+                        moduleSelect.appendChild(option);
+                    });
+                } else {
+                    moduleSelect.innerHTML = '<option value="">No modules available for this occupation</option>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading modules:', error);
+                moduleSelect.innerHTML = '<option value="">Error loading modules</option>';
+            });
+    }
+    
+    // Initial setup
+    toggleFields();
+    loadOccupations();
+    
+    // Event listeners
+    registrationCategoryField.addEventListener('change', function() {
+        toggleFields();
+        loadOccupations();
+        // Clear level/module selections when category changes
+        levelSelect.innerHTML = '<option value="">---------</option>';
+        moduleSelect.innerHTML = '<option value="">---------</option>';
+    });
+    
+    occupationField.addEventListener('change', function() {
+        const categoryText = registrationCategoryField.options[registrationCategoryField.selectedIndex]?.text || '';
+        console.log('Occupation changed, category:', categoryText); // Debug log
+        if (categoryText === 'Formal') {
+            loadLevels();
+        } else if (categoryText === 'Modular') {
+            console.log('Loading modules for occupation ID:', occupationField.value); // Debug log
+            loadModules();
+        }
+    });
+});
+</script>
+{% endblock %}

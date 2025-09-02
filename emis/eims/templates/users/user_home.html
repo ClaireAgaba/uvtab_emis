@@ -6,7 +6,7 @@
     <h1 class="text-3xl font-bold text-gray-900 mb-12">User Management</h1>
 
     <div class="flex justify-center">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl">
         <!-- Center Representatives Card -->
         <a href="{% url 'view_center_reps' %}" class="group">
           <div class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-3 min-h-[80px]">
@@ -34,6 +34,16 @@
               <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m3 5.197v0M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
             </svg>
             <span class="text-lg font-semibold">Staff</span>
+          </div>
+        </a>
+
+        <!-- Practical Assessors Card -->
+        <a href="{% url 'practical_assessor_list' %}" class="group">
+          <div class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-4 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-3 min-h-[80px]">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span class="text-lg font-semibold">Practical Assessors</span>
           </div>
         </a>
       </div>

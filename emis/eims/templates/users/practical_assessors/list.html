@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="text-2xl font-normal mb-6" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Practical Assessors</h2>
+
+<div class="mb-6 flex justify-between items-center">
+    <div>
+        <a href="{% url 'create_practical_assessor' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Practical Assessor</a>
+    </div>
+    
+    <!-- Bulk Actions -->
+    <div id="bulk-actions" class="hidden">
+        <div class="flex items-center gap-3">
+            <span id="selection-count" class="text-sm text-gray-600">0 selected</span>
+            <select id="bulk-action-select" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                <option value="">Choose Action...</option>
+                <option value="export">Export to Excel</option>
+            </select>
+            <button id="apply-bulk-action" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">Apply</button>
+            <button id="clear-selection" class="bg-gray-500 text-white px-3 py-2 rounded hover:bg-gray-600 text-sm">Clear</button>
+        </div>
+    </div>
+</div>
+
+<!-- Count and Pagination Info -->
+<div class="mb-2 text-sm text-gray-600 flex justify-between items-center">
+    <span>
+        {{ page_obj.start_index }}-{{ page_obj.end_index }} / {{ paginator.count }}
+    </span>
+    <span>
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="inline-block px-2">&#60;</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="inline-block px-2">&#62;</a>
+        {% endif %}
+    </span>
+</div>
+
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                    <input type="checkbox" id="select-all" class="rounded">
+                </th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Username</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Full Name</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Contact</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">District</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Village</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Status</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Created</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Actions</th>
+            </tr>
+            <tr>
+                <form method="get">
+                    <th class="px-3 py-2"></th>
+                    <th class="px-3 py-2">
+                        <input type="text" name="username" placeholder="Filter username" value="{{ request.GET.username }}" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                    </th>
+                    <th class="px-3 py-2">
+                        <input type="text" name="fullname" placeholder="Filter name" value="{{ request.GET.fullname }}" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                    </th>
+                    <th class="px-3 py-2">
+                        <input type="text" name="contact" placeholder="Filter contact" value="{{ request.GET.contact }}" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                    </th>
+                    <th class="px-3 py-2">
+                        <select name="district" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">All Districts</option>
+                            {% for district in districts %}
+                                <option value="{{ district.id }}" {% if request.GET.district == district.id|stringformat:"s" %}selected{% endif %}>{{ district.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </th>
+                    <th class="px-3 py-2"></th>
+                    <th class="px-3 py-2">
+                        <select name="status" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">All Status</option>
+                            <option value="Active" {% if request.GET.status == 'Active' %}selected{% endif %}>Active</option>
+                            <option value="Inactive" {% if request.GET.status == 'Inactive' %}selected{% endif %}>Inactive</option>
+                        </select>
+                    </th>
+                    <th class="px-3 py-2"></th>
+                    <th class="px-3 py-2">
+                        <div class="flex gap-1">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">Filter</button>
+                            <a href="{% url 'practical_assessor_list' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors">Reset</a>
+                        </div>
+                    </th>
+                </form>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for assessor in assessors %}
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-3 py-3 text-sm text-gray-900">
+                    <input type="checkbox" class="assessor-checkbox rounded" value="{{ assessor.pk }}" data-username="{{ assessor.user.username|default:'-' }}" data-name="{{ assessor.fullname }}">
+                </td>
+                <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location.href='{% url 'practical_assessor_view' assessor.pk %}';">{{ assessor.user.username|default:"-" }}</td>
+                <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location.href='{% url 'practical_assessor_view' assessor.pk %}';">{{ assessor.fullname }}</td>
+                <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location.href='{% url 'practical_assessor_view' assessor.pk %}';">{{ assessor.contact|default:"-" }}</td>
+                <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location.href='{% url 'practical_assessor_view' assessor.pk %}';">{{ assessor.district.name }}</td>
+                <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location.href='{% url 'practical_assessor_view' assessor.pk %}';">{{ assessor.village.name }}</td>
+                <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location.href='{% url 'practical_assessor_view' assessor.pk %}';">
+                    {% if assessor.status == 'Active' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>
+                    {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Inactive</span>
+                    {% endif %}
+                </td>
+                <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location.href='{% url 'practical_assessor_view' assessor.pk %}';">{{ assessor.created_at|date:"M d, Y" }}</td>
+                <td class="px-3 py-3 text-sm">
+                    <a href="{% url 'practical_assessor_view' assessor.pk %}" class="text-blue-600 hover:text-blue-900 font-medium">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const assessorCheckboxes = document.querySelectorAll('.assessor-checkbox');
+    const bulkActionsDiv = document.getElementById('bulk-actions');
+    const selectionCount = document.getElementById('selection-count');
+    const bulkActionSelect = document.getElementById('bulk-action-select');
+    const applyBulkActionBtn = document.getElementById('apply-bulk-action');
+    const clearSelectionBtn = document.getElementById('clear-selection');
+
+    // Update selection count and show/hide bulk actions
+    function updateBulkActions() {
+        const selectedCheckboxes = document.querySelectorAll('.assessor-checkbox:checked');
+        const count = selectedCheckboxes.length;
+        
+        selectionCount.textContent = count + ' selected';
+        
+        if (count > 0) {
+            bulkActionsDiv.classList.remove('hidden');
+        } else {
+            bulkActionsDiv.classList.add('hidden');
+            bulkActionSelect.value = '';
+        }
+    }
+
+    // Select all functionality
+    selectAllCheckbox.addEventListener('change', function() {
+        assessorCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        updateBulkActions();
+    });
+
+    // Individual checkbox handling
+    assessorCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            // Update select all checkbox state
+            const checkedCount = document.querySelectorAll('.assessor-checkbox:checked').length;
+            selectAllCheckbox.checked = checkedCount === assessorCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < assessorCheckboxes.length;
+            
+            updateBulkActions();
+        });
+    });
+
+    // Clear selection
+    clearSelectionBtn.addEventListener('click', function() {
+        assessorCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        updateBulkActions();
+    });
+
+    // Apply bulk action
+    applyBulkActionBtn.addEventListener('click', function() {
+        const selectedAction = bulkActionSelect.value;
+        const selectedAssessors = Array.from(document.querySelectorAll('.assessor-checkbox:checked')).map(cb => cb.value);
+        
+        if (!selectedAction) {
+            alert('Please select an action first.');
+            return;
+        }
+        
+        if (selectedAssessors.length === 0) {
+            alert('Please select at least one practical assessor.');
+            return;
+        }
+
+        if (selectedAction === 'export') {
+            // Create form and submit for export
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/eims/practical-assessors/export/';
+            
+            // Add CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            // Add selected assessor IDs
+            selectedAssessors.forEach(assessorId => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'assessor_ids';
+                input.value = assessorId;
+                form.appendChild(input);
+            });
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+            
+            // Clear selection after export
+            clearSelectionBtn.click();
+        }
+    });
+});
+</script>
+
+{% endblock %}

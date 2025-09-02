@@ -1,6 +1,12 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import AssessmentCenter, AssessmentCenterBranch, Occupation, Module, Paper, Candidate, Level, District, Village, CenterRepresentative, SupportStaff, OccupationLevel, Result, NatureOfDisability, Staff, AssessmentSeries, Sector, HelpdeskTeam, ComplaintCategory, Complaint
+from .models import (
+    Candidate, District, Village, Level, Module, Paper, Occupation, OccupationLevel,
+    AssessmentCenter, AssessmentCenterBranch, AssessmentSeries, Result, Staff, SupportStaff,
+    RegistrationCategory, NatureOfDisability, PracticalMarksheet, 
+    PracticalMark, PracticalAssessor, PracticalAssessorAssignment,
+    HelpdeskTeam, ComplaintCategory, Complaint, CenterRepresentative, Sector
+)
 from datetime import datetime   
 
 from django_countries.fields import CountryField
@@ -1150,6 +1156,118 @@ class DistrictForm(forms.ModelForm):
             if District.objects.filter(name__iexact=name).exclude(id=self.instance.id if self.instance else None).exists():
                 raise forms.ValidationError('A district with this name already exists.')
         return name
+
+
+class PracticalAssessorForm(forms.ModelForm):
+    class Meta:
+        model = PracticalAssessor
+        fields = ['fullname', 'contact', 'email', 'district', 'village', 'status']
+        widgets = {
+            'fullname': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'placeholder': 'Enter full name'}),
+            'contact': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'placeholder': 'e.g., +256701234567'}),
+            'email': forms.EmailInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'placeholder': 'Enter email address'}),
+            'district': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'village': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'status': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        }
+        help_texts = {
+            'fullname': 'Full name of the practical assessor',
+            'contact': 'Phone number or contact information',
+            'email': 'Email address for communication (will be used as username)',
+            'district': 'District where assessor is based',
+            'village': 'Village where assessor is based',
+            'status': 'Account status - Active or Inactive',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Set up district and village filtering
+        self.fields['village'].queryset = Village.objects.none()
+        
+        if 'district' in self.data:
+            try:
+                district_id = int(self.data.get('district'))
+                self.fields['village'].queryset = Village.objects.filter(district_id=district_id).order_by('name')
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk and self.instance.district:
+            self.fields['village'].queryset = Village.objects.filter(district=self.instance.district).order_by('name')
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email:
+            # Check if email is already used as username (excluding current instance)
+            existing_user = User.objects.filter(username=email)
+            if self.instance.pk and self.instance.user:
+                existing_user = existing_user.exclude(pk=self.instance.user.pk)
+            
+            if existing_user.exists():
+                raise forms.ValidationError('A user with this email already exists.')
+        return email
+
+
+class PracticalAssessorAssignmentForm(forms.ModelForm):
+    registration_category = forms.ModelChoiceField(
+        queryset=RegistrationCategory.objects.all(),
+        widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        help_text='Select registration category (Formal or Modular)'
+    )
+    occupation = forms.ModelChoiceField(
+        queryset=Occupation.objects.all(),
+        widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        help_text='Select the occupation for marksheet generation'
+    )
+    level = forms.ModelChoiceField(
+        queryset=Level.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        help_text='Select level (for Formal category)'
+    )
+    module = forms.ModelChoiceField(
+        queryset=Module.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        help_text='Select module (for Modular category)'
+    )
+    
+    class Meta:
+        model = PracticalAssessorAssignment
+        fields = ['assessment_center', 'assessment_series', 'registration_category', 'occupation', 'level', 'module']
+        widgets = {
+            'assessment_center': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+            'assessment_series': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
+        }
+        help_texts = {
+            'assessment_center': 'Select the assessment center to assign',
+            'assessment_series': 'Select the assessment series for this assignment',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Show all occupations for now - we'll filter based on practical marksheets existence
+        self.fields['occupation'].queryset = Occupation.objects.all()
+        # Show all modules - form validation will handle the filtering
+        self.fields['module'].queryset = Module.objects.all()
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        registration_category = cleaned_data.get('registration_category')
+        level = cleaned_data.get('level')
+        module = cleaned_data.get('module')
+        
+        # Debug: Print what we're getting
+        print(f"DEBUG - Registration Category: {registration_category}")
+        print(f"DEBUG - Level: {level}")
+        print(f"DEBUG - Module: {module}")
+        
+        if registration_category and registration_category.name == 'Formal' and not level:
+            raise forms.ValidationError('Level is required for Formal registration category.')
+        elif registration_category and registration_category.name == 'Modular' and not module:
+            raise forms.ValidationError('Module is required for Modular registration category.')
+        
+        return cleaned_data
+
 
 class VillageForm(forms.ModelForm):
     name = forms.CharField(

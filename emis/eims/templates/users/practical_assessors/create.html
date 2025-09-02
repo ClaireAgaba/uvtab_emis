@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto mt-10 bg-white p-6 shadow rounded">
+  <!-- Back Link -->
+  <a href="{% url 'practical_assessor_list' %}" class="text-blue-600 hover:underline mb-4 inline-block">
+    ← Back to Practical Assessors
+  </a>
+
+  <h2 class="text-2xl font-bold mb-6">Create Practical Assessor</h2>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+    
+    <!-- Full Name Field -->
+    <div>
+      <label for="{{ form.fullname.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+        Full Name <span class="text-red-500">*</span>
+      </label>
+      {{ form.fullname }}
+      {% if form.fullname.errors %}
+        <div class="mt-1 text-sm text-red-600">
+          {% for error in form.fullname.errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if form.fullname.help_text %}
+        <p class="text-xs text-gray-500 mt-1">{{ form.fullname.help_text }}</p>
+      {% endif %}
+    </div>
+
+    <!-- Email Field -->
+    <div>
+      <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+        Email <span class="text-red-500">*</span>
+      </label>
+      {{ form.email }}
+      {% if form.email.errors %}
+        <div class="mt-1 text-sm text-red-600">
+          {% for error in form.email.errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if form.email.help_text %}
+        <p class="text-xs text-gray-500 mt-1">{{ form.email.help_text }}</p>
+      {% endif %}
+    </div>
+
+    <!-- Contact -->
+    <div>
+      <label for="{{ form.contact.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+        Contact Number
+      </label>
+      {{ form.contact }}
+      {% if form.contact.help_text %}
+        <p class="mt-1 text-sm text-gray-500">{{ form.contact.help_text }}</p>
+      {% endif %}
+      {% if form.contact.errors %}
+        <div class="mt-1 text-sm text-red-600">
+          {{ form.contact.errors }}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- District Field -->
+    <div>
+      <label for="{{ form.district.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+        District <span class="text-red-500">*</span>
+      </label>
+      {{ form.district }}
+      {% if form.district.errors %}
+        <div class="mt-1 text-sm text-red-600">
+          {% for error in form.district.errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if form.district.help_text %}
+        <p class="text-xs text-gray-500 mt-1">{{ form.district.help_text }}</p>
+      {% endif %}
+    </div>
+
+    <!-- Village Field -->
+    <div>
+      <label for="{{ form.village.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+        Village <span class="text-red-500">*</span>
+      </label>
+      {{ form.village }}
+      {% if form.village.errors %}
+        <div class="mt-1 text-sm text-red-600">
+          {% for error in form.village.errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if form.village.help_text %}
+        <p class="text-xs text-gray-500 mt-1">{{ form.village.help_text }}</p>
+      {% endif %}
+    </div>
+
+    <!-- Status -->
+    <div>
+      <label for="{{ form.status.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+        Status
+      </label>
+      {{ form.status }}
+      {% if form.status.help_text %}
+        <p class="mt-1 text-sm text-gray-500">{{ form.status.help_text }}</p>
+      {% endif %}
+      {% if form.status.errors %}
+        <div class="mt-1 text-sm text-red-600">
+          {{ form.status.errors }}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Form Actions -->
+    <div class="flex items-center justify-between pt-6 border-t">
+      <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+        Create Practical Assessor
+      </button>
+      <a href="{% url 'practical_assessor_list' %}" class="ml-4 text-gray-600 hover:underline">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-populate name field when user is selected
+    const userSelect = document.getElementById('{{ form.user.id_for_label }}');
+    const nameField = document.getElementById('{{ form.name.id_for_label }}');
+    
+    if (userSelect && nameField) {
+        userSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value && selectedOption.text !== '---------') {
+                // Extract name from the option text (usually in format "username - Full Name")
+                const optionText = selectedOption.text;
+                const namePart = optionText.split(' - ')[1] || optionText.split('(')[0].trim();
+                if (namePart && !nameField.value) {
+                    nameField.value = namePart;
+                }
+            }
+        });
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // District-Village dependency
+    const districtSelect = document.getElementById('{{ form.district.id_for_label }}');
+    const villageSelect = document.getElementById('{{ form.village.id_for_label }}');
+    
+    if (districtSelect && villageSelect) {
+        districtSelect.addEventListener('change', function() {
+            const districtId = this.value;
+            villageSelect.innerHTML = '<option value="">---------</option>';
+            
+            if (districtId) {
+                fetch(`/eims/api/villages/?district=${districtId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.forEach(village => {
+                            const option = document.createElement('option');
+                            option.value = village.id;
+                            option.textContent = village.name;
+                            villageSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error loading villages:', error));
+            }
+        });
+    }
+});
+</script>
+
+{% endblock %}

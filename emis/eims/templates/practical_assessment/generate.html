@@ -1,47 +1,380 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Generate Practical Marksheet{% endblock %}
+{% block title %}Practical Assessment Portal{% endblock %}
 
 {% block extra_css %}
 <style>
-    .form-container {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        padding: 2rem;
-        max-width: 600px;
+    /* Mobile-first responsive design */
+    .container-fluid {
+        background-color: #f8f9fa;
+        min-height: 100vh;
+        padding: 1rem;
+        max-width: 1280px; /* nicely fill page without overly long lines */
         margin: 0 auto;
     }
     
-    .btn-generate {
-        background: #14b8a6;
+    /* Responsive card styling */
+    .card {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Mobile-friendly header */
+    .page-header {
+        background: #374151; /* softer dark */
+        border-radius: 8px;
+        padding: 1.5rem;
+        color: white;
+        margin-bottom: 2rem;
+    }
+    
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Responsive card headers */
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        background: #f9fafb; /* neutral header */
+    }
+    
+    .card-header.bg-success {
+        background-color: #198754 !important;
+        color: white;
+        border-bottom: none;
+    }
+    /* Avoid white pill on dark header badges */
+    .card-header.bg-success .badge,
+    .card-header.bg-primary .badge {
+        background: rgba(255,255,255,0.12) !important;
+        color: #fff !important;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .card-header.bg-primary {
+        background-color: #0d6efd !important;
+        color: white;
+        border-bottom: none;
+    }
+    
+    /* Mobile-friendly table */
+    .table {
+        margin-bottom: 0;
+        font-size: 0.9rem;
+    }
+    .table-responsive { position: relative; }
+
+    .table th {
+        background-color: #343a40;
         color: white;
         border: none;
-        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        padding: 0.75rem 0.5rem;
+        font-size: 0.8rem;
+        position: sticky;
+        top: 0;
+        z-index: 1; /* stay above rows */
+    }
+    
+    .table td {
+        padding: 0.75rem 0.5rem;
+        vertical-align: middle;
+        border-color: #dee2e6;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    .table tbody tr:nth-child(even) {
+        background-color: #fcfcfd;
+    }
+    
+    /* Mobile badges */
+    .badge {
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+    }
+    
+    /* Mobile-friendly buttons */
+    .btn {
         border-radius: 6px;
         font-weight: 500;
-        transition: background-color 0.2s;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
+        margin: 0.1rem;
+        min-height: 44px; /* Touch-friendly minimum */
     }
     
-    .btn-generate:hover {
-        background: #0d9488;
-        color: white;
+    .btn-info {
+        background-color: #0dcaf0;
+        border-color: #0dcaf0;
+        color: #000;
+    }
+    .btn-info:hover { background-color: #0bb8db; border-color: #0bb8db; }
+    
+    .btn-success {
+        background-color: #198754;
+        border-color: #198754;
+    }
+    .btn-success:hover { background-color: #157347; border-color: #157347; }
+    
+    .btn-primary {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    .btn-primary:hover { background-color: #0b5ed7; border-color: #0b5ed7; }
+
+    /* Keep actions on one line */
+    .actions-nowrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
     }
     
-    .btn-secondary {
-        background: #6b7280;
-        color: white;
-        border: none;
-        padding: 0.75rem 1.5rem;
+    /* Mobile card body */
+    .card-body {
+        padding: 1rem 1.5rem;
+    }
+    
+    .card-body.p-0 {
+        padding: 0 !important;
+    }
+    
+    /* Mobile filter section */
+    .bg-light {
+        background-color: #f8f9fa !important;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .form-select, .form-control {
+        border-radius: 8px;
+        border: 1px solid #e5e7eb; /* neutral border */
+        background-color: #ffffff;
+        padding: 0.625rem 0.875rem;
+        margin-bottom: 0;
+        outline: none;
+        transition: box-shadow .15s ease, border-color .15s ease;
+    }
+    .form-label { color: #6b7280; font-size: 0.85rem; }
+
+    .form-select:focus, .form-control:focus {
+        border-color: #93c5fd; /* focus ring */
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    /* Filters card and grid */
+    .filters-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        padding: 1rem 1.25rem;
+        margin: 0 1rem 0.75rem 1rem;
+    }
+
+    .filters-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.875rem 1rem;
+        align-items: end;
+    }
+
+    .filters-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    @media (min-width: 768px) {
+        .filters-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        .filters-actions {
+            justify-self: end;
+        }
+    }
+    
+    /* Mobile-specific table cards */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding: 0.5rem;
+        }
+        
+        .page-header {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .page-title {
+            font-size: 1.25rem;
+        }
+        
+        .card-header {
+            padding: 0.75rem 1rem;
+        }
+        
+        .card-body {
+            padding: 0.75rem 1rem;
+        }
+        
+        .bg-light {
+            padding: 0.75rem 1rem;
+        }
+        
+        /* Hide table on mobile, show card layout */
+        .table-responsive {
+            display: none;
+        }
+        
+        .mobile-card-view {
+            display: block;
+        }
+        
+        .mobile-assignment-card, .mobile-marksheet-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: white;
+        }
+        
+        .mobile-assignment-card h6, .mobile-marksheet-card h6 {
+            color: #495057;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .mobile-detail {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        
+        .mobile-detail:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .mobile-detail strong {
+            color: #6c757d;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+        
+        .mobile-actions {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .mobile-actions .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        
+        .mobile-actions .btn:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Stack filter inputs vertically on mobile */
+        .row.g-3 > .col-md-3 {
+            margin-bottom: 1rem;
+        }
+        
+        .d-flex.align-items-end {
+            align-items: stretch !important;
+        }
+        
+        .d-flex.align-items-end .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+    
+    /* Desktop view */
+    @media (min-width: 769px) {
+        .mobile-card-view {
+            display: none;
+        }
+        
+        .table-responsive {
+            display: block;
+        }
+        
+        .container-fluid {
+            padding: 2rem;
+        }
+        
+        .page-header {
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+        }
+        
+        .card-header {
+            padding: 1.5rem 2rem;
+        }
+        
+        .card-body {
+            padding: 2rem;
+        }
+        
+        .bg-light {
+            padding: 1.5rem 2rem;
+        }
+        
+        .table th {
+            padding: 1.2rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .table td {
+            padding: 1.2rem 1rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+    }
+    
+    /* Alert styling */
+    .alert {
+        border-radius: 8px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    /* Pagination */
+    .pagination .page-link {
         border-radius: 6px;
-        font-weight: 500;
-        transition: background-color 0.2s;
+        margin: 0 0.125rem;
+        color: #0d6efd;
     }
     
-    .btn-secondary:hover {
-        background: #4b5563;
-        color: white;
+    .pagination .page-link:hover {
+        background-color: #e9ecef;
+        border-color: #dee2e6;
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
     }
 </style>
 {% endblock %}
@@ -50,11 +383,19 @@
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 class="h3 mb-0">Generate Practical Marksheet</h1>
-                <a href="{% url 'practical_assessment_home' %}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left me-2"></i>Back to List
-                </a>
+            <!-- Page Header -->
+            <div class="page-header mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="page-title mb-2">
+                            <i class="fas fa-clipboard-check me-3"></i>Practical Assessment Portal
+                        </h1>
+                        <p class="mb-0 opacity-75">Manage practical assessments, marksheets, and candidate evaluations</p>
+                    </div>
+                    <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                </div>
             </div>
             
             {% if messages %}
@@ -66,164 +407,651 @@
                 {% endfor %}
             {% endif %}
             
-            <div class="form-container">
-                <p class="text-muted mb-4">Select the parameters below to generate a new practical assessment marksheet.</p>
-                
-                <form id="generateMarksheetForm" method="post" action="{% url 'generate_practical_marksheet' %}">
-                    {% csrf_token %}
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="assessment_center" class="form-label">Assessment Center <span class="text-danger">*</span></label>
-                            <select class="form-select" id="assessment_center" name="assessment_center" required>
-                                <option value="">Select Assessment Center</option>
-                                {% for center in assessment_centers %}
-                                    <option value="{{ center.id }}">{{ center.center_name }}</option>
+            {% if is_practical_assessor and assignments %}
+            <!-- Assessment Assignments Table -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-clipboard-list me-2"></i>Your Assessment Assignments
+                        </h5>
+                        <span class="badge bg-light text-success fs-6">{{ assignments.count }} assignment{{ assignments.count|pluralize }}</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Desktop Table View -->
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" style="font-size: 0.95rem;">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="text-center py-3" style="min-width: 180px;">Assessment Center</th>
+                                    <th class="text-center py-3" style="min-width: 140px;">Assessment Series</th>
+                                    <th class="text-center py-3" style="min-width: 120px;">Category</th>
+                                    <th class="text-center py-3" style="min-width: 160px;">Occupation</th>
+                                    <th class="text-center py-3" style="min-width: 120px;">Level/Module</th>
+                                    <th class="text-center py-3" style="min-width: 120px;">Status</th>
+                                    <th class="text-center py-3" style="min-width: 220px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for assignment in assignments %}
+                                <tr class="border-bottom">
+                                    <td class="align-middle py-3 fw-medium">{{ assignment.assessment_center.center_name }}</td>
+                                    <td class="align-middle py-3">{{ assignment.assessment_series.series_name }}</td>
+                                    <td class="align-middle text-center py-3">
+                                        {% if assignment.registration_category %}
+                                            <span class="badge bg-secondary fs-6 px-2 py-1">{{ assignment.registration_category.name }}</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark fs-6 px-2 py-1">Not Set</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="align-middle py-3">
+                                        {% if assignment.occupation %}
+                                            {{ assignment.occupation.name }}
+                                        {% else %}
+                                            <span class="text-muted fst-italic">Not Set</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="align-middle text-center py-3">
+                                        {% if assignment.level %}
+                                            <span class="badge bg-info fs-6 px-2 py-1">{{ assignment.level.name }}</span>
+                                        {% elif assignment.module %}
+                                            <span class="badge bg-info fs-6 px-2 py-1">{{ assignment.module.name }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="align-middle text-center py-3">
+                                        {% with status=assignment.get_marksheet_status %}
+                                        {% if status == 'not_generated' %}
+                                            <span class="badge bg-warning text-dark fs-6 px-2 py-1">
+                                                <i class="fas fa-plus me-1"></i>Not Generated
+                                            </span>
+                                        {% elif status == 'draft' %}
+                                            <span class="badge bg-info fs-6 px-2 py-1">
+                                                <i class="fas fa-edit me-1"></i>Draft
+                                            </span>
+                                        {% elif status == 'submitted' %}
+                                            <span class="badge bg-success fs-6 px-2 py-1">
+                                                <i class="fas fa-check me-1"></i>Submitted
+                                            </span>
+                                        {% elif status == 'approved' %}
+                                            <span class="badge bg-success fs-6 px-2 py-1">
+                                                <i class="fas fa-check-double me-1"></i>Approved
+                                            </span>
+                                        {% elif status == 'not_configured' %}
+                                            <span class="badge bg-danger fs-6 px-2 py-1">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>Not Configured
+                                            </span>
+                                        {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                    <td class="align-middle text-center py-3">
+                                        {% if assignment.occupation and assignment.registration_category %}
+                                            <div class="btn-group actions-nowrap" role="group">
+                                                <a href="{% url 'practical_marksheet_view' assignment.pk %}" 
+                                                   class="btn btn-primary btn-sm px-3 py-2"
+                                                   data-bs-toggle="tooltip" 
+                                                   title="Open marksheet for marking">
+                                                    <i class="fas fa-clipboard-list me-1"></i>Marksheet
+                                                </a>
+                                                {% with status=assignment.get_marksheet_status marksheet_id=assignment.get_marksheet_id %}
+                                                {% if status == 'submitted' or status == 'approved' %}
+                                                    <a href="{% url 'download_practical_marksheet' marksheet_id %}" 
+                                                       class="btn btn-success btn-sm px-3 py-2"
+                                                       data-bs-toggle="tooltip" 
+                                                       title="Download PDF marksheet">
+                                                        <i class="fas fa-download me-1"></i>Download
+                                                    </a>
+                                                {% endif %}
+                                                {% endwith %}
+                                            </div>
+                                        {% else %}
+                                            <button type="button" 
+                                                    class="btn btn-outline-warning btn-sm px-3 py-2" 
+                                                    disabled
+                                                    data-bs-toggle="tooltip" 
+                                                    title="Assignment setup incomplete">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>Incomplete Setup
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
                                 {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="assessment_series" class="form-label">Assessment Series <span class="text-danger">*</span></label>
-                            <select class="form-select" id="assessment_series" name="assessment_series" required>
-                                <option value="">Select Assessment Series</option>
-                                {% for series in assessment_series %}
-                                    <option value="{{ series.id }}">{{ series.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="registration_category" class="form-label">Registration Category <span class="text-danger">*</span></label>
-                            <select class="form-select" id="registration_category" name="registration_category" required>
-                                <option value="">Select Registration Category</option>
-                                {% for category in registration_categories %}
-                                    <option value="{{ category.id }}">{{ category.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="occupation" class="form-label">Occupation <span class="text-danger">*</span></label>
-                            <select class="form-select" id="occupation" name="occupation" required>
-                                <option value="">Select Occupation</option>
-                                {% for occupation in occupations %}
-                                    <option value="{{ occupation.id }}">{{ occupation.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                            </tbody>
+                        </table>
                     </div>
                     
-                    <div class="d-flex justify-content-end gap-2 mt-4">
-                        <a href="{% url 'practical_assessment_home' %}" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-generate">
-                            <i class="fas fa-plus me-2"></i>Generate Marksheet
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" id="fallbackSubmit" style="display:none;">
-                            <i class="fas fa-sync me-2"></i>Try Alternative Method
-                        </button>
+                    <!-- Mobile Card View -->
+                    <div class="mobile-card-view">
+                        {% for assignment in assignments %}
+                        <div class="mobile-assignment-card">
+                            <h6><i class="fas fa-clipboard-list me-2"></i>{{ assignment.assessment_center.center_name }}</h6>
+                            
+                            <div class="mobile-detail">
+                                <strong>Series:</strong>
+                                <span>{{ assignment.assessment_series.series_name }}</span>
+                            </div>
+                            
+                            <div class="mobile-detail">
+                                <strong>Category:</strong>
+                                {% if assignment.registration_category %}
+                                    <span class="badge bg-secondary">{{ assignment.registration_category.name }}</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">Not Set</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mobile-detail">
+                                <strong>Occupation:</strong>
+                                <span>
+                                    {% if assignment.occupation %}
+                                        {{ assignment.occupation.name }}
+                                    {% else %}
+                                        <em class="text-muted">Not Set</em>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            
+                            <div class="mobile-detail">
+                                <strong>Level/Module:</strong>
+                                {% if assignment.level %}
+                                    <span class="badge bg-info">{{ assignment.level.name }}</span>
+                                {% elif assignment.module %}
+                                    <span class="badge bg-info">{{ assignment.module.name }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mobile-detail">
+                                <strong>Status:</strong>
+                                {% with status=assignment.get_marksheet_status %}
+                                {% if status == 'not_generated' %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-plus me-1"></i>Not Generated
+                                    </span>
+                                {% elif status == 'draft' %}
+                                    <span class="badge bg-info">
+                                        <i class="fas fa-edit me-1"></i>Draft
+                                    </span>
+                                {% elif status == 'submitted' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>Submitted
+                                    </span>
+                                {% elif status == 'approved' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-double me-1"></i>Approved
+                                    </span>
+                                {% elif status == 'not_configured' %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>Not Configured
+                                    </span>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            
+                            {% if assignment.occupation and assignment.registration_category %}
+                            <div class="mobile-actions">
+                                <a href="{% url 'practical_marksheet_view' assignment.pk %}" class="btn btn-primary">
+                                    <i class="fas fa-clipboard-list me-2"></i>Open Marksheet
+                                </a>
+                                {% with status=assignment.get_marksheet_status marksheet_id=assignment.get_marksheet_id %}
+                                {% if status == 'submitted' or status == 'approved' %}
+                                    <a href="{% url 'download_practical_marksheet' marksheet_id %}" class="btn btn-success">
+                                        <i class="fas fa-download me-2"></i>Download PDF
+                                    </a>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            {% else %}
+                            <div class="mobile-actions">
+                                <button type="button" class="btn btn-outline-warning" disabled>
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Incomplete Setup
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
                     </div>
-                </form>
+                </div>
             </div>
-        </div>
-    </div>
-</div>
+            {% elif is_practical_assessor %}
+            <!-- No assignments message for assessors -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No Assessment Assignments</h5>
+                    <p class="text-muted">You have no assessment center assignments yet. Contact your administrator to get assigned to assessment centers and series.</p>
+                </div>
+            </div>
+            {% endif %}
+                    
+                    <!-- Marksheet Editing Sections (Initially Hidden) -->
+                    {% for assignment in assignments %}
+                    {% with status=assignment.get_marksheet_status %}
+                    {% if status == 'draft' or status == 'submitted' %}
+                    <div id="marksheet-{{ assignment.pk }}" class="marksheet-section mt-4" style="display: none;">
+                        <div class="card border-primary shadow">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-edit me-2"></i>
+                                    Marksheet: {{ assignment.assessment_center.center_name }} - {{ assignment.occupation.name }}
+                                    {% if assignment.level %}({{ assignment.level.name }}){% elif assignment.module %}({{ assignment.module.name }}){% endif %}
+                                </h6>
+                            </div>
+                            <div class="card-body p-4">
+                                <form method="post" action="{% url 'save_practical_marks' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="assignment_id" value="{{ assignment.pk }}">
+                                    
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-hover">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th class="text-center" style="width: 20%;">Candidate No.</th>
+                                                    <th style="width: 50%;">Candidate Name</th>
+                                                    <th class="text-center" style="width: 30%;">Marks (-1=Missing, 0-100)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="candidates-{{ assignment.pk }}">
+                                                <tr>
+                                                    <td colspan="3" class="text-center py-4">
+                                                        <i class="fas fa-spinner fa-spin me-2"></i>Loading candidates...
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="toggleMarksheet('{{ assignment.pk }}')">
+                                            <i class="fas fa-times me-1"></i>Close
+                                        </button>
+                                        <div>
+                                            <button type="submit" name="action" value="save" class="btn btn-outline-info me-2">
+                                                <i class="fas fa-save me-1"></i>Save Draft
+                                            </button>
+                                            <button type="submit" name="action" value="submit" class="btn btn-success">
+                                                <i class="fas fa-check me-1"></i>Submit Marksheet
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Submitted Marksheets Table (for admins/staff) -->
+            {% if not is_practical_assessor %}
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-clipboard-check me-2"></i>Submitted Marksheets for Review
+                        </h5>
+                        <span class="badge bg-secondary fs-6">{{ marksheets.count }} marksheet{{ marksheets.count|pluralize }}</span>
+                    </div>
+                </div>
+                
+                <!-- Filters Section (restyled) -->
+                <div class="filters-card">
+                    <form method="get" class="filters-grid">
+                        <div>
+                            <label for="center_filter" class="form-label fw-semibold">Assessment Center</label>
+                            <select class="form-select" id="center_filter" name="center">
+                                <option value="">All Centers</option>
+                                {% for center in assessment_centers %}
+                                    <option value="{{ center.id }}" {% if request.GET.center == center.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ center.center_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="series_filter" class="form-label fw-semibold">Assessment Series</label>
+                            <select class="form-select" id="series_filter" name="series">
+                                <option value="">All Series</option>
+                                {% for series in assessment_series %}
+                                    <option value="{{ series.id }}" {% if request.GET.series == series.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ series.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="status_filter" class="form-label fw-semibold">Status</label>
+                            <select class="form-select" id="status_filter" name="status">
+                                <option value="">All Statuses</option>
+                                <option value="submitted" {% if request.GET.status == 'submitted' %}selected{% endif %}>Submitted</option>
+                                <option value="approved" {% if request.GET.status == 'approved' %}selected{% endif %}>Approved</option>
+                                <option value="rejected" {% if request.GET.status == 'rejected' %}selected{% endif %}>Rejected</option>
+                            </select>
+                        </div>
+                        <div class="filters-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter me-1"></i>Filter
+                            </button>
+                            <a href="{% url 'practical_assessment_home' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Clear
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="card-body p-0">
+                    {% if marksheets %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" style="font-size: 0.95rem;">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="text-center py-3" style="min-width: 180px;">Assessment Center</th>
+                                    <th class="text-center py-3" style="min-width: 140px;">Assessment Series</th>
+                                    <th class="text-center py-3" style="min-width: 120px;">Category</th>
+                                    <th class="text-center py-3" style="min-width: 160px;">Occupation</th>
+                                    <th class="text-center py-3" style="min-width: 140px;">Assessor</th>
+                                    <th class="text-center py-3" style="min-width: 100px;">Status</th>
+                                    <th class="text-center py-3" style="min-width: 140px;">Submitted</th>
+                                    <th class="text-center py-3" style="min-width: 240px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for marksheet in marksheets %}
+                                <tr class="border-bottom">
+                                    <td class="align-middle py-3 fw-medium">{{ marksheet.assessment_center.center_name }}</td>
+                                    <td class="align-middle py-3">{{ marksheet.assessment_series.name }}</td>
+                                    <td class="align-middle text-center py-3">
+                                        <span class="badge bg-secondary fs-6 px-2 py-1">{{ marksheet.registration_category.name }}</span>
+                                    </td>
+                                    <td class="align-middle py-3">{{ marksheet.occupation.name }}</td>
+                                    <td class="align-middle py-3">{{ marksheet.assessor.get_full_name|default:marksheet.assessor.username }}</td>
+                                    <td class="align-middle text-center py-3">
+                                        {% if marksheet.status == 'submitted' %}
+                                            <span class="badge bg-warning text-dark fs-6 px-2 py-1">
+                                                <i class="fas fa-clock me-1"></i>Submitted
+                                            </span>
+                                        {% elif marksheet.status == 'approved' %}
+                                            <span class="badge bg-success fs-6 px-2 py-1">
+                                                <i class="fas fa-check me-1"></i>Approved
+                                            </span>
+                                        {% elif marksheet.status == 'rejected' %}
+                                            <span class="badge bg-danger fs-6 px-2 py-1">
+                                                <i class="fas fa-times me-1"></i>Rejected
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary fs-6 px-2 py-1">{{ marksheet.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="align-middle text-center py-3">
+                                        {% if marksheet.submitted_at %}
+                                            <small class="text-muted">{{ marksheet.submitted_at|date:"M d, Y" }}</small><br>
+                                            <small class="text-muted">{{ marksheet.submitted_at|date:"H:i" }}</small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="align-middle text-center py-3">
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'view_practical_marksheet' marksheet.id %}" 
+                                               class="btn btn-info btn-sm px-3 py-2" 
+                                               data-bs-toggle="tooltip" 
+                                               title="View marksheet details">
+                                                <i class="fas fa-eye me-1"></i>View
+                                            </a>
+                                            <a href="{% url 'download_practical_marksheet' marksheet.id %}" 
+                                               class="btn btn-success btn-sm px-3 py-2" 
+                                               data-bs-toggle="tooltip" 
+                                               title="Download PDF marksheet">
+                                                <i class="fas fa-download me-1"></i>Download
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if marksheets.has_other_pages %}
+                    <div class="card-footer bg-light">
+                        <nav aria-label="Marksheets pagination">
+                            <ul class="pagination pagination-sm justify-content-center mb-0">
+                                {% if marksheets.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.series %}&series={{ request.GET.series }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                            <i class="fas fa-angle-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ marksheets.previous_page_number }}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.series %}&series={{ request.GET.series }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                            <i class="fas fa-angle-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for num in marksheets.paginator.page_range %}
+                                    {% if marksheets.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > marksheets.number|add:'-3' and num < marksheets.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.series %}&series={{ request.GET.series }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if marksheets.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ marksheets.next_page_number }}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.series %}&series={{ request.GET.series }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                            <i class="fas fa-angle-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ marksheets.paginator.num_pages }}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.series %}&series={{ request.GET.series }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                            <i class="fas fa-angle-double-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        <div class="text-center mt-2">
+                            <small class="text-muted">
+                                Showing {{ marksheets.start_index }} to {{ marksheets.end_index }} of {{ marksheets.paginator.count }} marksheets
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Mobile Card View for Admin Marksheets -->
+                    <div class="mobile-card-view">
+                        {% for marksheet in marksheets %}
+                        <div class="mobile-marksheet-card">
+                            <h6><i class="fas fa-file-alt me-2"></i>{{ marksheet.assessment_center.center_name }}</h6>
+                            
+                            <div class="mobile-detail">
+                                <strong>Series:</strong>
+                                <span>{{ marksheet.assessment_series.name }}</span>
+                            </div>
+                            
+                            <div class="mobile-detail">
+                                <strong>Category:</strong>
+                                {% if marksheet.registration_category %}
+                                    <span class="badge bg-secondary">{{ marksheet.registration_category.name }}</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">Not Set</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mobile-detail">
+                                <strong>Occupation:</strong>
+                                <span>
+                                    {% if marksheet.occupation %}
+                                        {{ marksheet.occupation.name }}
+                                    {% else %}
+                                        <em class="text-muted">Not Set</em>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            
+                            <div class="mobile-detail">
+                                <strong>Level/Module:</strong>
+                                {% if marksheet.level %}
+                                    <span class="badge bg-info">{{ marksheet.level.name }}</span>
+                                {% elif marksheet.module %}
+                                    <span class="badge bg-info">{{ marksheet.module.name }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mobile-detail">
+                                <strong>Assessor:</strong>
+                                <span>
+                                    {% if marksheet.assessor %}
+                                        {{ marksheet.assessor.get_full_name }}
+                                    {% else %}
+                                        <em class="text-muted">Not Assigned</em>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            
+                            <div class="mobile-detail">
+                                <strong>Status:</strong>
+                                {% if marksheet.status == 'draft' %}
+                                    <span class="badge bg-info">
+                                        <i class="fas fa-edit me-1"></i>Draft
+                                    </span>
+                                {% elif marksheet.status == 'submitted' %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-clock me-1"></i>Pending Approval
+                                    </span>
+                                {% elif marksheet.status == 'approved' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-double me-1"></i>Approved
+                                    </span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mobile-actions">
+                                <a href="{% url 'view_practical_marksheet' marksheet.id %}" class="btn btn-info">
+                                    <i class="fas fa-eye me-2"></i>View Details
+                                </a>
+                                <a href="{% url 'download_practical_marksheet' marksheet.id %}" class="btn btn-success">
+                                    <i class="fas fa-download me-2"></i>Download PDF
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox text-muted" style="font-size: 4rem; opacity: 0.5;"></i>
+                        <h5 class="mt-3 text-muted">No Submitted Marksheets</h5>
+                        <p class="text-muted mb-0">No marksheets have been submitted for review yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Simple vanilla JavaScript approach (no jQuery dependency)
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, setting up form handler');
+function toggleMarksheet(assignmentId) {
+    const marksheetSection = document.getElementById('marksheet-' + assignmentId);
+    const candidatesTable = document.getElementById('candidates-' + assignmentId);
     
-    const form = document.getElementById('generateMarksheetForm');
-    const submitBtn = document.querySelector('.btn-generate');
-    const fallbackBtn = document.getElementById('fallbackSubmit');
-    
-    if (!form) {
-        console.error('Form not found!');
-        return;
-    }
-    
-    console.log('Form found, adding event listener');
-    
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        console.log('Form submitted - preventDefault called');
+    if (marksheetSection.style.display === 'none') {
+        // Show marksheet section
+        marksheetSection.style.display = 'block';
         
-        const formData = new FormData(form);
-        const originalText = submitBtn.innerHTML;
-        
-        // Debug: Log form data
-        console.log('Form data:');
-        for (let [key, value] of formData.entries()) {
-            console.log(key + ': ' + value);
+        // Load candidates if not already loaded
+        if (candidatesTable.children.length === 0) {
+            loadCandidatesForAssignment(assignmentId);
         }
-        
-        // Show loading state
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
-        
-        // Use fetch instead of jQuery AJAX
-        fetch('{% url "generate_practical_marksheet" %}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
-        })
-        .then(response => {
-            console.log('Response received:', response.status);
-            return response.json();
-        })
+    } else {
+        // Hide marksheet section
+        marksheetSection.style.display = 'none';
+    }
+}
+
+function loadCandidatesForAssignment(assignmentId) {
+    const candidatesTable = document.getElementById('candidates-' + assignmentId);
+    
+    // Show loading message
+    candidatesTable.innerHTML = '<tr><td colspan="3" class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Loading candidates...</td></tr>';
+    
+    fetch('/eims/api/assignment-candidates/?assignment_id=' + assignmentId)
+        .then(response => response.json())
         .then(data => {
-            console.log('Success:', data);
+            candidatesTable.innerHTML = '';
             
-            if (data.success) {
-                // Show success message
-                const alert = document.createElement('div');
-                alert.className = 'alert alert-success alert-dismissible fade show';
-                alert.innerHTML = `
-                    <i class="fas fa-check-circle me-2"></i>${data.message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                form.parentNode.insertBefore(alert, form);
-                
-                // Redirect immediately to see any errors
-                console.log('Redirecting to:', data.redirect_url);
-                window.location.href = data.redirect_url || '{% url "practical_assessment_home" %}';
+            if (data.candidates && data.candidates.length > 0) {
+                data.candidates.forEach(candidate => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${candidate.registration_number}</td>
+                        <td>${candidate.name}</td>
+                        <td>
+                            <select name="marks_${candidate.id}" class="form-control form-control-sm">
+                                <option value="">-- Select --</option>
+                                <option value="-1" ${candidate.marks == -1 ? 'selected' : ''}>Missing</option>
+                                <option value="0" ${candidate.marks == 0 ? 'selected' : ''}>0</option>
+                                <option value="10" ${candidate.marks == 10 ? 'selected' : ''}>10</option>
+                                <option value="20" ${candidate.marks == 20 ? 'selected' : ''}>20</option>
+                                <option value="30" ${candidate.marks == 30 ? 'selected' : ''}>30</option>
+                                <option value="40" ${candidate.marks == 40 ? 'selected' : ''}>40</option>
+                                <option value="50" ${candidate.marks == 50 ? 'selected' : ''}>50</option>
+                                <option value="60" ${candidate.marks == 60 ? 'selected' : ''}>60</option>
+                                <option value="70" ${candidate.marks == 70 ? 'selected' : ''}>70</option>
+                                <option value="80" ${candidate.marks == 80 ? 'selected' : ''}>80</option>
+                                <option value="90" ${candidate.marks == 90 ? 'selected' : ''}>90</option>
+                                <option value="100" ${candidate.marks == 100 ? 'selected' : ''}>100</option>
+                            </select>
+                            <input type="hidden" name="candidate_${candidate.id}" value="${candidate.id}">
+                        </td>
+                    `;
+                    candidatesTable.appendChild(row);
+                });
             } else {
-                throw new Error(data.message || 'Unknown error');
+                candidatesTable.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No candidates found for this assignment</td></tr>';
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            
-            // Show error message
-            const alert = document.createElement('div');
-            alert.className = 'alert alert-danger alert-dismissible fade show';
-            alert.innerHTML = `
-                <i class="fas fa-exclamation-circle me-2"></i>Error: ${error.message}
-                <br><small>Check console for details.</small>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            form.parentNode.insertBefore(alert, form);
-            
-            // Reset button
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-            
-            // Show fallback button
-            if (fallbackBtn) {
-                fallbackBtn.style.display = 'inline-block';
-            }
+            console.error('Error loading candidates:', error);
+            candidatesTable.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Error loading candidates</td></tr>';
         });
+}
+
+
+// Approval flow removed for now (no approve buttons)
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
     });
     
-    // Fallback method - regular form submission
-    if (fallbackBtn) {
-        fallbackBtn.addEventListener('click', function() {
-            console.log('Using fallback method');
-            form.action = '{% url "generate_practical_marksheet" %}';
-            form.method = 'POST';
-            form.submit();
+    // Manual form handler for admin section
+    const form = document.getElementById('generateMarksheetForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const submitBtn = form.querySelector('.btn-generate');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+            }
         });
     }
 });
