@@ -7932,11 +7932,11 @@ def enrollment_list(request):
         messages.error(request, 'Permission denied. Only Admin, IT, and Data departments can view enrollments.')
         return redirect('candidate_list')
     
-    # Get all candidates with enrollment data
-    from django.db.models import Prefetch
+    # Get all candidates with enrollment data (levels OR modules)
+    from django.db.models import Prefetch, Q
     
     enrolled_candidates = Candidate.objects.filter(
-        candidatelevel__isnull=False
+        Q(candidatelevel__isnull=False) | Q(candidatemodule__isnull=False)
     ).distinct().select_related(
         'assessment_center',
         'assessment_center_branch',
@@ -7968,6 +7968,9 @@ def enrollment_list(request):
         enrolled_candidates = enrolled_candidates.filter(assessment_series_id=assessment_series)
     if registration_category:
         enrolled_candidates = enrolled_candidates.filter(registration_category__iexact=registration_category)
+        # If Modular is selected, ensure they actually have module enrollments
+        if registration_category.strip().lower() == 'modular':
+            enrolled_candidates = enrolled_candidates.filter(candidatemodule__isnull=False)
     
     # Pagination
     from django.core.paginator import Paginator
