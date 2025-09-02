@@ -41,13 +41,32 @@ class Command(BaseCommand):
                 self.stdout.write(f'  After:  "{formatted_name}"')
                 
                 if not dry_run:
-                    village.name = formatted_name
-                    village.save()
-                    self.stdout.write(self.style.SUCCESS('  ✓ Updated'))
+                    # Check if a village with the exact formatted name already exists in the same district
+                    existing_village = Village.objects.filter(
+                        name=formatted_name,  # Exact match, not iexact
+                        district=village.district
+                    ).exclude(id=village.id).first()
+                    
+                    if existing_village:
+                        self.stdout.write(self.style.ERROR(f'  ✗ Skipped - Village "{formatted_name}" already exists in {village.district.name}'))
+                    else:
+                        village.name = formatted_name
+                        village.save()
+                        self.stdout.write(self.style.SUCCESS('  ✓ Updated'))
+                        updated_count += 1
                 else:
-                    self.stdout.write(self.style.WARNING('  → Would be updated'))
+                    # In dry run, also check for potential conflicts
+                    existing_village = Village.objects.filter(
+                        name=formatted_name,  # Exact match, not iexact
+                        district=village.district
+                    ).exclude(id=village.id).first()
+                    
+                    if existing_village:
+                        self.stdout.write(self.style.ERROR(f'  ✗ Would be skipped - Village "{formatted_name}" already exists in {village.district.name}'))
+                    else:
+                        self.stdout.write(self.style.WARNING('  → Would be updated'))
+                        updated_count += 1
                 
-                updated_count += 1
                 self.stdout.write('')
             else:
                 # Name is already properly formatted
