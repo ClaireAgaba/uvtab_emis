@@ -1173,10 +1173,31 @@ class VillageForm(forms.ModelForm):
         fields = ['name', 'district']
 
     def clean_name(self):
+        """Format village name to proper sentence case and validate uniqueness"""
         name = self.cleaned_data.get('name')
         district = self.cleaned_data.get('district')
-        if district and Village.objects.filter(name__iexact=name, district=district).exclude(id=self.instance.id if self.instance else None).exists():
-            raise forms.ValidationError('A village with this name already exists in the selected district.')
+        
+        if name:
+            # Convert to proper sentence case with articles in lowercase
+            words = name.strip().split()
+            formatted_words = []
+            
+            # Articles and prepositions to keep lowercase (except at start)
+            lowercase_words = {'in', 'and', 'for', 'of', 'the', 'at', 'on', 'by', 'with', 'to'}
+            
+            for i, word in enumerate(words):
+                if i == 0:  # First word is always capitalized
+                    formatted_words.append(word.capitalize())
+                elif word.lower() in lowercase_words:
+                    formatted_words.append(word.lower())
+                else:
+                    formatted_words.append(word.capitalize())
+            
+            name = ' '.join(formatted_words)
+            
+            # Check for duplicates within the same district
+            if district and Village.objects.filter(name__iexact=name, district=district).exclude(id=self.instance.id if self.instance else None).exists():
+                raise forms.ValidationError('A village with this name already exists in the selected district.')
         return name
 
 
