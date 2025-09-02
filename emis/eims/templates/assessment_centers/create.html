@@ -10,6 +10,20 @@
 
   <h1 class="text-2xl font-bold mb-6">Create Assessment Center</h1>
 
+  <!-- Display form errors -->
+  {% if form.errors %}
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+      <strong>Please correct the following errors:</strong>
+      <ul class="mt-2 list-disc list-inside">
+        {% for field, errors in form.errors.items %}
+          {% for error in errors %}
+            <li>{{ field|title }}: {{ error }}</li>
+          {% endfor %}
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
   <form method="post" class="grid grid-cols-1 md:grid-cols-2 gap-6">
     {% csrf_token %}
 
@@ -18,16 +32,43 @@
       <div>
         <label class="block font-medium mb-1">Center Number</label>
         {{ form.center_number }}
+        {% if form.center_number.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.center_number.help_text }}</p>
+        {% endif %}
+        {% if form.center_number.errors %}
+          <div class="text-red-600 text-sm mt-1">
+            {% for error in form.center_number.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
       </div>
 
       <div>
         <label class="block font-medium mb-1">Assessment Category</label>
         {{ form.category }}
+        {% if form.category.errors %}
+          <div class="text-red-600 text-sm mt-1">
+            {% for error in form.category.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
       </div>
 
       <div>
         <label class="block font-medium mb-1">Village</label>
         {{ form.village }}
+        {% if form.village.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.village.help_text }}</p>
+        {% endif %}
+        {% if form.village.errors %}
+          <div class="text-red-600 text-sm mt-1">
+            {% for error in form.village.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
       </div>
     </div>
 
@@ -36,11 +77,28 @@
       <div>
         <label class="block font-medium mb-1">Center Name</label>
         {{ form.center_name }}
+        {% if form.center_name.help_text %}
+          <p class="text-xs text-gray-500 mt-1">{{ form.center_name.help_text }}</p>
+        {% endif %}
+        {% if form.center_name.errors %}
+          <div class="text-red-600 text-sm mt-1">
+            {% for error in form.center_name.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
       </div>
 
       <div>
         <label class="block font-medium mb-1">District</label>
         {{ form.district }}
+        {% if form.district.errors %}
+          <div class="text-red-600 text-sm mt-1">
+            {% for error in form.district.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
       </div>
 
       <div>

@@ -3638,6 +3638,7 @@ def assessment_center_list(request):
     center_number = request.GET.get('center_number', '').strip()
     center_name = request.GET.get('center_name', '').strip()
     district = request.GET.get('district', '').strip()
+    region = request.GET.get('region', '').strip()
     village = request.GET.get('village', '').strip()
     category = request.GET.get('category', '').strip()
     
@@ -3648,6 +3649,8 @@ def assessment_center_list(request):
         centers = centers.filter(center_name__icontains=center_name)
     if district:
         centers = centers.filter(district__name__icontains=district)
+    if region:
+        centers = centers.filter(district__region=region)
     if village:
         centers = centers.filter(village__name__icontains=village)
     if category:
@@ -3670,6 +3673,102 @@ def assessment_center_list(request):
         'categories': categories,
         'is_center_rep': is_center_rep,
     })
+
+
+@login_required
+def export_centers(request):
+    """Export selected assessment centers to Excel"""
+    if request.method != 'POST':
+        return HttpResponseRedirect(reverse('assessment_center_list'))
+    
+    center_ids = request.POST.getlist('center_ids')
+    if not center_ids:
+        messages.error(request, 'No centers selected for export.')
+        return HttpResponseRedirect(reverse('assessment_center_list'))
+    
+    try:
+        # Get selected centers with related data
+        centers = AssessmentCenter.objects.filter(
+            id__in=center_ids
+        ).select_related('district', 'village', 'category').order_by('center_number')
+        
+        # Create workbook and worksheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Assessment Centers"
+        
+        # Define headers
+        headers = [
+            'Center Number',
+            'Center Name', 
+            'District',
+            'Region',
+            'Village',
+            'Contact',
+            'Assessment Category'
+        ]
+        
+        # Add headers with styling
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Add data rows
+        for row, center in enumerate(centers, 2):
+            # Get region from district (assuming district has region relationship)
+            region_name = getattr(center.district, 'region', 'N/A') if center.district else 'N/A'
+            if hasattr(center.district, 'region') and center.district.region:
+                region_name = center.district.region.name if hasattr(center.district.region, 'name') else str(center.district.region)
+            
+            data = [
+                center.center_number,
+                center.center_name,
+                center.district.name if center.district else 'N/A',
+                region_name,
+                center.village.name if center.village else 'N/A',
+                center.contact or 'N/A',
+                center.category.name if center.category else 'N/A'
+            ]
+            
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.alignment = Alignment(horizontal='left', vertical='center')
+        
+        # Auto-adjust column widths
+        for col in range(1, len(headers) + 1):
+            column_letter = get_column_letter(col)
+            max_length = 0
+            for row in ws[column_letter]:
+                try:
+                    if len(str(row.value)) > max_length:
+                        max_length = len(str(row.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Create response
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+        # Generate filename with timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'assessment_centers_{timestamp}.xlsx'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        # Save workbook to response
+        wb.save(response)
+        
+        messages.success(request, f'Successfully exported {centers.count()} assessment centers to Excel.')
+        return response
+        
+    except Exception as e:
+        messages.error(request, f'Error exporting centers: {str(e)}')
+        return HttpResponseRedirect(reverse('assessment_center_list'))
 
 
 

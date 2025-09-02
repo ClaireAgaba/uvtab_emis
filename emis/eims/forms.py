@@ -136,9 +136,26 @@ class AssessmentCenterForm(forms.ModelForm):
         return center_number
     
     def clean_center_name(self):
-        """Validate center name and warn about potential duplicates"""
+        """Validate center name and format to proper sentence case"""
         center_name = self.cleaned_data.get('center_name')
         if center_name:
+            # Convert to proper sentence case with articles in lowercase
+            words = center_name.strip().split()
+            formatted_words = []
+            
+            # Articles and prepositions to keep lowercase (except at start)
+            lowercase_words = {'in', 'and', 'for', 'of', 'the', 'at', 'on', 'by', 'with', 'to'}
+            
+            for i, word in enumerate(words):
+                if i == 0:  # First word is always capitalized
+                    formatted_words.append(word.capitalize())
+                elif word.lower() in lowercase_words:
+                    formatted_words.append(word.lower())
+                else:
+                    formatted_words.append(word.capitalize())
+            
+            center_name = ' '.join(formatted_words)
+            
             # Check for exact duplicate names (case-insensitive)
             existing_center = AssessmentCenter.objects.filter(center_name__iexact=center_name)
             if self.instance.pk:

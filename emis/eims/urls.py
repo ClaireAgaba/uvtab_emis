@@ -21,6 +21,7 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('admin/fix-photos/', views.fix_all_photos, name='fix_all_photos'),
     path('assessment-centers/', views.assessment_center_list, name='assessment_center_list'),
+    path('assessment-centers/export/', views.export_centers, name='export_centers'),
     #path('assessment-centers/<int:pk>/', views.assessment_center_detail, name='assessment_center_detail'),
     path('assessment-centers/create/', views.assessment_center_create, name='create_assessment_center'),
     path('occupations/', views.occupation_list, name='occupation_list'),

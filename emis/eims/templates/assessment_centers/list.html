@@ -3,10 +3,25 @@
 {% block content %}
 <h2 class="text-2xl font-normal mb-6" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Assessment Centers</h2>
 
-<div class="mb-6">
-    {% if not is_center_rep %}
-      <a href="{% url 'create_assessment_center' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Center</a>
-    {% endif %}
+<div class="mb-6 flex justify-between items-center">
+    <div>
+      {% if not is_center_rep %}
+        <a href="{% url 'create_assessment_center' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Center</a>
+      {% endif %}
+    </div>
+    
+    <!-- Bulk Actions -->
+    <div id="bulk-actions" class="hidden">
+      <div class="flex items-center gap-3">
+        <span id="selection-count" class="text-sm text-gray-600">0 selected</span>
+        <select id="bulk-action-select" class="border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="">Choose Action...</option>
+          <option value="export">Export to Excel</option>
+        </select>
+        <button id="apply-bulk-action" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">Apply</button>
+        <button id="clear-selection" class="bg-gray-500 text-white px-3 py-2 rounded hover:bg-gray-600 text-sm">Clear</button>
+      </div>
+    </div>
   </div>
 
 <!-- Count and Pagination Info -->
@@ -28,9 +43,13 @@
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+            <input type="checkbox" id="select-all" class="rounded">
+          </th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Center Number</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Center Name</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">District</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Region</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Village</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Contact</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Category</th>
@@ -39,6 +58,7 @@
         <tr>
           {% if not is_center_rep %}
           <form method="get">
+            <th class="px-3 py-2"></th>
             <th class="px-3 py-2">
               <input type="text" name="center_number" placeholder="Filter center number" value="{{ request.GET.center_number }}" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
             </th>
@@ -47,6 +67,15 @@
             </th>
             <th class="px-3 py-2">
               <input type="text" name="district" placeholder="Filter district" value="{{ request.GET.district }}" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+            </th>
+            <th class="px-3 py-2">
+              <select name="region" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">All Regions</option>
+                <option value="Central" {% if request.GET.region == 'Central' %}selected{% endif %}>Central</option>
+                <option value="Western" {% if request.GET.region == 'Western' %}selected{% endif %}>Western</option>
+                <option value="Eastern" {% if request.GET.region == 'Eastern' %}selected{% endif %}>Eastern</option>
+                <option value="Northern" {% if request.GET.region == 'Northern' %}selected{% endif %}>Northern</option>
+              </select>
             </th>
             <th class="px-3 py-2">
               <input type="text" name="village" placeholder="Filter village" value="{{ request.GET.village }}" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
@@ -70,25 +99,134 @@
             </th>
           </form>
           {% else %}
-            <th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+            <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
           {% endif %}
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for center in centers %}
-        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'assessment_center_view' center.pk %}'">
-          <td class="px-3 py-3 text-sm text-gray-900">{{ center.center_number }}</td>
-          <td class="px-3 py-3 text-sm text-gray-900">{{ center.center_name }}</td>
-          <td class="px-3 py-3 text-sm text-gray-900">{{ center.district.name }}</td>
-          <td class="px-3 py-3 text-sm text-gray-900">{{ center.village.name }}</td>
-          <td class="px-3 py-3 text-sm text-gray-900">{{ center.contact|default:"-" }}</td>
-          <td class="px-3 py-3 text-sm text-gray-900">{{ center.category.name }}</td>
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-3 py-3 text-sm text-gray-900">
+            <input type="checkbox" class="center-checkbox rounded" value="{{ center.pk }}" data-center-number="{{ center.center_number }}" data-center-name="{{ center.center_name }}">
+          </td>
+          <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location='{% url 'assessment_center_view' center.pk %}';">{{ center.center_number }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location='{% url 'assessment_center_view' center.pk %}';">{{ center.center_name }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location='{% url 'assessment_center_view' center.pk %}';">{{ center.district.name }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location='{% url 'assessment_center_view' center.pk %}';">{{ center.district.region }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location='{% url 'assessment_center_view' center.pk %}';">{{ center.village.name }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location='{% url 'assessment_center_view' center.pk %}';">{{ center.contact|default:"-" }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location='{% url 'assessment_center_view' center.pk %}';">{{ center.category.name }}</td>
           <td class="px-3 py-3 text-sm">
-            <a href="{% url 'assessment_center_view' center.pk %}" class="text-blue-600 hover:text-blue-900 font-medium" onclick="event.stopPropagation();">View</a>
+            <a href="{% url 'assessment_center_view' center.pk %}" class="text-blue-600 hover:text-blue-900 font-medium">View</a>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const centerCheckboxes = document.querySelectorAll('.center-checkbox');
+    const bulkActionsDiv = document.getElementById('bulk-actions');
+    const selectionCount = document.getElementById('selection-count');
+    const bulkActionSelect = document.getElementById('bulk-action-select');
+    const applyBulkActionBtn = document.getElementById('apply-bulk-action');
+    const clearSelectionBtn = document.getElementById('clear-selection');
+
+    // Update selection count and show/hide bulk actions
+    function updateBulkActions() {
+        const selectedCheckboxes = document.querySelectorAll('.center-checkbox:checked');
+        const count = selectedCheckboxes.length;
+        
+        selectionCount.textContent = count + ' selected';
+        
+        if (count > 0) {
+            bulkActionsDiv.classList.remove('hidden');
+        } else {
+            bulkActionsDiv.classList.add('hidden');
+            bulkActionSelect.value = '';
+        }
+    }
+
+    // Select all functionality
+    selectAllCheckbox.addEventListener('change', function() {
+        centerCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        updateBulkActions();
+    });
+
+    // Individual checkbox handling
+    centerCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            // Update select all checkbox state
+            const checkedCount = document.querySelectorAll('.center-checkbox:checked').length;
+            selectAllCheckbox.checked = checkedCount === centerCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < centerCheckboxes.length;
+            
+            updateBulkActions();
+        });
+    });
+
+    // Clear selection
+    clearSelectionBtn.addEventListener('click', function() {
+        centerCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        updateBulkActions();
+    });
+
+    // Apply bulk action
+    applyBulkActionBtn.addEventListener('click', function() {
+        const selectedAction = bulkActionSelect.value;
+        const selectedCenters = Array.from(document.querySelectorAll('.center-checkbox:checked')).map(cb => cb.value);
+        
+        if (!selectedAction) {
+            alert('Please select an action first.');
+            return;
+        }
+        
+        if (selectedCenters.length === 0) {
+            alert('Please select at least one center.');
+            return;
+        }
+
+        if (selectedAction === 'export') {
+            // Create form and submit for export
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/eims/assessment-centers/export/';
+            
+            // Add CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            // Add selected center IDs
+            selectedCenters.forEach(centerId => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'center_ids';
+                input.value = centerId;
+                form.appendChild(input);
+            });
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+            
+            // Clear selection after export
+            clearSelectionBtn.click();
+        }
+    });
+});
+</script>
+
 {% endblock %}
