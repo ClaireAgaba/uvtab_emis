@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.db import models
+from django.db.models import Q
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -35,16 +36,20 @@ def uvtab_fees_home(request):
     except CenterRepresentative.DoesNotExist:
         user_center = None
     
-    # Get all enrolled candidates (both paid and unpaid)
+    # Get all billed/enrolled candidates (both paid and unpaid)
+    # Treat Modular candidates with billed count or any module enrollment as billed even without level enrollment
     qs = Candidate.objects.filter(
-        candidatelevel__isnull=False  # Must have level enrollment (been billed)
+        Q(candidatelevel__isnull=False) |
+        Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+        Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+        Q(fees_balance__gt=0)
     )
     if user_center:
         qs = qs.filter(assessment_center=user_center)
     all_enrolled_candidates = qs.distinct()
     
-    # Get ALL enrolled candidates (both paid and unpaid) for dashboard table
-    # Show all candidates with fees
+    # Get ALL enrolled/billed candidates (both paid and unpaid) for dashboard table
+    # Show all candidates who were billed OR currently owe
     all_candidates_with_fees = []
     
     for candidate in all_enrolled_candidates:
@@ -77,16 +82,17 @@ def uvtab_fees_home(request):
         except Exception as e:
             original_fee = candidate.fees_balance
         
-        # Only include candidates who have been billed (original fee > 0)
-        if original_fee > 0:
-            # Determine payment status
-            payment_status = 'Paid' if candidate.fees_balance == 0 else 'Not Paid'
-            
-            all_candidates_with_fees.append({
-                'candidate': candidate,
-                'original_fee': original_fee,
-                'payment_status': payment_status
-            })
+        # If calculated original is 0 but current balance is positive, use current as original for listing purposes
+        if (original_fee or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
+            original_fee = candidate.fees_balance
+
+        # Always include billed/enrolled candidates (both paid and unpaid)
+        payment_status = 'Paid' if candidate.fees_balance == 0 else 'Not Paid'
+        all_candidates_with_fees.append({
+            'candidate': candidate,
+            'original_fee': original_fee,
+            'payment_status': payment_status
+        })
     
     # Sort by original fee (descending)
     all_candidates_with_fees.sort(key=lambda x: x['original_fee'], reverse=True)
@@ -118,8 +124,11 @@ def uvtab_fees_home(request):
             # Calculate what this candidate should be charged based on their enrollment
             if hasattr(candidate, 'calculate_fees_balance'):
                 # Get the original calculated fees (ignoring current balance)
-                original_fee = candidate.calculate_fees_balance()
-                original_billing_total += original_fee
+                orig = candidate.calculate_fees_balance()
+                # If calculated is zero but a current balance exists, fall back to current balance
+                if (orig or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
+                    orig = candidate.fees_balance
+                original_billing_total += orig
             else:
                 # Fallback: if no calculation method, assume current balance is correct
                 # But if balance is 0 and they have enrollments, try to estimate
@@ -325,11 +334,15 @@ def center_fees_list(request):
     # Get ALL candidates who have been enrolled (have level enrollment) - this includes both paid and unpaid
     from django.db.models import Q
     
-    # Simplified approach: Get all candidates who have been enrolled in a level
-    # This includes both those with current fees and those who have been paid
+    # Get all candidates who have been billed or enrolled (level or modular)
     candidates_with_billing = Candidate.objects.filter(
-        candidatelevel__isnull=False,  # Must have level enrollment (been billed)
-        assessment_center__isnull=False  # Must be assigned to a center
+        (
+            Q(candidatelevel__isnull=False) |
+            Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+            Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+            Q(fees_balance__gt=0)
+        ),
+        assessment_center__isnull=False
     )
     try:
         cr = CenterRepresentative.objects.get(user=request.user)
@@ -505,10 +518,14 @@ def center_candidates_report(request, center_id, series_id=None):
     
     try:
         # Get ALL candidates for this center-series combination (both paid and unpaid)
-        # Use the same logic as the modal - get all enrolled candidates
+        # Include: level enrollments, modular billed/enrolled, or any positive fees_balance
         candidates_query = Candidate.objects.filter(
-            assessment_center=center,
-            candidatelevel__isnull=False  # Must have level enrollment (been billed)
+            assessment_center=center
+        ).filter(
+            Q(candidatelevel__isnull=False) |
+            Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+            Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+            Q(fees_balance__gt=0)
         ).distinct().select_related('occupation', 'assessment_series')
         
         if assessment_series:
@@ -531,6 +548,9 @@ def center_candidates_report(request, center_id, series_id=None):
                 if hasattr(candidate, 'calculate_fees_balance'):
                     # Get the original calculated fees (ignoring current balance)
                     original_fee = candidate.calculate_fees_balance()
+                    # Fallback: if calculated is zero but a current balance exists, use current balance
+                    if (original_fee or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
+                        original_fee = candidate.fees_balance
                     original_billing_total += original_fee
                 else:
                     # Fallback: if no calculation method, assume current balance is correct
@@ -571,8 +591,19 @@ def center_candidates_report(request, center_id, series_id=None):
         # Prepare candidate data for invoice
         candidates_data = []
         for candidate in candidates:
+            # Determine original billed amount per candidate
+            try:
+                if hasattr(candidate, 'calculate_fees_balance'):
+                    original_fee_local = candidate.calculate_fees_balance()
+                    if (original_fee_local or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
+                        original_fee_local = candidate.fees_balance
+                else:
+                    original_fee_local = candidate.fees_balance
+            except Exception:
+                original_fee_local = candidate.fees_balance
+
             # Determine payment status
-            payment_status = 'paid' if candidate.fees_balance == 0 and total_bill > 0 else 'unpaid'
+            payment_status = 'paid' if candidate.fees_balance == 0 and float(original_fee_local) > 0 else 'unpaid'
             
             candidates_data.append({
                 'reg_number': candidate.reg_number,
@@ -580,7 +611,7 @@ def center_candidates_report(request, center_id, series_id=None):
                 'occupation': candidate.occupation.name if candidate.occupation else 'N/A',
                 'registration_category': candidate.registration_category or 'N/A',
                 'fees_balance': float(candidate.fees_balance),  # Current balance
-                'original_fee': float(candidate.fees_balance),  # Simplified for now
+                'original_fee': float(original_fee_local),  # Original billed
                 'payment_status': payment_status,
             })
         
@@ -653,8 +684,12 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     # Get ALL candidates for this center-series combination (both paid and unpaid)
     # Use the same logic as the modal - get all enrolled candidates
     candidates_query = Candidate.objects.filter(
-        assessment_center=center,
-        candidatelevel__isnull=False  # Must have level enrollment (been billed)
+        assessment_center=center
+    ).filter(
+        Q(candidatelevel__isnull=False) |
+        Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+        Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+        Q(fees_balance__gt=0)
     ).distinct().select_related('occupation', 'assessment_series')
     
     if assessment_series:
@@ -677,6 +712,9 @@ def generate_pdf_invoice(request, center_id, series_id=None):
             if hasattr(candidate, 'calculate_fees_balance'):
                 # Get the original calculated fees (ignoring current balance)
                 original_fee = candidate.calculate_fees_balance()
+                # Fallback: if calculated is zero but a current balance exists, use current balance
+                if (original_fee or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
+                    original_fee = candidate.fees_balance
                 original_billing_total += original_fee
             else:
                 # Fallback: if no calculation method, assume current balance is correct

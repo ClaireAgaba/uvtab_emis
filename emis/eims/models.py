@@ -676,6 +676,20 @@ class Candidate(models.Model):
         default=0.00,
         help_text="Outstanding fees balance for this candidate"
     )
+    # Modular enrollment choices and billing cache
+    modular_module_count = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        choices=[(1, '1 module'), (2, '2 modules')],
+        help_text="For Modular candidates: center-chosen number of modules to bill (1 or 2)."
+    )
+    modular_billing_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Cached modular billing amount at time of center selection; preserves billing when enrollments are cleared."
+    )
     
     # Document attachments (optional)
     identification_document = models.FileField(
@@ -732,14 +746,38 @@ class Candidate(models.Model):
         total_fees = Decimal('0.00')
         
         if self.registration_category == 'Modular':
-            # For modular candidates: calculate based on modules enrolled (no level enrollment)
-            module_count = self.candidatemodule_set.count()
-            if module_count > 0:
-                # Get the level from the first module (all modules should be from same level)
-                first_module = self.candidatemodule_set.first()
-                if first_module and first_module.module:
-                    level = first_module.module.level
-                    total_fees = level.get_fee_for_registration('Modular', module_count)
+            # Decoupled modular billing: use stored center choice instead of live enrollments
+            selected_count = self.modular_module_count or 0
+            if selected_count in (1, 2):
+                # If we have a cached amount, prefer it to preserve historical billing
+                if self.modular_billing_amount is not None:
+                    total_fees = self.modular_billing_amount
+                else:
+                    # Determine appropriate level for fee lookup
+                    level = None
+                    # 1) If any enrolled module exists, use its level
+                    first_module = self.candidatemodule_set.first()
+                    if first_module and first_module.module:
+                        level = first_module.module.level
+                    # 2) Else, try to fetch Level 1 (or first configured level) for the occupation
+                    if level is None and self.occupation_id:
+                        try:
+                            from .models import OccupationLevel
+                            occ_levels = OccupationLevel.objects.filter(occupation=self.occupation).select_related('level')
+                            # Prefer a level whose name contains '1'
+                            level1 = next((ol.level for ol in occ_levels if '1' in str(ol.level.name)), None)
+                            level = level1 or (occ_levels.first().level if occ_levels.exists() else None)
+                        except Exception:
+                            level = None
+                    if level is not None:
+                        total_fees = level.get_fee_for_registration('Modular', selected_count)
+                    # Cache the computed amount to modular_billing_amount so it persists
+                    try:
+                        from decimal import Decimal
+                        self.modular_billing_amount = Decimal(total_fees)
+                        # Avoid recursive save during calculate; caller update_fees_balance will save
+                    except Exception:
+                        pass
                     
         elif self.registration_category == 'Formal':
             # For formal candidates: calculate based on level enrolled

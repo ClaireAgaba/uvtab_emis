@@ -744,23 +744,6 @@ class CandidateForm(forms.ModelForm):
 
         structure_type = occ_level.structure_type if occ_level else None
 
-        if reg_cat and str(reg_cat).lower() == 'modular':
-            if not occupation.has_modular:
-                raise forms.ValidationError("This occupation does not allow Modular registration.")
-            if structure_type == 'papers':
-                raise forms.ValidationError("Modular candidates cannot register for paper-based levels.")
-            if level and level.name != 'Level 1':
-                raise forms.ValidationError("Modular candidates can only register for Level 1.")
-            if modules.count() == 0 or modules.count() > 2:
-                raise forms.ValidationError("Modular candidates must select 1 or 2 modules only.")
-        elif reg_cat and str(reg_cat).lower() == 'formal':
-            if modules is not None and hasattr(modules, 'exists') and modules.exists():
-                raise forms.ValidationError("Formal candidates should not select modules.")
-        elif reg_cat and str(reg_cat).lower() == 'informal':
-            if structure_type == 'papers':
-                raise forms.ValidationError("Informal candidates cannot be registered for paper-based levels.")
-
-        return cleaned_data
 
 
 # forms.py  (only the EnrollmentForm needs to change)
@@ -870,6 +853,11 @@ class EnrollmentForm(forms.Form):
                     
                     help_text = f"Select 1-2 modules to enroll in. "
                     help_text += f"Currently enrolled: {enrolled_count}/{total_count} modules. "
+                    # If billed, show remaining slots
+                    chosen = getattr(candidate, 'modular_module_count', None)
+                    if chosen in (1, 2):
+                        remaining = max(0, chosen - enrolled_count)
+                        help_text += f"Remaining allowed by billing: {remaining} module(s). "
                     
                     if not can_enroll_more:
                         help_text += "You have reached the maximum concurrent enrollments (2 modules)."
@@ -1025,6 +1013,41 @@ class EnrollmentForm(forms.Form):
         # Validate that assessment series is selected
         if not assessment_series:
             raise forms.ValidationError("Please select an Assessment Series for this enrollment.")
+
+        # Modular: enforce billed count and selection size (server-side)
+        if reg_cat == 'modular' and occupation:
+            modules = cleaned_data.get('modules')
+            if modules is None:
+                selected = 0
+            else:
+                try:
+                    selected = modules.count()
+                except Exception:
+                    # modules may be a list-like
+                    try:
+                        selected = len(modules)
+                    except Exception:
+                        selected = 0
+            chosen = getattr(self.candidate, 'modular_module_count', None)
+            already_enrolled = 0
+            try:
+                already_enrolled = self.candidate.get_enrolled_modules().count()
+            except Exception:
+                pass
+            if chosen in (1, 2):
+                remaining = chosen - already_enrolled
+                if remaining <= 0:
+                    raise forms.ValidationError(
+                        "This candidate has already enrolled in the maximum number of modules billed by the center."
+                    )
+                if selected == 0 or selected > remaining:
+                    raise forms.ValidationError(
+                        f"You can only enroll up to {remaining} remaining module(s) for this candidate."
+                    )
+            else:
+                # Fallback: ensure 1 or 2 on first-time without billed count
+                if selected == 0 or selected > 2:
+                    raise forms.ValidationError("Modular candidates must select 1 or 2 modules only.")
         
         # Informal/worker's PAS: require minimum 2 and maximum 4 papers across all levels and modules
         if self.is_informal and occupation:

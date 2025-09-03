@@ -127,15 +127,32 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       Also hide enroll buttons for candidate portal
       {% endcomment %}
       {% if not is_candidate_portal %}
-        {% if candidate.registration_category != 'Formal' or not candidate.candidatelevel_set.exists %}
-        <a href="{% url 'enroll_candidate' candidate.id %}" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition" title="Enroll candidate">
-           Enroll
-        </a>
+        {% if is_center_rep %}
+          {% comment %} For centers: lock Enroll for Modular if any modules already enrolled; and for Formal if a level already enrolled {% endcomment %}
+          {% if candidate.registration_category == 'Modular' and candidate.candidatemodule_set.all|length > 0 %}
+            <span class="flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded shadow cursor-not-allowed" title="Center cannot enroll after modules have been added">
+               Enroll (Locked)
+            </span>
+          {% elif candidate.registration_category == 'Formal' and candidate.candidatelevel_set.exists %}
+            <span class="flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded shadow cursor-not-allowed" title="Formal candidates can only enroll in one level">
+               Already Enrolled
+            </span>
+          {% else %}
+            <a href="{% url 'enroll_candidate' candidate.id %}" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition" title="Enroll candidate">
+               Enroll
+            </a>
+          {% endif %}
         {% else %}
-        <!-- Formal candidate already enrolled - show disabled button with explanation -->
-        <span class="flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded shadow cursor-not-allowed" title="Formal candidates can only enroll in one level">
-           Already Enrolled
-        </span>
+          {% if candidate.registration_category != 'Formal' or not candidate.candidatelevel_set.exists %}
+          <a href="{% url 'enroll_candidate' candidate.id %}" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition" title="Enroll candidate">
+             Enroll
+          </a>
+          {% else %}
+          <!-- Formal candidate already enrolled - show disabled button with explanation -->
+          <span class="flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded shadow cursor-not-allowed" title="Formal candidates can only enroll in one level">
+             Already Enrolled
+          </span>
+          {% endif %}
         {% endif %}
       {% endif %}
       <!-- Hide edit/testimonial buttons for candidate portal -->

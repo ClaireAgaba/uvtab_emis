@@ -84,6 +84,15 @@
         <div id="bulk-informal-modules-papers" class="hidden w-full sm:w-auto" style="min-width:240px; max-width:100%; max-height:320px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
         <!-- Module selector for Modular bulk enroll -->
         <div id="bulk-module-checkboxes" class="hidden w-full sm:w-auto" style="min-width:240px; min-height:120px; max-height:240px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
+        <!-- Simple module count for Modular (center billing flow) -->
+        <div id="bulk-module-count" class="hidden w-full sm:w-auto" style="min-width:180px;">
+          <label for="bulk-module-count-select" class="block text-xs font-semibold text-gray-700 mb-1">Number of Modules:</label>
+          <select id="bulk-module-count-select" class="border px-3 py-2 rounded w-full text-sm touch-target">
+            <option value="">Select</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+          </select>
+        </div>
         <button id="bulk-action-apply" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm touch-target">Apply</button>
       </div>
     </div>
@@ -335,17 +344,17 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for candidate in candidates %}
-        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'candidate_view' candidate.id %}';">
+        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" data-href="{% url 'candidate_view' candidate.id %}">
           <td class="px-2 py-3 text-center">
-            <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}" onclick="event.stopPropagation();">
+            <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}">
           </td>
           <td class="px-3 py-3">
             <div class="flex flex-col items-center w-32 mx-auto">
               {# Show regno-stamped photo if available, else fallback to original, else show No photo #}
               {% if candidate.passport_photo_with_regno %}
-                <img src="{{ candidate.passport_photo_with_regno.url }}" alt="Candidate Photo with Regno" class="h-32 w-32 object-cover rounded" onclick="event.stopPropagation();" />
+                <img src="{{ candidate.passport_photo_with_regno.url }}" alt="Candidate Photo with Regno" class="h-32 w-32 object-cover rounded" />
               {% elif candidate.passport_photo %}
-                <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-32 w-32 object-cover rounded" onclick="event.stopPropagation();" />
+                <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-32 w-32 object-cover rounded" />
               {% else %}
                 <div class="h-32 w-32 flex items-center justify-center bg-gray-100 text-gray-400 rounded border">No photo</div>
               {% endif %}
@@ -401,7 +410,7 @@
             <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">{{ candidate.status }}</span>
           </td>
           <td class="px-3 py-3 text-sm">
-            <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:text-blue-900 font-medium" onclick="event.stopPropagation();">View</a>
+            <a href="{% url 'candidate_view' candidate.id %}" class="text-blue-600 hover:text-blue-900 font-medium">View</a>
           </td>
         </tr>
         {% empty %}
@@ -414,6 +423,9 @@
   </div>
 </div>
 
+<!-- Page flags for JS (avoid inline template logic inside JS to satisfy linters) -->
+<span id="page-flags" data-uvtstaff="{% if request.user.is_superuser or request.user.is_staff or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}true{% else %}false{% endif %}" class="hidden"></span>
+
 <script>
 // Bulk select logic
 const selectAll = document.getElementById('select-all');
@@ -422,6 +434,22 @@ const bulkBar = document.getElementById('bulk-action-bar');
 const bulkApply = document.getElementById('bulk-action-apply');
 const bulkSelect = document.getElementById('bulk-action-select');
 const bulkError = document.getElementById('bulk-action-error');
+// Flag: treat Admin/IT/Data/Superusers/Staff as UVTAB staff for detailed modular flow
+const isUvtStaff = (document.getElementById('page-flags')?.dataset?.uvtstaff === 'true');
+
+// Delegated row click navigation (ignore clicks on interactive elements)
+document.addEventListener('click', function(e) {
+  const target = e.target;
+  // Ignore if clicking interactive elements or inside them
+  const interactiveSelectors = 'a, button, input, select, textarea, label, [role="button"]';
+  if (target.closest(interactiveSelectors)) {
+    return; // let default behavior happen
+  }
+  const row = target.closest('tr.cursor-pointer');
+  if (row && row.dataset && row.dataset.href) {
+    window.location = row.dataset.href;
+  }
+});
 
 // Bulk Mark as Disabled modal logic
 const bulkMarkDisabledModal = document.getElementById('bulk-mark-disabled-modal');
@@ -786,6 +814,8 @@ checkboxes.forEach(cb => {
 
 // --- Bulk Modular Module Selection Logic (with checkboxes) ---
 const bulkModuleBox = document.getElementById('bulk-module-checkboxes');
+const bulkModuleCount = document.getElementById('bulk-module-count');
+const bulkModuleCountSelect = document.getElementById('bulk-module-count-select');
 const bulkLevelWrapper = document.getElementById('bulk-level-select-wrapper');
 const bulkLevelSelect = document.getElementById('bulk-level-select');
 const bulkInformalBox = document.getElementById('bulk-informal-modules-papers');
@@ -958,6 +988,7 @@ function updateBulkSelectors() {
     bulkLevelSelect.innerHTML = '';
     bulkInformalBox.classList.add('hidden');
     bulkInformalBox.innerHTML = '';
+    bulkModuleCount.classList.add('hidden');
     return;
   }
   // Determine regcat and occupation
@@ -970,9 +1001,10 @@ function updateBulkSelectors() {
     bulkLevelSelect.innerHTML = '';
     bulkInformalBox.classList.add('hidden');
     bulkInformalBox.innerHTML = '';
+    bulkModuleCount.classList.add('hidden');
     return;
   }
-  if (regcat === 'Formal' || regcat === 'Informal' || regcat === "Worker's PAS" || regcat === 'Modular') {
+  if (regcat === 'Formal' || regcat === 'Informal' || regcat === "Worker's PAS" || (regcat === 'Modular' && isUvtStaff)) {
     // Show assessment series dropdown
     bulkAssessmentSeriesWrapper.classList.remove('hidden');
     fetch('/eims/api/assessment-series/', {
@@ -1068,17 +1100,44 @@ function updateBulkSelectors() {
             bulkLevelWrapper.classList.remove('hidden');
           });
         };
+      } else if (regcat === 'Modular' && isUvtStaff) {
+        // Staff modular: allow selecting module_count for billing first, then series/modules
+        // Always show simple module count selector for staff
+        bulkModuleCount.classList.remove('hidden');
+        // After selecting series, show module checkboxes (max equals selected module_count)
+        bulkAssessmentSeriesSelect.onchange = function() {
+          const assessmentSeriesId = bulkAssessmentSeriesSelect.value;
+          if (!assessmentSeriesId) {
+            bulkModuleBox.classList.add('hidden');
+            bulkModuleBox.innerHTML = '';
+            return;
+          }
+          updateBulkModuleSelector(); // fetch and show module checkboxes
+          // Keep module count visible for staff to constrain selections
+          bulkModuleCount.classList.remove('hidden');
+        };
+        if (bulkAssessmentSeriesSelect.value) {
+          bulkAssessmentSeriesSelect.dispatchEvent(new Event('change'));
+        }
       } else {
-        // For Modular: Assessment Series selection only (no level selector needed)
-        bulkAssessmentSeriesSelect.onchange = null;
+        // Modular: no assessment series and no level selector needed for center flow
+        bulkAssessmentSeriesWrapper.classList.add('hidden');
+        bulkAssessmentSeriesSelect.innerHTML = '';
         bulkLevelWrapper.classList.add('hidden');
         bulkLevelSelect.innerHTML = '';
         bulkInformalBox.classList.add('hidden');
         bulkInformalBox.innerHTML = '';
+        // Show simple module count selector for Modular
+        const {regcat: r2} = getBulkRegcatAndOcc();
+        if (r2 === 'Modular' && !isUvtStaff) {
+          bulkModuleCount.classList.remove('hidden');
+        } else {
+          bulkModuleCount.classList.add('hidden');
+        }
       }
     })
     .catch(() => {
-      bulkAssessmentSeriesSelect.innerHTML = '';
+      bulkError.textContent = 'Failed to load assessment series.';
     });
   } else {
     bulkAssessmentSeriesWrapper.classList.add('hidden');
@@ -1087,6 +1146,13 @@ function updateBulkSelectors() {
     bulkLevelSelect.innerHTML = '';
     bulkInformalBox.classList.add('hidden');
     bulkInformalBox.innerHTML = '';
+    // Show simple module count selector for Modular
+    const {regcat: r2} = getBulkRegcatAndOcc();
+    if (r2 === 'Modular' && !isUvtStaff) {
+      bulkModuleCount.classList.remove('hidden');
+    } else {
+      bulkModuleCount.classList.add('hidden');
+    }
   }
 }
 
@@ -1112,12 +1178,23 @@ function fetchModulesForCandidates(candidateIds, callback) {
 function updateBulkModuleSelector() {
   const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
   if (bulkSelect.value === 'enroll' && checked.length > 0) {
+    // Skip fetching modules for Modular center flow
+    const {regcat} = getBulkRegcatAndOcc();
+    if (regcat === 'Modular' && !isUvtStaff) {
+      bulkModuleBox.innerHTML = '';
+      bulkModuleBox.classList.add('hidden');
+      return;
+    }
     fetchModulesForCandidates(checked.map(cb => cb.value), function(data) {
       // --- Debug: log backend response ---
       console.log('[BULK ENROLL][MODULES RESPONSE]', data);
       // Store the returned level_id for use in bulk enroll POST
       window.bulkModularLevelId = data.level_id || null;
       if (data.success && data.modules && data.modules.length > 0) {
+        // Prefill module_count if backend suggested
+        if (data.suggested_count && bulkModuleCountSelect) {
+          bulkModuleCountSelect.value = String(data.suggested_count);
+        }
         bulkModuleBox.innerHTML = '<div class="font-semibold mb-2 text-gray-800">Select Modules (max 2):</div>';
         data.modules.forEach(m => {
           const id = 'bulkmod_' + m.id;
@@ -1144,10 +1221,29 @@ function updateBulkModuleSelector() {
           });
         });
         // --- Ensure module box is visible ---
-        bulkModuleBox.classList.remove('hidden');
+        // Show for:
+        // - Non-Modular categories (Formal when showing papers)
+        // - Modular staff detailed path (isUvtStaff true)
+        // Hide only for Modular center simple flow
+        const {regcat} = getBulkRegcatAndOcc();
+        if ((regcat && regcat !== 'Modular') || (regcat === 'Modular' && isUvtStaff)) {
+          bulkModuleBox.classList.remove('hidden');
+        } else {
+          bulkModuleBox.classList.add('hidden');
+        }
       } else {
-        bulkModuleBox.innerHTML = '';
-        bulkModuleBox.classList.add('hidden');
+        const {regcat} = getBulkRegcatAndOcc();
+        if (regcat === 'Modular' && isUvtStaff) {
+          // Show helpful message to staff users if backend didn't return modules
+          const errMsg = (data && data.error) ? data.error : 'No modules available for the selected occupation/level.';
+          bulkModuleBox.innerHTML = `<div class="text-sm text-gray-600">${errMsg}</div>`;
+          bulkModuleBox.classList.remove('hidden');
+          // Also surface in the error area
+          bulkError.textContent = errMsg;
+        } else {
+          bulkModuleBox.innerHTML = '';
+          bulkModuleBox.classList.add('hidden');
+        }
       }
     });
   } else {
@@ -1444,14 +1540,6 @@ bulkApply && bulkApply.addEventListener('click', function() {
   let levelId = null;
   let paperIds = [];
   let assessmentSeriesId = null;
-  // Check if assessment series selector is visible
-  if (!bulkAssessmentSeriesWrapper.classList.contains('hidden')) {
-    assessmentSeriesId = bulkAssessmentSeriesSelect.value;
-    if (!assessmentSeriesId) {
-      bulkError.textContent = 'Please select an assessment series.';
-      return;
-    }
-  }
   // Check if level selector is visible
   if (!bulkLevelWrapper.classList.contains('hidden')) {
     levelId = bulkLevelSelect.value;
@@ -1483,11 +1571,44 @@ bulkApply && bulkApply.addEventListener('click', function() {
       return;
     }
   }
-  if (!bulkModuleBox.classList.contains('hidden') && bulkSelect.value === 'enroll') {
-    moduleIds = Array.from(bulkModuleBox.querySelectorAll('.bulk-module-checkbox:checked')).map(cb => cb.value);
-    if (moduleIds.length < 1 || moduleIds.length > 2) {
-      bulkError.textContent = 'Select 1 or 2 modules.';
-      return;
+  if (bulkSelect.value === 'enroll') {
+    // Determine regcat early
+    const {regcat} = getBulkRegcatAndOcc();
+    // Gather module IDs if module box visible (staff detailed path)
+    if (!bulkModuleBox.classList.contains('hidden')) {
+      moduleIds = Array.from(bulkModuleBox.querySelectorAll('.bulk-module-checkbox:checked')).map(cb => cb.value);
+    }
+    // Assessment series: required for non-Modular OR when specific modules are being enrolled
+    if (!bulkAssessmentSeriesWrapper.classList.contains('hidden')) {
+      assessmentSeriesId = bulkAssessmentSeriesSelect.value;
+      if (regcat !== 'Modular' && !assessmentSeriesId) {
+        bulkError.textContent = 'Please select an assessment series.';
+        return;
+      }
+      if (regcat === 'Modular' && moduleIds.length > 0 && !assessmentSeriesId) {
+        bulkError.textContent = 'Please select an assessment series for selected modules.';
+        return;
+      }
+    }
+    // Modular flow: allow module_count without specific modules (for centers and staff)
+    if (regcat === 'Modular') {
+      const mc = parseInt(bulkModuleCountSelect.value || '0', 10);
+      if (moduleIds.length === 0) {
+        if (![1,2].includes(mc)) {
+          bulkError.textContent = 'Please select number of modules (1 or 2).';
+          return;
+        }
+      } else {
+        // If modules provided, enforce they match selected count
+        if (![1,2].includes(mc)) {
+          bulkError.textContent = 'Please select number of modules (1 or 2).';
+          return;
+        }
+        if (moduleIds.length !== mc) {
+          bulkError.textContent = `You selected ${moduleIds.length} module(s). Please set "Number of Modules" to ${moduleIds.length}.`;
+          return;
+        }
+      }
     }
   }
   // Handle export actions
@@ -1596,6 +1717,7 @@ bulkApply && bulkApply.addEventListener('click', function() {
       candidate_ids: checked.map(cb => cb.value),
       module_ids: moduleIds,
       level_id: (bulkSelect.value === 'enroll' && document.getElementById('bulk-module-checkboxes') && window.bulkModularLevelId) ? window.bulkModularLevelId : levelId,
+      module_count: (function(){ const {regcat}=getBulkRegcatAndOcc(); return regcat==='Modular' && (!moduleIds || moduleIds.length===0) ? parseInt(bulkModuleCountSelect.value||'0',10) : null; })(),
       paper_ids: paperIds,
       assessment_series_id: assessmentSeriesId
     })

@@ -30,22 +30,49 @@
     {% csrf_token %}
     {% csrf_token %}
 
-<!-- ASSESSMENT SERIES: Required selection -->
-<div class="mb-6">
-  <label for="{{ form.assessment_series.id_for_label }}" class="block font-semibold mb-1">Assessment Series: <span class="text-red-500">*</span></label>
-  {{ form.assessment_series }}
-  {% if form.assessment_series.help_text %}
-    <p class="text-sm text-gray-600 mt-1">{{ form.assessment_series.help_text }}</p>
-  {% endif %}
-  {% if form.assessment_series.errors %}
-    <div class="text-red-600 text-sm mt-1">
-      {% for error in form.assessment_series.errors %}
-        <p>{{ error }}</p>
-      {% endfor %}
+    {% if candidate.registration_category == 'Modular' %}
+    <div class="mb-6">
+      <label class="block font-semibold mb-1">Module Number selection</label>
+      <div class="flex items-center space-x-6">
+        <label class="inline-flex items-center space-x-2">
+          <input type="radio" name="modular_module_count" value="1" class="h-4 w-4"
+                 {% if candidate.modular_module_count == 1 %}checked{% endif %}>
+          <span>1 module</span>
+        </label>
+        <label class="inline-flex items-center space-x-2">
+          <input type="radio" name="modular_module_count" value="2" class="h-4 w-4"
+                 {% if candidate.modular_module_count == 2 %}checked{% endif %}>
+          <span>2 modules</span>
+        </label>
+      </div>
+      {% with already_enrolled_count=candidate.candidatemodule_set.count %}
+      <p id="modular-remaining-note" class="mt-3 text-sm text-red-600 font-medium">
+        Select 1 or 2 modules above. The remaining allowable modules will update here.
+      </p>
+      <span id="already-enrolled-count" data-count="{{ already_enrolled_count }}" hidden></span>
+      {% endwith %}
     </div>
-  {% endif %}
-</div>
+    {% endif %}
 
+    {% if not is_center_rep or candidate.registration_category != 'Modular' %}
+    <!-- ASSESSMENT SERIES: Required selection -->
+    <div class="mb-6">
+      <label for="{{ form.assessment_series.id_for_label }}" class="block font-semibold mb-1">Assessment Series: <span class="text-red-500">*</span></label>
+      {{ form.assessment_series }}
+      {% if form.assessment_series.help_text %}
+        <p class="text-sm text-gray-600 mt-1">{{ form.assessment_series.help_text }}</p>
+      {% endif %}
+      {% if form.assessment_series.errors %}
+        <div class="text-red-600 text-sm mt-1">
+          {% for error in form.assessment_series.errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if not is_center_rep or candidate.registration_category != 'Modular' %}
     <!-- LEVEL: Either dropdown or read-only note -->
     <div class="mb-6">
       {% if form.level %}
@@ -70,6 +97,7 @@
         {% endif %}
       {% endif %}
     </div>
+    {% endif %}
 
     <!-- CROSS-LEVEL PAPERS: For worker's PAS/informal, display all levels with modules and papers -->
     {% if form.level_module_data %}
@@ -157,6 +185,7 @@
         </div>
       </div>
     {% elif form.modules %}
+      {% if not is_center_rep or candidate.registration_category != 'Modular' %}
       <div class="mb-8">
         <label class="font-semibold text-lg block mb-2">Select Modules:</label>
         <table class="min-w-full border border-gray-400 rounded">
@@ -177,6 +206,7 @@
           </tbody>
         </table>
       </div>
+      {% endif %}
     {% endif %}
 
     <div class="flex justify-center">
@@ -286,25 +316,63 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"][name^="modules"]'));
-    // Only restrict for Modular candidates
     const regCat = '{{ candidate.registration_category|escapejs }}';
-    function updateCheckboxes() {
+    const radios = Array.from(document.querySelectorAll('input[type="radio"][name="modular_module_count"]'));
+    const alreadyEnrolledEl = document.getElementById('already-enrolled-count');
+    const remainingNote = document.getElementById('modular-remaining-note');
+    const alreadyEnrolled = alreadyEnrolledEl ? parseInt(alreadyEnrolledEl.getAttribute('data-count') || '0', 10) : 0;
+
+    function selectedModuleCount() {
+      const r = radios.find(x => x.checked);
+      if (!r) return 2; // default cap
+      const v = parseInt(r.value, 10);
+      return (v === 1 || v === 2) ? v : 2;
+    }
+
+    function allowedToSelectNow() {
+      const allowed = selectedModuleCount();
+      const remaining = Math.max(0, allowed - alreadyEnrolled);
+      return { allowed, remaining };
+    }
+
+    function updateRemainingNote() {
+      if (!remainingNote) return;
+      const info = allowedToSelectNow();
       if (regCat === 'Modular') {
-        const checked = checkboxes.filter(cb => cb.checked);
-        if (checked.length >= 2) {
-          checkboxes.forEach(cb => {
-            if (!cb.checked) cb.disabled = true;
-          });
-        } else {
-          checkboxes.forEach(cb => cb.disabled = false);
+        if (radios.length) {
+          remainingNote.textContent = `You can only enroll up to ${info.remaining} remaining module(s) for this candidate.`;
         }
-      } else {
-        // For Informal/Workers PAS: never disable
-        checkboxes.forEach(cb => cb.disabled = false);
       }
     }
+
+    function updateCheckboxes() {
+      if (regCat !== 'Modular') {
+        checkboxes.forEach(cb => cb.disabled = false);
+        return;
+      }
+      const info = allowedToSelectNow();
+      const checked = checkboxes.filter(cb => cb.checked);
+      // If over limit due to radio change, uncheck extras
+      if (checked.length > info.remaining) {
+        // Uncheck excess starting from the last checked
+        const extras = checked.slice(info.remaining);
+        extras.forEach(cb => cb.checked = false);
+      }
+      const newChecked = checkboxes.filter(cb => cb.checked);
+      if (newChecked.length >= info.remaining) {
+        checkboxes.forEach(cb => { if (!cb.checked) cb.disabled = true; });
+      } else {
+        checkboxes.forEach(cb => cb.disabled = false);
+      }
+      updateRemainingNote();
+    }
+
+    // Events
     checkboxes.forEach(cb => cb.addEventListener('change', updateCheckboxes));
-    updateCheckboxes(); // initialize on load
+    radios.forEach(r => r.addEventListener('change', updateCheckboxes));
+
+    // Init
+    updateCheckboxes();
   });
 </script>
 {% endblock %}

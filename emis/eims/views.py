@@ -2592,12 +2592,34 @@ def bulk_candidate_modules(request):
     level_name = f"Level 1 {occupation.code}"
     level = Level.objects.filter(name=level_name, occupation_id=occupation_id).first()
     print(f"[DEBUG] Occupation: {occupation.name} ({occupation.code}), Looking for level: '{level_name}', Found: {level.id if level else None}")
+    # Fallbacks if exact name not found
     if not level:
-        return JsonResponse({'success': False, 'error': 'Level 1 not found.'}, status=400)
+        level = Level.objects.filter(occupation_id=occupation_id, number=1).first() if hasattr(Level, 'number') else None
+        print(f"[DEBUG] Fallback by number=1 -> {level.id if level else None}")
+    if not level:
+        level = Level.objects.filter(occupation_id=occupation_id, name__icontains='Level 1').first()
+        print(f"[DEBUG] Fallback by name icontains 'Level 1' -> {level.id if level else None}")
+    if not level:
+        level = Level.objects.filter(occupation_id=occupation_id).order_by('id').first()
+        print(f"[DEBUG] Fallback to first level for occupation -> {level.id if level else None}")
+    if not level:
+        return JsonResponse({'success': False, 'error': 'No level found for occupation.'}, status=400)
     modules = Module.objects.filter(occupation_id=occupation_id, level=level)
     module_list = [{'id': m.id, 'name': m.name, 'code': getattr(m, 'code', '')} for m in modules]
-    print(f"[DEBUG] Returning module_list: {module_list}")
-    return JsonResponse({'success': True, 'modules': module_list, 'level_id': level.id})
+    # Determine suggested module count if all selected candidates share the same pre-selected center count
+    counts = set()
+    for c in candidates:
+        try:
+            counts.add(getattr(c, 'modular_module_count', None))
+        except Exception:
+            counts.add(None)
+    suggested_count = None
+    if len(counts) == 1:
+        val = list(counts)[0]
+        if val in (1, 2):
+            suggested_count = val
+    print(f"[DEBUG] Returning module_list: {module_list}, suggested_count: {suggested_count}")
+    return JsonResponse({'success': True, 'modules': module_list, 'level_id': level.id, 'suggested_count': suggested_count})
 
 @login_required
 @require_POST
@@ -2642,13 +2664,21 @@ def bulk_candidate_action(request):
         regcat = regcats.pop()
     
         # Validate Assessment Series selection
-        if not assessment_series_id:
-            return JsonResponse({'success': False, 'error': 'Assessment Series is required for bulk enrollment.'}, status=400)
-    
-        try:
-            assessment_series = AssessmentSeries.objects.get(id=assessment_series_id)
-        except AssessmentSeries.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Invalid Assessment Series selected.'}, status=400)
+        # For Modular center flow with simple billing by module_count (no module_ids), assessment series is NOT required.
+        require_series = True
+        if regcat == 'modular':
+            # If no specific modules are being enrolled (center simple billing), skip series requirement
+            if not module_ids:
+                require_series = False
+        if require_series:
+            if not assessment_series_id:
+                return JsonResponse({'success': False, 'error': 'Assessment Series is required for bulk enrollment.'}, status=400)
+            try:
+                assessment_series = AssessmentSeries.objects.get(id=assessment_series_id)
+            except AssessmentSeries.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Invalid Assessment Series selected.'}, status=400)
+        else:
+            assessment_series = None
     
         from .models import Level, Module, Paper, CandidateLevel, CandidateModule, CandidatePaper, Result
         enrolled = 0
@@ -2852,12 +2882,64 @@ def bulk_candidate_action(request):
         
         # --- MODULAR ---
         elif regcat == 'modular':
+            # Support 2 flows:
+            # A) Simple billing using module_count (no assessment series, no specific modules) – for centers
+            # B) Existing path using module_ids + assessment_series – for detailed enrollment
+            occupation_id = occupations.pop()
+            # Determine Level 1 for this occupation
+            occ = Occupation.objects.get(id=occupation_id)
+            lvl = Level.objects.filter(name__iexact=f"Level 1 {occ.code}", occupation_id=occupation_id).first()
+            if not lvl:
+                # Fallback: any level containing '1' for this occupation
+                lvl = Level.objects.filter(occupation_id=occupation_id, name__icontains='1').first()
+            if not lvl:
+                return JsonResponse({'success': False, 'error': 'Level 1 not found for this occupation.'}, status=400)
+
+            module_count = data.get('module_count')
+            try:
+                module_count = int(module_count) if module_count is not None else None
+            except (TypeError, ValueError):
+                module_count = None
+
+            if module_count in (1, 2) and not module_ids:
+                # Flow A: Bill per candidate based on module_count; do not create enrollments; no series needed
+                try:
+                    amount = lvl.get_fee_for_registration('Modular', module_count)
+                except Exception:
+                    amount = getattr(lvl, 'modular_fee_double', 0) if module_count == 2 else getattr(lvl, 'modular_fee_single', 0)
+                updated = 0
+                for c in candidates:
+                    if hasattr(c, 'modular_module_count'):
+                        c.modular_module_count = module_count
+                    if hasattr(c, 'modular_billing_amount'):
+                        c.modular_billing_amount = amount
+                    if hasattr(c, 'calculate_fees_balance'):
+                        c.fees_balance = c.calculate_fees_balance()
+                    c.save()
+                    updated += 1
+                return JsonResponse({'success': True, 'message': f'Billed {updated} modular candidate' + ('' if updated == 1 else 's') + f' for {module_count} module' + ('' if module_count == 1 else 's') + '.'})
+
+            # Flow B: original detailed module enrollment if module_ids provided
             print(f"[DEBUG] Modular enrollment - module_ids: {module_ids}, len: {len(module_ids)}")
             if not (1 <= len(module_ids) <= 2):
                 return JsonResponse({'success': False, 'error': 'Select 1 or 2 modules.'}, status=400)
-            occupation_id = occupations.pop()
-            print(f"[DEBUG] Occupation ID: {occupation_id}, Level ID: {level_id}")
-            level = Level.objects.filter(id=level_id).first() if level_id else Level.objects.filter(name__icontains='1').first()
+            # Enforce selected module count matches chosen/billed module_count when available
+            chosen_count = data.get('module_count')
+            try:
+                chosen_count = int(chosen_count) if chosen_count is not None else None
+            except (TypeError, ValueError):
+                chosen_count = None
+            if chosen_count not in (1, 2):
+                # Try infer from candidates if they all share the same pre-selected count
+                candidate_counts = set(getattr(c, 'modular_module_count', None) for c in candidates)
+                if len(candidate_counts) == 1:
+                    only = list(candidate_counts)[0]
+                    if only in (1, 2):
+                        chosen_count = only
+            if chosen_count in (1, 2) and len(module_ids) != chosen_count:
+                return JsonResponse({'success': False, 'error': f'Please select exactly {chosen_count} module' + ('' if chosen_count == 1 else 's') + '.'}, status=400)
+            # Determine level to use (respect incoming level_id if present)
+            level = Level.objects.filter(id=level_id).first() if level_id else lvl
             print(f"[DEBUG] Found level: {level}")
             if not level:
                 return JsonResponse({'success': False, 'error': 'Level not found.'}, status=400)
@@ -2865,7 +2947,6 @@ def bulk_candidate_action(request):
             print(f"[DEBUG] Found modules: {modules.count()}/{len(module_ids)} - {list(modules.values_list('name', flat=True))}")
             if modules.count() != len(module_ids):
                 return JsonResponse({'success': False, 'error': 'Invalid module selection.'}, status=400)
-            
             # Check for already enrolled candidates in any of the selected modules
             already_enrolled = []
             for c in candidates:
@@ -2873,28 +2954,32 @@ def bulk_candidate_action(request):
                 if existing_modules.exists():
                     module_names = [em.module.name for em in existing_modules]
                     already_enrolled.append(f"{c.full_name} ({c.reg_number}) - {', '.join(module_names)}")
-            
             if already_enrolled:
                 error_msg = f"The following candidates are already enrolled in selected modules: {'; '.join(already_enrolled[:3])}"
                 if len(already_enrolled) > 3:
                     error_msg += f" and {len(already_enrolled) - 3} more candidates."
                 return JsonResponse({'success': False, 'error': error_msg})
-            
             # Proceed with enrollment only if no duplicates
             for c in candidates:
-                # Don't delete existing modules, just add new ones
                 for m in modules:
-                    CandidateModule.objects.create(
-                        candidate=c, 
-                        module=m,
-                        assessment_series=assessment_series
-                    )
-                # Update candidate's assessment series
+                    CandidateModule.objects.create(candidate=c, module=m, assessment_series=assessment_series)
                 c.assessment_series = assessment_series
-                # Calculate and set billing fees after module enrollment
+                # Ensure modular billing fields are set so fees calculation is non-zero
+                try:
+                    sel_count = len(module_ids)
+                except Exception:
+                    sel_count = modules.count()
+                if hasattr(c, 'modular_module_count'):
+                    c.modular_module_count = sel_count
+                # Cache the billing amount from the level to preserve billing even if enrollments are cleared
+                try:
+                    amount = level.get_fee_for_registration('Modular', sel_count)
+                except Exception:
+                    amount = getattr(level, 'modular_fee_double', 0) if sel_count == 2 else getattr(level, 'modular_fee_single', 0)
+                if hasattr(c, 'modular_billing_amount'):
+                    c.modular_billing_amount = amount
                 if hasattr(c, 'calculate_fees_balance'):
-                    calculated_fees = c.calculate_fees_balance()
-                    c.fees_balance = calculated_fees
+                    c.fees_balance = c.calculate_fees_balance()
                 c.save()
                 enrolled += 1
             return JsonResponse({'success': True, 'message': f'Successfully enrolled and billed {enrolled} candidates in {modules.count()} module(s).'})
@@ -3254,6 +3339,8 @@ def bulk_candidate_action(request):
         from .models import Result, CandidateLevel, CandidateModule, CandidatePaper
 
         cleared = 0
+        preserved_modular = 0
+        reset_non_modular = 0
         blocked = []  # candidates that have results/marks
         for c in candidates:
             if Result.objects.filter(candidate=c).exists():
@@ -3263,19 +3350,30 @@ def bulk_candidate_action(request):
             CandidateLevel.objects.filter(candidate=c).delete()
             CandidateModule.objects.filter(candidate=c).delete()
             CandidatePaper.objects.filter(candidate=c).delete()
-            # Clear assessment series and reset fees balance
-            c.assessment_series = None
-            c.fees_balance = 0.00
-            c.save(update_fields=['assessment_series', 'fees_balance'])
+            reg_cat = (c.registration_category or '').strip().lower()
+            if reg_cat == 'modular':
+                # Preserve assessment series and fees for Modular
+                preserved_modular += 1
+            else:
+                # Reset for Formal and Informal/Worker's PAS
+                c.assessment_series = None
+                c.fees_balance = 0.00
+                # Clear modular cache defensively
+                if hasattr(c, 'modular_module_count'):
+                    c.modular_module_count = None
+                if hasattr(c, 'modular_billing_amount'):
+                    c.modular_billing_amount = None
+                c.save(update_fields=['assessment_series', 'fees_balance', 'modular_module_count', 'modular_billing_amount'])
+                reset_non_modular += 1
             cleared += 1
 
         # Compose a concise message
         if blocked:
             blocked_preview = ', '.join(blocked[:5])
             more = '' if len(blocked) <= 5 else f" and {len(blocked) - 5} more"
-            msg = f"Cleared enrollment for {cleared} candidate{'s' if cleared != 1 else ''}. Skipped {len(blocked)} with marks: {blocked_preview}{more}."
+            msg = f"Cleared enrollment for {cleared} candidate{'s' if cleared != 1 else ''} (preserved billing for {preserved_modular} modular; reset billing for {reset_non_modular} others). Skipped {len(blocked)} with marks: {blocked_preview}{more}."
         else:
-            msg = f"Cleared enrollment for {cleared} candidate{'s' if cleared != 1 else ''}."
+            msg = f"Cleared enrollment for {cleared} candidate{'s' if cleared != 1 else ''} (preserved billing for {preserved_modular} modular; reset billing for {reset_non_modular} others)."
 
         return JsonResponse({'success': True, 'message': msg})
     
@@ -7742,9 +7840,59 @@ def edit_candidate(request, id):
 
 def enroll_candidate_view(request, id):
     candidate = get_object_or_404(Candidate, id=id)
+    # Determine if the user is a Center Representative
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
 
-    # Only enroll if POST and _enroll=1
-    if request.method == 'POST' and request.POST.get('_enroll') == '1':
+    # Only enroll on POST.
+    # Center representatives must have _enroll=1 (guarded by UI), but
+    # UVTAB admins (superuser/staff) can proceed even if the flag is missing.
+    can_admin_bypass_flag = (request.user.is_superuser or request.user.is_staff)
+    enroll_triggered = (request.POST.get('_enroll') == '1') or can_admin_bypass_flag
+    if request.method == 'POST' and enroll_triggered:
+        # Special case: Center Representatives for Modular candidates only set module count and billing
+        if candidate.registration_category == 'Modular' and is_center_rep:
+            # If any module enrollments already exist, lock center from changing billing
+            try:
+                if candidate.candidatemodule_set.exists():
+                    messages.error(request, 'Modules have already been enrolled for this candidate. Center cannot change the billed module count.')
+                    return redirect('candidate_view', id=id)
+            except Exception:
+                pass
+            modular_choice = request.POST.get('modular_module_count')
+            try:
+                modular_choice_val = int(modular_choice) if modular_choice is not None else None
+            except ValueError:
+                modular_choice_val = None
+            if modular_choice_val in (1, 2):
+                candidate.modular_module_count = modular_choice_val
+                # Compute and cache modular billing amount using Level 1 (or first configured) if available
+                level_for_fee = None
+                first_module = candidate.candidatemodule_set.first()
+                if first_module and first_module.module:
+                    level_for_fee = first_module.module.level
+                if level_for_fee is None and candidate.occupation_id:
+                    try:
+                        from .models import OccupationLevel
+                        occ_levels = OccupationLevel.objects.filter(occupation=candidate.occupation).select_related('level')
+                        level1 = next((ol.level for ol in occ_levels if '1' in str(ol.level.name)), None)
+                        level_for_fee = level1 or (occ_levels.first().level if occ_levels.exists() else None)
+                    except Exception:
+                        level_for_fee = None
+                if level_for_fee is not None:
+                    candidate.modular_billing_amount = level_for_fee.get_fee_for_registration('Modular', modular_choice_val)
+                candidate.save(update_fields=['modular_module_count', 'modular_billing_amount'])
+                # Update fees using decoupled billing
+                candidate.update_fees_balance()
+                messages.success(request, 'Module number saved. Billing updated for this candidate.')
+                return redirect('candidate_view', id=id)
+            else:
+                messages.error(request, 'Please select 1 or 2 modules.')
+                return render(request, 'candidates/enroll.html', {
+                    'form': EnrollmentForm(candidate=candidate),
+                    'candidate': candidate,
+                    'is_center_rep': is_center_rep,
+                })
+
         form = EnrollmentForm(request.POST, candidate=candidate)
         if form.is_valid():
             # Get the selected assessment series
@@ -7766,6 +7914,7 @@ def enroll_candidate_view(request, id):
                     return render(request, 'candidates/enroll.html', {
                         'form': form,
                         'candidate': candidate,
+                        'is_center_rep': is_center_rep,
                     })
                 # Check if already enrolled in this level
                 if CandidateLevel.objects.filter(candidate=candidate, level=level).exists():
@@ -7773,16 +7922,58 @@ def enroll_candidate_view(request, id):
                     return render(request, 'candidates/enroll.html', {
                         'form': form,
                         'candidate': candidate,
+                        'is_center_rep': is_center_rep,
                     })
                 # Not already enrolled: enroll the candidate
                 CandidateLevel.objects.create(candidate=candidate, level=level)
-                # Update fees balance after enrollment
+                # Update fees balance after enrollment (uses decoupled modular billing now)
                 candidate.update_fees_balance()
                 messages.success(request, f'{candidate.full_name} successfully enrolled in {level.name}.')
             
             # Handle modular registration (progressive enrollment system)
             elif registration_category == 'Modular':
+                # If the center provided a modular module count, store it and cache billing
+                modular_choice = request.POST.get('modular_module_count')
+                try:
+                    modular_choice_val = int(modular_choice) if modular_choice is not None else None
+                except ValueError:
+                    modular_choice_val = None
+                if modular_choice_val in (1, 2):
+                    candidate.modular_module_count = modular_choice_val
+                    # Compute and cache modular billing amount using Level 1 (or first configured) if available
+                    level_for_fee = None
+                    first_module = candidate.candidatemodule_set.first()
+                    if first_module and first_module.module:
+                        level_for_fee = first_module.module.level
+                    if level_for_fee is None and candidate.occupation_id:
+                        try:
+                            from .models import OccupationLevel
+                            occ_levels = OccupationLevel.objects.filter(occupation=candidate.occupation).select_related('level')
+                            level1 = next((ol.level for ol in occ_levels if '1' in str(ol.level.name)), None)
+                            level_for_fee = level1 or (occ_levels.first().level if occ_levels.exists() else None)
+                        except Exception:
+                            level_for_fee = None
+                    if level_for_fee is not None:
+                        candidate.modular_billing_amount = level_for_fee.get_fee_for_registration('Modular', modular_choice_val)
+                    candidate.save(update_fields=['modular_module_count', 'modular_billing_amount'])
+
                 modules = form.cleaned_data['modules']
+                # Defensive server-side check: do not allow enrolling beyond billed count
+                chosen = getattr(candidate, 'modular_module_count', None)
+                try:
+                    already_enrolled_count = candidate.get_enrolled_modules().count()
+                except Exception:
+                    already_enrolled_count = candidate.candidatemodule_set.count()
+                selected_count = len(modules)
+                if chosen in (1, 2):
+                    remaining = chosen - already_enrolled_count
+                    if remaining <= 0 or selected_count > remaining:
+                        messages.error(request, f"You can only enroll up to {max(0, remaining)} remaining module(s) for this candidate.")
+                        return render(request, 'candidates/enroll.html', {
+                            'form': form,
+                            'candidate': candidate,
+                            'is_center_rep': is_center_rep,
+                        })
                 
                 # Validate enrollment constraints
                 if len(modules) > 2:
@@ -7790,6 +7981,7 @@ def enroll_candidate_view(request, id):
                     return render(request, 'candidates/enroll.html', {
                         'form': form,
                         'candidate': candidate,
+                        'is_center_rep': is_center_rep,
                     })
                 
                 # Check if candidate can enroll in more modules
@@ -7798,6 +7990,7 @@ def enroll_candidate_view(request, id):
                     return render(request, 'candidates/enroll.html', {
                         'form': form,
                         'candidate': candidate,
+                        'is_center_rep': is_center_rep,
                     })
                 
                 # Check for duplicate enrollments
@@ -7811,6 +8004,7 @@ def enroll_candidate_view(request, id):
                     return render(request, 'candidates/enroll.html', {
                         'form': form,
                         'candidate': candidate,
+                        'is_center_rep': is_center_rep,
                     })
                 
                 # Enroll candidate in selected modules (progressive enrollment - don't delete existing)
@@ -7883,6 +8077,7 @@ def enroll_candidate_view(request, id):
                         return render(request, 'candidates/enroll.html', {
                             'form': form,
                             'candidate': candidate,
+                            'is_center_rep': is_center_rep,
                         })
                 
                 # Enroll in all required levels (avoid duplicates for retakes)
@@ -7906,12 +8101,21 @@ def enroll_candidate_view(request, id):
                 )
 
             messages.success(request, "Candidate enrolled successfully.")
+            return redirect('candidate_view', id=id)
+        else:
+            # Render the bound form with validation errors to avoid resetting selections
+            return render(request, 'candidates/enroll.html', {
+                'form': form,
+                'candidate': candidate,
+                'is_center_rep': is_center_rep,
+            })
     else:
         # Support dynamic module filtering by selected level (GET param)
         form = EnrollmentForm(request.GET, candidate=candidate)
     return render(request, 'candidates/enroll.html', {
         'form': form,
         'candidate': candidate,
+        'is_center_rep': is_center_rep,
     })
 
 
@@ -8013,12 +8217,23 @@ def clear_enrollment(request, id):
     CandidateLevel.objects.filter(candidate=candidate).delete()
     CandidateModule.objects.filter(candidate=candidate).delete()
     CandidatePaper.objects.filter(candidate=candidate).delete()
-    # Also clear the assessment series assignment
-    candidate.assessment_series = None
-    # Reset fees balance to zero after clearing enrollment
-    candidate.fees_balance = 0.00
-    candidate.save()
-    messages.success(request, 'All enrollment records and assessment series assignment for this candidate have been cleared.')
+
+    # Preserve billing only for Modular. For Formal and Informal/Worker's PAS, clear fees and assessment series.
+    reg_cat = (candidate.registration_category or '').strip().lower()
+    if reg_cat == 'modular':
+        # Keep assessment series and cached modular billing fields and fees_balance
+        messages.success(request, 'All enrollment records have been cleared. Billing records and assessment series were preserved for Modular candidates.')
+    else:
+        # Reset for Formal and Informal/Worker\'s PAS
+        candidate.assessment_series = None
+        candidate.fees_balance = 0.00
+        # Also clear modular cache fields defensively
+        if hasattr(candidate, 'modular_module_count'):
+            candidate.modular_module_count = None
+        if hasattr(candidate, 'modular_billing_amount'):
+            candidate.modular_billing_amount = None
+        candidate.save(update_fields=['assessment_series', 'fees_balance', 'modular_module_count', 'modular_billing_amount'])
+        messages.success(request, 'All enrollment records have been cleared. Assessment series and billing were reset for Formal/Informal candidates.')
     return redirect('candidate_view', id=id)
 
 
