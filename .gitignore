@@ -27,6 +27,7 @@ logs/
 local_settings.py
 db.sqlite3
 db old.sqlite3
+db older.sqlite3
 db.sqlite3-journal
 media/
 # Ignore Django migrations but keep __init__.py

@@ -9,6 +9,7 @@ from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     path('candidates/import-dual/', views.candidate_import_dual, name='candidate_import_dual'),
+    path('candidates/download-template/', views.download_excel_template, name='download_excel_template'),
     path('candidates/bulk-action/', views.bulk_candidate_action, name='bulk_candidate_action'),
     path('candidates/bulk-modules/', views.bulk_candidate_modules, name='bulk_candidate_modules'),
     path('candidates/export/', views.export_candidates, name='export_candidates'),
