@@ -74,7 +74,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
             </a>
         {% else %}
             {% if request.GET.return_to == 'enrollment_list' %}
-                <a href="{% url 'enrollment_list' %}{% if request.GET.page %}?page={{ request.GET.page }}{% endif %}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}" class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm transition">
+                <a href="{% url 'enrollment_list' %}{% if request.GET.page %}?page={{ request.GET.page }}{% endif %}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                     </svg>
@@ -665,13 +665,30 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
 <div class="bg-white p-4 rounded shadow mt-4">
     <div class="flex items-center justify-between mb-2">
   <h2 class="text-lg font-semibold">Enrollment</h2>
-  {% if request.user.is_superuser and not is_candidate_portal %}
-    <form method="post" action="{% url 'clear_enrollment' candidate.id %}" style="margin:0;">
-      {% csrf_token %}
-      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm" onclick="return confirm('Are you sure you want to clear all enrollment for this candidate? This cannot be undone.')">
-        Clear Enrollment
-      </button>
-    </form>
+  {% if not is_candidate_portal and not is_center_rep %}
+  {% if request.user.is_superuser or request.user.is_staff %}
+    <div class="flex flex-col items-end max-w-md w-full">
+      <div class="flex flex-wrap gap-2 justify-end w-full">
+        <form method="post" action="{% url 'clear_enrollment' candidate.id %}" class="inline-block m-0">
+          {% csrf_token %}
+          <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm" onclick="return confirm('Are you sure you want to clear all enrollment for this candidate? This cannot be undone.');">
+            Clear Enrollment
+          </button>
+        </form>
+        <form method="post" action="{% url 'clear_enrollment_and_results' candidate.id %}" class="inline-block m-0">
+          {% csrf_token %}
+          <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm" onclick="return confirm('WARNING: This will clear ALL enrollment records AND ALL results for this candidate. This action cannot be undone.\n\nProceed?');">
+            Clear Enrollment and Results
+          </button>
+        </form>
+      </div>
+      <p class="mt-2 text-xs text-gray-600 text-right max-w-md">
+        <span class="font-semibold">Clear Enrollment</span> removes enrollments only (preserves Modular billing & assessment series).
+        <br/>
+        <span class="font-semibold">Clear Enrollment and Results</span> also removes results and resets billing & assessment series for a clean restart.
+      </p>
+    </div>
+  {% endif %}
   {% endif %}
 </div>
 

@@ -89,6 +89,7 @@ urlpatterns = [
     path('candidates/<int:id>/edit-result/', views.edit_result, name='edit_result'),
     path('candidates/<int:id>/enroll/', views.enroll_candidate_view, name='enroll_candidate'),
     path('candidates/<int:id>/clear-enrollment/', views.clear_enrollment, name='clear_enrollment'),
+    path('candidates/<int:id>/clear-enrollment-results/', views.clear_enrollment_and_results, name='clear_enrollment_and_results'),
     path('candidates/<int:id>/edit/', views.edit_candidate, name='edit_candidate'),
     path('candidates/<int:id>/regenerate_reg_number/', views.regenerate_candidate_reg_number, name='regenerate_candidate_reg_number'),
     path('candidates/<int:id>/change-center/', views.change_center, name='change_center'),

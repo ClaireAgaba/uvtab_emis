@@ -53,6 +53,14 @@
           <option value="modular" {% if filters.registration_category == "modular" %}selected{% endif %}>Modular</option>
         </select>
       </div>
+      <div>
+        <label for="has_marks" class="block text-sm font-medium text-gray-700 mb-1">Has Marks</label>
+        <select id="has_marks" name="has_marks" class="w-full border rounded px-3 py-2 text-sm">
+          <option value="" {% if not filters.has_marks %}selected{% endif %}>All</option>
+          <option value="yes" {% if filters.has_marks == "yes" %}selected{% endif %}>Yes</option>
+          <option value="no" {% if filters.has_marks == "no" %}selected{% endif %}>No</option>
+        </select>
+      </div>
       <div class="md:col-span-6 flex gap-2">
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">Apply Filters</button>
         <a href="{% url 'enrollment_list' %}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 text-sm">Clear</a>
@@ -100,6 +108,7 @@
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level(s)</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modules</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment Series</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Has Marks</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
@@ -167,13 +176,20 @@
               {% endif %}
             </td>
             <td class="px-4 py-3 text-sm">
-              <a href="{% url 'candidate_view' candidate.id %}?return_to=enrollment_list{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}" 
+              {% if candidate.has_marks %}
+                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Yes</span>
+              {% else %}
+                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">No</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-sm">
+              <a href="{% url 'candidate_view' candidate.id %}?return_to=enrollment_list{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
                  class="text-blue-600 hover:text-blue-800 text-sm font-medium">View</a>
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+            <td colspan="11" class="px-4 py-8 text-center text-gray-500">
               No enrolled candidates found.
             </td>
           </tr>
@@ -191,9 +207,9 @@
     </div>
     <nav class="flex items-center space-x-1">
       {% if candidates.has_previous %}
-        <a href="?page=1{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}" 
+        <a href="?page=1{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
            class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500 hover:bg-gray-50 rounded-l">First</a>
-        <a href="?page={{ candidates.previous_page_number }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}" 
+        <a href="?page={{ candidates.previous_page_number }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
            class="px-3 py-2 text-sm bg-white border-t border-b border-gray-300 text-gray-500 hover:bg-gray-50">‹ Prev</a>
       {% endif %}
       
@@ -204,15 +220,15 @@
         {% elif page_num == candidates.paginator.ELLIPSIS %}
           <span class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500">…</span>
         {% else %}
-          <a href="?page={{ page_num }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}" 
+          <a href="?page={{ page_num }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
              class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500 hover:bg-gray-50">{{ page_num }}</a>
         {% endif %}
       {% endfor %}
       
       {% if candidates.has_next %}
-        <a href="?page={{ candidates.next_page_number }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}" 
+        <a href="?page={{ candidates.next_page_number }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
            class="px-3 py-2 text-sm bg-white border-t border-b border-gray-300 text-gray-500 hover:bg-gray-50">Next ›</a>
-        <a href="?page={{ candidates.paginator.num_pages }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}" 
+        <a href="?page={{ candidates.paginator.num_pages }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
            class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500 hover:bg-gray-50 rounded-r">Last</a>
       {% endif %}
     </nav>

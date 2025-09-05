@@ -8159,6 +8159,7 @@ def enrollment_list(request):
     occupation = request.GET.get('occupation', '').strip()
     assessment_series = request.GET.get('assessment_series', '').strip()
     registration_category = request.GET.get('registration_category', '').strip()
+    has_marks_filter = (request.GET.get('has_marks', '') or '').strip().lower()
     
     if reg_number:
         enrolled_candidates = enrolled_candidates.filter(reg_number__icontains=reg_number)
@@ -8175,6 +8176,19 @@ def enrollment_list(request):
         # If Modular is selected, ensure they actually have module enrollments
         if registration_category.strip().lower() == 'modular':
             enrolled_candidates = enrolled_candidates.filter(candidatemodule__isnull=False)
+
+    # Annotate whether the candidate has any marks/results
+    # If an assessment_series filter is provided, restrict the check to that series
+    from django.db.models import Exists, OuterRef
+    from .models import Result
+    results_subquery = Result.objects.filter(candidate=OuterRef('pk'))
+    if assessment_series:
+        results_subquery = results_subquery.filter(assessment_series_id=assessment_series)
+    enrolled_candidates = enrolled_candidates.annotate(has_marks=Exists(results_subquery))
+
+    # Apply has_marks filter if provided (after annotation)
+    if has_marks_filter in ('yes', 'no'):
+        enrolled_candidates = enrolled_candidates.filter(has_marks=(has_marks_filter == 'yes'))
     
     # Pagination
     from django.core.paginator import Paginator
@@ -8196,6 +8210,7 @@ def enrollment_list(request):
             'occupation': occupation,
             'assessment_series': assessment_series,
             'registration_category': registration_category,
+            'has_marks': has_marks_filter,
         }
     }
     
@@ -8236,6 +8251,47 @@ def clear_enrollment(request, id):
         messages.success(request, 'All enrollment records have been cleared. Assessment series and billing were reset for Formal/Informal candidates.')
     return redirect('candidate_view', id=id)
 
+
+@login_required
+@require_POST
+def clear_enrollment_and_results(request, id):
+    """Comprehensively clear a candidate's enrollment records together with results.
+    This is separate from clear_enrollment and should not modify its behavior.
+    Permissions: superusers, staff, or Admin department users only.
+    """
+    # Permission check
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    if not (request.user.is_superuser or request.user.is_staff or user_department == "Admin"):
+        return redirect('candidate_view', id=id)
+
+    candidate = get_object_or_404(Candidate, id=id)
+
+    from .models import Result
+    from django.contrib import messages
+
+    # 1) Delete all results for this candidate
+    Result.objects.filter(candidate=candidate).delete()
+
+    # 2) Delete all enrollment artifacts
+    CandidateLevel.objects.filter(candidate=candidate).delete()
+    CandidateModule.objects.filter(candidate=candidate).delete()
+    CandidatePaper.objects.filter(candidate=candidate).delete()
+
+    # 3) Reset assessment series and billing for ALL categories to allow a truly fresh enrollment
+    candidate.assessment_series = None
+    candidate.fees_balance = 0.00
+    # Clear modular cache fields (used by modular billing enforcement)
+    if hasattr(candidate, 'modular_module_count'):
+        candidate.modular_module_count = None
+    if hasattr(candidate, 'modular_billing_amount'):
+        candidate.modular_billing_amount = None
+    candidate.save(update_fields=['assessment_series', 'fees_balance', 'modular_module_count', 'modular_billing_amount'])
+    messages.success(
+        request,
+        'All enrollment records and results have been cleared. Assessment series and billing were reset so this candidate can be freshly enrolled.'
+    )
+
+    return redirect('candidate_view', id=id)
 
 # Helper
 def _blocked_if_enrolled(request, candidate, action_name):
