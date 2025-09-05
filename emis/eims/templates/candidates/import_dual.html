@@ -7,8 +7,16 @@
   <h1 class="text-2xl font-bold mb-4">Import Candidates & Photos</h1>
   <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
     <h2 class="font-semibold mb-2">Excel & Photos Import</h2>
+    <div class="mb-3">
+      <a href="{% url 'download_excel_template' %}" 
+         class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700">
+        📥 Download Excel Template
+      </a>
+      <p class="text-xs text-gray-600 mt-1">Use this template to ensure proper formatting</p>
+    </div>
     <ul class="list-disc list-inside text-sm mb-2">
-      <li>Upload your candidate Excel file. Photos are optional and can be added later.</li>
+      <li>Upload your candidate Excel file using the provided template. Photos are optional and can be added later.</li>
+      <li><strong>District field is now supported</strong> - include district names in your Excel file for automatic matching.</li>
       <li>If providing photos: Upload a ZIP file containing candidate photos.</li>
       <li>Photos will be matched to candidates by filename (e.g., "123.John Doe.jpg" matches candidate "John Doe").</li>
       <li>All images must be in JPG or PNG format and zipped into a single file.</li>

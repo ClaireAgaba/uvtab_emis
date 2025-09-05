@@ -1937,6 +1937,28 @@ import tempfile
 import os
 import zipfile
 from django.core.files import File
+
+@login_required
+def download_excel_template(request):
+    """
+    Serve the Excel template file for candidate import
+    """
+    from django.http import FileResponse, Http404
+    from django.conf import settings
+    
+    template_path = os.path.join(settings.BASE_DIR, 'static', 'templates', 'candidate_import_template.xlsx')
+    
+    if os.path.exists(template_path):
+        response = FileResponse(
+            open(template_path, 'rb'),
+            as_attachment=True,
+            filename='candidate_import_template.xlsx'
+        )
+        response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        return response
+    else:
+        raise Http404("Template file not found")
+
 def candidate_import_dual(request):
     """
     Handle GET (show dual import page) and POST (process Excel + photo zip upload).
@@ -2256,9 +2278,28 @@ def candidate_import_dual(request):
                 errors.append(f"Row {idx}: Error looking up assessment center/branch '{center_str}': {str(e)}")
                 continue
         
+        # District lookup: do this BEFORE form validation
+        district_val = form_data.get('district')
+        if district_val is None or str(district_val).strip() == '':
+            form_data['district'] = None
+        else:
+            district_str = str(district_val).strip()
+            district_obj = District.objects.filter(name__iexact=district_str).first()
+            if district_obj:
+                form_data['district'] = district_obj.id
+                print(f"[DEBUG] Row {idx}: District '{district_str}' found and mapped to ID {district_obj.id}")
+            else:
+                form_data['district'] = None
+                print(f"[DEBUG] Row {idx}: District '{district_str}' not found in system")
+                # Add to errors for visibility but don't stop processing
+                errors.append(f"Row {idx}: District '{district_str}' not found - candidate will be created without district")
+        
+        # Remove village processing completely
+        form_data['village'] = None
+        
         # Use CandidateForm for validation, but patch required fields for import
         form = CandidateForm(form_data)
-        for f in ['district', 'village']:
+        for f in ['district']:
             if f in form.fields:
                 form.fields[f].required = False
         
@@ -2267,22 +2308,12 @@ def candidate_import_dual(request):
             errors.append(f"Row {idx}: Form errors: {form.errors}")
             continue
         
-        # District and village: truly optional for import (skip if missing or blank)
-        for loc_field, model_cls in [('district', District), ('village', Village)]:
-            val = form_data.get(loc_field)
-            if val is None or str(val).strip() == '':
-                form_data[loc_field] = None
-            else:
-                val_str = str(val).strip()
-                obj = model_cls.objects.filter(name__iexact=val_str).first()
-                form_data[loc_field] = obj.id if obj else None
-        
-        # Debug: print after district/village assignment
-        print(f"[DEBUG] Row {idx} after district/village assignment: district={form_data.get('district')}, village={form_data.get('village')}")
+        # Debug: print after district assignment
+        print(f"[DEBUG] Row {idx} after district assignment: district={form_data.get('district')}")
 
         # Define date and foreign key fields for use below
         date_fields = ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']
-        fk_fields = ['occupation', 'assessment_center', 'assessment_center_branch', 'district', 'village']
+        fk_fields = ['occupation', 'assessment_center', 'assessment_center_branch', 'district']
         
         # Coerce every other field except dates and foreign keys to string
         for k in form_data:
@@ -2299,7 +2330,7 @@ def candidate_import_dual(request):
         
         # Use CandidateForm for validation, but patch required fields for import
         form = CandidateForm(form_data)
-        for f in ['district', 'village']:
+        for f in ['district']:
             if f in form.fields:
                 form.fields[f].required = False
         
@@ -2542,7 +2573,7 @@ def candidate_import(request):
         form_data.pop('reg_number', None)
         # Use CandidateForm for validation, but patch required fields for import
         form = CandidateForm(form_data)
-        for f in ['district', 'village']:
+        for f in ['district']:
             if f in form.fields:
                 form.fields[f].required = False
         if not form.is_valid():

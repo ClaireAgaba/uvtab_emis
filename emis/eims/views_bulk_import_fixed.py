@@ -1,4 +1,26 @@
 @login_required
+def download_excel_template(request):
+    """
+    Serve the Excel template file for candidate import
+    """
+    import os
+    from django.http import FileResponse, Http404
+    from django.conf import settings
+    
+    template_path = os.path.join(settings.BASE_DIR, 'static', 'templates', 'candidate_import_template.xlsx')
+    
+    if os.path.exists(template_path):
+        response = FileResponse(
+            open(template_path, 'rb'),
+            as_attachment=True,
+            filename='candidate_import_template.xlsx'
+        )
+        response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        return response
+    else:
+        raise Http404("Template file not found")
+
+@login_required
 def candidate_import_dual(request):
     """
     Handle GET (show dual import page) and POST (process Excel + photo zip upload).
