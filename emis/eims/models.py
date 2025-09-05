@@ -361,7 +361,28 @@ class Paper(models.Model):
     grade_type = models.CharField(max_length=10, choices=PAPER_TYPE_CHOICES)
 
     def save(self, *args, **kwargs):
-        """Override save to enforce title case formatting for name"""
+        """Override save to enforce formatting and ensure persistence"""
+        # Normalize fields
+        if self.name:
+            self.name = format_title_case(self.name)
+        if self.code:
+            self.code = self.code.strip().upper()
+        # For Worker's PAS/Informal categories, a module is typically required via forms,
+        # but we do not enforce here to allow admin data corrections.
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        parts = [self.code or "", self.name or ""]
+        display = " - ".join([p for p in parts if p])
+        # Add occupation/level context for clarity in admin dropdowns
+        context = []
+        if hasattr(self, 'occupation') and self.occupation_id:
+            context.append(self.occupation.code)
+        if hasattr(self, 'level') and self.level_id:
+            context.append(self.level.name)
+        if context:
+            display += f" ({' / '.join(context)})"
+        return display or f"Paper #{self.pk}"
 
 
 class Sector(models.Model):
