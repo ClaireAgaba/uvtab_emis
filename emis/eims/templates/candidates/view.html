@@ -435,7 +435,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
 
   {% if request.user.is_superuser or request.user.is_staff or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
   <!-- Activity Log Sidebar (visible on large screens) -->
-  <aside class="hidden lg:block float-right w-96 ml-6 mt-2 sticky top-24">
+  <aside class="hidden lg:block fixed right-6 top-28 w-96 z-10">
     <div class="bg-white p-4 rounded shadow">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold">Activity Log</h2>
@@ -471,6 +471,8 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       {% endif %}
     </div>
   </aside>
+  <!-- Right spacer to balance layout so content doesn't run under the fixed sidebar -->
+  <div class="hidden lg:block float-right w-96"></div>
   {% endif %}
 
   <!-- Summary Info + Photo -->
