@@ -3364,7 +3364,7 @@ def bulk_candidate_action(request):
         # Bulk clear enrollment (De-Enrol) – same behavior as single candidate view
         # Permission: allow superusers, staff, and admin/IT/data department users
         print(f"[DEBUG] Permission check - is_superuser: {request.user.is_superuser}, is_staff: {request.user.is_staff}, user_department: '{user_department}'")
-        if not (request.user.is_superuser or request.user.is_staff or user_department in ["Admin", "IT", "Data"]):
+        if not (request.user.is_superuser or request.user.is_staff or user_department in ['Admin', 'IT', 'Data']):
             return JsonResponse({'success': False, 'error': 'Permission denied. Only admins, IT, and data departments can clear enrollment.'}, status=403)
 
         from .models import Result, CandidateLevel, CandidateModule, CandidatePaper
@@ -3406,6 +3406,64 @@ def bulk_candidate_action(request):
         else:
             msg = f"Cleared enrollment for {cleared} candidate{'s' if cleared != 1 else ''} (preserved billing for {preserved_modular} modular; reset billing for {reset_non_modular} others)."
 
+        return JsonResponse({'success': True, 'message': msg})
+    
+    elif action == 'clear_enrollment_results':
+        # Bulk clear enrollment AND results – mirrors clear_enrollment_and_results view
+        if not (request.user.is_superuser or request.user.is_staff or user_department in ['Admin', 'IT', 'Data']):
+            return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+        from .models import Result, CandidateLevel, CandidateModule, CandidatePaper
+        cleared = 0
+        total_results = total_levels = total_modules = total_papers = 0
+
+        from django.db import transaction
+        for candidate in candidates:
+            with transaction.atomic():
+                # Count and delete results
+                res_count = Result.objects.filter(candidate=candidate).count()
+                Result.objects.filter(candidate=candidate).delete()
+                # Count and delete enrollments
+                lvl_count = CandidateLevel.objects.filter(candidate=candidate).count()
+                mod_count = CandidateModule.objects.filter(candidate=candidate).count()
+                pap_count = CandidatePaper.objects.filter(candidate=candidate).count()
+                CandidateLevel.objects.filter(candidate=candidate).delete()
+                CandidateModule.objects.filter(candidate=candidate).delete()
+                CandidatePaper.objects.filter(candidate=candidate).delete()
+
+                # Reset series and billing universally
+                candidate.assessment_series = None
+                candidate.fees_balance = 0.00
+                if hasattr(candidate, 'modular_module_count'):
+                    candidate.modular_module_count = None
+                if hasattr(candidate, 'modular_billing_amount'):
+                    candidate.modular_billing_amount = None
+                candidate.save(update_fields=['assessment_series', 'fees_balance', 'modular_module_count', 'modular_billing_amount'])
+
+                # Log
+                try:
+                    from .models import CandidateChangeLog
+                    CandidateChangeLog.objects.create(
+                        candidate=candidate,
+                        action='clear_enrollment_results',
+                        details=f"Deleted results={res_count}, levels={lvl_count}, modules={mod_count}, papers={pap_count}; reset series/billing",
+                        performed_by=request.user,
+                        request_path=request.path,
+                        ip_address=request.META.get('REMOTE_ADDR')
+                    )
+                except Exception:
+                    pass
+
+                cleared += 1
+                total_results += res_count
+                total_levels += lvl_count
+                total_modules += mod_count
+                total_papers += pap_count
+
+        msg = (
+            f"Cleared enrollment + results for {cleared} candidate" + ('' if cleared == 1 else 's') +
+            f" (results={total_results}, levels={total_levels}, modules={total_modules}, papers={total_papers})."
+        )
         return JsonResponse({'success': True, 'message': msg})
     
     else:

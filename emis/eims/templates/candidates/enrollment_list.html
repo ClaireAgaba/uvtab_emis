@@ -83,6 +83,7 @@
           <option value="">Select Action</option>
           <option value="change_center">Change Assessment Center</option>
           <option value="clear_enrollment">Clear Enrollment</option>
+          <option value="clear_enrollment_results">Clear Enrollment and Results</option>
           <option value="export">Export Selected</option>
         </select>
         <button id="apply-bulk-action" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm" disabled>Apply</button>
@@ -280,6 +281,24 @@
   </div>
 </div>
 
+<!-- Clear Enrollment and Results Confirmation Modal -->
+<div id="clear-enrollment-results-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+    <h2 class="text-lg font-bold mb-4 text-red-700">Clear Enrollment and Results</h2>
+    <p class="mb-2 text-gray-700">This will:</p>
+    <ul class="list-disc pl-6 text-sm text-gray-700 mb-4">
+      <li>Delete all results for the selected candidate(s)</li>
+      <li>Delete all levels/modules/papers enrollment</li>
+      <li>Reset assessment series and billing so they can be freshly enrolled</li>
+    </ul>
+    <p class="mb-4 text-gray-700">Proceed for <span id="clear-results-count">0</span> selected candidate(s)? This action cannot be undone.</p>
+    <div class="flex justify-end gap-2">
+      <button id="cancel-clear-enrollment-results" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancel</button>
+      <button id="confirm-clear-enrollment-results" class="bg-red-700 text-white px-4 py-2 rounded hover:bg-red-800">Clear Enrollment & Results</button>
+    </div>
+  </div>
+  </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const selectAllCheckbox = document.getElementById('select-all');
@@ -359,15 +378,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         switch (action) {
-            case 'change_center':
-                showBulkChangeCenterModal(selectedCandidates);
-                break;
-            case 'clear_enrollment':
-                showClearEnrollmentModal(selectedCandidates);
-                break;
-            case 'export':
-                exportSelectedCandidates(selectedCandidates);
-                break;
+          case 'change_center':
+            showBulkChangeCenterModal(selectedCandidates);
+            break;
+          case 'clear_enrollment':
+            showClearEnrollmentModal(selectedCandidates);
+            break;
+          case 'clear_enrollment_results':
+            showClearEnrollmentAndResultsModal(selectedCandidates);
+            break;
+          case 'export':
+            exportSelectedCandidates(selectedCandidates);
+            break;
         }
     });
 
@@ -380,6 +402,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function showClearEnrollmentModal(candidateIds) {
         document.getElementById('clear-count').textContent = candidateIds.length;
         document.getElementById('clear-enrollment-modal').classList.remove('hidden');
+    }
+
+    // Clear enrollment and results modal
+    function showClearEnrollmentAndResultsModal(candidateIds) {
+        document.getElementById('clear-results-count').textContent = candidateIds.length;
+        document.getElementById('clear-enrollment-results-modal').classList.remove('hidden');
     }
 
     // Export selected candidates
@@ -419,6 +447,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('cancel-clear-enrollment').addEventListener('click', function() {
         document.getElementById('clear-enrollment-modal').classList.add('hidden');
+    });
+
+    document.getElementById('cancel-clear-enrollment-results').addEventListener('click', function() {
+        document.getElementById('clear-enrollment-results-modal').classList.add('hidden');
     });
 
     // Bulk change center functionality
@@ -542,6 +574,38 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             console.error('Error:', error);
             alert('Error occurred while clearing enrollment.');
+        });
+    });
+
+    // Confirm clear enrollment & results
+    document.getElementById('confirm-clear-enrollment-results').addEventListener('click', function() {
+        const selectedCandidates = Array.from(document.querySelectorAll('.candidate-checkbox:checked')).map(cb => cb.value);
+
+        const data = {
+            action: 'clear_enrollment_results',
+            candidate_ids: selectedCandidates
+        };
+
+        fetch('{% url "bulk_candidate_action" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Enrollment and results cleared successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error occurred'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error occurred while clearing enrollment and results.');
         });
     });
 });
