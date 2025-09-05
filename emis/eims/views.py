@@ -7856,12 +7856,40 @@ def edit_candidate(request, id):
     candidate = get_object_or_404(Candidate, id=id)
 
     if request.method == 'POST':
-        form = CandidateForm(request.POST, request.FILES, instance=candidate, edit=True)
+        from django.forms.models import model_to_dict
+        original = model_to_dict(candidate)
+        form = CandidateForm(request.POST, request.FILES, instance=candidate, user=request.user, edit=True)
         if form.is_valid():
-            candidate = form.save(commit=False)
-            candidate.updated_by = request.user
-            candidate.save()
-            form.save_m2m()  # Ensure ManyToMany fields like nature_of_disability are saved
+            updated = form.save()
+            # Log bio data changes
+            try:
+                from .models import CandidateChangeLog
+                fields_to_check = [
+                    'full_name','date_of_birth','gender','nationality','contact',
+                    'district','village','assessment_center','assessment_center_branch',
+                    'assessment_series','entry_year','intake','occupation','registration_category',
+                    'start_date','finish_date','assessment_date'
+                ]
+                changes = []
+                for f in fields_to_check:
+                    old = original.get(f)
+                    new = getattr(updated, f, None)
+                    # Normalize FKs to ids for comparison
+                    if hasattr(new, 'id'):
+                        new = new.id
+                    if old != new:
+                        changes.append(f"{f}: {old} -> {new}")
+                if changes:
+                    CandidateChangeLog.objects.create(
+                        candidate=updated,
+                        action='edit_bio',
+                        details='; '.join(changes)[:2000],
+                        performed_by=request.user,
+                        request_path=request.path,
+                        ip_address=request.META.get('REMOTE_ADDR')
+                    )
+            except Exception:
+                pass
             return redirect('candidate_view', id=candidate.id)
     else:
         form = CandidateForm(instance=candidate, edit=True)
@@ -8132,6 +8160,39 @@ def enroll_candidate_view(request, id):
                 )
 
             messages.success(request, "Candidate enrolled successfully.")
+            # Log enrollment action with contextual details
+            try:
+                from .models import CandidateChangeLog
+                reg_cat_norm = (registration_category or '').strip().lower()
+                details = ""
+                if reg_cat_norm == 'modular':
+                    try:
+                        details = f"Modules: {', '.join(enrolled_modules)}; Series: {getattr(candidate.assessment_series, 'name', '-') }"
+                    except Exception:
+                        details = "Modular enrollment completed"
+                elif reg_cat_norm in ['informal', "worker's pas", 'workers pas']:
+                    try:
+                        level_names = [level.name for level in levels_to_enroll]
+                        paper_names = [paper.name for paper in papers_enrolled]
+                        details = (
+                            f"Levels: {', '.join(level_names)}; Papers: {', '.join(paper_names)}; "
+                            f"Series: {getattr(candidate.assessment_series, 'name', '-') }"
+                        )
+                    except Exception:
+                        details = "Worker's PAS enrollment completed"
+                else:
+                    details = "Enrollment completed"
+
+                CandidateChangeLog.objects.create(
+                    candidate=candidate,
+                    action='enroll',
+                    details=details[:2000],
+                    performed_by=request.user,
+                    request_path=request.path,
+                    ip_address=request.META.get('REMOTE_ADDR')
+                )
+            except Exception:
+                pass
             return redirect('candidate_view', id=id)
         else:
             # Render the bound form with validation errors to avoid resetting selections
@@ -8260,6 +8321,9 @@ def clear_enrollment(request, id):
     if Result.objects.filter(candidate=candidate).exists():
         messages.error(request, 'Candidate has marks/results and cannot be de-enrolled.')
         return redirect('candidate_view', id=id)
+    lvl_deleted = CandidateLevel.objects.filter(candidate=candidate).count()
+    mod_deleted = CandidateModule.objects.filter(candidate=candidate).count()
+    pap_deleted = CandidatePaper.objects.filter(candidate=candidate).count()
     CandidateLevel.objects.filter(candidate=candidate).delete()
     CandidateModule.objects.filter(candidate=candidate).delete()
     CandidatePaper.objects.filter(candidate=candidate).delete()
@@ -8269,6 +8333,19 @@ def clear_enrollment(request, id):
     if reg_cat == 'modular':
         # Keep assessment series and cached modular billing fields and fees_balance
         messages.success(request, 'All enrollment records have been cleared. Billing records and assessment series were preserved for Modular candidates.')
+        # Log action
+        try:
+            from .models import CandidateChangeLog
+            CandidateChangeLog.objects.create(
+                candidate=candidate,
+                action='clear_enrollment',
+                details=f"Deleted levels={lvl_deleted}, modules={mod_deleted}, papers={pap_deleted}; preserved billing & series (Modular)",
+                performed_by=request.user,
+                request_path=request.path,
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+        except Exception:
+            pass
     else:
         # Reset for Formal and Informal/Worker\'s PAS
         candidate.assessment_series = None
@@ -8280,6 +8357,19 @@ def clear_enrollment(request, id):
             candidate.modular_billing_amount = None
         candidate.save(update_fields=['assessment_series', 'fees_balance', 'modular_module_count', 'modular_billing_amount'])
         messages.success(request, 'All enrollment records have been cleared. Assessment series and billing were reset for Formal/Informal candidates.')
+        # Log action
+        try:
+            from .models import CandidateChangeLog
+            CandidateChangeLog.objects.create(
+                candidate=candidate,
+                action='clear_enrollment',
+                details=f"Deleted levels={lvl_deleted}, modules={mod_deleted}, papers={pap_deleted}; reset billing & series (Formal/Informal)",
+                performed_by=request.user,
+                request_path=request.path,
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+        except Exception:
+            pass
     return redirect('candidate_view', id=id)
 
 
@@ -8300,10 +8390,14 @@ def clear_enrollment_and_results(request, id):
     from .models import Result
     from django.contrib import messages
 
-    # 1) Delete all results for this candidate
+    # 1) Count then delete all results for this candidate
+    res_deleted = Result.objects.filter(candidate=candidate).count()
     Result.objects.filter(candidate=candidate).delete()
 
-    # 2) Delete all enrollment artifacts
+    # 2) Count then delete all enrollment artifacts
+    lvl_deleted = CandidateLevel.objects.filter(candidate=candidate).count()
+    mod_deleted = CandidateModule.objects.filter(candidate=candidate).count()
+    pap_deleted = CandidatePaper.objects.filter(candidate=candidate).count()
     CandidateLevel.objects.filter(candidate=candidate).delete()
     CandidateModule.objects.filter(candidate=candidate).delete()
     CandidatePaper.objects.filter(candidate=candidate).delete()
@@ -8321,6 +8415,20 @@ def clear_enrollment_and_results(request, id):
         request,
         'All enrollment records and results have been cleared. Assessment series and billing were reset so this candidate can be freshly enrolled.'
     )
+
+    # Log action
+    try:
+        from .models import CandidateChangeLog
+        CandidateChangeLog.objects.create(
+            candidate=candidate,
+            action='clear_enrollment_results',
+            details=f"Deleted results={res_deleted}, levels={lvl_deleted}, modules={mod_deleted}, papers={pap_deleted}; reset series/billing",
+            performed_by=request.user,
+            request_path=request.path,
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+    except Exception:
+        pass
 
     return redirect('candidate_view', id=id)
 
@@ -8788,6 +8896,13 @@ def candidate_view(request, id):
         can_generate_transcript = results.exists()
         can_generate_certificate = results.exists()
 
+    # Recent activity log entries for this candidate
+    try:
+        from .models import CandidateChangeLog
+        change_logs = list(candidate.change_logs.select_related('performed_by')[:50])
+    except Exception:
+        change_logs = []
+
     context = {
         "candidate":          candidate,
         "level_enrollment":   level_enrollment,
@@ -8804,6 +8919,7 @@ def candidate_view(request, id):
         "is_center_rep": is_center_rep,  # Add center rep status for template access control
         "can_generate_transcript": can_generate_transcript,  # Access control for transcript
         "can_generate_certificate": can_generate_certificate,  # Access control for certificate
+        "change_logs": change_logs,
     }
     return render(request, "candidates/view.html", context)
 
@@ -8815,6 +8931,19 @@ def regenerate_candidate_reg_number(request, id):
     candidate.reg_number = None
     candidate.save()
     messages.success(request, f"Registration number regenerated: {candidate.reg_number}")
+    # Log action
+    try:
+        from .models import CandidateChangeLog
+        CandidateChangeLog.objects.create(
+            candidate=candidate,
+            action='regenerate_regno',
+            details='Reg number regenerated',
+            performed_by=request.user,
+            request_path=request.path,
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+    except Exception:
+        pass
     return redirect('candidate_view', id=candidate.id)
 
 def district_list(request):

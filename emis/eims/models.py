@@ -1521,3 +1521,38 @@ class PracticalMark(models.Model):
                     return "F"
         except:
             return ""
+
+
+class CandidateChangeLog(models.Model):
+    """Audit trail of candidate-related actions."""
+    ACTION_CHOICES = [
+        ('create', 'Create Candidate'),
+        ('edit_bio', 'Edit Bio Data'),
+        ('enroll', 'Enroll'),
+        ('clear_enrollment', 'Clear Enrollment'),
+        ('clear_enrollment_results', 'Clear Enrollment and Results'),
+        ('add_result', 'Add Result'),
+        ('edit_result', 'Edit Result'),
+        ('change_center', 'Change Center'),
+        ('change_occupation', 'Change Occupation'),
+        ('change_reg_category', 'Change Registration Category'),
+        ('regenerate_regno', 'Regenerate Reg Number'),
+        ('other', 'Other'),
+    ]
+
+    candidate = models.ForeignKey('Candidate', on_delete=models.CASCADE, related_name='change_logs')
+    action = models.CharField(max_length=64, choices=ACTION_CHOICES)
+    details = models.TextField(blank=True)
+    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    request_path = models.CharField(max_length=255, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Candidate Change Log'
+        verbose_name_plural = 'Candidate Change Logs'
+
+    def __str__(self):
+        user = self.performed_by.username if self.performed_by else 'system'
+        return f"{self.candidate.reg_number or self.candidate.id} - {self.get_action_display()} by {user} @ {self.created_at:%Y-%m-%d %H:%M}"
