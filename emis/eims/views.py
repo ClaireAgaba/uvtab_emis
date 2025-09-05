@@ -13580,10 +13580,17 @@ def awards_list(request):
     # Filters
     series = request.GET.get('series', '').strip()
     center = request.GET.get('center', '').strip()
+    category = request.GET.get('category', '').strip()
+    q = request.GET.get('q', '').strip()
     if series:
         qs = qs.filter(assessment_series_id=series)
     if center:
         qs = qs.filter(assessment_center_id=center)
+    if category:
+        qs = qs.filter(registration_category__iexact=category)
+    if q:
+        from django.db.models import Q
+        qs = qs.filter(Q(full_name__icontains=q) | Q(reg_number__icontains=q))
 
     # Build querystring (without page) for pagination links
     from urllib.parse import urlencode
@@ -13592,9 +13599,25 @@ def awards_list(request):
         params['series'] = series
     if center:
         params['center'] = center
+    if category:
+        params['category'] = category
+    if q:
+        params['q'] = q
+    # Persist items_per_page across pagination links
+    ipp_raw = request.GET.get('items_per_page', '').strip()
+    if ipp_raw:
+        params['items_per_page'] = ipp_raw
     querystring = urlencode(params)
 
-    paginator = Paginator(qs.order_by('full_name'), 25)
+    # Items per page
+    try:
+        items_per_page = int(request.GET.get('items_per_page', 25))
+    except ValueError:
+        items_per_page = 25
+    if items_per_page not in [25, 50, 100]:
+        items_per_page = 25
+
+    paginator = Paginator(qs.order_by('full_name'), items_per_page)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -13605,6 +13628,10 @@ def awards_list(request):
         'selected_series': series,
         'centers_list': AssessmentCenter.objects.all().order_by('center_number'),
         'selected_center': center,
+        'selected_category': category,
+        'q': q,
+        'registration_categories': ['Formal', 'Modular', "Worker's PAS", 'Informal'],
+        'items_per_page': items_per_page,
         'awards_querystring': querystring,
     }
     return render(request, 'awards/list.html', context)
