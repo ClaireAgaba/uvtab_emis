@@ -433,7 +433,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     </div>
   </div>
 
-  {% if request.user.is_superuser or request.user.is_staff %}
+  {% if request.user.is_superuser or request.user.is_staff or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
   <!-- Activity Log Sidebar (visible on large screens) -->
   <aside class="hidden lg:block float-right w-96 ml-6 mt-2 sticky top-24">
     <div class="bg-white p-4 rounded shadow">
@@ -706,7 +706,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     <div class="flex items-center justify-between mb-2">
   <h2 class="text-lg font-semibold">Enrollment</h2>
   {% if not is_candidate_portal and not is_center_rep %}
-  {% if request.user.is_superuser or request.user.is_staff %}
+  {% if request.user.is_superuser or request.user.is_staff or user_department in 'Admin,IT,Data' %}
     <div class="flex flex-col items-end max-w-md w-full">
       <div class="flex flex-wrap gap-2 justify-end w-full">
         <form method="post" action="{% url 'clear_enrollment' candidate.id %}" class="inline-block m-0">

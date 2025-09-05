@@ -8311,9 +8311,9 @@ def enrollment_list(request):
 @login_required
 @require_POST
 def clear_enrollment(request, id):
-    # Allow superusers, staff, and admin department users
+    # Allow superusers, staff, and Admin/IT/Data department users
     staff, user_department, is_authenticated = get_user_staff_info(request)
-    if not (request.user.is_superuser or request.user.is_staff or user_department == "Admin"):
+    if not (request.user.is_superuser or request.user.is_staff or user_department in ["Admin", "IT", "Data"]):
         return redirect('candidate_view', id=id)
     candidate = get_object_or_404(Candidate, id=id)
     from .models import Result
