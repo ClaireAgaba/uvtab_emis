@@ -184,10 +184,30 @@ def generate_result_list(request):
         # Get form data
         month = request.POST.get('assessment_month')
         year = request.POST.get('assessment_year')
+        series_id = request.POST.get('assessment_series')
         regcat = request.POST.get('registration_category')
         occupation_id = request.POST.get('occupation')
         level_id = request.POST.get('level')
         center_id = request.POST.get('assessment_center')
+        # If month/year are missing but a series was submitted, derive month/year from series
+        if (not month or not year) and series_id:
+            try:
+                from .models import AssessmentSeries
+                series_obj = AssessmentSeries.objects.filter(id=series_id).first()
+                if series_obj:
+                    month = str(series_obj.start_date.month)
+                    year = str(series_obj.start_date.year)
+            except Exception:
+                pass
+        # Enforce center scoping for CenterRep users (force to their own center)
+        try:
+            if request.user.groups.filter(name='CenterRep').exists():
+                from .models import CenterRepresentative
+                cr = CenterRepresentative.objects.get(user=request.user)
+                if not center_id or str(center_id) != str(cr.center_id):
+                    center_id = str(cr.center_id)
+        except Exception:
+            pass
         # Validate required fields
         errors = []
         if not (month and year and regcat and occupation_id):
@@ -350,12 +370,21 @@ def generate_result_list(request):
                             })
                     else:
                         for r in results:
+                            # Safely derive module code/name if Module FK is present
+                            try:
+                                m_code = r.module.code if hasattr(r, 'module') and r.module else getattr(r, 'module_code', '')
+                            except Exception:
+                                m_code = getattr(r, 'module_code', '')
+                            try:
+                                m_name = r.module.name if hasattr(r, 'module') and r.module else getattr(r, 'module_name', '')
+                            except Exception:
+                                m_name = getattr(r, 'module_name', '')
                             results_list.append({
                                 'grade': r.grade,
                                 'comment': r.comment,
                                 'assessment_type': getattr(r, 'assessment_type', ''),
-                                'module_code': getattr(r, 'module_code', ''),
-                                'module_name': getattr(r, 'module_name', ''),
+                                'module_code': m_code,
+                                'module_name': m_name,
                                 'mark': r.mark,
                                 'date': r.assessment_date,
                                 'status': getattr(r, 'status', ''),
@@ -538,19 +567,39 @@ def generate_result_list(request):
 
 
 
-        # Group by center if all centers (for non-modular or when no module grouping)
-        centered_result_data = None
-        if not center_id:
-            from collections import defaultdict
-            centered_result_data = defaultdict(list)
-            for entry in result_data:
-                center_name = entry['candidate'].get('assessment_center', 'No Center')
-                centered_result_data[center_name].append(entry)
+        # Group by center for preview rendering (always build)
+        from collections import defaultdict
+        centered_result_data = defaultdict(list)
+        selected_center_name = None
+        if center_id:
+            try:
+                from .models import AssessmentCenter
+                selected_center = AssessmentCenter.objects.filter(id=int(center_id)).first()
+                selected_center_name = selected_center.center_name if selected_center else None
+            except Exception:
+                selected_center_name = None
+        for entry in result_data:
+            center_name = entry['candidate'].get('assessment_center', 'No Center')
+            if selected_center_name and center_name != selected_center_name:
+                continue
+            centered_result_data[center_name].append(entry)
+        if not centered_result_data:
+            centered_result_data = None
         # Always include occupations, levels, centers for dropdowns
         from .models import AssessmentCenter
         occupations = Occupation.objects.all().order_by('code')
         levels = Level.objects.all()
         centers = AssessmentCenter.objects.all()
+        # Limit centers list and default selection for CenterRep users
+        default_center_id = None
+        try:
+            if request.user.groups.filter(name='CenterRep').exists():
+                from .models import CenterRepresentative
+                cr = CenterRepresentative.objects.get(user=request.user)
+                centers = centers.filter(id=cr.center_id)
+                default_center_id = str(cr.center_id)
+        except Exception:
+            pass
         print(f'[DEBUG] centered_result_data: {centered_result_data}')
         print(f'[DEBUG] informal_module_data: {informal_module_data}')
 
@@ -566,7 +615,7 @@ def generate_result_list(request):
                 'occupation_name': occupation_name,
                 'level_id': level_id,
                 'level_name': level_name,
-                'center_id': center_id,
+                'center_id': center_id or default_center_id,
             },
             'candidates': candidates,
             'result_data': result_data,
@@ -589,9 +638,19 @@ def generate_result_list(request):
         occupations = Occupation.objects.all().order_by('code')
         levels = []  # Don't load all levels initially - will be loaded via AJAX
         centers = AssessmentCenter.objects.all()
+        # For CenterRep, restrict to their own center and preselect it in the form
+        form_center_id = None
+        try:
+            if request.user.groups.filter(name='CenterRep').exists():
+                from .models import CenterRepresentative
+                cr = CenterRepresentative.objects.get(user=request.user)
+                centers = centers.filter(id=cr.center_id)
+                form_center_id = str(cr.center_id)
+        except Exception:
+            pass
         context = {
             'preview': False,
-            'form_data': {},
+            'form_data': {'center_id': form_center_id} if form_center_id else {},
             'candidates': [],
             'result_data': [],
             'centered_result_data': None,
@@ -9644,8 +9703,17 @@ def download_result_list_pdf(request):
         return HttpResponse("Missing required parameters: assessment_month, assessment_year, and occupation are required.", status=400)
     
     # Convert empty strings to None for optional parameters
-    level_id = level_id if level_id else None
-    center_id = center_id if center_id else None
+    # Normalize optional params coming from query strings
+    def _clean_optional(val):
+        if val is None:
+            return None
+        sval = str(val).strip()
+        if sval == '' or sval.lower() in ('none', 'null', 'undefined'):
+            return None
+        return sval
+
+    level_id = _clean_optional(level_id)
+    center_id = _clean_optional(center_id)
     
     logger.info(f"PDF Download - regcat: {regcat}, occupation: {occupation_id}, level: {level_id}, center: {center_id}")
     
@@ -9703,7 +9771,7 @@ def download_result_list_pdf(request):
     center = None
     if center_id:
         try:
-            center = AssessmentCenter.objects.get(id=center_id)
+            center = AssessmentCenter.objects.get(id=int(center_id))
         except AssessmentCenter.DoesNotExist:
             pass
     
@@ -14629,17 +14697,27 @@ def generate_marksheets_for_assignment(assignment):
 
 @login_required
 def api_occupations_by_category(request):
-    """API endpoint to get occupations filtered by registration category"""
-    registration_category = request.GET.get('registration_category')
-    
-    if registration_category == 'Modular':
-        # Only show occupations that support modular registration
-        occupations = Occupation.objects.filter(has_modular=True)
+    """API endpoint to get occupations filtered by registration category.
+    Frontend sends lowercase values: 'modular', 'formal', 'informal'.
+    Returns a list with 'display_name' to match templates.
+    """
+    regcat = (request.GET.get('registration_category') or '').strip().lower()
+
+    # Default: show all occupations for formal and informal/worker's PAS
+    if regcat == 'modular':
+        occupations = Occupation.objects.filter(has_modular=True).order_by('code')
     else:
-        # Show all occupations for Formal and Informal categories
-        occupations = Occupation.objects.all()
-    
-    data = [{'id': occ.id, 'name': f"{occ.code} - {occ.name}"} for occ in occupations]
+        occupations = Occupation.objects.all().order_by('code')
+
+    data = [
+        {
+            'id': occ.id,
+            'code': occ.code,
+            'name': occ.name,
+            'display_name': f"{occ.code} - {occ.name}",
+        }
+        for occ in occupations
+    ]
     return JsonResponse({'occupations': data})
 
 

@@ -283,17 +283,19 @@
                   <td class="border p-3" style="font-size: 13px; text-align: center;">{{ entry.candidate.gender }}</td>
                   <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% for r in entry.results %}
-                      <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                      <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">
+                        {{ r.grade }}{% if r.module_name %} ({{ r.module_name }}){% endif %}
+                      </span>
                     {% endfor %}
                   </td>
                   <td class="border p-3" style="font-size: 13px; text-align: center;">
                     {% for r in entry.results %}
                       {% if r.comment == 'Missing' or r.comment == 'Fail' %}
-                        <span class="font-bold text-red-600">{{ r.comment }}</span>
+                        <span class="font-bold text-red-600">{{ r.comment }}{% if r.module_name %} ({{ r.module_name }}){% endif %}</span>
                       {% elif r.comment == 'CTR' %}
-                        <span class="font-bold text-red-600">Fail</span>
+                        <span class="font-bold text-red-600">Fail{% if r.module_name %} ({{ r.module_name }}){% endif %}</span>
                       {% else %}
-                        {{ r.comment|default:"Successful" }}
+                        {{ r.comment|default:"Successful" }}{% if r.module_name %} ({{ r.module_name }}){% endif %}
                       {% endif %}
                       {% if not forloop.last %}, {% endif %}
                     {% endfor %}
@@ -359,7 +361,7 @@
                     <td class="border p-3" style="font-size: 13px; text-align: center;">
                       {% for r in entry.results %}
                         {% if r.assessment_type == 'practical' %}
-                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}</span>
+                          <span class="inline-block px-2 py-1 rounded {% if r.grade == 'F' or r.grade == 'Ms' or r.comment == 'CTR' %}bg-red-500 text-white{% else %}bg-green-100 text-green-800{% endif %} mr-1 mb-1">{{ r.grade }}{% if r.module_name %} ({{ r.module_name }}){% endif %}</span>
                         {% endif %}
                       {% endfor %}
                     </td>
