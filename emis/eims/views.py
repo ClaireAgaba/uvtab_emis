@@ -8821,11 +8821,14 @@ def candidate_view(request, id):
             level_id = level_data['level_id']
             
             # Skip if we've already processed this level
-            if level_id in levels_processed:
+            if not level_id or level_id in levels_processed:
                 continue
             levels_processed.add(level_id)
             
-            level = Level.objects.get(id=level_id)
+            # Safely fetch level; skip if missing
+            level = Level.objects.filter(id=level_id).first()
+            if not level:
+                continue
             
             # Get all results for this level across all assessment series
             level_results = results.filter(level_id=level_id)
@@ -13817,7 +13820,7 @@ def candidate_portal_view(request, id):
     results_summary_for_display = []
     
     if results.exists():
-        # Get all levels that have results
+        # Get all levels that have results (may include nulls if some results lack a level)
         all_results_levels = results.values('level_id', 'level__name').distinct()
         
         # Create comprehensive results summary including historical results
@@ -13825,12 +13828,15 @@ def candidate_portal_view(request, id):
         for level_data in all_results_levels:
             level_id = level_data['level_id']
             
-            # Skip if we've already processed this level
-            if level_id in levels_processed:
+            # Skip if null or we've already processed this level
+            if not level_id or level_id in levels_processed:
                 continue
             levels_processed.add(level_id)
             
-            level = Level.objects.get(id=level_id)
+            # Safely fetch level; skip if not found
+            level = Level.objects.filter(id=level_id).first()
+            if not level:
+                continue
             
             # Get all results for this level
             level_results = results.filter(level_id=level_id)
@@ -13838,14 +13844,18 @@ def candidate_portal_view(request, id):
             # Group results by module, then by paper
             modules_with_results = {}
             for result in level_results:
-                module_id = result.module.id
+                module_obj = getattr(result, 'module', None)
+                module_id = getattr(module_obj, 'id', None)
+                if not module_id:
+                    continue
                 if module_id not in modules_with_results:
                     modules_with_results[module_id] = {
-                        'module': result.module,
+                        'module': module_obj,
                         'papers': set(),  # Use set to avoid duplicate papers
                         'results': []
                     }
-                modules_with_results[module_id]['papers'].add(result.paper)
+                if getattr(result, 'paper', None):
+                    modules_with_results[module_id]['papers'].add(result.paper)
                 modules_with_results[module_id]['results'].append(result)
             
             # Convert paper sets back to lists
