@@ -99,6 +99,7 @@
   <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
     
     <!-- Bulk Actions Bar (hidden by default) -->
+    {% if not is_center_rep %}
     <div id="bulkActionsBar" class="hidden bg-blue-50 border-b border-blue-200 px-6 py-3">
       <div class="flex items-center justify-between">
         <div class="flex items-center">
@@ -119,15 +120,18 @@
         </div>
       </div>
     </div>
+    {% endif %}
 
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
+            {% if not is_center_rep %}
             <th scope="col" class="px-3 py-3 text-left">
               <input type="checkbox" id="selectAll" 
                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
             </th>
+            {% endif %}
             <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Center
             </th>
@@ -160,6 +164,7 @@
         <tbody class="bg-white divide-y divide-gray-200">
           {% for data in page_obj %}
             <tr class="hover:bg-gray-50 transition-colors duration-150">
+              {% if not is_center_rep %}
               <td class="px-3 py-3 whitespace-nowrap">
                 <input type="checkbox" 
                        class="center-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
@@ -167,6 +172,7 @@
                        data-series-id="{% if data.assessment_series %}{{ data.assessment_series.id }}{% else %}none{% endif %}"
                        value="{{ data.center.id }}_{% if data.assessment_series %}{{ data.assessment_series.id }}{% else %}none{% endif %}">
               </td>
+              {% endif %}
               <td class="px-3 py-3 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">{{ data.center.center_name|truncatechars:25 }}</div>
                 <div class="text-xs text-gray-500">{{ data.center.village.name }}</div>

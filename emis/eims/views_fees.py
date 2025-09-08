@@ -486,6 +486,7 @@ def center_fees_list(request):
         'total_centers': unique_centers,
         'total_system_fees': total_system_fees,
         'total_entries': len(center_fees_data),  # Total center-series combinations
+        'is_center_rep': request.user.groups.filter(name='CenterRep').exists(),
     }
     
     return render(request, 'fees/center_fees_list.html', context)
