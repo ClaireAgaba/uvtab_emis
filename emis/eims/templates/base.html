@@ -31,25 +31,25 @@
 
     <!-- Navbar -->
     {% if user.is_authenticated and not is_candidate_portal %}
-    <nav class="bg-white shadow-md">
+    <nav class="bg-blue-300/95 backdrop-blur border-b border-blue-400 shadow-md">
         <div class="px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <!-- Logo/Brand -->
                 <div class="flex-shrink-0">
-                    <a href="{% url 'dashboard' %}" class="text-lg font-semibold text-gray-800 hover:text-blue-600">
+                    <a href="{% url 'dashboard' %}" class="text-lg font-semibold text-gray-900 hover:text-blue-900">
                         EMIS Dashboard
                     </a>
                 </div>
                 
                 <!-- Desktop Navigation -->
                 <div class="hidden md:flex items-center space-x-4">
-                    <a href="{% url 'dashboard' %}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                    <a href="{% url 'dashboard' %}" class="text-gray-900 hover:text-blue-900 px-3 py-2 rounded-md text-sm font-medium">
                         Home
                     </a>
                     <span class="text-gray-600 px-3 py-2 text-sm font-medium">
                         {{ request.user.first_name|default:request.user.username }}
                     </span>
-                    <a href="{% url 'profile' %}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                    <a href="{% url 'profile' %}" class="text-gray-900 hover:text-blue-900 px-3 py-2 rounded-md text-sm font-medium">
                         Profile
                     </a>
                     <form method="post" action="{% url 'logout' %}" class="inline">
@@ -62,7 +62,7 @@
                 
                 <!-- Mobile menu button -->
                 <div class="md:hidden">
-                    <button type="button" id="mobile-menu-button" class="text-gray-700 hover:text-blue-600 focus:outline-none focus:text-blue-600 touch-target" aria-label="Toggle menu">
+                    <button type="button" id="mobile-menu-button" class="text-gray-900 hover:text-blue-900 focus:outline-none focus:text-blue-900 touch-target" aria-label="Toggle menu">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
@@ -72,14 +72,14 @@
             
             <!-- Mobile Navigation Menu -->
             <div id="mobile-menu" class="md:hidden mobile-nav-hidden">
-                <div class="px-2 pt-2 pb-3 space-y-1 border-t border-gray-200">
-                    <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 touch-target">
+                <div class="px-2 pt-2 pb-3 space-y-1 border-t border-blue-300/70">
+                    <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:text-blue-900 hover:bg-blue-100/60 touch-target">
                         Home
                     </a>
                     <span class="block px-3 py-2 text-base font-medium text-gray-600">
                         {{ request.user.first_name|default:request.user.username }}
                     </span>
-                    <a href="{% url 'profile' %}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 touch-target">
+                    <a href="{% url 'profile' %}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:text-blue-900 hover:bg-blue-100/60 touch-target">
                         Profile
                     </a>
                     <form method="post" action="{% url 'logout' %}" class="block">
