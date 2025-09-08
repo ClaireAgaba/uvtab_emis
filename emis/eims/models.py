@@ -689,6 +689,11 @@ class Candidate(models.Model):
         default='Active',
         help_text="Account status - Active users can login, Inactive users cannot login"
     )
+    # Candidate portal results visibility control
+    block_portal_results = models.BooleanField(
+        default=False,
+        help_text="If true, this candidate will be blocked from viewing results in the candidate portal"
+    )
     
     # Fees balance field
     fees_balance = models.DecimalField(

@@ -13779,9 +13779,9 @@ def candidate_portal_view(request, id):
     # Get candidate results
     results = Result.objects.filter(candidate=candidate).select_related('level', 'module', 'paper').order_by('assessment_date')
     
-    # Only show results if they have been released
-    if not results_released:
-        results = []
+    # Only show results if they have been released and candidate is not blocked
+    if not results_released or getattr(candidate, 'block_portal_results', False):
+        results = Result.objects.none()
     
     # Get enrollment information
     enrolled_levels = CandidateLevel.objects.filter(candidate=candidate).select_related('level')
@@ -13813,7 +13813,7 @@ def candidate_portal_view(request, id):
             results_by_paper[result.paper.id].append(result)
     
     # Determine if candidate has any results
-    has_results = results.exists() if results_released else False
+    has_results = results.exists() if (results_released and not getattr(candidate, 'block_portal_results', False)) else False
     
     # Create results_summary for template (required for Worker's PAS/Informal display)
     from .models import Level
@@ -13884,6 +13884,52 @@ def candidate_portal_view(request, id):
     }
     
     return render(request, 'candidates/view.html', context)
+
+@login_required
+@require_POST
+def toggle_candidate_portal_results(request, candidate_id):
+    """Staff-only: Toggle whether a candidate can view results in the portal."""
+    # Determine elevated privileges similar to complaints access helper
+    is_elevated = getattr(request.user, 'is_superuser', False) or getattr(request.user, 'is_staff', False)
+    # Also allow Center Representatives to toggle
+    try:
+        if request.user.groups.filter(name='CenterRep').exists():
+            is_elevated = True
+    except Exception:
+        pass
+    if not is_elevated:
+        try:
+            from .models import Staff as StaffModel
+            if StaffModel.objects.filter(user=request.user, department__in=['Admin', 'IT', 'Data']).exists():
+                is_elevated = True
+        except Exception:
+            is_elevated = False
+    if not is_elevated:
+        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+
+    cand = get_object_or_404(Candidate, pk=candidate_id)
+    cand.block_portal_results = not bool(getattr(cand, 'block_portal_results', False))
+    cand.save(update_fields=['block_portal_results'])
+
+    # Optional: record change log if model exists
+    try:
+        from .models import CandidateChangeLog
+        CandidateChangeLog.objects.create(
+            candidate=cand,
+            action='update',
+            details=f"block_portal_results set to {cand.block_portal_results}",
+            performed_by=request.user,
+            ip_address=request.META.get('REMOTE_ADDR', '')
+        )
+    except Exception:
+        pass
+
+    # Support both AJAX and normal form post
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'blocked': cand.block_portal_results})
+    from django.contrib import messages
+    messages.success(request, ('Blocked' if cand.block_portal_results else 'Unblocked') + ' candidate from viewing results in the portal.')
+    return redirect('candidate_view', id=candidate_id)
 
 
 # =========================

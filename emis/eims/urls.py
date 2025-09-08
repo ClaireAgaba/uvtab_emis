@@ -184,6 +184,7 @@ urlpatterns = [
     path('portal/', views.candidate_portal_login, name='candidate_portal_login'),
     path('portal/logout/', views.candidate_portal_logout, name='candidate_portal_logout'),
     path('portal/candidate/<int:id>/', views.candidate_portal_view, name='candidate_portal_view'),
+    path('candidates/<int:candidate_id>/toggle-portal-results/', views.toggle_candidate_portal_results, name='toggle_candidate_portal_results'),
     
     # Sector URLs
     path('sectors/', sector_views.sector_list, name='sector_list'),

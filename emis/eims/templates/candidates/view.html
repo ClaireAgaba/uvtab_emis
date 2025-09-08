@@ -112,6 +112,21 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       </div>
     </div>
   </div>
+  {% if candidate.block_portal_results %}
+  <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+    <div class="flex items-center">
+      <svg class="w-6 h-6 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <div>
+        <h3 class="text-lg font-semibold text-red-800">Results Hidden</h3>
+        <p class="text-red-700 text-sm mt-1">
+          You have been blocked from viewing results. Please contact your center representative.
+        </p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
   {% endif %}
 
   <!-- Header -->
@@ -280,11 +295,12 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
         document.addEventListener('DOMContentLoaded', function() {
           const btn = document.getElementById('actionDropdownBtn');
           const menu = document.getElementById('actionDropdownMenu');
+          if (!btn || !menu) return; // Guard when Action dropdown is hidden for current role
           btn.addEventListener('click', function(e) {
             e.stopPropagation();
             menu.classList.toggle('hidden');
           });
-          document.addEventListener('click', function(e) {
+          document.addEventListener('click', function() {
             if (!menu.classList.contains('hidden')) {
               menu.classList.add('hidden');
             }
@@ -891,41 +907,57 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       </div>
     </div>
   {% else %}
+  {% if request.user.is_superuser or request.user.is_staff or is_center_rep or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
+    {% if candidate.block_portal_results %}
+      <div class="bg-red-50 border-l-4 border-red-400 p-3 mt-4 rounded-r">
+        <p class="text-sm text-red-700">This candidate is currently <strong>blocked</strong> from viewing results in the Candidate Portal.</p>
+      </div>
+    {% endif %}
+  {% endif %}
   {% if candidate.registration_category == 'Informal' or candidate.registration_category == "Worker's PAS" or candidate.registration_category == 'Workers PAS' %}
     {% if results_summary and results_summary|length > 0 %}
       {% for lvl in results_summary %}
         <div class="bg-white p-4 rounded shadow mt-4">
           <div class="flex items-center justify-between mb-2">
             <h2 class="text-lg font-semibold">Results for {{ lvl.level.name }}</h2>
-            {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
+            {% if request.user.is_superuser or request.user.is_staff or is_center_rep or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
+              <form method="post" action="{% url 'toggle_candidate_portal_results' candidate.id %}" class="inline" onsubmit="return confirm('{% if candidate.block_portal_results %}Are you sure you want to UNBLOCK this candidate from viewing results?{% else %}Are you sure you want to BLOCK this candidate from viewing results?{% endif %}');">
+                {% csrf_token %}
+                <button type="submit" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded text-sm">
+                  {% if candidate.block_portal_results %}Unblock Candidate from Viewing Results{% else %}Block Candidate from Viewing Results{% endif %}
+                </button>
+              </form>
+            {% endif %}
+          </div>
+  {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
               {% if level_has_results|get_item:lvl.level.id|stringformat:"s" %}
                 {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' %}
                   <a href="{% url 'edit_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">Edit Marks</a>
                 {% else %}
                   <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Only IT and Admin can edit marks">Edit Marks</button>
-                {% endif %}
-              {% elif lvl.modules and lvl.modules|length > 0 %}
-                <a href="{% url 'add_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
-              {% else %}
-                <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
-                <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
               {% endif %}
+            {% elif lvl.modules and lvl.modules|length > 0 %}
+              <a href="{% url 'add_result' candidate.id %}?level={{ lvl.level.id }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">Add Marks</a>
+            {% else %}
+              <button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled title="Candidate is not enrolled">Add Marks</button>
+              <span class="text-red-600 text-sm ml-2">Candidate is not enrolled. Please enroll candidate to add marks.</span>
             {% endif %}
-          </div>
-          <table class="min-w-full mb-4 border border-gray-300">
-            <thead>
-              <tr class="bg-gray-100">
-                <th class="py-2 px-4 text-left">Assessment Series</th>
-                <th class="py-2 px-4 text-left">Level</th>
-                <th class="py-2 px-4 text-left">Module</th>
-                <th class="py-2 px-4 text-left">Paper</th>
-                <th class="py-2 px-4 text-left">Type</th>
-                <th class="py-2 px-4 text-left">Assessment</th>
-                <th class="py-2 px-4 text-left">Mark</th>
-                <th class="py-2 px-4 text-left">Grade</th>
-                <th class="py-2 px-4 text-left">Comment</th>
-                <th class="py-2 px-4 text-left">Status</th>
-                <th class="py-2 px-4 text-left">Assessment Series</th>
+          {% endif %}
+        </div>
+        <table class="min-w-full mb-4 border border-gray-300">
+          <thead>
+            <tr class="bg-gray-100">
+              <th class="py-2 px-4 text-left">Assessment Series</th>
+              <th class="py-2 px-4 text-left">Level</th>
+              <th class="py-2 px-4 text-left">Module</th>
+              <th class="py-2 px-4 text-left">Paper</th>
+              <th class="py-2 px-4 text-left">Type</th>
+              <th class="py-2 px-4 text-left">Assessment</th>
+              <th class="py-2 px-4 text-left">Mark</th>
+              <th class="py-2 px-4 text-left">Grade</th>
+              <th class="py-2 px-4 text-left">Comment</th>
+              <th class="py-2 px-4 text-left">Status</th>
+              <th class="py-2 px-4 text-left">Assessment Series</th>
 
                 
                 <th class="py-2 px-4 text-left">User</th>
@@ -983,7 +1015,16 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     <div class="bg-white p-4 rounded shadow mt-4">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-lg font-semibold">Results</h2>
-        {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
+        {% if request.user.is_superuser or request.user.is_staff or is_center_rep or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
+          <form method="post" action="{% url 'toggle_candidate_portal_results' candidate.id %}" class="inline" onsubmit="return confirm('{% if candidate.block_portal_results %}Are you sure you want to UNBLOCK this candidate from viewing results?{% else %}Are you sure you want to BLOCK this candidate from viewing results?{% endif %}');">
+            {% csrf_token %}
+            <button type="submit" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded text-sm">
+              {% if candidate.block_portal_results %}Unblock Candidate from Viewing Results{% else %}Block Candidate from Viewing Results{% endif %}
+            </button>
+          </form>
+        {% endif %}
+      </div>
+      {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
           {% if candidate.registration_category == 'Informal' or candidate.registration_category == "Worker's PAS" or candidate.registration_category == 'Workers PAS' %}
             {% if results and results.count %}
               {% if request.user.is_superuser or user_department == 'Admin' or user_department == 'IT' %}
