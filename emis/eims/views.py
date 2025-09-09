@@ -5024,17 +5024,26 @@ def generate_album(request):
     if request.method == 'POST':
         try:
             center_id = request.POST.get('center')
+            branch_id = request.POST.get('branch_id')
             occupation_id = request.POST.get('occupation')
             reg_category_form = request.POST.get('registration_category', '') # Name from form
             level_id = request.POST.get('level') # Keep for filtering logic if needed
             assessment_series_id = request.POST.get('assessment_series')
 
-            logger.info(f"POST request received with params: center={center_id}, occupation={occupation_id}, category={reg_category_form}, level={level_id}, series={assessment_series_id}")
+            logger.info(f"POST request received with params: center={center_id}, branch={branch_id}, occupation={occupation_id}, category={reg_category_form}, level={level_id}, series={assessment_series_id}")
 
             # Security: Center Representatives can only generate for their own center
             if is_center_rep and (str(center_id) != str(selected_center_id)):
                 logger.warning("CenterRep attempted to access another center for album generation.")
                 return HttpResponse(status=403)
+            # If the rep is scoped to a branch, enforce it
+            if is_center_rep:
+                try:
+                    if getattr(cr, 'assessment_center_branch_id', None):
+                        if not branch_id or str(branch_id) != str(cr.assessment_center_branch_id):
+                            return HttpResponse(status=403)
+                except Exception:
+                    pass
 
 
             if not all([center_id, occupation_id, reg_category_form, assessment_series_id]):
@@ -5053,6 +5062,11 @@ def generate_album(request):
                 logger.error(f"Invalid parameter provided: {e}")
                 return HttpResponse(f"Invalid parameter: {e}", status=400)
 
+            # If center has branches, require branch choice so we only print candidates in that branch
+            if center.has_branches:
+                if not branch_id:
+                    return HttpResponse("Please select a branch for this center.", status=400)
+
             # Candidate Querying with branch optimization
             logger.info("Querying candidates...")
             candidate_qs = Candidate.objects.select_related(
@@ -5063,6 +5077,8 @@ def generate_album(request):
                 registration_category__iexact=reg_category_form, # Use form value for filtering
                 assessment_series=series,
             )
+            if branch_id:
+                candidate_qs = candidate_qs.filter(assessment_center_branch_id=branch_id)
 
             # Fallback: Some legacy candidates may not have assessment_series set.
             # In that case, use assessment_date range within the series dates.
@@ -5077,6 +5093,8 @@ def generate_album(request):
                     assessment_date__gte=series.start_date,
                     assessment_date__lte=series.end_date,
                 )
+                if branch_id:
+                    candidate_qs = candidate_qs.filter(assessment_center_branch_id=branch_id)
 
             # Optional level filtering (if applicable for the registration category)
             if reg_category_form.lower() in ['formal', 'informal', 'workers pas'] and level_id:
@@ -5105,7 +5123,7 @@ def generate_album(request):
                     else:
                         branch_key = "main_center"
                         branch_name = "Main Center"
-                    
+                
                     branch_candidates[branch_key].append({
                         'candidate': candidate,
                         'branch_name': branch_name,
@@ -5525,6 +5543,9 @@ def candidate_list(request):
         try:
             center_rep = CenterRepresentative.objects.get(user=request.user)
             candidates = candidates.filter(assessment_center=center_rep.center)
+            # If the rep is scoped to a specific branch, further restrict
+            if getattr(center_rep, 'assessment_center_branch_id', None):
+                candidates = candidates.filter(assessment_center_branch_id=center_rep.assessment_center_branch_id)
         except CenterRepresentative.DoesNotExist:
             candidates = candidates.none()
 

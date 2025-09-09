@@ -1213,6 +1213,8 @@ class CenterRepresentative(models.Model):
     from django.contrib.auth import get_user_model
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     center = models.ForeignKey(AssessmentCenter, on_delete=models.CASCADE)
+    # Optional: when set, this representative is scoped to a specific branch of the center
+    assessment_center_branch = models.ForeignKey('AssessmentCenterBranch', null=True, blank=True, on_delete=models.SET_NULL)
     name = models.CharField(max_length=100)
     contact = models.CharField(max_length=15)
 
@@ -1224,6 +1226,12 @@ class CenterRepresentative(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.center.center_number})"
+
+    def clean(self):
+        # Ensure branch (if any) belongs to the same center
+        if self.assessment_center_branch and self.assessment_center_branch.assessment_center_id != self.center_id:
+            from django.core.exceptions import ValidationError
+            raise ValidationError("Selected branch does not belong to the chosen assessment center.")
 
 
 class SupportStaff(models.Model):

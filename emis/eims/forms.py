@@ -504,6 +504,18 @@ class CandidateForm(forms.ModelForm):
                 self.fields['assessment_center'].queryset = self.fields['assessment_center'].queryset.filter(pk=center_rep.center.pk)
                 self.fields['assessment_center'].initial = center_rep.center.pk
                 self.fields['assessment_center'].disabled = True
+                # Branch scoping: if this user is tied to a specific branch, restrict and lock the branch field
+                if getattr(center_rep, 'assessment_center_branch_id', None):
+                    self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(
+                        pk=center_rep.assessment_center_branch_id
+                    )
+                    self.fields['assessment_center_branch'].initial = center_rep.assessment_center_branch_id
+                    self.fields['assessment_center_branch'].disabled = True
+                    self.fields['assessment_center_branch'].help_text = "Your account is scoped to this branch."
+                else:
+                    # Main center (no branch): keep branch empty to force Main Center only
+                    self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.none()
+                    self.fields['assessment_center_branch'].help_text = "Main Center account (no specific branch)."
             except CenterRepresentative.DoesNotExist:
                 self.fields['assessment_center'].queryset = self.fields['assessment_center'].queryset.none()
         from .models import Occupation, OccupationCategory
@@ -1345,25 +1357,62 @@ class VillageForm(forms.ModelForm):
 class CenterRepForm(forms.ModelForm):
     class Meta:
         model = CenterRepresentative
-        fields = ['name', 'contact', 'center']
+        fields = ['name', 'contact', 'center', 'assessment_center_branch']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'}),
             'contact': forms.TextInput(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'}),
-            'center': forms.Select(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'})
+            'center': forms.Select(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'}),
+            'assessment_center_branch': forms.Select(attrs={'class': 'block w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400'})
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Branch is optional; empty means Main Center login
+        self.fields['assessment_center_branch'].required = False
+        self.fields['assessment_center_branch'].empty_label = 'Main Center (no specific branch)'
+        self.fields['assessment_center_branch'].help_text = 'Optional: select a specific branch to restrict this account to that branch only.'
+
+        # Default queryset for branches
+        from .models import AssessmentCenterBranch, AssessmentCenter
+        branches_qs = AssessmentCenterBranch.objects.none()
+
+        # Determine chosen center: POST data > instance > None
+        center_obj = None
+        if self.data.get('center'):
+            try:
+                center_obj = AssessmentCenter.objects.get(pk=int(self.data.get('center')))
+            except (ValueError, TypeError, AssessmentCenter.DoesNotExist):
+                center_obj = None
+        elif self.instance and getattr(self.instance, 'center_id', None):
+            center_obj = self.instance.center
+
+        if center_obj and center_obj.has_branches:
+            branches_qs = AssessmentCenterBranch.objects.filter(assessment_center=center_obj).order_by('branch_code')
+        self.fields['assessment_center_branch'].queryset = branches_qs
 
     def save(self, commit=True):
         profile = super().save(commit=False)
         name = self.cleaned_data.get('name', '')
         center = self.cleaned_data['center']
         center_number = center.center_number
-        email = f"{center_number}@uvtab.go.ug"
+        # When a branch is selected, include it in the username/email so branch reps can log in independently
+        branch = self.cleaned_data.get('assessment_center_branch')
+        base_username = center_number if not branch else f"{center_number}-{branch.branch_code}"
+        # Normalize username/email (lowercase)
+        base_username = base_username.strip().lower()
+        email = f"{base_username}@uvtab.go.ug"
         if not profile.pk or not getattr(profile, 'user', None):
             # Creating new CenterRep and User
             password = "Uvtab@2025"
+            # Ensure uniqueness of username
+            username = email
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}{counter}@uvtab.go.ug"
+                counter += 1
             user = User.objects.create_user(
-                username=email,
-                email=email,
+                username=username,
+                email=username,
                 password=password,
                 first_name=name
             )
@@ -1374,6 +1423,22 @@ class CenterRepForm(forms.ModelForm):
             # Editing existing CenterRep: update user fields, but do not change username/email
             user = profile.user
             user.first_name = name
+            # If branch assignment changed, update username/email to branch-based (or main center based)
+            try:
+                current_base = user.username.split('@')[0] if '@' in user.username else user.username
+                desired_base = base_username
+                if current_base != desired_base:
+                    desired_username = f"{desired_base}@uvtab.go.ug"
+                    counter = 1
+                    new_username = desired_username
+                    while User.objects.filter(username=new_username).exclude(pk=user.pk).exists():
+                        new_username = f"{desired_base}{counter}@uvtab.go.ug"
+                        counter += 1
+                    user.username = new_username
+                    user.email = new_username
+            except Exception:
+                # If anything goes wrong, keep existing username/email
+                pass
             user.save()
         if commit:
             profile.save()

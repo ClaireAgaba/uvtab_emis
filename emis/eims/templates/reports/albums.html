@@ -42,12 +42,22 @@
               {% if centers|length == 1 and selected_center_id %}disabled{% endif %}>
         <option value="">Select Assessment Center</option>
         {% for c in centers %}
-          <option value="{{ c.id }}" {% if selected_center_id and c.id == selected_center_id %}selected{% endif %}>{{ c.center_name }}</option>
+          <option value="{{ c.id }}" data-has-branches="{{ c.has_branches|yesno:'true,false' }}" {% if selected_center_id and c.id == selected_center_id %}selected{% endif %}>{{ c.center_name }}</option>
         {% endfor %}
       </select>
       {% if centers|length == 1 and selected_center_id %}
         <input type="hidden" name="center" value="{{ selected_center_id }}">
       {% endif %}
+    </div>
+
+    {# ——— Branch (shown only when center has branches) ——— #}
+    <div id="branch_wrapper" class="hidden">
+      <label for="branch_id" class="block text-sm font-medium text-gray-700">Branch</label>
+      <select id="branch_id" name="branch_id"
+              class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+        <option value="">Select Branch</option>
+      </select>
+      <p class="text-xs text-gray-500 mt-1">Required when the selected center has branches.</p>
     </div>
 
     {# ——— Assessment Series ——— #}
@@ -205,6 +215,42 @@
 {# ------------------------------------------------------------------ #}
 
 <script>
+// Load branches dynamically for a selected center
+async function loadBranchesForCenter(centerId){
+  const wrap = document.getElementById('branch_wrapper');
+  const sel  = document.getElementById('branch_id');
+  if (!wrap || !sel){ return; }
+  if (!centerId){
+    wrap.classList.add('hidden');
+    sel.innerHTML = '<option value="">Select Branch</option>';
+    return;
+  }
+  try{
+    // Build URL from named route template with a placeholder
+    const tpl = '{% url "api_assessment_center_branches" 0 %}';
+    const url = tpl.replace('/0/', '/' + encodeURIComponent(centerId) + '/');
+    sel.innerHTML = '<option value="">Loading branches...</option>';
+    const r = await fetch(url);
+    const data = await r.json();
+    sel.innerHTML = '<option value="">Select Branch</option>';
+    const list = (data && Array.isArray(data.branches)) ? data.branches : [];
+    if (data && data.has_branches && list.length){
+      list.forEach(function(b){
+        const opt = document.createElement('option');
+        opt.value = b.id;
+        opt.textContent = `${b.branch_code} - ${b.village_name}`;
+        sel.appendChild(opt);
+      });
+      wrap.classList.remove('hidden');
+    } else {
+      wrap.classList.add('hidden');
+    }
+  }catch(e){
+    console.error('Failed to load branches', e);
+    sel.innerHTML = '<option value="">Failed to load branches</option>';
+    wrap.classList.remove('hidden');
+  }
+}
 // Populate levels based on the selected occupation (only when reg category is Formal/Informal)
 async function refreshLevelsForOccupation() {
   var regCatSel = document.getElementById('reg_cat');
@@ -361,6 +407,25 @@ async function refreshOccupationsByCategory() {
 // Initialize once DOM is loaded
 document.addEventListener('DOMContentLoaded', function () {
   populateAssessmentSeriesDropdown();
+  // When center changes, attempt to load branches; API will tell us if none
+  const centerSel = document.getElementById('center');
+  function handleCenterChange(){
+    if (!centerSel) return;
+    const val = centerSel.value;
+    if (val){
+      loadBranchesForCenter(val);
+    } else {
+      const wrap = document.getElementById('branch_wrapper');
+      const sel  = document.getElementById('branch_id');
+      if (wrap) wrap.classList.add('hidden');
+      if (sel) sel.innerHTML = '<option value="">Select Branch</option>';
+    }
+  }
+  if (centerSel){
+    centerSel.addEventListener('change', handleCenterChange);
+    // Fire once on load to populate branches for the preselected center
+    handleCenterChange();
+  }
   var regCatSel = document.getElementById('reg_cat');
   if (regCatSel) {
     regCatSel.addEventListener('change', function(){
