@@ -40,22 +40,22 @@
       <h3 class="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label for="{{ form.full_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.full_name.label }}</label>
+          <label for="{{ form.full_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.full_name.label }}{% if form.full_name.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.full_name|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div>
-          <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.date_of_birth.label }}</label>
+          <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.date_of_birth.label }}{% if form.date_of_birth.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.date_of_birth|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div>
-          <label for="{{ form.gender.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.gender.label }}</label>
+          <label for="{{ form.gender.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.gender.label }}{% if form.gender.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.gender|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div>
-          <label for="{{ form.nationality.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.nationality.label }}</label>
+          <label for="{{ form.nationality.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.nationality.label }}{% if form.nationality.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.nationality|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
@@ -69,7 +69,7 @@
         </div>
         
         <div id="refugee-number-field" style="display: none;">
-          <label for="{{ form.refugee_number.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.refugee_number.label }}</label>
+          <label for="{{ form.refugee_number.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.refugee_number.label }}{% if form.refugee_number.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.refugee_number|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
           {% if form.refugee_number.help_text %}
             <p class="mt-1 text-xs text-gray-500">{{ form.refugee_number.help_text }}</p>
@@ -77,7 +77,7 @@
         </div>
         
         <div>
-          <label for="{{ form.passport_photo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Passport photo (JPEG/PNG)</label>
+          <label for="{{ form.passport_photo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Passport photo (JPEG/PNG){% if form.passport_photo.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.passport_photo|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
           <p class="mt-1 text-xs text-gray-500">Accepted formats: JPG, JPEG, PNG.</p>
         </div>
@@ -89,17 +89,17 @@
       <h3 class="text-lg font-medium text-gray-900 mb-4">Contact & Location</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label for="{{ form.contact.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.contact.label }}</label>
+          <label for="{{ form.contact.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.contact.label }}{% if form.contact.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.contact|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div>
-          <label for="{{ form.district.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Home District</label>
+          <label for="{{ form.district.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Home District{% if form.district.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.district|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div>
-          <label for="{{ form.village.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.village.label }}</label>
+          <label for="{{ form.village.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.village.label }}{% if form.village.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.village|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
       </div>
@@ -110,7 +110,7 @@
       <h3 class="text-lg font-medium text-gray-900 mb-4">Assessment Info</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label for="{{ form.assessment_center.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_center.label }}</label>
+          <label for="{{ form.assessment_center.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_center.label }}{% if form.assessment_center.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.assessment_center|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
@@ -122,22 +122,22 @@
         </div>
         
         <div>
-          <label for="{{ form.entry_year.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.entry_year.label }}</label>
+          <label for="{{ form.entry_year.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.entry_year.label }}{% if form.entry_year.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.entry_year|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div>
-          <label for="{{ form.intake.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.intake.label }}</label>
+          <label for="{{ form.intake.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.intake.label }}{% if form.intake.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.intake|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div>
-          <label for="{{ form.registration_category.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.registration_category.label }}</label>
+          <label for="{{ form.registration_category.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.registration_category.label }}{% if form.registration_category.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.registration_category|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div id="occupation-field-wrapper" class="md:col-span-2">
-          <label for="{{ form.occupation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.occupation.label }}</label>
+          <label for="{{ form.occupation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.occupation.label }}{% if form.occupation.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.occupation|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
           <span id="occupation-loading" class="text-xs text-gray-500 hidden">Loading...</span>
         </div>
@@ -191,17 +191,17 @@
       <h3 class="text-lg font-medium text-gray-900 mb-4">Assessment Dates</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.start_date.label }}</label>
+          <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.start_date.label }}{% if form.start_date.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.start_date|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div>
-          <label for="{{ form.finish_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.finish_date.label }}</label>
+          <label for="{{ form.finish_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.finish_date.label }}{% if form.finish_date.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.finish_date|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
         
         <div>
-          <label for="{{ form.assessment_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_date.label }}</label>
+          <label for="{{ form.assessment_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_date.label }}{% if form.assessment_date.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
           {{ form.assessment_date|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
         </div>
       </div>

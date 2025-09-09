@@ -436,10 +436,16 @@ class ComplaintCategory(models.Model):
 
 
 def generate_ticket_no():
-    """Generate next ticket number in format TKT00001"""
+    """Generate next ticket number in format TKTyy#### e.g. TKT250001
+
+    yy = current two-digit year
+    #### = zero-padded sequential unique id (based on last complaint id + 1)
+    """
+    from django.utils import timezone
+    yy = timezone.now().strftime('%y')
     last = Complaint.objects.order_by('-id').first()
     next_num = 1 if not last else last.id + 1
-    return f"TKT{next_num:05d}"
+    return f"TKT{yy}{next_num:04d}"
 
 
 class Complaint(models.Model):
