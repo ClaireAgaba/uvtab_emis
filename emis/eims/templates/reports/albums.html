@@ -29,28 +29,33 @@
 <div class="bg-white max-w-2xl mx-auto rounded shadow p-6 mb-10">
   <form method="post" class="space-y-6">
     {% csrf_token %}
+    {# Server-provided fallback JSON for Assessment Series #}
+    {% if series_fallback %}
+      {{ series_fallback|json_script:"series-fallback-data" }}
+    {% endif %}
 
     {# ——— Assessment Center ——— #}
     <div>
       <label for="center" class="block text-sm font-medium text-gray-700">Assessment Center</label>
       <select id="center" name="center" required
-              class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+              class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+              {% if centers|length == 1 and selected_center_id %}disabled{% endif %}>
         <option value="">Select Assessment Center</option>
         {% for c in centers %}
-          <option value="{{ c.id }}">{{ c.center_name }}</option>
+          <option value="{{ c.id }}" {% if selected_center_id and c.id == selected_center_id %}selected{% endif %}>{{ c.center_name }}</option>
         {% endfor %}
       </select>
+      {% if centers|length == 1 and selected_center_id %}
+        <input type="hidden" name="center" value="{{ selected_center_id }}">
+      {% endif %}
     </div>
 
-    {# ——— Occupation ——— #}
+    {# ——— Assessment Series ——— #}
     <div>
-      <label for="occupation" class="block text-sm font-medium text-gray-700">Occupation</label>
-      <select id="occupation" name="occupation" required
+      <label for="assessment_series" class="block text-sm font-medium text-gray-700">Assessment Series</label>
+      <select id="assessment_series" name="assessment_series" required
               class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500">
-        <option value="">Select Occupation</option>
-        {% for o in occupations %}
-          <option value="{{ o.id }}">{{ o.name }}</option>
-        {% endfor %}
+        <option value="">Loading series...</option>
       </select>
     </div>
 
@@ -64,6 +69,18 @@
         <option value="Formal">Formal</option>
         <option value="Informal">Informal</option>
         <option value="Modular">Modular</option>
+      </select>
+    </div>
+
+    {# ——— Occupation (filtered by Registration Category) ——— #}
+    <div>
+      <label for="occupation" class="block text-sm font-medium text-gray-700">Occupation</label>
+      <select id="occupation" name="occupation" required
+              class="mt-1 w-full rounded border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+        <option value="">Select Occupation</option>
+        {% for o in occupations %}
+          <option value="{{ o.id }}">{{ o.name }}</option>
+        {% endfor %}
       </select>
     </div>
 
@@ -81,41 +98,6 @@
       </p>
     </div>
 
-    {# ——— Month / Year selectors ——— #}
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <label for="ass_month" class="block text-sm font-medium text-gray-700">Assessment Month</label>
-        <select id="ass_month" name="assessment_month" required
-        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-  <option value="">Select Month</option>
-  <option value="1">January</option>
-  <option value="2">February</option>
-  <option value="3">March</option>
-  <option value="4">April</option>
-  <option value="5">May</option>
-  <option value="6">June</option>
-  <option value="7">July</option>
-  <option value="8">August</option>
-  <option value="9">September</option>
-  <option value="10">October</option>
-  <option value="11">November</option>
-  <option value="12">December</option>
-</select>
-      </div>
-
-      <div>
-        <label for="ass_year" class="block text-sm font-medium text-gray-700">Assessment Year</label>
-        <select id="ass_year" name="assessment_year" required
-        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-  <option value="">Select Year</option>
-  <option value="2025">2025</option>
-  <option value="2024">2024</option>
-  <option value="2023">2023</option>
-  <option value="2022">2022</option>
-  <option value="2021">2021</option>
-</select>
-      </div>
-    </div>
 
     {# ——— Buttons ——— #}
     <div class="flex justify-end gap-4 pt-6 border-t">
@@ -219,28 +201,178 @@
 {% endif %}
 
 {# ------------------------------------------------------------------ #}
-{# 5️⃣  Little JS to hide / show level field                           #}
+{# 5️⃣  Page scripts (series, occupations, levels)                    #}
 {# ------------------------------------------------------------------ #}
+
 <script>
-  function toggleLevelField () {
-    const sel   = document.getElementById('reg_cat');
-    const wrap  = document.getElementById('level_wrapper');
-    const note  = document.getElementById('level_note');
-
-    if (sel.value === 'Modular') {
-      wrap.classList.add('hidden');
-      note.classList.remove('hidden');
-    } else if (sel.value) {
-      wrap.classList.remove('hidden');
-      note.classList.add('hidden');
-    } else {
-      wrap.classList.add('hidden');
-      note.classList.add('hidden');
-    }
+// Populate levels based on the selected occupation (only when reg category is Formal/Informal)
+async function refreshLevelsForOccupation() {
+  var regCatSel = document.getElementById('reg_cat');
+  var occSel = document.getElementById('occupation');
+  var levelSel = document.getElementById('level');
+  var levelWrap = document.getElementById('level_wrapper');
+  if (!regCatSel || !occSel || !levelSel) return;
+  var regcat = (regCatSel.value || '').toLowerCase();
+  // Hide for modular
+  if (regcat === 'modular') {
+    if (levelWrap) levelWrap.classList.add('hidden');
+    return;
   }
-  // run once on load (for browser back button etc.)
-  document.addEventListener('DOMContentLoaded', toggleLevelField);
-</script>
+  if (levelWrap) levelWrap.classList.remove('hidden');
+  var occId = occSel.value;
+  if (!occId) {
+    levelSel.innerHTML = '';
+    return;
+  }
+  try {
+    levelSel.innerHTML = '<option value="">Loading levels...</option>';
+    var url = '{% url "api_levels_for_occupation" %}?occupation_id=' + encodeURIComponent(occId);
+    var r = await fetch(url);
+    var data = await r.json();
+    levelSel.innerHTML = '';
+    if (data && data.levels && data.levels.length) {
+      data.levels.forEach(function (lvl) {
+        var opt = document.createElement('option');
+        opt.value = lvl.id;
+        opt.textContent = lvl.name;
+        levelSel.appendChild(opt);
+      });
+    } else {
+      levelSel.innerHTML = '<option value="">No levels found</option>';
+    }
+  } catch (e) {
+    console.error('Failed to load levels', e);
+    levelSel.innerHTML = '<option value="">Failed to load levels</option>';
+  }
+}
 
-</div>
+function toggleLevelField () {
+  const sel   = document.getElementById('reg_cat');
+  const wrap  = document.getElementById('level_wrapper');
+  const note  = document.getElementById('level_note');
+  if (!sel || !wrap || !note) return;
+  if (sel.value === 'Modular') {
+    wrap.classList.add('hidden');
+    note.classList.remove('hidden');
+  } else if (sel.value) {
+    wrap.classList.remove('hidden');
+    note.classList.add('hidden');
+    refreshLevelsForOccupation();
+  } else {
+    wrap.classList.add('hidden');
+    note.classList.add('hidden');
+  }
+}
+
+// Populate Assessment Series dropdown from API and preselect current
+async function populateAssessmentSeriesDropdown() {
+  const seriesSelect = document.getElementById('assessment_series');
+  const info = document.getElementById('series_info');
+  if (!seriesSelect) return;
+  try {
+    seriesSelect.innerHTML = '<option value="">Loading series...</option>';
+    const resp = await fetch('{% url "api_assessment_series" %}');
+    const data = await resp.json();
+    seriesSelect.innerHTML = '<option value="">Select Assessment Series</option>';
+    var seriesArr = (data && (data.series || data.assessment_series)) ? (data.series || data.assessment_series) : [];
+    if ((!seriesArr || !seriesArr.length)) {
+      var fbEl = document.getElementById('series-fallback-data');
+      if (fbEl && fbEl.textContent) {
+        try { seriesArr = JSON.parse(fbEl.textContent); } catch (e) { seriesArr = []; }
+      }
+    }
+    if (seriesArr && seriesArr.length) {
+      seriesArr.forEach(function (s) {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        var name = s.display_name || s.name;
+        opt.textContent = name;
+        if (s.is_current) opt.selected = true;
+        seriesSelect.appendChild(opt);
+      });
+      const current = seriesArr.find(function (s) { return s.is_current; });
+      if (current && info) {
+        var title = current.name || current.display_name || '';
+        var range = current.date_range || (current.start_date && current.end_date ? (current.start_date + ' - ' + current.end_date) : '');
+        info.textContent = title + (range ? ' • ' + range : '');
+      } else if (info) {
+        info.textContent = '';
+      }
+    } else {
+      seriesSelect.innerHTML = '<option value="">No assessment series found</option>';
+      if (info) info.textContent = '';
+    }
+  } catch (e) {
+    console.error('Failed to load assessment series', e);
+    seriesSelect.innerHTML = '<option value="">Failed to load series</option>';
+    var fbEl = document.getElementById('series-fallback-data');
+    if (fbEl && fbEl.textContent) {
+      try {
+        var seriesArr = JSON.parse(fbEl.textContent);
+        if (seriesArr && seriesArr.length) {
+          seriesSelect.innerHTML = '<option value="">Select Assessment Series</option>';
+          seriesArr.forEach(function (s) {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.display_name || s.name;
+            if (s.is_current) opt.selected = true;
+            seriesSelect.appendChild(opt);
+          });
+          if (info) info.textContent = '';
+          return;
+        }
+      } catch (err) {}
+    }
+    if (info) info.textContent = 'Could not load assessment series. Please refresh.';
+  }
+}
+
+// Filter occupations based on registration category
+async function refreshOccupationsByCategory() {
+  var regCat = document.getElementById('reg_cat');
+  var occ = document.getElementById('occupation');
+  if (!regCat || !occ) return;
+  var category = (regCat.value || '').toLowerCase();
+  try {
+    occ.innerHTML = '<option value="">Loading occupations...</option>';
+    var url = '{% url "api_occupations_by_category" %}';
+    if (category) {
+      url += '?registration_category=' + encodeURIComponent(category);
+    }
+    var r = await fetch(url);
+    var data = await r.json();
+    occ.innerHTML = '<option value="">Select Occupation</option>';
+    if (data && data.occupations && data.occupations.length) {
+      data.occupations.forEach(function (o) {
+        var opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.display_name || (o.code + ' - ' + o.name);
+        occ.appendChild(opt);
+      });
+    } else {
+      occ.innerHTML = '<option value="">No occupations found</option>';
+    }
+  } catch (e) {
+    console.error('Failed to load occupations', e);
+    occ.innerHTML = '<option value="">Failed to load occupations</option>';
+  }
+}
+
+// Initialize once DOM is loaded
+document.addEventListener('DOMContentLoaded', function () {
+  populateAssessmentSeriesDropdown();
+  var regCatSel = document.getElementById('reg_cat');
+  if (regCatSel) {
+    regCatSel.addEventListener('change', function(){
+      refreshOccupationsByCategory();
+      toggleLevelField();
+    });
+    refreshOccupationsByCategory();
+  }
+  var occSel = document.getElementById('occupation');
+  if (occSel) {
+    occSel.addEventListener('change', refreshLevelsForOccupation);
+  }
+});
+</script>
 {% endblock %}

@@ -1563,6 +1563,8 @@ class CandidateChangeLog(models.Model):
         ('change_occupation', 'Change Occupation'),
         ('change_reg_category', 'Change Registration Category'),
         ('regenerate_regno', 'Regenerate Reg Number'),
+        ('portal_block_results', 'Portal: Block Results View'),
+        ('portal_unblock_results', 'Portal: Unblock Results View'),
         ('other', 'Other'),
     ]
 

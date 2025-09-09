@@ -5002,8 +5002,21 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
 def generate_album(request):
     logger = logging.getLogger(__name__)
     logger.info("generate_album view started.")
-
+    
+    # Determine if the user is a Center Representative and restrict centers accordingly
     centers = AssessmentCenter.objects.all()
+    selected_center_id = None
+    is_center_rep = False
+    try:
+        # Lazy import to avoid circulars
+        from .models import CenterRepresentative
+        cr = CenterRepresentative.objects.get(user=request.user)
+        centers = centers.filter(id=cr.center_id)
+        selected_center_id = cr.center_id
+        is_center_rep = True
+    except Exception:
+        # Not a center rep or no mapping
+        pass
     occupations = Occupation.objects.all().order_by('code')
     levels = Level.objects.all() # Though not directly used in this version's header/table structure as per screenshot
 
@@ -5013,22 +5026,29 @@ def generate_album(request):
             occupation_id = request.POST.get('occupation')
             reg_category_form = request.POST.get('registration_category', '') # Name from form
             level_id = request.POST.get('level') # Keep for filtering logic if needed
-            assessment_month_str = request.POST.get('assessment_month')
-            assessment_year_str = request.POST.get('assessment_year')
+            assessment_series_id = request.POST.get('assessment_series')
 
-            logger.info(f"POST request received with params: center={center_id}, occupation={occupation_id}, category={reg_category_form}, level={level_id}, month={assessment_month_str}, year={assessment_year_str}")
+            logger.info(f"POST request received with params: center={center_id}, occupation={occupation_id}, category={reg_category_form}, level={level_id}, series={assessment_series_id}")
+
+            # Security: Center Representatives can only generate for their own center
+            if is_center_rep and (str(center_id) != str(selected_center_id)):
+                logger.warning("CenterRep attempted to access another center for album generation.")
+                return HttpResponse(status=403)
 
 
-            if not all([center_id, occupation_id, reg_category_form, assessment_month_str, assessment_year_str]):
+            if not all([center_id, occupation_id, reg_category_form, assessment_series_id]):
                 logger.warning("Missing required filter parameters.")
                 return HttpResponse("All filter parameters are required.", status=400)
 
             try:
-                assessment_month = int(assessment_month_str)
-                assessment_year = int(assessment_year_str)
                 center = AssessmentCenter.objects.get(id=center_id)
                 occupation = Occupation.objects.get(id=occupation_id)
-            except (ValueError, AssessmentCenter.DoesNotExist, Occupation.DoesNotExist) as e:
+                # Assessment Series
+                from .models import AssessmentSeries
+                series = AssessmentSeries.objects.get(id=assessment_series_id)
+                assessment_month = series.start_date.month if series.start_date else 0
+                assessment_year = series.start_date.year if series.start_date else 0
+            except (ValueError, AssessmentCenter.DoesNotExist, Occupation.DoesNotExist, AssessmentSeries.DoesNotExist) as e:
                 logger.error(f"Invalid parameter provided: {e}")
                 return HttpResponse(f"Invalid parameter: {e}", status=400)
 
@@ -5040,9 +5060,22 @@ def generate_album(request):
                 assessment_center=center,
                 occupation=occupation,
                 registration_category__iexact=reg_category_form, # Use form value for filtering
-                assessment_date__year=assessment_year,
-                assessment_date__month=assessment_month
+                assessment_series=series,
             )
+
+            # Fallback: Some legacy candidates may not have assessment_series set.
+            # In that case, use assessment_date range within the series dates.
+            if not candidate_qs.exists() and series.start_date and series.end_date:
+                logger.info("No candidates found by series FK; applying date-range fallback.")
+                candidate_qs = Candidate.objects.select_related(
+                    'occupation', 'assessment_center', 'assessment_center_branch'
+                ).prefetch_related('nature_of_disability').filter(
+                    assessment_center=center,
+                    occupation=occupation,
+                    registration_category__iexact=reg_category_form,
+                    assessment_date__gte=series.start_date,
+                    assessment_date__lte=series.end_date,
+                )
 
             # Optional level filtering (if applicable for the registration category)
             if reg_category_form.lower() in ['formal', 'informal', 'workers pas'] and level_id:
@@ -5328,7 +5361,8 @@ def generate_album(request):
                       onLaterPages=lambda c, d: _add_page_numbers(c, d, total_pages))
             buffer.seek(0)
             response = HttpResponse(buffer, content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="candidate_album_{center.center_number}_{occupation.code}_{assessment_year}_{assessment_month}.pdf"'
+            safe_series = getattr(series, 'name', f"{assessment_year}_{assessment_month}").replace(' ', '_')
+            response['Content-Disposition'] = f'attachment; filename="candidate_album_{center.center_number}_{occupation.code}_{safe_series}.pdf"'
             logger.info("PDF generated successfully. Returning response.")
             return response
         except Exception as e:
@@ -5339,11 +5373,37 @@ def generate_album(request):
 
     # GET request or if form not submitted properly
     logger.info("GET request received, rendering form.")
+    # Provide assessment series fallback for frontend in case API fetch fails
+    try:
+        from .models import AssessmentSeries
+        series_qs = AssessmentSeries.objects.all().order_by('-start_date')
+        series_fallback = []
+        for s in series_qs:
+            sd = s.start_date.strftime('%Y-%m-%d') if getattr(s, 'start_date', None) else None
+            ed = s.end_date.strftime('%Y-%m-%d') if getattr(s, 'end_date', None) else None
+            date_range = None
+            if sd or ed:
+                def fmt(d):
+                    return d.strftime('%d %b %Y') if d else ''
+                date_range = f"{fmt(s.start_date)} - {fmt(s.end_date)}".strip()
+            series_fallback.append({
+                'id': s.id,
+                'name': s.name,
+                'display_name': s.name,
+                'start_date': sd,
+                'end_date': ed,
+                'date_range': date_range,
+                'is_current': s.is_current,
+            })
+    except Exception:
+        series_fallback = []
     return render(request, 'reports/albums.html', {
         'centers': centers,
         'occupations': occupations,
         'levels': levels,
-        'form_action': reverse('generate_album')
+        'form_action': reverse('generate_album'),
+        'selected_center_id': selected_center_id,
+        'series_fallback': series_fallback,
     })
 
 def add_module(request, level_id):
@@ -13351,11 +13411,23 @@ def api_assessment_series(request):
         
         series_data = []
         for series in series_list:
+            sd = series.start_date.strftime('%Y-%m-%d') if getattr(series, 'start_date', None) else None
+            ed = series.end_date.strftime('%Y-%m-%d') if getattr(series, 'end_date', None) else None
+            # Human display helpers
+            date_range = None
+            if sd or ed:
+                # build friendly range like "01 Jan 2025 - 31 Jan 2025"
+                import datetime
+                def fmt(d):
+                    return d.strftime('%d %b %Y') if d else ''
+                date_range = f"{fmt(series.start_date)} - {fmt(series.end_date)}".strip()
             series_data.append({
                 'id': series.id,
                 'name': series.name,
-                'start_date': series.start_date.strftime('%Y-%m-%d'),
-                'end_date': series.end_date.strftime('%Y-%m-%d'),
+                'display_name': series.name,
+                'start_date': sd,
+                'end_date': ed,
+                'date_range': date_range,
                 'is_current': series.is_current,
                 'results_released': series.results_released
             })
@@ -13916,9 +13988,13 @@ def toggle_candidate_portal_results(request, candidate_id):
         from .models import CandidateChangeLog
         CandidateChangeLog.objects.create(
             candidate=cand,
-            action='update',
-            details=f"block_portal_results set to {cand.block_portal_results}",
+            action='portal_block_results' if cand.block_portal_results else 'portal_unblock_results',
+            details=(
+                'Blocked candidate from viewing results in portal' if cand.block_portal_results
+                else 'Unblocked candidate to view results in portal'
+            ),
             performed_by=request.user,
+            request_path=request.path,
             ip_address=request.META.get('REMOTE_ADDR', '')
         )
     except Exception:
@@ -14759,11 +14835,29 @@ def api_occupations_by_category(request):
     """
     regcat = (request.GET.get('registration_category') or '').strip().lower()
 
-    # Default: show all occupations for formal and informal/worker's PAS
+    from .models import OccupationCategory
+    # Default: show all occupations for safety
+    qs = Occupation.objects.all()
     if regcat == 'modular':
-        occupations = Occupation.objects.filter(has_modular=True).order_by('code')
-    else:
-        occupations = Occupation.objects.all().order_by('code')
+        qs = qs.filter(has_modular=True)
+    elif regcat == 'formal':
+        # Strict: only "Formal" category; if absent, return empty
+        formal_cat = OccupationCategory.objects.filter(name__iexact='Formal').first()
+        if formal_cat:
+            qs = qs.filter(category=formal_cat)
+        else:
+            qs = qs.none()
+    elif regcat in ('informal', "worker's pas", 'workers pas', 'worker pas'):
+        # Strict: categories named "Informal" or variations of Worker's PAS; if absent, return empty
+        from django.db.models import Q
+        informal_cats = OccupationCategory.objects.filter(
+            Q(name__iexact='Informal') | Q(name__iregex=r"worker('?s)?\s*pas")
+        )
+        if informal_cats.exists():
+            qs = qs.filter(category__in=list(informal_cats))
+        else:
+            qs = qs.none()
+    occupations = qs.order_by('code')
 
     data = [
         {
