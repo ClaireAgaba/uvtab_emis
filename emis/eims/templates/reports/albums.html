@@ -234,7 +234,13 @@ async function loadBranchesForCenter(centerId){
     const data = await r.json();
     sel.innerHTML = '<option value="">Select Branch</option>';
     const list = (data && Array.isArray(data.branches)) ? data.branches : [];
-    if (data && data.has_branches && list.length){
+    if (data && data.has_branches){
+      // Add Main Center option first
+      const mainOpt = document.createElement('option');
+      mainOpt.value = 'main';
+      mainOpt.textContent = 'Main Center';
+      sel.appendChild(mainOpt);
+      // Then append branch items (if any)
       list.forEach(function(b){
         const opt = document.createElement('option');
         opt.value = b.id;

@@ -5062,10 +5062,15 @@ def generate_album(request):
                 logger.error(f"Invalid parameter provided: {e}")
                 return HttpResponse(f"Invalid parameter: {e}", status=400)
 
-            # If center has branches, require branch choice so we only print candidates in that branch
+            # If center has branches, require branch choice; allow 'main' for main center
+            normalized_branch = None
             if center.has_branches:
                 if not branch_id:
                     return HttpResponse("Please select a branch for this center.", status=400)
+                if str(branch_id).lower() == 'main':
+                    normalized_branch = 'main'
+                else:
+                    normalized_branch = str(branch_id)
 
             # Candidate Querying with branch optimization
             logger.info("Querying candidates...")
@@ -5077,8 +5082,10 @@ def generate_album(request):
                 registration_category__iexact=reg_category_form, # Use form value for filtering
                 assessment_series=series,
             )
-            if branch_id:
-                candidate_qs = candidate_qs.filter(assessment_center_branch_id=branch_id)
+            if normalized_branch == 'main':
+                candidate_qs = candidate_qs.filter(assessment_center_branch__isnull=True)
+            elif normalized_branch:
+                candidate_qs = candidate_qs.filter(assessment_center_branch_id=normalized_branch)
 
             # Fallback: Some legacy candidates may not have assessment_series set.
             # In that case, use assessment_date range within the series dates.
@@ -5093,8 +5100,10 @@ def generate_album(request):
                     assessment_date__gte=series.start_date,
                     assessment_date__lte=series.end_date,
                 )
-                if branch_id:
-                    candidate_qs = candidate_qs.filter(assessment_center_branch_id=branch_id)
+                if normalized_branch == 'main':
+                    candidate_qs = candidate_qs.filter(assessment_center_branch__isnull=True)
+                elif normalized_branch:
+                    candidate_qs = candidate_qs.filter(assessment_center_branch_id=normalized_branch)
 
             # Optional level filtering (if applicable for the registration category)
             if reg_category_form.lower() in ['formal', 'informal', 'workers pas'] and level_id:
@@ -5179,10 +5188,17 @@ def generate_album(request):
                 # Logo setup
                 logo_path = None
                 possible_paths = [
+                    # Old filenames with space
                     os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab logo.png'),
                     os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab logo.png'),
                     os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab logo.png'),
-                    os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab logo.png')
+                    os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab logo.png'),
+                    # New/actual filename with underscore in repo
+                    os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab_logo.png'),
+                    os.path.join(settings.BASE_DIR, 'emis', 'eims', 'static', 'images', 'uvtab_logo.png'),
+                    os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab_logo.png'),
+                    os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab_logo.png'),
+                    os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab_logo.png'),
                 ]
                 for path in possible_paths:
                     if path and os.path.exists(path):
