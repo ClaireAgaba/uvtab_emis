@@ -8,6 +8,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from reportlab.platypus import Image as RLImage
 import calendar
 import logging
@@ -5608,7 +5609,12 @@ def candidate_list(request):
     import urllib
     filter_params = urllib.parse.urlencode(current_filters)
 
-    from .models import NatureOfDisability
+    from .models import NatureOfDisability, CandidateDraft
+    # Fetch drafts for visibility (current user's drafts first; staff can see all)
+    if request.user.is_staff or request.user.is_superuser:
+        candidate_drafts = CandidateDraft.objects.select_related('assessment_center').all()
+    else:
+        candidate_drafts = CandidateDraft.objects.select_related('assessment_center').filter(user=request.user)
     return render(request, 'candidates/list.html', {
         'candidates': page_obj.object_list,
         'page_obj': page_obj,
@@ -5620,6 +5626,7 @@ def candidate_list(request):
         'filters': current_filters,
         'filter_params': filter_params,
         'nature_of_disabilities': NatureOfDisability.objects.all(),
+        'candidate_drafts': candidate_drafts,
         'assessment_years': assessment_years,
         'user_department': user_department,
     })
@@ -7412,10 +7419,25 @@ def generate_testimonial(request, id):
 
 
 def candidate_create(request):
-    reg_cat = request.GET.get('registration_category')
+    from .models import CandidateDraft
+    draft_id = request.GET.get('draft')
+    draft_data = None
+    if draft_id:
+        try:
+            draft = CandidateDraft.objects.get(pk=draft_id)
+            # Only the owner or staff can open the draft
+            if request.user.is_staff or request.user.is_superuser or draft.user_id == request.user.id:
+                draft_data = draft.data or {}
+        except CandidateDraft.DoesNotExist:
+            draft_data = None
+
+    reg_cat = request.GET.get('registration_category') or (draft_data.get('registration_category') if draft_data else None)
     form_kwargs = {'user': request.user}
     if reg_cat:
-        form_kwargs['initial'] = {'registration_category': reg_cat}
+        initial_data = {'registration_category': reg_cat}
+        if draft_data:
+            initial_data.update(draft_data)
+        form_kwargs['initial'] = initial_data
         if request.method == 'POST':
             form = CandidateForm(request.POST, request.FILES, **form_kwargs)
         else:
@@ -7424,7 +7446,7 @@ def candidate_create(request):
         if request.method == 'POST':
             form = CandidateForm(request.POST, request.FILES, user=request.user)
         else:
-            form = CandidateForm(user=request.user)
+            form = CandidateForm(user=request.user, initial=(draft_data or None))
     # AJAX: return only occupation field HTML for dynamic update
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' and reg_cat:
         occupation_field_html = render_to_string('partials/occupation_field.html', {'form': form})
@@ -7437,12 +7459,115 @@ def candidate_create(request):
             candidate.updated_by = request.user
             candidate.save()
             form.save_m2m()  # Ensure ManyToMany fields like nature_of_disability are saved
+            # If this creation came from a draft, clean it up
+            try:
+                if draft_id:
+                    CandidateDraft.objects.filter(pk=draft_id).delete()
+            except Exception:
+                pass
             return redirect('candidate_view', id=candidate.id)
-    return render(request, 'candidates/create.html', {'form': form})
+    return render(request, 'candidates/create.html', {'form': form, 'draft_id': draft_id})
 
 
 
 from django.contrib.auth.decorators import user_passes_test
+
+
+# -----------------------------
+# Candidate Draft Endpoints
+# -----------------------------
+
+@login_required
+@require_POST
+def save_candidate_draft(request):
+    """Persist current form state as a draft. Returns draft_id."""
+    import json
+    from .models import CandidateDraft
+    try:
+        payload = json.loads(request.body.decode('utf-8')) if request.body else {}
+    except Exception:
+        payload = {}
+    # Strip csrf token and empty strings
+    if 'csrfmiddlewaretoken' in payload:
+        payload.pop('csrfmiddlewaretoken', None)
+    # Keep only simple serializable values
+    draft_id = payload.get('draft_id')
+    if draft_id:
+        # Update only if the draft belongs to the user (or user is staff)
+        try:
+            draft = CandidateDraft.objects.get(pk=draft_id)
+            if (not request.user.is_staff and not request.user.is_superuser) and draft.user_id != request.user.id:
+                return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+            draft.assessment_center_id = payload.get('assessment_center') or draft.assessment_center_id
+            draft.data = payload
+            draft.status = 'draft'
+            draft.save()
+        except CandidateDraft.DoesNotExist:
+            # Create a new one if provided id is invalid
+            draft = CandidateDraft.objects.create(
+                user=request.user,
+                assessment_center_id=payload.get('assessment_center') or None,
+                data=payload,
+                status='draft',
+            )
+    else:
+        draft = CandidateDraft.objects.create(
+            user=request.user,
+            assessment_center_id=payload.get('assessment_center') or None,
+            data=payload,
+            status='draft',
+        )
+    return JsonResponse({'success': True, 'draft_id': draft.id})
+
+
+@login_required
+def get_candidate_draft(request, draft_id: int):
+    from .models import CandidateDraft
+    try:
+        draft = CandidateDraft.objects.get(pk=draft_id)
+        if (not request.user.is_staff and not request.user.is_superuser) and draft.user_id != request.user.id:
+            return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+        return JsonResponse({'success': True, 'data': draft.data or {}, 'updated_at': draft.updated_at})
+    except CandidateDraft.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Draft not found'}, status=404)
+
+
+@login_required
+@require_POST
+def submit_candidate_from_draft(request, draft_id: int):
+    """Validate and create a Candidate from a stored draft. Registration number generation remains unchanged."""
+    from .models import CandidateDraft
+    try:
+        draft = CandidateDraft.objects.get(pk=draft_id)
+        if (not request.user.is_staff and not request.user.is_superuser) and draft.user_id != request.user.id:
+            return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+    except CandidateDraft.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Draft not found'}, status=404)
+
+    # Build a POST-like dict for the form
+    from django.http import QueryDict
+    post_data = QueryDict(mutable=True)
+    for k, v in (draft.data or {}).items():
+        if v is None:
+            continue
+        if isinstance(v, list):
+            for item in v:
+                post_data.update({k: item})
+        else:
+            post_data[k] = v
+
+    form = CandidateForm(post_data, None, user=request.user)
+    if form.is_valid():
+        candidate = form.save(commit=False)
+        candidate.created_by = request.user
+        candidate.updated_by = request.user
+        candidate.save()
+        form.save_m2m()
+        # Remove draft after successful submit
+        draft.delete()
+        return JsonResponse({'success': True, 'candidate_id': candidate.id, 'redirect': reverse('candidate_view', args=[candidate.id])})
+    else:
+        return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
 @login_required
 def edit_result(request, id):

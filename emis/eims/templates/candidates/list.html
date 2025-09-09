@@ -42,6 +42,46 @@
   </div>
   </div>
 
+  {% if candidate_drafts %}
+  <!-- Draft Candidates Section -->
+  <div class="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-sm font-semibold text-yellow-800">Draft Candidates</h2>
+      <span class="text-xs text-yellow-700">These entries are not submitted yet. Click Continue to finish.</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-yellow-900">
+            <th class="px-3 py-2 text-left">Full Name</th>
+            <th class="px-3 py-2 text-left">Reg No</th>
+            <th class="px-3 py-2 text-left">Reg. Category</th>
+            <th class="px-3 py-2 text-left">Center</th>
+            <th class="px-3 py-2 text-left">Updated</th>
+            <th class="px-3 py-2 text-left">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in candidate_drafts %}
+          {% with dd=d.data %}
+          <tr class="border-t border-yellow-200">
+            <td class="px-3 py-2">{{ dd.full_name|default:'(No name yet)' }}</td>
+            <td class="px-3 py-2 text-gray-500">—</td>
+            <td class="px-3 py-2">{{ dd.registration_category|default:'—' }}</td>
+            <td class="px-3 py-2">{{ d.assessment_center.center_name|default:'—' }}</td>
+            <td class="px-3 py-2 text-gray-600">{{ d.updated_at|date:"d/m/Y H:i" }}</td>
+            <td class="px-3 py-2">
+              <a class="text-blue-700 hover:underline font-medium" href="{% url 'candidate_create' %}?draft={{ d.id }}">Continue</a>
+            </td>
+          </tr>
+          {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Bulk Action Bar (hidden by default) -->
   <div id="bulk-action-bar" class="hidden mb-4 bg-gray-50 border border-blue-200 rounded-lg px-4 py-3">
     <div class="flex flex-col lg:flex-row items-start lg:items-center gap-4">

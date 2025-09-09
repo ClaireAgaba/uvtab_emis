@@ -500,6 +500,26 @@ class ComplaintAttachment(models.Model):
     def __str__(self):
         return f"{self.complaint.ticket_no} - {self.filename()}"
 
+
+# Lightweight draft storage to allow users to save candidate creation progress
+class CandidateDraft(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='candidate_drafts')
+    assessment_center = models.ForeignKey('AssessmentCenter', on_delete=models.SET_NULL, null=True, blank=True)
+    data = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='draft')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"Draft #{self.pk} by {self.user}" 
+
 class Result(models.Model):
     RESULT_TYPE_CHOICES = [
         ('modular', 'Modular'),
