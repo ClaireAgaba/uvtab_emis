@@ -16,11 +16,13 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 from .models import Candidate, AssessmentCenter, Occupation, Level, AssessmentSeries, CenterSeriesPayment, CenterRepresentative
+from django.conf import settings
+import os
 
 def uvtab_fees_home(request):
     """
@@ -795,24 +797,54 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     styles = getSampleStyleSheet()
     elements = []
     
-    # UVTAB Header
-    header_style = ParagraphStyle(
-        'CustomHeader',
-        parent=styles['Heading1'],
-        fontSize=16,
-        alignment=TA_CENTER,
-        spaceAfter=20,
-        textColor=colors.HexColor('#1f2937')
-    )
+    # UVTAB Header with Logo (consistent with Albums)
+    contact_style = ParagraphStyle('ContactInfo', parent=styles['Normal'], fontSize=9, leading=11)
+    board_title_style = ParagraphStyle('BoardTitle', parent=styles['h1'], fontSize=14, alignment=TA_CENTER, spaceBefore=6, spaceAfter=6, textColor=colors.HexColor('#000000'))
     
-    uvtab_header = Paragraph(
-        '<b>UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD (UVTAB)</b><br/>'
-        'P.O.Box 1499, Plot 7, Valley Drive, Ntinda-Kyambogo Road<br/>'
-        'Kampala, Uganda | +256 414 289786 | info@uvtab.go.ug',
-        header_style
-    )
-    elements.append(uvtab_header)
-    elements.append(Spacer(1, 20))
+    # Resolve logo path across common locations
+    logo_path = None
+    possible_paths = [
+        # Legacy filename with space
+        os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab logo.png'),
+        os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab logo.png'),
+        os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab logo.png'),
+        os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab logo.png'),
+        # New filename with underscore
+        os.path.join(settings.BASE_DIR, 'eims', 'static', 'images', 'uvtab_logo.png'),
+        os.path.join(settings.BASE_DIR, 'emis', 'eims', 'static', 'images', 'uvtab_logo.png'),
+        os.path.join(settings.BASE_DIR, 'emis', 'static', 'images', 'uvtab_logo.png'),
+        os.path.join(settings.BASE_DIR, 'static', 'images', 'uvtab_logo.png'),
+        os.path.join(settings.STATIC_ROOT or '', 'images', 'uvtab_logo.png'),
+    ]
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            logo_path = path
+            break
+    logo_image = Image(logo_path, width=1*inch, height=1*inch) if logo_path else Paragraph(" ", styles['Normal'])
+
+    # Header table: contact | logo | phone
+    header_table_data = [
+        [Paragraph("P.O.Box 1499<br/>Email: info@uvtab.go.ug", contact_style), 
+         logo_image, 
+         Paragraph("Tel: 256 414 289786", contact_style)]
+    ]
+    header_table = Table(header_table_data, colWidths=[2.5*inch, 2*inch, 2.5*inch])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (0,0), 'LEFT'),
+        ('ALIGN', (1,0), (1,0), 'CENTER'),
+        ('ALIGN', (2,0), (2,0), 'RIGHT'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 6))
+
+    # Board Title below the contact+logo row
+    elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD (UVTAB)", board_title_style))
+    address_style = ParagraphStyle('Address', parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, spaceAfter=12)
+    elements.append(Paragraph("P.O.Box 1499, Plot 7, Valley Drive, Ntinda-Kyambogo Road<br/>Kampala, Uganda | +256 414 289786 | info@uvtab.go.ug", address_style))
+    elements.append(Spacer(1, 6))
     
     # Invoice Title
     title_style = ParagraphStyle(

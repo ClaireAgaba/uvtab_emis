@@ -220,16 +220,10 @@
                 </span>
               </td>
               <td class="px-2 py-3 whitespace-nowrap text-center text-sm font-medium">
-                <div class="flex flex-col space-y-1">
-                  <button onclick="showInvoice({{ data.center.id }}, '{% if data.assessment_series %}{{ data.assessment_series.id }}{% else %}none{% endif %}')" 
-                          class="text-blue-600 hover:text-blue-900 transition-colors duration-150 text-xs">
-                    Invoice
-                  </button>
-                  <a href="{% url 'assessment_center_view' data.center.id %}" 
-                     class="text-green-600 hover:text-green-900 transition-colors duration-150 text-xs">
-                    Details
-                  </a>
-                </div>
+                <button onclick="showInvoice({{ data.center.id }}, '{% if data.assessment_series %}{{ data.assessment_series.id }}{% else %}none{% endif %}')" 
+                        class="text-blue-600 hover:text-blue-900 transition-colors duration-150 text-xs">
+                  Invoice
+                </button>
               </td>
             </tr>
           {% empty %}
