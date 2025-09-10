@@ -380,26 +380,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const occField = document.getElementById('id_occupation');
     if (occField) occField.disabled = disabled;
   }
-  // Initial state
-  if (!regCatField.value) setOccupationDisabled(true);
-  regCatField.addEventListener('change', function() {
-    const cat = regCatField.value;
+  function loadOccupationsForCategory(cat) {
+    if (!cat) {
+      setOccupationDisabled(true);
+      return;
+    }
     setOccupationDisabled(true);
-    occLoading.classList.remove('hidden');
-    // Fetch filtered occupations from backend
+    if (occLoading) occLoading.classList.remove('hidden');
     const url = new URL(window.location.href);
     url.searchParams.set('registration_category', cat);
     fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
-      .then(resp => resp.json())
-      .then(data => {
-        if (data.occupation_field_html) {
+      .then(function(resp){ return resp.json(); })
+      .then(function(data){
+        if (data && data.occupation_field_html) {
           occWrapper.innerHTML = data.occupation_field_html;
         }
       })
-      .finally(() => {
-        occLoading.classList.add('hidden');
+      .catch(function(err){ console.error('Occupation load error', err); })
+      .finally(function(){
+        if (occLoading) occLoading.classList.add('hidden');
         setOccupationDisabled(false);
       });
+  }
+  // Initial state
+  if (!regCatField.value) {
+    setOccupationDisabled(true);
+  } else {
+    // If a category is already selected on load, populate occupations immediately
+    loadOccupationsForCategory(regCatField.value);
+  }
+  regCatField.addEventListener('change', function() {
+    loadOccupationsForCategory(regCatField.value);
   });
 });
 // --- End Dynamic Occupation Filtering ---
