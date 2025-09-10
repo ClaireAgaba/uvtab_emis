@@ -6965,6 +6965,10 @@ def generate_testimonial(request, id):
     bold_style = ParagraphStyle('Bold', parent=normal_style, fontName='Helvetica-Bold')
     bio_style = ParagraphStyle('Bio', parent=normal_style, 
                               fontSize=11, spaceAfter=3, fontName='Helvetica-Bold')
+    # Styles for conditional result formatting
+    failed_style = ParagraphStyle('Failed', parent=normal_style, 
+                                  textColor=colors.red, fontName='Helvetica-Bold')
+    normal_text_style = ParagraphStyle('NormalText', parent=normal_style)
     
     # Main title first - above everything
     elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD", 
@@ -7129,7 +7133,17 @@ def generate_testimonial(request, id):
     if results.exists():
         # Group results by assessment series and organize by registration category
         reg_cat = getattr(candidate, 'registration_category', '').lower()
-        
+        # Helper function used for conditional styling of failed results
+        def is_failed_result(grade, comment):
+            """Check if a result represents a failure based on grade and comment"""
+            failed_comments = ['CTR', 'Missing', 'Absent']
+            failed_grades = ['C-', 'D', 'D+', 'D-', 'E', 'F', 'Ms', 'Fail']
+            if (comment or '').strip() in failed_comments:
+                return True
+            if (grade or '').strip() in failed_grades:
+                return True
+            return False
+
         # Determine overall success
         passed_results = results.filter(comment='Successful').count()
         total_results = results.count()
