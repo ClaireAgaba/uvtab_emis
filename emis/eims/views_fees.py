@@ -77,7 +77,8 @@ def uvtab_fees_home(request):
                             original_fee += level.formal_fee or Decimal('0.00')
                         elif candidate.registration_category in ['informal', 'workers_pas']:
                             modules = candidate.candidatemodule_set.filter(level=level)
-                            module_fee = level.occupation.workers_pas_module_fee or Decimal('0.00')
+                            # Use Level.workers_pas_module_fee (per-module) for Worker's PAS/Informal
+                            module_fee = level.workers_pas_module_fee or Decimal('0.00')
                             original_fee += module_fee * modules.count()
                 else:
                     original_fee = candidate.fees_balance
@@ -149,7 +150,8 @@ def uvtab_fees_home(request):
                             original_billing_total += level.formal_fee or Decimal('0.00')
                         elif candidate.registration_category in ['informal', 'workers_pas']:
                             modules = candidate.candidatemodule_set.filter(level=level)
-                            module_fee = level.occupation.workers_pas_module_fee or Decimal('0.00')
+                            # Use Level.workers_pas_module_fee (per-module) for Worker's PAS/Informal
+                            module_fee = level.workers_pas_module_fee or Decimal('0.00')
                             original_billing_total += module_fee * modules.count()
                 else:
                     original_billing_total += candidate.fees_balance

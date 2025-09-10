@@ -890,6 +890,13 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
   {% endif %}
   
   <!-- Results Section -->
+  <style>
+    /* Ensure all results tables are uniform */
+    table.results-table { table-layout: fixed; width: 100%; }
+    table.results-table th, table.results-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Allow wrapping for specific columns where full text matters */
+    table.results-table th.wrap, table.results-table td.wrap { white-space: normal; overflow: visible; text-overflow: clip; }
+  </style>
   {% if not results_released %}
     <!-- Results Not Released Message (Only shown to center representatives) -->
     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
@@ -944,68 +951,81 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
             {% endif %}
           {% endif %}
         </div>
-        <table class="min-w-full mb-4 border border-gray-300">
+        <div class="overflow-x-auto">
+        <table class="results-table min-w-full text-sm border border-gray-200 rounded mb-4">
+          <colgroup>
+            <col style="width: 12%" />  <!-- Assessment Series -->
+            <col style="width: 10%" />  <!-- Level -->
+            <col style="width: 14%" />  <!-- Module -->
+            <col style="width: 14%" />  <!-- Paper -->
+            <col style="width: 8%" />   <!-- Type -->
+            <col style="width: 10%" />  <!-- Assessment -->
+            <col style="width: 9%" />   <!-- Mark (wider) -->
+            <col style="width: 6%" />   <!-- Grade -->
+            <col style="width: 10%" />  <!-- Comment (wider) -->
+            <col style="width: 8%" />   <!-- Status -->
+            <col style="width: 10%" />  <!-- Assessment Series (created/date) -->
+            <col style="width: 4%" />   <!-- User -->
+          </colgroup>
           <thead>
             <tr class="bg-gray-100">
-              <th class="py-2 px-4 text-left">Assessment Series</th>
-              <th class="py-2 px-4 text-left">Level</th>
-              <th class="py-2 px-4 text-left">Module</th>
-              <th class="py-2 px-4 text-left">Paper</th>
-              <th class="py-2 px-4 text-left">Type</th>
-              <th class="py-2 px-4 text-left">Assessment</th>
-              <th class="py-2 px-4 text-left">Mark</th>
-              <th class="py-2 px-4 text-left">Grade</th>
-              <th class="py-2 px-4 text-left">Comment</th>
-              <th class="py-2 px-4 text-left">Status</th>
-              <th class="py-2 px-4 text-left">Assessment Series</th>
-
-                
-                <th class="py-2 px-4 text-left">User</th>
+              <th class="px-3 py-2 border">Assessment Series</th>
+              <th class="px-3 py-2 border">Level</th>
+              <th class="px-3 py-2 border">Module</th>
+              <th class="px-3 py-2 border">Paper</th>
+              <th class="px-3 py-2 border">Type</th>
+              <th class="px-3 py-2 border">Assessment</th>
+              <th class="px-3 py-2 border wrap">Mark</th>
+              <th class="px-3 py-2 border">Grade</th>
+              <th class="px-3 py-2 border wrap">Comment</th>
+              <th class="px-3 py-2 border">Status</th>
+              <th class="px-3 py-2 border">Assessment Series</th>
+              <th class="px-3 py-2 border">User</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for result in results %}
+              {% if result.level_id == lvl.level.id %}
+              <tr>
+                <td class="px-3 py-2 border">{{ result.assessment_series.name|default:"No Series" }}</td>
+                <td class="px-3 py-2 border">{{ result.level.name }}</td>
+                <td class="px-3 py-2 border">{{ result.module.name }}</td>
+                <td class="px-3 py-2 border">{{ result.paper.name }}</td>
+                <td class="px-3 py-2 border">{{ result.paper.type|capfirst }}</td>
+                <td class="px-3 py-2 border">{{ result.assessment_type }}</td>
+                <td class="px-3 py-2 border wrap">
+                  {% if is_center_rep or is_candidate_portal %}
+                    <span class="text-green-600 font-medium">Uploaded</span>
+                  {% else %}
+                    {{ result.mark }}
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 border">
+                  {% if result.grade == 'Ms' or result.grade == 'F' %}
+                    <span class="text-red-600 font-semibold">{{ result.grade }}</span>
+                  {% else %}
+                    {{ result.grade }}
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 border wrap">
+                  {% if result.comment == 'Missing' or result.comment == 'Fail' %}
+                    <span class="font-bold text-red-600">{{ result.comment }}</span>
+                  {% elif result.comment == 'CTR' %}
+                    <span class="font-bold text-orange-600">{{ result.comment }}</span>
+                  {% else %}
+                    {{ result.comment }}
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 border">{{ result.status }}</td>
+                <td class="px-3 py-2 border">{{ result.created|date:"Y-m-d H:i" }}</td>
+                <td class="px-3 py-2 border">{{ result.user.username }}</td>
               </tr>
-            </thead>
-            <tbody>
-              {% for result in results %}
-                {% if result.level_id == lvl.level.id %}
-                  <tr>
-                    <td class="py-2 px-4">{{ result.assessment_series.name|default:"No Series" }}</td>
-                    <td class="py-2 px-4">{{ result.level.name }}</td>
-                    <td class="py-2 px-4">{{ result.module.name }}</td>
-                    <td class="py-2 px-4">{{ result.paper.name }}</td>
-                    <td class="py-2 px-4">{{ result.paper.type|capfirst }}</td>
-                    <td class="py-2 px-4">{{ result.assessment_type }}</td>
-                    <td class="py-2 px-4">
-                      {% if is_center_rep or is_candidate_portal %}
-                        <span class="text-green-600 font-medium">Uploaded</span>
-                      {% else %}
-                        {{ result.mark }}
-                      {% endif %}
-                    </td>
-                    <td class="py-2 px-4">
-                      {% if result.grade == 'Ms' or result.grade == 'F' %}
-                        <span class="text-red-600 font-semibold">{{ result.grade }}</span>
-                      {% else %}
-                        {{ result.grade }}
-                      {% endif %}
-                    </td>
-                    <td class="py-2 px-4">
-                      {% if result.comment == 'Missing' or result.comment == 'Fail' %}
-                        <span class="font-bold text-red-600">{{ result.comment }}</span>
-                      {% elif result.comment == 'CTR' %}
-                        <span class="font-bold text-orange-600">{{ result.comment }}</span>
-                      {% else %}
-                        {{ result.comment }}
-                      {% endif %}
-                    </td>
-                    <td class="py-2 px-4">{{ result.status }}</td>
-                    <td class="py-2 px-4">{{ result.created|date:"Y-m-d H:i" }}</td>
-                    <td class="py-2 px-4">{{ result.user.username }}</td>
-                  </tr>
-                {% endif %}
-              {% empty %}
-                <tr><td colspan="12" class="text-center text-gray-400">No results for this level.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+              {% endif %}
+            {% empty %}
+                <tr><td colspan="12" class="px-3 py-2 border text-center text-gray-400">No results for this level.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
         </div>
       {% endfor %}
     {% else %}
@@ -1068,7 +1088,21 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     </div>
     {% if results and results.count %}
       <div class="overflow-x-auto">
-        <table class="min-w-full text-sm border border-gray-200 rounded">
+        <table class="results-table min-w-full text-sm border border-gray-200 rounded">
+          <colgroup>
+            <col style="width: 12%" />  <!-- Assessment Series -->
+            <col style="width: 10%" />  <!-- Level -->
+            <col style="width: 14%" />  <!-- Module -->
+            <col style="width: 14%" />  <!-- Paper -->
+            <col style="width: 8%" />   <!-- Type -->
+            <col style="width: 10%" />  <!-- Assessment -->
+            <col style="width: 6%" />   <!-- Mark -->
+            <col style="width: 6%" />   <!-- Grade -->
+            <col style="width: 8%" />   <!-- Comment -->
+            <col style="width: 8%" />   <!-- Status -->
+            <col style="width: 10%" />  <!-- Assessment Series (date) -->
+            <col style="width: 4%" />   <!-- User -->
+          </colgroup>
           <thead>
             <tr class="bg-gray-100">
               <th class="px-3 py-2 border">Assessment Series</th>
