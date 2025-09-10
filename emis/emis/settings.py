@@ -83,12 +83,38 @@ WSGI_APPLICATION = 'emis.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Default to SQLite for development. If POSTGRES_* environment variables are provided,
+# switch to PostgreSQL automatically.
+POSTGRES_HOST = os.getenv('POSTGRES_HOST')
+POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')
+POSTGRES_DB = os.getenv('POSTGRES_DB')
+POSTGRES_USER = os.getenv('POSTGRES_USER')
+POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD')
+
+if POSTGRES_HOST and POSTGRES_DB and POSTGRES_USER:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'HOST': POSTGRES_HOST,
+            'PORT': POSTGRES_PORT,
+            'NAME': POSTGRES_DB,
+            'USER': POSTGRES_USER,
+            'PASSWORD': POSTGRES_PASSWORD or '',
+            # Keep DB connections open for up to 5 minutes to reduce churn under load
+            'CONN_MAX_AGE': int(os.getenv('CONN_MAX_AGE', '300')),
+            'OPTIONS': {
+                # Uncomment if you require SSL in production
+                # 'sslmode': os.getenv('POSTGRES_SSLMODE', 'prefer'),
+            }
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -199,6 +225,10 @@ AUTHENTICATION_BACKENDS = [
 SESSION_COOKIE_AGE = 30 * 60  # 30 minutes in seconds (30 * 60 = 1800)
 SESSION_SAVE_EVERY_REQUEST = True # Reset timer on each request for inactivity timeout
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True # Expire session when browser is closed
+
+# In production, avoid writing sessions on every request to reduce DB load.
+if os.getenv('DJANGO_PROD') == '1':
+    SESSION_SAVE_EVERY_REQUEST = False
 
 
 COUNTRIES_FIRST = [
