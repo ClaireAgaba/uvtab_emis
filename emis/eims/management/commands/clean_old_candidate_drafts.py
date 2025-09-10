@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
 
-from emis.eims.models import CandidateDraft
+from eims.models import CandidateDraft
 
 
 class Command(BaseCommand):
