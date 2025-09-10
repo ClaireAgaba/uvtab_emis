@@ -6681,6 +6681,17 @@ def generate_verified_results(request, id):
         # Group results by assessment series and organize by registration category
         reg_cat = getattr(candidate, 'registration_category', '').lower()
         
+        # Helper function used for conditional styling of failed results
+        def is_failed_result(grade, comment):
+            """Check if a result represents a failure based on grade and comment"""
+            failed_comments = ['CTR', 'Missing', 'Absent']
+            failed_grades = ['C-', 'D', 'D+', 'D-', 'E', 'F', 'Ms', 'Fail']
+            if (comment or '').strip() in failed_comments:
+                return True
+            if (grade or '').strip() in failed_grades:
+                return True
+            return False
+
         # Determine overall success
         passed_results = results.filter(comment='Successful').count()
         total_results = results.count()
@@ -7187,13 +7198,11 @@ def generate_testimonial(request, id):
                         assessment_type = result.get_assessment_type_display() if hasattr(result, 'get_assessment_type_display') else "Practical"
                         grade = result.grade
                         comment = result.comment if result.comment else ""
-                        
                         # Apply conditional styling for failed results
-                is_failed = is_failed_result(grade, comment)
-                grade_cell = Paragraph(grade, failed_style if is_failed else normal_text_style)
-                comment_cell = Paragraph(comment, failed_style if is_failed else normal_text_style)
-                
-                results_data.append([module_name, assessment_type, grade_cell, comment_cell])
+                        is_failed = is_failed_result(grade, comment)
+                        grade_cell = Paragraph(grade, failed_style if is_failed else normal_text_style)
+                        comment_cell = Paragraph(comment, failed_style if is_failed else normal_text_style)
+                        results_data.append([module_name, assessment_type, grade_cell, comment_cell])
         
         else:
             # Formal/Informal layout - Paper-based
