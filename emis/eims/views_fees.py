@@ -881,7 +881,20 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     series_name = assessment_series.name if assessment_series else 'No series assigned'
     series_info = Paragraph(f'<b>Assessment Series:</b> {series_name}', info_style)
     elements.append(series_info)
-    elements.append(Spacer(1, 15))
+    # UVTAB Bank Account Information (requested addition)
+    bank_style = ParagraphStyle(
+        'BankInfo',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#1f2937'),
+        spaceAfter=8
+    )
+    bank_info = Paragraph(
+        '<b>Payment Details:</b> UVTAB Account <b>9030026294419</b> at <b>Stanbic Bank, Metro Branch</b>.',
+        bank_style
+    )
+    elements.append(bank_info)
+    elements.append(Spacer(1, 12))
     
     # Summary Table
     summary_data = [
