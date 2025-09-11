@@ -7,7 +7,8 @@ from eims.models import CandidateDraft
 
 class Command(BaseCommand):
     help = (
-        "Delete CandidateDraft entries older than the specified age (default: 2 hours).\n"
+        "Delete CandidateDraft entries. By default, removes records older than the specified age\n"
+        "(default: 2 hours). Use --all to delete ALL drafts regardless of age.\n"
         "Use --dry-run to preview the deletions without applying them."
     )
 
@@ -34,34 +35,56 @@ class Command(BaseCommand):
             action="store_true",
             help="List individual draft IDs and owners that match the threshold.",
         )
+        parser.add_argument(
+            "--all",
+            action="store_true",
+            dest="delete_all",
+            help="Delete ALL drafts with status='draft' regardless of creation/update time.",
+        )
 
     def handle(self, *args, **options):
-        # Determine threshold
-        if options.get("days") is not None:
-            threshold = timezone.now() - timedelta(days=options["days"])
-            threshold_readable = f"{options['days']} day(s)"
-        else:
-            hours = options["hours"]
-            threshold = timezone.now() - timedelta(hours=hours)
-            threshold_readable = f"{hours} hour(s)"
+        delete_all = options.get("delete_all")
 
         dry_run = options["dry_run"]
         verbose_list = options["verbose_list"]
 
-        qs = CandidateDraft.objects.filter(updated_at__lt=threshold)
-        total = qs.count()
+        if delete_all:
+            qs = CandidateDraft.objects.filter(status='draft')
+            total = qs.count()
 
-        if total == 0:
-            self.stdout.write(self.style.SUCCESS(
-                f"No CandidateDraft records older than {threshold_readable} (threshold: {threshold:%Y-%m-%d %H:%M:%S %Z})."
-            ))
-            return
+            if total == 0:
+                self.stdout.write(self.style.SUCCESS("No CandidateDraft records found with status='draft'."))
+                return
 
-        self.stdout.write(
-            self.style.WARNING(
-                f"Found {total} CandidateDraft record(s) older than {threshold_readable} (threshold: {threshold:%Y-%m-%d %H:%M:%S %Z})."
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Found {total} CandidateDraft record(s) with status='draft'. These will be deleted."
+                )
             )
-        )
+        else:
+            # Determine threshold (age-based cleanup)
+            if options.get("days") is not None:
+                threshold = timezone.now() - timedelta(days=options["days"])
+                threshold_readable = f"{options['days']} day(s)"
+            else:
+                hours = options["hours"]
+                threshold = timezone.now() - timedelta(hours=hours)
+                threshold_readable = f"{hours} hour(s)"
+
+            qs = CandidateDraft.objects.filter(updated_at__lt=threshold)
+            total = qs.count()
+
+            if total == 0:
+                self.stdout.write(self.style.SUCCESS(
+                    f"No CandidateDraft records older than {threshold_readable} (threshold: {threshold:%Y-%m-%d %H:%M:%S %Z})."
+                ))
+                return
+
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Found {total} CandidateDraft record(s) older than {threshold_readable} (threshold: {threshold:%Y-%m-%d %H:%M:%S %Z})."
+                )
+            )
 
         if verbose_list:
             for d in qs.select_related("user", "assessment_center"):
