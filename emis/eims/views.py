@@ -14226,10 +14226,16 @@ def complaints_list(request):
 
     if not _is_admin_or_staff(request.user):
         user_center = getattr(getattr(request.user, 'centerrepresentative', None), 'center', None)
+        # Include complaints from the user's center OR complaints created by this user
+        # This preserves visibility even for historical records that may be missing center due to prior bug
+        from django.db.models import Q
         if user_center:
-            qs = qs.filter(assessment_center=user_center)
+            qs = qs.filter(
+                Q(assessment_center=user_center) |
+                Q(created_by__centerrepresentative__center=user_center)
+            )
         else:
-            qs = qs.none()
+            qs = qs.filter(created_by=request.user)
 
     # Filters
     status = request.GET.get('status', '').strip()
@@ -14387,8 +14393,6 @@ def complaints_detail(request, pk):
                 complaint.assessment_center = AssessmentCenter.objects.get(pk=center_id)
             except AssessmentCenter.DoesNotExist:
                 pass
-        else:
-            complaint.assessment_center = None
         complaint.updated_by = request.user
         complaint.save()
         for f in request.FILES.getlist('attachments'):
