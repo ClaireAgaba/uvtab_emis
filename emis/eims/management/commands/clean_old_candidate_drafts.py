@@ -49,16 +49,17 @@ class Command(BaseCommand):
         verbose_list = options["verbose_list"]
 
         if delete_all:
-            qs = CandidateDraft.objects.filter(status='draft')
+            # Delete ALL CandidateDraft rows regardless of status or timestamps
+            qs = CandidateDraft.objects.all()
             total = qs.count()
 
             if total == 0:
-                self.stdout.write(self.style.SUCCESS("No CandidateDraft records found with status='draft'."))
+                self.stdout.write(self.style.SUCCESS("No CandidateDraft records found (table already empty)."))
                 return
 
             self.stdout.write(
                 self.style.WARNING(
-                    f"Found {total} CandidateDraft record(s) with status='draft'. These will be deleted."
+                    f"Found {total} CandidateDraft record(s) in total. These will be deleted."
                 )
             )
         else:
