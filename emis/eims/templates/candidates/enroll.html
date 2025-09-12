@@ -54,8 +54,7 @@
     </div>
     {% endif %}
 
-    {% if not is_center_rep or candidate.registration_category != 'Modular' %}
-    <!-- ASSESSMENT SERIES: Required selection -->
+    <!-- ASSESSMENT SERIES: Required selection (now visible for centers as well) -->
     <div class="mb-6">
       <label for="{{ form.assessment_series.id_for_label }}" class="block font-semibold mb-1">Assessment Series: <span class="text-red-500">*</span></label>
       {{ form.assessment_series }}
@@ -70,7 +69,6 @@
         </div>
       {% endif %}
     </div>
-    {% endif %}
 
     {% if not is_center_rep or candidate.registration_category != 'Modular' %}
     <!-- LEVEL: Either dropdown or read-only note -->

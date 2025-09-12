@@ -1044,7 +1044,7 @@ function updateBulkSelectors() {
     bulkModuleCount.classList.add('hidden');
     return;
   }
-  if (regcat === 'Formal' || regcat === 'Informal' || regcat === "Worker's PAS" || (regcat === 'Modular' && isUvtStaff)) {
+  if (regcat === 'Formal' || regcat === 'Informal' || regcat === "Worker's PAS" || regcat === 'Modular') {
     // Show assessment series dropdown
     bulkAssessmentSeriesWrapper.classList.remove('hidden');
     fetch('/eims/api/assessment-series/', {
@@ -1140,11 +1140,10 @@ function updateBulkSelectors() {
             bulkLevelWrapper.classList.remove('hidden');
           });
         };
-      } else if (regcat === 'Modular' && isUvtStaff) {
-        // Staff modular: allow selecting module_count for billing first, then series/modules
-        // Always show simple module count selector for staff
-        bulkModuleCount.classList.remove('hidden');
-        // After selecting series, show module checkboxes (max equals selected module_count)
+      } else if (regcat === 'Modular') {
+        // Keep Assessment Series visible for Modular per requirement
+        bulkAssessmentSeriesWrapper.classList.remove('hidden');
+        // For staff, allow detailed module selection after choosing series
         bulkAssessmentSeriesSelect.onchange = function() {
           const assessmentSeriesId = bulkAssessmentSeriesSelect.value;
           if (!assessmentSeriesId) {
@@ -1152,32 +1151,19 @@ function updateBulkSelectors() {
             bulkModuleBox.innerHTML = '';
             return;
           }
-          updateBulkModuleSelector(); // fetch and show module checkboxes
-          // Keep module count visible for staff to constrain selections
-          bulkModuleCount.classList.remove('hidden');
+          if (isUvtStaff) {
+            updateBulkModuleSelector();
+            bulkModuleCount.classList.remove('hidden');
+          }
         };
-        if (bulkAssessmentSeriesSelect.value) {
-          bulkAssessmentSeriesSelect.dispatchEvent(new Event('change'));
+        // For centers (non-staff), show simple module count selector
+        if (!isUvtStaff) {
+          bulkModuleCount.classList.remove('hidden');
         }
-      } else {
-        // Modular: no assessment series and no level selector needed for center flow
-        bulkAssessmentSeriesWrapper.classList.add('hidden');
-        bulkAssessmentSeriesSelect.innerHTML = '';
-        bulkLevelWrapper.classList.add('hidden');
-        bulkLevelSelect.innerHTML = '';
+        // Always hide cross-level box in Modular
         bulkInformalBox.classList.add('hidden');
         bulkInformalBox.innerHTML = '';
-        // Show simple module count selector for Modular
-        const {regcat: r2} = getBulkRegcatAndOcc();
-        if (r2 === 'Modular' && !isUvtStaff) {
-          bulkModuleCount.classList.remove('hidden');
-        } else {
-          bulkModuleCount.classList.add('hidden');
-        }
       }
-    })
-    .catch(() => {
-      bulkError.textContent = 'Failed to load assessment series.';
     });
   } else {
     bulkAssessmentSeriesWrapper.classList.add('hidden');
@@ -1618,15 +1604,11 @@ bulkApply && bulkApply.addEventListener('click', function() {
     if (!bulkModuleBox.classList.contains('hidden')) {
       moduleIds = Array.from(bulkModuleBox.querySelectorAll('.bulk-module-checkbox:checked')).map(cb => cb.value);
     }
-    // Assessment series: required for non-Modular OR when specific modules are being enrolled
+    // Assessment series: required whenever the selector is visible (all categories including Modular)
     if (!bulkAssessmentSeriesWrapper.classList.contains('hidden')) {
       assessmentSeriesId = bulkAssessmentSeriesSelect.value;
-      if (regcat !== 'Modular' && !assessmentSeriesId) {
+      if (!assessmentSeriesId) {
         bulkError.textContent = 'Please select an assessment series.';
-        return;
-      }
-      if (regcat === 'Modular' && moduleIds.length > 0 && !assessmentSeriesId) {
-        bulkError.textContent = 'Please select an assessment series for selected modules.';
         return;
       }
     }

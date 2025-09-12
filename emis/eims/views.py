@@ -2755,12 +2755,8 @@ def bulk_candidate_action(request):
         regcat = regcats.pop()
     
         # Validate Assessment Series selection
-        # For Modular center flow with simple billing by module_count (no module_ids), assessment series is NOT required.
+        # NEW: Always require assessment series for all categories, including Modular
         require_series = True
-        if regcat == 'modular':
-            # If no specific modules are being enrolled (center simple billing), skip series requirement
-            if not module_ids:
-                require_series = False
         if require_series:
             if not assessment_series_id:
                 return JsonResponse({'success': False, 'error': 'Assessment Series is required for bulk enrollment.'}, status=400)
@@ -3000,6 +2996,8 @@ def bulk_candidate_action(request):
                     amount = getattr(lvl, 'modular_fee_double', 0) if module_count == 2 else getattr(lvl, 'modular_fee_single', 0)
                 updated = 0
                 for c in candidates:
+                    # Set assessment series for this billing
+                    c.assessment_series = assessment_series
                     if hasattr(c, 'modular_module_count'):
                         c.modular_module_count = module_count
                     if hasattr(c, 'modular_billing_amount'):
@@ -3007,11 +3005,15 @@ def bulk_candidate_action(request):
                     if hasattr(c, 'calculate_fees_balance'):
                         c.fees_balance = c.calculate_fees_balance()
                     c.save()
+                updated = 0 if 'updated' not in locals() else updated
+                for c in candidates:
                     updated += 1
                 return JsonResponse({'success': True, 'message': f'Billed {updated} modular candidate' + ('' if updated == 1 else 's') + f' for {module_count} module' + ('' if module_count == 1 else 's') + '.'})
 
             # Flow B: original detailed module enrollment if module_ids provided
             print(f"[DEBUG] Modular enrollment - module_ids: {module_ids}, len: {len(module_ids)}")
+            if not assessment_series:
+                return JsonResponse({'success': False, 'error': 'Assessment series is required for Modular bulk enrollment.'}, status=400)
             if not (1 <= len(module_ids) <= 2):
                 return JsonResponse({'success': False, 'error': 'Select 1 or 2 modules.'}, status=400)
             # Enforce selected module count matches chosen/billed module_count when available
@@ -8279,12 +8281,30 @@ def enroll_candidate_view(request, id):
                     return redirect('candidate_view', id=id)
             except Exception:
                 pass
+            # Capture assessment series for Modular individual enrollment (centers flow)
             modular_choice = request.POST.get('modular_module_count')
+            from .models import AssessmentSeries
+            series_id = request.POST.get('assessment_series') or request.POST.get('assessment_series_id')
+            selected_series = None
+            if series_id:
+                try:
+                    selected_series = AssessmentSeries.objects.get(id=series_id)
+                except AssessmentSeries.DoesNotExist:
+                    selected_series = None
             try:
                 modular_choice_val = int(modular_choice) if modular_choice is not None else None
             except ValueError:
                 modular_choice_val = None
             if modular_choice_val in (1, 2):
+                # Require assessment series
+                if not selected_series:
+                    messages.error(request, 'Please select an Assessment Series for this enrollment.')
+                    return render(request, 'candidates/enroll.html', {
+                        'form': EnrollmentForm(candidate=candidate),
+                        'candidate': candidate,
+                        'is_center_rep': is_center_rep,
+                    })
+                candidate.assessment_series = selected_series
                 candidate.modular_module_count = modular_choice_val
                 # Compute and cache modular billing amount using Level 1 (or first configured) if available
                 level_for_fee = None
@@ -8301,7 +8321,7 @@ def enroll_candidate_view(request, id):
                         level_for_fee = None
                 if level_for_fee is not None:
                     candidate.modular_billing_amount = level_for_fee.get_fee_for_registration('Modular', modular_choice_val)
-                candidate.save(update_fields=['modular_module_count', 'modular_billing_amount'])
+                candidate.save(update_fields=['assessment_series', 'modular_module_count', 'modular_billing_amount'])
                 # Update fees using decoupled billing
                 candidate.update_fees_balance()
                 messages.success(request, 'Module number saved. Billing updated for this candidate.')
