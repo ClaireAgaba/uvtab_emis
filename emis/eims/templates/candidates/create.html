@@ -256,7 +256,7 @@
     <!-- Action Buttons -->
     <div class="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t border-gray-200 items-center">
       <div id="draft-status" class="text-xs text-gray-500 hidden"></div>
-      <a href="{% url 'candidate_list' %}" class="w-full sm:w-auto px-6 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center touch-target">
+      <a id="cancel-btn" href="{% url 'candidate_list' %}" class="w-full sm:w-auto px-6 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center touch-target">
         Cancel
       </a>
       <div class="flex gap-2">
@@ -297,13 +297,18 @@
     });
   });
 
-  // --- Save as Draft + Autosave ---
+  // --- Save as Draft + Autosave (never create a draft unless user explicitly clicks Save as Draft) ---
   (function(){
     const saveBtn = document.getElementById('save-draft');
     const form = document.getElementById('candidate-form');
     const draftIdEl = document.getElementById('draft_id');
     const statusEl = document.getElementById('draft-status');
+    const cancelBtn = document.getElementById('cancel-btn');
     if (!form) return;
+
+    // If there is no draft id, autosave is disabled. It will only be enabled after the
+    // user explicitly clicks "Save as Draft" (first click creates the draft).
+    let autosaveEnabled = Boolean(draftIdEl && draftIdEl.value);
 
     function formToJSON(form){
       const data = {};
@@ -325,10 +330,15 @@
     }
 
     let saving = false;
-    async function saveDraft(){
+    async function saveDraft(force=false){
       if (saving) return; // prevent overlap
       saving = true;
       const payload = formToJSON(form);
+      // Do not create a draft from autosave if none exists yet
+      if (!force && !(draftIdEl && draftIdEl.value)) {
+        saving = false;
+        return;
+      }
       try{
         const r = await fetch('{% url "save_candidate_draft" %}', {
           method: 'POST',
@@ -341,6 +351,8 @@
         const res = await r.json();
         if (res && res.success){
           if (draftIdEl) draftIdEl.value = res.draft_id;
+          // Once the user has explicitly saved once, enable autosave from now on
+          autosaveEnabled = true;
           if (statusEl){
             statusEl.textContent = 'Draft saved';
             statusEl.classList.remove('hidden');
@@ -361,7 +373,8 @@
     if (saveBtn){
       saveBtn.addEventListener('click', function(e){
         e.preventDefault();
-        saveDraft();
+        // Force a save that can create a new draft if one doesn't exist yet
+        saveDraft(true);
       });
     }
 
@@ -369,13 +382,23 @@
     let debounceTimer = null;
     function scheduleAutosave(){
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(saveDraft, 1500);
+      if (!autosaveEnabled) return;
+      debounceTimer = setTimeout(function(){ saveDraft(false); }, 1500);
     }
     form.addEventListener('input', scheduleAutosave, true);
     form.addEventListener('change', scheduleAutosave, true);
 
     // Periodic autosave safeguard every 25s
-    setInterval(saveDraft, 25000);
+    const periodic = setInterval(function(){ if (autosaveEnabled) saveDraft(false); }, 25000);
+
+    // If user clicks Cancel, disable any pending autosave and do not attempt to create drafts
+    if (cancelBtn){
+      cancelBtn.addEventListener('click', function(){
+        autosaveEnabled = false;
+        if (debounceTimer) clearTimeout(debounceTimer);
+        clearInterval(periodic);
+      });
+    }
   })();
 // --- Dynamic Occupation Filtering ---
 document.addEventListener('DOMContentLoaded', function() {
