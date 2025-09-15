@@ -6,7 +6,9 @@
     <h1 class="text-xl md:text-2xl font-normal" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Candidates</h1>
     <div class="flex flex-col sm:flex-row gap-2 mb-4">
       <a href="{% url 'candidate_create' %}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center text-sm touch-target">Create Candidate</a>
+      {% if not is_center_rep %}
       <a href="{% url 'candidate_import_dual' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center text-sm touch-target">Import Candidates & Photos</a>
+      {% endif %}
       {% if request.user.is_superuser or user_department in 'Admin,IT,Data' %}
       <a href="{% url 'enrollment_list' %}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-center text-sm touch-target">Enrollments</a>
       {% endif %}

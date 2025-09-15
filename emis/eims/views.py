@@ -5485,6 +5485,7 @@ from django.core.paginator import Paginator
 def candidate_list(request):
     # Get user department information
     staff, user_department, is_authenticated = get_user_staff_info(request)
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
     
     # Get current filters from session or initialize
     current_filters = request.session.get('candidate_filters', {})
@@ -5668,6 +5669,7 @@ def candidate_list(request):
         'candidate_drafts': candidate_drafts,
         'assessment_years': assessment_years,
         'user_department': user_department,
+        'is_center_rep': is_center_rep,
     })
 
 
