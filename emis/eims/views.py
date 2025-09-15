@@ -8283,7 +8283,6 @@ def enroll_candidate_view(request, id):
                 pass
             # Capture assessment series for Modular individual enrollment (centers flow)
             modular_choice = request.POST.get('modular_module_count')
-            from .models import AssessmentSeries
             series_id = request.POST.get('assessment_series') or request.POST.get('assessment_series_id')
             selected_series = None
             if series_id:
