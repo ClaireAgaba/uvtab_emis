@@ -259,31 +259,31 @@ class LevelForm(forms.ModelForm):
         fields = ['name', 'formal_fee', 'workers_pas_fee', 'workers_pas_module_fee', 'modular_fee_single', 'modular_fee_double']
         widgets = {
             'name': forms.TextInput(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
                 'placeholder': 'Enter level name'
             }),
             'formal_fee': forms.NumberInput(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
                 'step': '0.01',
                 'min': '0'
             }),
             'workers_pas_fee': forms.NumberInput(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
                 'step': '0.01',
                 'min': '0'
             }),
             'workers_pas_module_fee': forms.NumberInput(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
                 'step': '0.01',
                 'min': '0'
             }),
             'modular_fee_single': forms.NumberInput(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
                 'step': '0.01',
                 'min': '0'
             }),
             'modular_fee_double': forms.NumberInput(attrs={
-                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'class': 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
                 'step': '0.01',
                 'min': '0'
             })
@@ -722,6 +722,7 @@ class CandidateForm(forms.ModelForm):
                 Q(name__iexact="Worker's PAS") | Q(name__iexact="Worker PAS")
             ).first()
             if not workers_pas_cat:
+                # Try regex for even more flexibility
                 workers_pas_cat = OccupationCategory.objects.filter(name__iregex=r"worker('?s)? pas").first()
             
             if workers_pas_cat and occupation.category == workers_pas_cat:
@@ -776,7 +777,7 @@ class EnrollmentForm(forms.Form):
     # modules field for modular/formal; for informal, we'll dynamically add paper fields per module in __init__
     modules = forms.ModelMultipleChoiceField(queryset=Module.objects.none(), required=False, widget=forms.CheckboxSelectMultiple)
 
-    def __init__(self, *args, candidate=None, **kwargs):
+    def __init__(self, *args, candidate=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.candidate = candidate
         occupation = getattr(candidate, 'occupation', None)
@@ -784,24 +785,43 @@ class EnrollmentForm(forms.Form):
         self.is_informal = reg_cat in ["worker's pas", 'workers pas', 'informal']
         self.is_modular = reg_cat == 'modular'
 
-        # Filter Assessment Series by candidate's entry year
-        if candidate and hasattr(candidate, 'entry_year') and candidate.entry_year:
-            # Get series from the candidate's entry year
-            entry_year = candidate.entry_year
-            self.fields['assessment_series'].queryset = AssessmentSeries.objects.filter(
-                start_date__year=entry_year
-            ).order_by('-start_date')
-        elif candidate and hasattr(candidate, 'assessment_date') and candidate.assessment_date:
-            # Fallback: use assessment date year if entry_year not available
-            assessment_year = candidate.assessment_date.year
-            self.fields['assessment_series'].queryset = AssessmentSeries.objects.filter(
-                start_date__year=assessment_year
-            ).order_by('-start_date')
+        # Determine if the logged-in user is a Center Representative
+        is_center_rep = False
+        try:
+            if user is not None and hasattr(user, 'groups'):
+                is_center_rep = user.groups.filter(name='CenterRep').exists()
+        except Exception:
+            is_center_rep = False
+
+        # Assessment Series queryset rules
+        if is_center_rep:
+            # Centers: Only current assessment series should be visible
+            qs = AssessmentSeries.objects.filter(is_current=True).order_by('-start_date')
         else:
-            # Show current series as fallback
-            self.fields['assessment_series'].queryset = AssessmentSeries.objects.filter(
-                is_current=True
-            ).order_by('-start_date')
+            # Staff: Use year-based filtering with safe fallback
+            if candidate and hasattr(candidate, 'entry_year') and candidate.entry_year:
+                # Get series from the candidate's entry year
+                entry_year = candidate.entry_year
+                qs = AssessmentSeries.objects.filter(
+                    start_date__year=entry_year
+                ).order_by('-start_date')
+            elif candidate and hasattr(candidate, 'assessment_date') and candidate.assessment_date:
+                # Fallback: use assessment date year if entry_year not available
+                assessment_year = candidate.assessment_date.year
+                qs = AssessmentSeries.objects.filter(
+                    start_date__year=assessment_year
+                ).order_by('-start_date')
+            else:
+                # Show current series as initial fallback
+                qs = AssessmentSeries.objects.filter(
+                    is_current=True
+                ).order_by('-start_date')
+
+            # Production-safe fallback for staff: if empty, show all series
+            if not qs.exists():
+                qs = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
+
+        self.fields['assessment_series'].queryset = qs
 
         # If candidate already has an assessment series, pre-select it
         if candidate and hasattr(candidate, 'assessment_series') and candidate.assessment_series:

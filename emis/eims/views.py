@@ -8300,7 +8300,7 @@ def enroll_candidate_view(request, id):
                 if not selected_series:
                     messages.error(request, 'Please select an Assessment Series for this enrollment.')
                     return render(request, 'candidates/enroll.html', {
-                        'form': EnrollmentForm(candidate=candidate),
+                        'form': EnrollmentForm(candidate=candidate, user=request.user),
                         'candidate': candidate,
                         'is_center_rep': is_center_rep,
                     })
@@ -8329,12 +8329,12 @@ def enroll_candidate_view(request, id):
             else:
                 messages.error(request, 'Please select 1 or 2 modules.')
                 return render(request, 'candidates/enroll.html', {
-                    'form': EnrollmentForm(candidate=candidate),
+                    'form': EnrollmentForm(candidate=candidate, user=request.user),
                     'candidate': candidate,
                     'is_center_rep': is_center_rep,
                 })
 
-        form = EnrollmentForm(request.POST, candidate=candidate)
+        form = EnrollmentForm(request.POST, candidate=candidate, user=request.user)
         if form.is_valid():
             # Get the selected assessment series
             assessment_series = form.cleaned_data.get('assessment_series')     
@@ -8585,7 +8585,7 @@ def enroll_candidate_view(request, id):
             })
     else:
         # Support dynamic module filtering by selected level (GET param)
-        form = EnrollmentForm(request.GET, candidate=candidate)
+        form = EnrollmentForm(request.GET, candidate=candidate, user=request.user)
     return render(request, 'candidates/enroll.html', {
         'form': form,
         'candidate': candidate,
