@@ -8221,12 +8221,34 @@ def add_result(request, id):
 def edit_candidate(request, id):
     candidate = get_object_or_404(Candidate, id=id)
 
+    # AJAX: dynamic occupation field reload when reg category changes
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.GET.get('registration_category'):
+        reg_cat = request.GET.get('registration_category')
+        form = CandidateForm(instance=candidate, user=request.user, edit=True, initial={'registration_category': reg_cat})
+        occupation_field_html = render_to_string('partials/occupation_field.html', {'form': form})
+        return JsonResponse({'occupation_field_html': occupation_field_html})
+
     if request.method == 'POST':
         from django.forms.models import model_to_dict
         original = model_to_dict(candidate)
         form = CandidateForm(request.POST, request.FILES, instance=candidate, user=request.user, edit=True)
         if form.is_valid():
             updated = form.save()
+            # Reg. number regeneration if key fields changed
+            try:
+                changed_keys = []
+                for k in ['registration_category', 'occupation', 'assessment_center', 'assessment_center_branch']:
+                    old_val = original.get(k)
+                    new_val = getattr(updated, k, None)
+                    if hasattr(new_val, 'id'):
+                        new_val = new_val.id
+                    if old_val != new_val:
+                        changed_keys.append(k)
+                if changed_keys:
+                    updated.build_reg_number()
+                    updated.save(update_fields=['reg_number'])
+            except Exception:
+                pass
             # Log bio data changes
             try:
                 from .models import CandidateChangeLog
@@ -8258,7 +8280,7 @@ def edit_candidate(request, id):
                 pass
             return redirect('candidate_view', id=candidate.id)
     else:
-        form = CandidateForm(instance=candidate, edit=True)
+        form = CandidateForm(instance=candidate, user=request.user, edit=True)
 
     return render(request, 'candidates/edit.html', {'form': form, 'candidate': candidate})
 
@@ -8694,9 +8716,10 @@ def enrollment_list(request):
 @login_required
 @require_POST
 def clear_enrollment(request, id):
-    # Allow superusers, staff, and Admin/IT/Data department users
+    # Allow superusers, staff, Admin/IT/Data department users, and Center Representatives
     staff, user_department, is_authenticated = get_user_staff_info(request)
-    if not (request.user.is_superuser or request.user.is_staff or user_department in ["Admin", "IT", "Data"]):
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    if not (request.user.is_superuser or request.user.is_staff or user_department in ["Admin", "IT", "Data"] or is_center_rep):
         return redirect('candidate_view', id=id)
     candidate = get_object_or_404(Candidate, id=id)
     from .models import Result
@@ -8711,18 +8734,24 @@ def clear_enrollment(request, id):
     CandidateModule.objects.filter(candidate=candidate).delete()
     CandidatePaper.objects.filter(candidate=candidate).delete()
 
-    # Preserve billing only for Modular. For Formal and Informal/Worker's PAS, clear fees and assessment series.
+    # For center reps: always reset assessment series and all billing caches
+    # For admins/staff: keep previous behavior (preserve modular billing)
     reg_cat = (candidate.registration_category or '').strip().lower()
-    if reg_cat == 'modular':
-        # Keep assessment series and cached modular billing fields and fees_balance
-        messages.success(request, 'All enrollment records have been cleared. Billing records and assessment series were preserved for Modular candidates.')
-        # Log action
+    if is_center_rep:
+        candidate.assessment_series = None
+        candidate.fees_balance = 0.00
+        if hasattr(candidate, 'modular_module_count'):
+            candidate.modular_module_count = None
+        if hasattr(candidate, 'modular_billing_amount'):
+            candidate.modular_billing_amount = None
+        candidate.save(update_fields=['assessment_series', 'fees_balance', 'modular_module_count', 'modular_billing_amount'])
+        messages.success(request, 'Candidate de-enrolled. Assessment series and billing have been cleared.')
         try:
             from .models import CandidateChangeLog
             CandidateChangeLog.objects.create(
                 candidate=candidate,
                 action='clear_enrollment',
-                details=f"Deleted levels={lvl_deleted}, modules={mod_deleted}, papers={pap_deleted}; preserved billing & series (Modular)",
+                details=f"Center de-enroll: deleted levels={lvl_deleted}, modules={mod_deleted}, papers={pap_deleted}; reset series & billing",
                 performed_by=request.user,
                 request_path=request.path,
                 ip_address=request.META.get('REMOTE_ADDR')
@@ -8730,29 +8759,42 @@ def clear_enrollment(request, id):
         except Exception:
             pass
     else:
-        # Reset for Formal and Informal/Worker\'s PAS
-        candidate.assessment_series = None
-        candidate.fees_balance = 0.00
-        # Also clear modular cache fields defensively
-        if hasattr(candidate, 'modular_module_count'):
-            candidate.modular_module_count = None
-        if hasattr(candidate, 'modular_billing_amount'):
-            candidate.modular_billing_amount = None
-        candidate.save(update_fields=['assessment_series', 'fees_balance', 'modular_module_count', 'modular_billing_amount'])
-        messages.success(request, 'All enrollment records have been cleared. Assessment series and billing were reset for Formal/Informal candidates.')
-        # Log action
-        try:
-            from .models import CandidateChangeLog
-            CandidateChangeLog.objects.create(
-                candidate=candidate,
-                action='clear_enrollment',
-                details=f"Deleted levels={lvl_deleted}, modules={mod_deleted}, papers={pap_deleted}; reset billing & series (Formal/Informal)",
-                performed_by=request.user,
-                request_path=request.path,
-                ip_address=request.META.get('REMOTE_ADDR')
-            )
-        except Exception:
-            pass
+        # Admin/staff behavior
+        if reg_cat == 'modular':
+            messages.success(request, 'All enrollment records have been cleared. Billing records and assessment series were preserved for Modular candidates.')
+            try:
+                from .models import CandidateChangeLog
+                CandidateChangeLog.objects.create(
+                    candidate=candidate,
+                    action='clear_enrollment',
+                    details=f"Deleted levels={lvl_deleted}, modules={mod_deleted}, papers={pap_deleted}; preserved billing & series (Modular)",
+                    performed_by=request.user,
+                    request_path=request.path,
+                    ip_address=request.META.get('REMOTE_ADDR')
+                )
+            except Exception:
+                pass
+        else:
+            candidate.assessment_series = None
+            candidate.fees_balance = 0.00
+            if hasattr(candidate, 'modular_module_count'):
+                candidate.modular_module_count = None
+            if hasattr(candidate, 'modular_billing_amount'):
+                candidate.modular_billing_amount = None
+            candidate.save(update_fields=['assessment_series', 'fees_balance', 'modular_module_count', 'modular_billing_amount'])
+            messages.success(request, 'All enrollment records have been cleared. Assessment series and billing were reset for Formal/Informal candidates.')
+            try:
+                from .models import CandidateChangeLog
+                CandidateChangeLog.objects.create(
+                    candidate=candidate,
+                    action='clear_enrollment',
+                    details=f"Deleted levels={lvl_deleted}, modules={mod_deleted}, papers={pap_deleted}; reset billing & series (Formal/Informal)",
+                    performed_by=request.user,
+                    request_path=request.path,
+                    ip_address=request.META.get('REMOTE_ADDR')
+                )
+            except Exception:
+                pass
     return redirect('candidate_view', id=id)
 
 

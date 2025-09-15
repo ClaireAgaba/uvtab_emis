@@ -472,6 +472,26 @@ class CandidateForm(forms.ModelForm):
         for field in ['date_of_birth', 'start_date', 'finish_date', 'assessment_date']:
             if field in self.fields:
                 self.fields[field].input_formats = ['%d/%m/%Y']
+        # Make start/finish date optional at form level
+        if 'start_date' in self.fields:
+            self.fields['start_date'].required = False
+        if 'finish_date' in self.fields:
+            self.fields['finish_date'].required = False
+
+        # Preferred assessment language: optional, default to English when blank
+        if 'preferred_assessment_language' in self.fields:
+            self.fields['preferred_assessment_language'].required = False
+            # If no value on instance or form data, set initial to English for UX
+            try:
+                current_lang = (
+                    self.data.get('preferred_assessment_language') or
+                    getattr(self.instance, 'preferred_assessment_language', '') or
+                    self.initial.get('preferred_assessment_language', '')
+                )
+            except Exception:
+                current_lang = ''
+            if not (str(current_lang).strip()):
+                self.fields['preferred_assessment_language'].initial = 'English'
         # Show/hide nature_of_disability and disability_specification based on disability field value
         disability_value = False
         if self.data.get('disability') in ['on', 'true', 'True', True]:
@@ -527,21 +547,20 @@ class CandidateForm(forms.ModelForm):
             reg_cat = self.initial.get('registration_category')
         elif hasattr(self, 'instance') and getattr(self.instance, 'registration_category', None):
             reg_cat = self.instance.registration_category
-        # Default: Occupation field is empty and disabled
-        self.fields['occupation'].queryset = Occupation.objects.none()
-        self.fields['occupation'].widget.attrs['disabled'] = True
-        if reg_cat and str(reg_cat).strip():
-            # Enable occupation field
-            self.fields['occupation'].widget.attrs.pop('disabled', None)
-            reg_cat_val = str(reg_cat).strip().lower()
+
+        # UX: Show occupation dropdown enabled by default with all occupations,
+        # then narrow results if a registration category is chosen
+        self.fields['occupation'].queryset = Occupation.objects.all().order_by('code')
+        reg_cat_val = str(reg_cat).strip().lower() if reg_cat and str(reg_cat).strip() else None
+        if reg_cat_val:
             # Modular: has_modular occupations
             if reg_cat_val == 'modular':
-                self.fields['occupation'].queryset = Occupation.objects.filter(has_modular=True)
+                self.fields['occupation'].queryset = Occupation.objects.filter(has_modular=True).order_by('code')
             # Formal: occupation category 'Formal'
             elif reg_cat_val == 'formal':
                 try:
                     cat = OccupationCategory.objects.get(name__iexact='Formal')
-                    self.fields['occupation'].queryset = Occupation.objects.filter(category=cat)
+                    self.fields['occupation'].queryset = Occupation.objects.filter(category=cat).order_by('code')
                 except OccupationCategory.DoesNotExist:
                     self.fields['occupation'].queryset = Occupation.objects.none()
             # Informal/Worker's PAS: occupation category 'Worker's PAS'
@@ -554,19 +573,43 @@ class CandidateForm(forms.ModelForm):
                     # Try regex for even more flexibility
                     cat = OccupationCategory.objects.filter(name__iregex=r"worker('?s)? pas").first()
                 if cat:
-                    self.fields['occupation'].queryset = Occupation.objects.filter(category=cat)
+                    self.fields['occupation'].queryset = Occupation.objects.filter(category=cat).order_by('code')
                 else:
                     self.fields['occupation'].queryset = Occupation.objects.none()
-        # Disable occupation, assessment dates, and center fields in edit mode
+        # Disable some fields in edit mode ONLY if candidate is verified; otherwise keep editable
         if edit:
-            for fname in [
-                'occupation', 'assessment_center', 'start_date', 'finish_date',
-                'registration_category', 'level', 'modules', 'reg_number', 'entry_year', 'intake', 'created_by',
+            is_verified = False
+            try:
+                is_verified = getattr(self.instance, 'verification_status', '').lower() == 'verified'
+            except Exception:
+                is_verified = False
+            fields_to_lock_if_verified = [
+                'assessment_center', 'start_date', 'finish_date',
+                'level', 'modules', 'reg_number', 'created_by',
                 'enrollment_label', 'updated_by'
-            ]:
+            ]
+            # Note: registration_category and occupation REMAIN editable if not verified
+            if is_verified:
+                fields_to_lock_if_verified += ['registration_category', 'occupation']
+            for fname in fields_to_lock_if_verified:
                 if fname in self.fields:
-                    self.fields[fname].disabled = True
-
+                    try:
+                        # Mark not required to avoid validation errors on POST (disabled fields are not submitted)
+                        self.fields[fname].required = False
+                        self.fields[fname].widget.attrs['readonly'] = True
+                        self.fields[fname].widget.attrs['disabled'] = True
+                    except Exception:
+                        pass
+            # Intake and Entry Year must remain editable and required
+            for fname in ['intake', 'entry_year']:
+                if fname in self.fields:
+                    self.fields[fname].required = True
+                    # Remove any leftover disabling flags
+                    try:
+                        self.fields[fname].widget.attrs.pop('disabled', None)
+                        self.fields[fname].widget.attrs.pop('readonly', None)
+                    except Exception:
+                        pass
         # Order districts alphabetically for easier searching
         self.fields['district'].queryset = District.objects.all().order_by('name')
         
@@ -635,6 +678,7 @@ class CandidateForm(forms.ModelForm):
             'start_date': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
             'finish_date': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
             'assessment_date': forms.DateInput(format='%d/%m/%Y', attrs={'type': 'text', 'placeholder': 'DD/MM/YYYY', 'class': 'border rounded px-3 py-2 w-full'}),
+            'preferred_assessment_language': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full', 'placeholder': 'e.g., English, Luganda, Runyakitara'}),
             'full_name': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'passport_photo': forms.ClearableFileInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'contact': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
@@ -702,46 +746,29 @@ class CandidateForm(forms.ModelForm):
         else:
             cleaned_data['nature_of_disability'] = []
         
-        # Date validation based on registration category
+        # Date validation (new rules):
+        # - assessment_date remains required
+        # - start_date and finish_date are OPTIONAL for all categories
+        # - if both start_date and finish_date are provided, ensure start_date <= finish_date
         reg_cat = cleaned_data.get('registration_category')
         start_date = cleaned_data.get('start_date')
         finish_date = cleaned_data.get('finish_date')
         assessment_date = cleaned_data.get('assessment_date')
-        occupation = cleaned_data.get('occupation')
-        
-        # Assessment date is always mandatory
+
+        # Assessment date is required for everyone
         if not assessment_date:
-            self.add_error('assessment_date', 'Assessment date is required for all registration categories.')
-        
-        # For Worker's PAS/Informal with Worker's PAS occupation, start_date and finish_date are optional
-        if reg_cat and str(reg_cat).lower() == 'informal' and occupation:
-            # Check if the occupation is Worker's PAS category
-            from .models import OccupationCategory
-            from django.db.models import Q
-            workers_pas_cat = OccupationCategory.objects.filter(
-                Q(name__iexact="Worker's PAS") | Q(name__iexact="Worker PAS")
-            ).first()
-            if not workers_pas_cat:
-                # Try regex for even more flexibility
-                workers_pas_cat = OccupationCategory.objects.filter(name__iregex=r"worker('?s)? pas").first()
-            
-            if workers_pas_cat and occupation.category == workers_pas_cat:
-                # For Worker's PAS occupation with informal registration, dates are optional
-                pass
-            else:
-                # For other occupations with informal registration, dates are still required
-                if not start_date:
-                    self.add_error('start_date', 'Start date is required for this registration type.')
-                if not finish_date:
-                    self.add_error('finish_date', 'Finish date is required for this registration type.')
-        else:
-            # For all other registration categories, start_date and finish_date are required
-            if not start_date:
-                self.add_error('start_date', 'Start date is required for this registration type.')
-            if not finish_date:
-                self.add_error('finish_date', 'Finish date is required for this registration type.')
+            self.add_error('assessment_date', 'Assessment date is required.')
+
+        # Optional consistency check when both dates are provided
+        try:
+            if start_date and finish_date and start_date > finish_date:
+                self.add_error('finish_date', 'Finish date cannot be before start date.')
+        except Exception:
+            # If parsing fails, let field-level validation handle format errors
+            pass
         
         # --- Existing logic below ---
+        occupation = cleaned_data.get('occupation')
         level = cleaned_data.get('level')
         modules = cleaned_data.get('modules')
 

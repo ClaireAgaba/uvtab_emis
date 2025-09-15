@@ -2,6 +2,24 @@
 {% block content %}
 <h2 class="text-2xl font-normal mb-4" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Edit Candidate</h2>
 
+{% if form.errors %}
+  <div class="md:col-span-2 mb-4">
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+      <strong class="font-bold">Please correct the errors below:</strong>
+      <ul class="mt-2 text-sm space-y-1">
+        {% for field in form %}
+          {% for error in field.errors %}
+            <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+          {% endfor %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endif %}
+
 <form method="post" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-6">
   {% csrf_token %}
   <!-- Personal Details -->
@@ -469,5 +487,45 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // --- End Refugee Fields Dynamic Logic ---
-</script>
+
+  </script>
+  <script>
+  // --- Dynamic Occupation Filtering on Edit ---
+  document.addEventListener('DOMContentLoaded', function() {
+    const regCatField = document.getElementById('id_registration_category');
+    function setOccupationDisabled(disabled=true) {
+      const occField = document.getElementById('id_occupation');
+      if (occField) occField.disabled = disabled;
+    }
+    function loadOccupationsForCategory(cat) {
+      const occWrapper = document.getElementById('occupation-field-wrapper');
+      const occLoading = document.getElementById('occupation-loading');
+      if (!occWrapper) return;
+      if (!cat) { setOccupationDisabled(true); return; }
+      setOccupationDisabled(true);
+      if (occLoading) occLoading.classList.remove('hidden');
+      const url = new URL(window.location.href);
+      url.searchParams.set('registration_category', cat);
+      fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data && data.occupation_field_html) {
+            occWrapper.outerHTML = data.occupation_field_html; // replace wrapper
+          }
+        })
+        .catch(err => console.error('Occupation load error', err))
+        .finally(() => {
+          const occLoading2 = document.getElementById('occupation-loading');
+          if (occLoading2) occLoading2.classList.add('hidden');
+          setOccupationDisabled(false);
+        });
+    }
+    if (regCatField) {
+      regCatField.addEventListener('change', function() {
+        loadOccupationsForCategory(regCatField.value);
+      });
+    }
+  });
+  // --- End Dynamic Occupation Filtering on Edit ---
+  </script>
 {% endblock %}

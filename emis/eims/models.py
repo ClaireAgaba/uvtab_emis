@@ -675,6 +675,14 @@ class Candidate(models.Model):
         ('Modular', 'Modular'),
         ('Informal', "Worker's PAS")
     ])
+    # Preferred assessment language (optional, defaults to English if not provided)
+    preferred_assessment_language = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        default='English',
+        help_text="Candidate's preferred language during assessment (defaults to English)"
+    )
 
     # Section 4 - Assessment Dates
     start_date = models.DateField(null=True, blank=True, help_text="Training start date (optional for Worker's PAS/Informal)")
