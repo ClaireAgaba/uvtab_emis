@@ -148,6 +148,7 @@ urlpatterns = [
     path('users/center-representatives/create/', views.create_center_rep, name='create_center_rep'),
     path('users/center-representatives/<int:pk>/', views.view_center_rep_detail, name='view_center_rep'),
     path('users/center-representatives/<int:pk>/edit/', views.edit_center_rep, name='edit_center_rep'),
+    path('users/center-representatives/<int:pk>/reset-password/', views.reset_center_rep_password, name='reset_center_rep_password'),
     # Support Staff
     path('users/support-staff/', views.view_support_staff, name='view_support_staff'),
     path('users/support-staff/create/', views.create_support_staff, name='create_support_staff'),

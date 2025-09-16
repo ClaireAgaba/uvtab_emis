@@ -9625,6 +9625,46 @@ def view_center_rep_detail(request, pk):
     rep = CenterRepresentative.objects.select_related('user', 'center').get(pk=pk)
     return render(request, 'users/center_representatives/view_center_rep.html', {'rep': rep})
 
+@login_required
+def reset_center_rep_password(request, pk):
+    """Securely reset a Center Representative's password to the default.
+
+    Production-safe behavior:
+    - POST-only endpoint with CSRF protection (form must use POST)
+    - Restricted to staff/superusers (center reps cannot trigger)
+    - Uses Django's set_password to hash securely
+    - Shows user feedback via messages and redirects back to the rep view
+    """
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.conf import settings
+    from .models import CenterRepresentative
+
+    # Only staff/superusers can reset passwords
+    if not (request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)):
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('view_center_rep', pk=pk)
+
+    # Enforce POST-only for safety
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method. Please use the Reset Password button.')
+        return redirect('view_center_rep', pk=pk)
+
+    try:
+        rep = CenterRepresentative.objects.select_related('user').get(pk=pk)
+    except CenterRepresentative.DoesNotExist:
+        messages.error(request, 'Center Representative not found.')
+        return redirect('view_center_reps')
+
+    # Default password - prefer settings override, fallback to known default
+    default_password = getattr(settings, 'DEFAULT_CENTER_REP_PASSWORD', 'Uvtab@2025')
+
+    # Set the new password securely
+    rep.user.set_password(default_password)
+    rep.user.save()
+
+    messages.success(request, 'Password has been reset to the default for this Center Representative.')
+    return redirect('view_center_rep', pk=pk)
 def edit_center_rep(request, pk):
     from .models import CenterRepresentative
     from .forms import CenterRepForm
