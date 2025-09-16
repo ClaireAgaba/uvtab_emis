@@ -9623,7 +9623,22 @@ def view_center_reps(request):
 def view_center_rep_detail(request, pk):
     from .models import CenterRepresentative
     rep = CenterRepresentative.objects.select_related('user', 'center').get(pk=pk)
-    return render(request, 'users/center_representatives/view_center_rep.html', {'rep': rep})
+    # Determine if current user can reset passwords
+    # Allowed: any authenticated user who is NOT a CenterRep (covers Admin/IT/Support/etc.)
+    can_reset_password = False
+    try:
+        is_center_rep_user = request.user.groups.filter(name='CenterRep').exists()
+        is_support_staff = request.user.groups.filter(name='SupportStaff').exists()
+        can_reset_password = request.user.is_authenticated and (
+            request.user.is_staff or request.user.is_superuser or is_support_staff or not is_center_rep_user
+        )
+    except Exception:
+        can_reset_password = False
+    return render(
+        request,
+        'users/center_representatives/view_center_rep.html',
+        {'rep': rep, 'can_reset_password': can_reset_password}
+    )
 
 @login_required
 def reset_center_rep_password(request, pk):
@@ -9640,8 +9655,20 @@ def reset_center_rep_password(request, pk):
     from django.conf import settings
     from .models import CenterRepresentative
 
-    # Only staff/superusers can reset passwords
-    if not (request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)):
+    # Only non-CenterRep authenticated users can reset passwords
+    try:
+        is_center_rep_user = request.user.groups.filter(name='CenterRep').exists()
+        is_support_staff = request.user.groups.filter(name='SupportStaff').exists()
+    except Exception:
+        is_center_rep_user = False
+        is_support_staff = False
+
+    if not request.user.is_authenticated:
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('view_center_rep', pk=pk)
+
+    # Admins/SupportStaff always allowed; otherwise block CenterRep users
+    if not (request.user.is_staff or request.user.is_superuser or is_support_staff) and is_center_rep_user:
         messages.error(request, 'You do not have permission to perform this action.')
         return redirect('view_center_rep', pk=pk)
 

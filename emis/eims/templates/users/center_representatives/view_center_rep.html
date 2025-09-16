@@ -140,7 +140,7 @@
               </svg>
               Edit Representative
             </a>
-            {% if request.user.is_staff or request.user.is_superuser %}
+            {% if can_reset_password or request.user.is_staff or request.user.is_superuser %}
             <form method="post" action="{% url 'reset_center_rep_password' rep.pk %}" onsubmit="return confirm('Reset this Center Representative\'s password to the default?');">
               {% csrf_token %}
               <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200">
