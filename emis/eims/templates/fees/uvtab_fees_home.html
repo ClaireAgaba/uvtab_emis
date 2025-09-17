@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load humanize %}
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
   <!-- Header Section -->
@@ -46,7 +47,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-500">Total Fees</p>
-          <p class="text-2xl font-bold text-blue-600">UGX {{ total_fees|floatformat:2 }}</p>
+          <p class="text-2xl font-bold text-blue-600">UGX {{ total_fees|floatformat:0|intcomma }}</p>
           <p class="text-xs text-gray-500">Current standing fees from all enrollments</p>
         </div>
       </div>
@@ -64,7 +65,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-500">Amount Paid</p>
-          <p class="text-2xl font-bold text-green-600">UGX {{ amount_paid|floatformat:2 }}</p>
+          <p class="text-2xl font-bold text-green-600">UGX {{ amount_paid|floatformat:0|intcomma }}</p>
           <p class="text-xs text-gray-500">Cleared bills</p>
         </div>
       </div>
@@ -82,7 +83,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-500">Amount Due</p>
-          <p class="text-2xl font-bold text-red-600">UGX {{ amount_due|floatformat:2 }}</p>
+          <p class="text-2xl font-bold text-red-600">UGX {{ amount_due|floatformat:0|intcomma }}</p>
           <p class="text-xs text-gray-500">Current outstanding fees</p>
         </div>
       </div>
@@ -203,8 +204,8 @@
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm">
                     {% if item.payment_status == 'Paid' %}
-                      <span class="text-green-600 font-semibold">UGX 0.00</span>
-                      <div class="text-xs text-gray-500">Originally: UGX {{ item.original_fee|floatformat:2 }}</div>
+                      <span class="text-green-600 font-semibold">UGX 0</span>
+                      <div class="text-xs text-gray-500">Originally: UGX {{ item.original_fee|floatformat:0|intcomma }}</div>
                     {% else %}
                       <span class="text-red-600 font-semibold">UGX {{ item.candidate.get_formatted_fees_balance }}</span>
                     {% endif %}

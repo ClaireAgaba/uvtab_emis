@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load humanize %}
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
   <!-- Header Section -->
@@ -45,7 +46,7 @@
       </div>
       <div class="text-center">
         <p class="text-sm font-medium text-gray-500">Total Candidate Fees</p>
-        <p class="text-3xl font-bold text-red-600">UGX {{ total_system_fees|floatformat:2 }}</p>
+        <p class="text-3xl font-bold text-red-600">UGX {{ total_system_fees|floatformat:0|intcomma }}</p>
       </div>
     </div>
   </div>
@@ -205,19 +206,13 @@
                 </span>
               </td>
               <td class="px-2 py-3 whitespace-nowrap text-right text-sm">
-                <span class="text-red-600 font-semibold text-xs">
-                  {{ data.total_fees|floatformat:0|floatformat:0 }}
-                </span>
+                <span class="text-red-600 font-semibold text-xs">UGX {{ data.total_fees|floatformat:0|intcomma }}</span>
               </td>
               <td class="px-2 py-3 whitespace-nowrap text-right text-sm">
-                <span class="text-green-600 font-semibold text-xs">
-                  {{ data.amount_paid|floatformat:0|floatformat:0 }}
-                </span>
+                <span class="text-green-600 font-semibold text-xs">UGX {{ data.amount_paid|floatformat:0|intcomma }}</span>
               </td>
               <td class="px-2 py-3 whitespace-nowrap text-right text-sm">
-                <span class="text-red-600 font-semibold text-xs">
-                  {{ data.amount_due|floatformat:0|floatformat:0 }}
-                </span>
+                <span class="text-red-600 font-semibold text-xs">UGX {{ data.amount_due|floatformat:0|intcomma }}</span>
               </td>
               <td class="px-2 py-3 whitespace-nowrap text-center text-sm font-medium">
                 <button onclick="showInvoice({{ data.center.id }}, '{% if data.assessment_series %}{{ data.assessment_series.id }}{% else %}none{% endif %}')" 
