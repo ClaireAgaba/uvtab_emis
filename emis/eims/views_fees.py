@@ -13,17 +13,18 @@ import json
 
 # ReportLab imports for PDF generation
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.pagesizes import letter, A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
-from .models import Candidate, AssessmentCenter, Occupation, Level, AssessmentSeries, CenterSeriesPayment, CenterRepresentative
+from .models import Candidate, AssessmentCenter, Occupation, Level, AssessmentSeries, CenterSeriesPayment, CenterRepresentative, CandidateModule
 from .views import require_staff_permissions
 from django.conf import settings
 import os
+import re
 from zoneinfo import ZoneInfo
 
 @login_required
@@ -834,7 +835,9 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    # Use landscape for detailed invoices to prevent column clipping (e.g., long Reg. Numbers)
+    page_size = landscape(A4) if (request.GET.get('type', 'summary') == 'detailed') else A4
+    doc = SimpleDocTemplate(buffer, pagesize=page_size, topMargin=0.5*inch, bottomMargin=0.5*inch)
     styles = getSampleStyleSheet()
     elements = []
     
@@ -908,11 +911,14 @@ def generate_pdf_invoice(request, center_id, series_id=None):
         spaceAfter=10
     )
     
+    # Safely handle missing village/district to avoid runtime errors
+    village_name = center.village.name if getattr(center, 'village', None) else 'N/A'
+    district_name = center.district.name if getattr(center, 'district', None) else 'N/A'
     center_info = Paragraph(
         f'<b>Center Details:</b><br/>'
         f'Center No.: {center.center_number}<br/>'
         f'Center Name: {center.center_name}<br/>'
-        f'Location: {center.village.name}, {center.district.name}, Uganda',
+        f'Location: {village_name}, {district_name}, Uganda',
         info_style
     )
     elements.append(center_info)
@@ -961,50 +967,176 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     elements.append(summary_table)
     elements.append(Spacer(1, 20))
     
-    # Detailed Candidates Table (only for detailed invoices)
+    # Subheader style for section titles within detailed invoices
+    subheader_style = ParagraphStyle(
+        'SubHeader',
+        parent=styles['Heading4'],
+        fontSize=11,
+        leading=13,
+        textColor=colors.HexColor('#1f2937'),
+        spaceBefore=6,
+        spaceAfter=6
+    )
+    
+    # Detailed Candidates Tables split by category (only for detailed invoices)
     if invoice_type == 'detailed' and candidates:
         elements.append(Paragraph('<b>Candidate Details</b>', styles['Heading3']))
         elements.append(Spacer(1, 10))
-        
-        candidates_data = [
-            ['Reg. Number', 'Name', 'Occupation', 'Level', 'Amount (UGX)']
-        ]
-        
-        for candidate in candidates:
-            # Get level information
-            level_name = 'N/A'
+
+        def short(txt, n):
+            if not txt:
+                return 'N/A'
+            return txt if len(txt) <= n else txt[:n] + '...'
+
+        def get_level_name(c):
+            name = 'N/A'
             try:
-                candidate_level = candidate.candidatelevel_set.first()
-                if candidate_level and candidate_level.level:
-                    level_name = candidate_level.level.name
-            except:
-                level_name = 'N/A'
-            
-            candidates_data.append([
-                candidate.reg_number,
-                candidate.full_name[:25] + '...' if len(candidate.full_name) > 25 else candidate.full_name,
-                candidate.occupation.name[:20] + '...' if candidate.occupation and len(candidate.occupation.name) > 20 else (candidate.occupation.name if candidate.occupation else 'N/A'),
-                level_name,
-                f'{float(candidate.fees_balance):,.2f}'
-            ])
-        
-        candidates_table = Table(candidates_data, colWidths=[1.2*inch, 2*inch, 1.5*inch, 1*inch, 1*inch])
-        candidates_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1f2937')),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 8),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-            ('TOPPADDING', (0, 0), (-1, 0), 6),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-            ('TOPPADDING', (0, 1), (-1, -1), 4),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
-        ]))
-        elements.append(candidates_table)
-        elements.append(Spacer(1, 20))
+                cl = c.candidatelevel_set.first()
+                if cl and getattr(cl, 'level', None):
+                    name = cl.level.name
+            except Exception:
+                name = 'N/A'
+            return name
+
+        def is_workers_pas(c):
+            try:
+                cat = c.occupation.category.name if c.occupation and c.occupation.category else ''
+            except Exception:
+                cat = ''
+            return re.search(r"worker('?s)?\s*pas", cat, flags=re.I) is not None
+
+        modular = []
+        formal = []
+        workers = []
+        for c in candidates:
+            regcat = (getattr(c, 'registration_category', '') or '').lower()
+            if regcat == 'modular':
+                modular.append(c)
+            elif is_workers_pas(c):
+                workers.append(c)
+            else:
+                formal.append(c)
+
+        # Modular Candidates Details
+        if modular:
+            elements.append(Paragraph('Modular Candidates Details', subheader_style))
+            elements.append(Spacer(1, 6))
+            mod_data = [['Reg. Number', 'Name', 'Occupation', 'No. of Modules', 'Amount (UGX)', 'Specify Modules Candidate Trained In']]
+            for c in modular:
+                try:
+                    num_mods = CandidateModule.objects.filter(candidate=c).count()
+                except Exception:
+                    num_mods = getattr(c, 'modular_module_count', 0) or 0
+                mod_data.append([
+                    c.reg_number,
+                    short(c.full_name, 25),
+                    short(c.occupation.name if c.occupation else 'N/A', 20),
+                    str(num_mods),
+                    f'{float(c.fees_balance):,.2f}',
+                    ''  # left blank for centers
+                ])
+            # Landscape width budget ~9.69in (A4 landscape minus default left/right margins). Keep <= 9.6in
+            # Widen Reg. Number and reduce right-most column slightly
+            mod_table = Table(mod_data, colWidths=[1.8*inch, 2.0*inch, 1.5*inch, 0.9*inch, 1.1*inch, 2.3*inch])
+            mod_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1f2937')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),  # Reg. Number left-align for readability
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),  # Name left-align
+                ('LEFTPADDING', (0,0), (-1,-1), 3),
+                ('RIGHTPADDING', (0,0), (-1,-1), 3),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                ('TOPPADDING', (0, 0), (-1, 0), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+                ('TOPPADDING', (0, 1), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('REPEATROWS', (0,0), (-1,0)),
+            ]))
+            elements.append(mod_table)
+            elements.append(Spacer(1, 14))
+
+        # Formal Candidates Details
+        if formal:
+            elements.append(Paragraph('Formal Candidates Details', subheader_style))
+            elements.append(Spacer(1, 6))
+            for_data = [['Reg. Number', 'Name', 'Occupation', 'Level', 'Amount (UGX)']]
+            for c in formal:
+                for_data.append([
+                    c.reg_number,
+                    short(c.full_name, 25),
+                    short(c.occupation.name if c.occupation else 'N/A', 20),
+                    get_level_name(c),
+                    f'{float(c.fees_balance):,.2f}'
+                ])
+            for_table = Table(for_data, colWidths=[1.8*inch, 2.0*inch, 1.6*inch, 1.0*inch, 1.0*inch])
+            for_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1f2937')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('LEFTPADDING', (0,0), (-1,-1), 3),
+                ('RIGHTPADDING', (0,0), (-1,-1), 3),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                ('TOPPADDING', (0, 0), (-1, 0), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+                ('TOPPADDING', (0, 1), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('REPEATROWS', (0,0), (-1,0)),
+            ]))
+            elements.append(for_table)
+            elements.append(Spacer(1, 14))
+
+        # Worker's PAS Candidates Details
+        if workers:
+            elements.append(Paragraph("Worker's PAS Candidates Details", subheader_style))
+            elements.append(Spacer(1, 6))
+            pas_data = [['Reg. Number', 'Name', 'Occupation', 'Level', 'Amount (UGX)', 'Modules Candidate Is Enrolled In']]
+            for c in workers:
+                try:
+                    mods = CandidateModule.objects.filter(candidate=c).select_related('module')
+                    mods_str = ', '.join(short(m.module.name, 18) for m in mods) if mods else ''
+                except Exception:
+                    mods_str = ''
+                pas_data.append([
+                    c.reg_number,
+                    short(c.full_name, 25),
+                    short(c.occupation.name if c.occupation else 'N/A', 20),
+                    get_level_name(c),
+                    f'{float(c.fees_balance):,.2f}',
+                    mods_str
+                ])
+            pas_table = Table(pas_data, colWidths=[1.8*inch, 2.0*inch, 1.5*inch, 1.0*inch, 1.0*inch, 2.2*inch])
+            pas_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1f2937')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('LEFTPADDING', (0,0), (-1,-1), 3),
+                ('RIGHTPADDING', (0,0), (-1,-1), 3),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                ('TOPPADDING', (0, 0), (-1, 0), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+                ('TOPPADDING', (0, 1), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('REPEATROWS', (0,0), (-1,0)),
+            ]))
+            elements.append(pas_table)
+            elements.append(Spacer(1, 20))
     
     # Footer
     footer_style = ParagraphStyle(
