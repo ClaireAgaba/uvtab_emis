@@ -1285,6 +1285,7 @@ class Staff(models.Model):
         ('Data', 'Data'),
         ('IT', 'IT'),
         ('Admin', 'Admin'),
+        ('Accounts', 'Accounts'),
     ]
     
     # Account status field

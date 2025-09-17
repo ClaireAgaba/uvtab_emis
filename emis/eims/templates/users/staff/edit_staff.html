@@ -127,6 +127,20 @@
           </div>
           
           <div class="px-6 py-6">
+            <div id="accounts-access" class="department-access hidden">
+              <div class="flex items-center mb-4">
+                <span class="text-green-600 text-2xl mr-2">💰</span>
+                <h4 class="text-md font-medium text-gray-900">Accounts Department</h4>
+              </div>
+              <div class="space-y-3 text-sm">
+                <div class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  <span class="text-gray-700">UVTAB Fees</span>
+                  <span class="ml-auto text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Full Access</span>
+                </div>
+                <p class="text-xs text-gray-500">Includes marking centers as paid, invoices, center/candidate fees views.</p>
+              </div>
+            </div>
             <div id="research-access" class="department-access hidden">
               <div class="flex items-center mb-4">
                 <span class="text-green-600 text-2xl mr-2">🔬</span>
@@ -198,7 +212,9 @@ document.addEventListener('DOMContentLoaded', function() {
         accessDivs.forEach(div => div.classList.add('hidden'));
         
         const selectedDepartment = departmentSelect.value;
-        if (selectedDepartment === 'Research') {
+        if (selectedDepartment === 'Accounts') {
+            document.getElementById('accounts-access').classList.remove('hidden');
+        } else if (selectedDepartment === 'Research') {
             document.getElementById('research-access').classList.remove('hidden');
         } else if (selectedDepartment === 'Data') {
             document.getElementById('data-access').classList.remove('hidden');

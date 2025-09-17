@@ -21,13 +21,22 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 from .models import Candidate, AssessmentCenter, Occupation, Level, AssessmentSeries, CenterSeriesPayment, CenterRepresentative
+from .views import require_staff_permissions
 from django.conf import settings
 import os
+from zoneinfo import ZoneInfo
 
+@login_required
 def uvtab_fees_home(request):
     """
     UVTAB Fees dashboard with Candidate Fees and Center Fees tabs
     """
+    # Permissions: Allow Accounts, Admin, IT, Data staff; also allow Center Representatives (scoped)
+    allowed_departments = ['Accounts', 'Admin', 'IT', 'Data']
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    has_perm, _, _ = require_staff_permissions(request, required_departments=allowed_departments)
+    if not has_perm and not is_center_rep and not request.user.is_superuser:
+        return HttpResponse('Forbidden', status=403)
     # Calculate comprehensive financial metrics like the center fees list
     # Restrict scope for Center Representatives
     user_center = None
@@ -254,10 +263,17 @@ def uvtab_fees_home(request):
     
     return render(request, 'fees/uvtab_fees_home.html', context)
 
+@login_required
 def candidate_fees_list(request):
     """
     Detailed view of all candidates with fees balances
     """
+    # Permissions: same as dashboard
+    allowed_departments = ['Accounts', 'Admin', 'IT', 'Data']
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    has_perm, _, _ = require_staff_permissions(request, required_departments=allowed_departments)
+    if not has_perm and not is_center_rep and not request.user.is_superuser:
+        return HttpResponse('Forbidden', status=403)
     # Get all candidates with fees balance > 0
     candidates = Candidate.objects.filter(fees_balance__gt=0).select_related(
         'assessment_center', 'occupation', 'assessment_series'
@@ -329,12 +345,19 @@ def candidate_fees_list(request):
     
     return render(request, 'fees/candidate_fees_list.html', context)
 
+@login_required
 def center_fees_list(request):
     """
     Detailed view of centers with their fees balances per assessment series
     Each center appears as a separate row for each assessment series it has billed candidates in
     Shows ALL billed candidates (both paid and unpaid) for complete financial records
     """
+    # Permissions: same as dashboard
+    allowed_departments = ['Accounts', 'Admin', 'IT', 'Data']
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    has_perm, _, _ = require_staff_permissions(request, required_departments=allowed_departments)
+    if not has_perm and not is_center_rep and not request.user.is_superuser:
+        return HttpResponse('Forbidden', status=403)
     # Get ALL candidates who have been enrolled (have level enrollment) - this includes both paid and unpaid
     from django.db.models import Q
     
@@ -495,11 +518,18 @@ def center_fees_list(request):
     
     return render(request, 'fees/center_fees_list.html', context)
 
+@login_required
 def center_candidates_report(request, center_id, series_id=None):
     """
     AJAX view to generate invoice data for a specific center and assessment series
     Shows ALL billed candidates (both paid and unpaid) for complete financial records
     """
+    # Permissions: same as dashboard
+    allowed_departments = ['Accounts', 'Admin', 'IT', 'Data']
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    has_perm, _, _ = require_staff_permissions(request, required_departments=allowed_departments)
+    if not has_perm and not is_center_rep and not request.user.is_superuser:
+        return JsonResponse({'error': 'Forbidden'}, status=403)
     # Access control: CenterRep can only view their own center
     if request.user.groups.filter(name='CenterRep').exists():
         try:
@@ -627,6 +657,8 @@ def center_candidates_report(request, center_id, series_id=None):
             series_code = 'NONE'
         invoice_number = f"{center.center_number}-{series_code}-{total_candidates:03d}"
         
+        # Use East Africa Time for generated date/time in response
+        ea_now = timezone.localtime(timezone.now(), ZoneInfo('Africa/Kampala'))
         response_data = {
             'center': {
                 'id': center.id,
@@ -648,8 +680,8 @@ def center_candidates_report(request, center_id, series_id=None):
             },
             'candidates': candidates_data,
             'invoice_number': invoice_number,
-            'generated_date': timezone.now().strftime('%B %d, %Y'),
-            'generated_time': timezone.now().strftime('%I:%M %p'),
+            'generated_date': ea_now.strftime('%B %d, %Y'),
+            'generated_time': ea_now.strftime('%I:%M %p'),
         }
         
         return JsonResponse(response_data)
@@ -665,11 +697,18 @@ def center_candidates_report(request, center_id, series_id=None):
         }
         return JsonResponse(error_details, status=500)
 
+@login_required
 def generate_pdf_invoice(request, center_id, series_id=None):
     """
     Generate PDF invoice for download with proper filename format:
     assessmentcenter_assessmentseries_invoice.pdf (e.g., uvt001_may2025_invoice.pdf)
     """
+    # Permissions: same as dashboard
+    allowed_departments = ['Accounts', 'Admin', 'IT', 'Data']
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    has_perm, _, _ = require_staff_permissions(request, required_departments=allowed_departments)
+    if not has_perm and not is_center_rep and not request.user.is_superuser:
+        return HttpResponse('Forbidden', status=403)
     try:
         center = AssessmentCenter.objects.get(id=center_id)
     except AssessmentCenter.DoesNotExist:
@@ -976,7 +1015,8 @@ def generate_pdf_invoice(request, center_id, series_id=None):
         textColor=colors.HexColor('#6b7280')
     )
     
-    current_time = timezone.now()
+    # Use East Africa Time (Africa/Kampala) for the footer timestamp
+    current_time = timezone.localtime(timezone.now(), ZoneInfo('Africa/Kampala'))
     footer_text = f'Generated on {current_time.strftime("%B %d, %Y")} at {current_time.strftime("%I:%M %p")}<br/>' \
                   f'UVTAB EIMS - Education Information Management System'
     footer = Paragraph(footer_text, footer_style)
@@ -998,6 +1038,11 @@ def mark_centers_as_paid(request):
     Mark specific center-series combinations as paid
     This only affects the selected center-series combination, not all series for that center
     """
+    # Permissions: Restrict to Accounts and Admin only (can process payments)
+    processor_departments = ['Accounts', 'Admin']
+    has_perm, _, _ = require_staff_permissions(request, required_departments=processor_departments)
+    if not has_perm and not request.user.is_superuser:
+        return JsonResponse({'error': 'Forbidden'}, status=403)
     try:
         data = json.loads(request.body)
         center_series_ids = data.get('center_series_ids', [])
