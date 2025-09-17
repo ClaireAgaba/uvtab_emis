@@ -797,6 +797,27 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     total_bill = original_billing_total
     amount_due = current_outstanding
     
+    # Registration category breakdown (counts and current outstanding per category)
+    modular_candidates = []
+    formal_candidates = []
+    workers_candidates = []
+    for c in candidates:
+        cat = (c.registration_category or '').strip().lower()
+        if cat == 'modular':
+            modular_candidates.append(c)
+        elif cat == 'formal':
+            formal_candidates.append(c)
+        else:
+            # Treat remaining categories as Worker's PAS/Informal for summary purposes
+            workers_candidates.append(c)
+    
+    modular_count = len(modular_candidates)
+    formal_count = len(formal_candidates)
+    workers_count = len(workers_candidates)
+    modular_due = sum((c.fees_balance or Decimal('0.00')) for c in modular_candidates)
+    formal_due = sum((c.fees_balance or Decimal('0.00')) for c in formal_candidates)
+    workers_due = sum((c.fees_balance or Decimal('0.00')) for c in workers_candidates)
+    
     # Prepare candidate data for invoice
     candidates_data = []
     for candidate in candidates:
@@ -945,10 +966,20 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     summary_data = [
         ['Description', 'Amount (UGX)'],
         ['Number of Candidates', f'{total_candidates:,}'],
+    ]
+    # Insert category breakdown in requested order: Modular, Formal, Worker's PAS
+    if modular_count:
+        summary_data.append([f'Modular — {modular_count} candidate(s)', f'{float(modular_due):,.2f}'])
+    if formal_count:
+        summary_data.append([f'Formal — {formal_count} candidate(s)', f'{float(formal_due):,.2f}'])
+    if workers_count:
+        summary_data.append([f"Worker's PAS — {workers_count} candidate(s)", f'{float(workers_due):,.2f}'])
+    # Totals
+    summary_data.extend([
         ['Total Bill', f'{float(total_bill):,.2f}'],
         ['Amount Paid', f'{float(amount_paid):,.2f}'],
         ['Amount Due', f'{float(amount_due):,.2f}']
-    ]
+    ])
     
     summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
     summary_table.setStyle(TableStyle([
