@@ -13516,7 +13516,15 @@ def assessment_series_statistical_report(request, pk):
     # Create the PDF object
     from reportlab.lib.pagesizes import landscape, A4
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=72, leftMargin=72, topMargin=48, bottomMargin=24)
+    # Reduce left/right margins to allow more table width
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=36,  # 0.5 inch
+        leftMargin=36,   # 0.5 inch
+        topMargin=48,
+        bottomMargin=24
+    )
     
     # Container for the 'Flowable' objects
     elements = []
@@ -13670,16 +13678,32 @@ def assessment_series_statistical_report(request, pk):
         female=Count('id', filter=Q(gender='F'))
     ).order_by('-total')
 
-    centers_data = [['Assessment Center', 'Male', 'Female', 'Total', 'Percentage']]
+    # Short, compact headers to avoid clipping
+    centers_data = [['Center', 'Male', 'Female', 'Total', '%']]
     if total_candidates > 0 and center_qs.exists():
         male_sum = 0
         female_sum = 0
         total_sum = 0
         for row in center_qs:
             center_name = row['assessment_center__center_name'] or 'Unknown Center'
+            # Wrap long center names with a left-aligned Paragraph (auto-wraps to column width)
+            center_para = Paragraph(
+                center_name,
+                ParagraphStyle(
+                    'CenterCell',
+                    parent=styles['Normal'],
+                    fontSize=8.2,
+                    leading=10,
+                    alignment=0,  # left
+                    wordWrap='CJK',
+                    splitLongWords=True,
+                    allowWidows=1,
+                    allowOrphans=1,
+                )
+            )
             percentage = (row['total'] / total_candidates * 100)
             centers_data.append([
-                center_name,
+                center_para,
                 str(row['male']),
                 str(row['female']),
                 str(row['total']),
@@ -13699,14 +13723,27 @@ def assessment_series_statistical_report(request, pk):
     else:
         centers_data.append(['No assessment center data', '-', '-', '-', '-'])
 
-    centers_table = Table(centers_data, colWidths=[2.5*inch, 0.8*inch, 0.8*inch, 0.8*inch, 1.1*inch])
+    # Wider text column + word wrap & left align to avoid overlap
+    # Keep total width <= usable page width (~10.69in with 0.5in margins) to prevent overflow
+    centers_table = Table(centers_data, colWidths=[6.9*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.9*inch], repeatRows=1)
     centers_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A5568')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('WORDWRAP', (0, 1), (0, -1), 'CJK'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('LEFTPADDING', (0, 0), (-1, 0), 4),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 4),
+        # Slightly smaller body font to fit long names
+        ('FONTSIZE', (0, 1), (-1, -1), 8.2),
+        ('LEFTPADDING', (0, 1), (0, -1), 6),
+        ('RIGHTPADDING', (0, 1), (0, -1), 6),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
@@ -13724,14 +13761,29 @@ def assessment_series_statistical_report(request, pk):
         count=Count('occupation')
     ).order_by('occupation__category__name', 'occupation__name')
     
-    occupation_data = [['Occupation Category', 'Occupation', 'Count', 'Percentage']]
+    # Short, compact headers to avoid clipping
+    occupation_data = [['Category', 'Occupation', 'Count', '%']]
     
     for stat in occupation_stats:
         if stat['occupation__name']:  # Only include if occupation is not null
             percentage = (stat['count'] / total_candidates * 100) if total_candidates > 0 else 0
+            occ_name_para = Paragraph(
+                stat['occupation__name'],
+                ParagraphStyle(
+                    'OccCell',
+                    parent=styles['Normal'],
+                    fontSize=8.2,
+                    leading=10,
+                    alignment=0,
+                    wordWrap='CJK',
+                    splitLongWords=True,
+                    allowWidows=1,
+                    allowOrphans=1,
+                )
+            )
             occupation_data.append([
                 stat['occupation__category__name'] or 'Uncategorized',
-                stat['occupation__name'],
+                occ_name_para,
                 str(stat['count']),
                 f"{percentage:.1f}%"
             ])
@@ -13739,14 +13791,25 @@ def assessment_series_statistical_report(request, pk):
     if len(occupation_data) == 1:  # Only header row
         occupation_data.append(['No occupations recorded', '-', '-', '-'])
     
-    occupation_table = Table(occupation_data, colWidths=[1.5*inch, 2.5*inch, 0.8*inch, 0.8*inch])
+    # Make occupation name column wider and wrap
+    occupation_table = Table(occupation_data, colWidths=[1.2*inch, 5.3*inch, 0.9*inch, 0.9*inch], repeatRows=1)
     occupation_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A5568')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (2, 1), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 1), (1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('WORDWRAP', (1, 1), (1, -1), 'CJK'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('LEFTPADDING', (0, 0), (-1, 0), 4),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 4),
+        ('FONTSIZE', (0, 1), (-1, -1), 8.2),
+        ('LEFTPADDING', (0, 1), (1, -1), 6),
+        ('RIGHTPADDING', (0, 1), (1, -1), 6),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
