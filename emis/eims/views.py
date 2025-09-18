@@ -12014,6 +12014,30 @@ def assessment_series_detail(request, year, month):
     except Exception as e:
         # Keep page robust if relation names change
         print(f"[WARN] Formal levels breakdown failed: {e}")
+    
+    # Assessment Center breakdown
+    center_breakdown = []
+    try:
+        centers_qs = candidates_in_period.values(
+            'assessment_center__center_name',
+            'assessment_center_id'
+        ).annotate(
+            total=Count('id'),
+            male=Count('id', filter=Q(gender='M')),
+            female=Count('id', filter=Q(gender='F'))
+        ).order_by('-total')
+
+        for row in centers_qs:
+            center_breakdown.append({
+                'center_id': row['assessment_center_id'],
+                'center_name': row['assessment_center__center_name'] or 'Unknown Center',
+                'male': row['male'],
+                'female': row['female'],
+                'total': row['total'],
+                'percentage': round((row['total'] / total_candidates_for_percentage) * 100, 1)
+            })
+    except Exception as e:
+        print(f"[WARN] Center breakdown failed: {e}")
     # Sector-based analytics
     # 1. Occupation by Sector analysis
     sector_occupation_analysis = []
@@ -12108,6 +12132,7 @@ def assessment_series_detail(request, year, month):
         'assessment_series': assessment_series,  # Pass the series object for template use
         'formal_levels_breakdown': formal_levels_breakdown,
         'formal_levels_by_occupation': formal_levels_by_occupation,
+        'center_breakdown': center_breakdown,
         # Sector-based analytics
         'sector_occupation_analysis': sector_occupation_analysis,
         'gender_occupation_sector_analysis': gender_occupation_sector_analysis,
@@ -13481,11 +13506,8 @@ def assessment_series_statistical_report(request, pk):
     """Generate a statistical PDF report for a specific Assessment Series"""
     series = get_object_or_404(AssessmentSeries, pk=pk)
     
-    # Get candidates enrolled during this series period
-    candidates = Candidate.objects.filter(
-        assessment_date__gte=series.start_date,
-        assessment_date__lte=series.end_date
-    )
+    # Get candidates linked to this assessment series
+    candidates = Candidate.objects.filter(assessment_series=series)
     
     # Create the HttpResponse object with PDF headers
     response = HttpResponse(content_type='application/pdf')
@@ -13635,9 +13657,64 @@ def assessment_series_statistical_report(request, pk):
         elements.append(disability_table)
     
     elements.append(Spacer(1, 20))
+
+    # 3. ASSESSMENT CENTERS BREAKDOWN
+    elements.append(Paragraph("3. ASSESSMENT CENTERS", heading_style))
+
+    center_qs = candidates.values(
+        'assessment_center__center_name'
+    ).annotate(
+        total=Count('id'),
+        male=Count('id', filter=Q(gender='M')),
+        female=Count('id', filter=Q(gender='F'))
+    ).order_by('-total')
+
+    centers_data = [['Assessment Center', 'Male', 'Female', 'Total', 'Percentage']]
+    if total_candidates > 0 and center_qs.exists():
+        male_sum = 0
+        female_sum = 0
+        total_sum = 0
+        for row in center_qs:
+            center_name = row['assessment_center__center_name'] or 'Unknown Center'
+            percentage = (row['total'] / total_candidates * 100)
+            centers_data.append([
+                center_name,
+                str(row['male']),
+                str(row['female']),
+                str(row['total']),
+                f"{percentage:.1f}%"
+            ])
+            male_sum += row['male'] or 0
+            female_sum += row['female'] or 0
+            total_sum += row['total'] or 0
+        # Totals row
+        centers_data.append([
+            'Total',
+            str(male_sum),
+            str(female_sum),
+            str(total_sum),
+            '100.0%'
+        ])
+    else:
+        centers_data.append(['No assessment center data', '-', '-', '-', '-'])
+
+    centers_table = Table(centers_data, colWidths=[2.5*inch, 0.8*inch, 0.8*inch, 0.8*inch, 1.1*inch])
+    centers_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A5568')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(centers_table)
+
+    elements.append(Spacer(1, 20))
     
-    # 3. OCCUPATIONS ENROLLED
-    elements.append(Paragraph("3. OCCUPATIONS ENROLLED", heading_style))
+    # 4. OCCUPATIONS ENROLLED
+    elements.append(Paragraph("4. OCCUPATIONS ENROLLED", heading_style))
     
     occupation_stats = candidates.values(
         'occupation__name', 
