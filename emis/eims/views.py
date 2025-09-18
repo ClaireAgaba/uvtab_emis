@@ -13514,8 +13514,9 @@ def assessment_series_statistical_report(request, pk):
     response['Content-Disposition'] = f'attachment; filename="Assessment_Series_Report_{series.name.replace(" ", "_")}.pdf"'
     
     # Create the PDF object
+    from reportlab.lib.pagesizes import landscape, A4
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=72, leftMargin=72, topMargin=48, bottomMargin=24)
     
     # Container for the 'Flowable' objects
     elements = []
