@@ -272,6 +272,18 @@
                     </div>
                 </a>
 
+                <!-- Download Excel -->
+                <a href="{% url 'assessment_series_download_excel' series.pk %}"
+                   class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <svg class="w-8 h-8 text-teal-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M10 12l2 2m0 0l2-2m-2 2V4" />
+                    </svg>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900">Download Excel</h4>
+                        <p class="text-xs text-gray-500">Workbook by registration category</p>
+                    </div>
+                </a>
+
                 <!-- Release Results Toggle -->
                 <form method="post" action="{% url 'assessment_series_toggle_results' series.pk %}" class="inline">
                     {% csrf_token %}

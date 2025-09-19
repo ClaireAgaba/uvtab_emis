@@ -1277,6 +1277,239 @@ def download_printed_marksheet(request):
         return response
 
 @login_required
+def assessment_series_download_excel(request, pk):
+    """Download an Excel workbook for a specific Assessment Series with three sheets:
+    - Modular: [Assessment Center, Reg Category, Occupation, No. of Modules, Fees, No. of Candidates]
+    - Formal:  [Assessment Center, Reg Category, Occupation, Level, Fees, No. of Candidates]
+    - Worker's PAS/Informal: [Assessment Center, Reg Category, No. of Modules, Fees, No. of Candidates]
+
+    Notes:
+    - Fees are computed based on our current billing rules in models.Level.get_fee_for_registration
+    - Modular fees prefer candidate.modular_billing_amount when available
+    - Informal module count is derived from distinct modules in CandidatePaper for that candidate
+    """
+    from decimal import Decimal
+    from collections import defaultdict
+    from io import BytesIO
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    # Locate series
+    series = get_object_or_404(AssessmentSeries, pk=pk)
+
+    # Workbook setup
+    wb = openpyxl.Workbook()
+    # We'll create sheets explicitly; remove the default one after creating all
+    default_ws = wb.active
+
+    header_fill = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
+    header_font = Font(bold=True)
+    thin = Side(style='thin', color='DDDDDD')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    def autosize(ws):
+        for column_cells in ws.columns:
+            length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in column_cells)
+            ws.column_dimensions[get_column_letter(column_cells[0].column)].width = min(max(length + 2, 10), 45)
+
+    # ---------- Modular Sheet ----------
+    modular_ws = wb.create_sheet(title="Modular")
+    modular_headers = [
+        'Assessment Center', 'Reg Category', 'Occupation', 'No. of Modules', 'Fees', 'No. of Candidates'
+    ]
+    modular_ws.append(modular_headers)
+    for c in range(1, len(modular_headers) + 1):
+        cell = modular_ws.cell(row=1, column=c)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+
+    # Group by (center, 'Modular', occupation, module_bucket) where module_bucket ∈ {1,2}
+    modular_groups = defaultdict(lambda: {'fees': Decimal('0.00'), 'cands': 0})
+
+    modular_qs = Candidate.objects.filter(
+        assessment_series=series,
+        registration_category='Modular',
+    ).select_related('assessment_center', 'occupation').prefetch_related('candidatelevel_set__level', 'candidatemodule_set')
+
+    for cand in modular_qs:
+        center_name = cand.assessment_center.center_name if cand.assessment_center_id else '—'
+        occ_name = cand.occupation.name if cand.occupation_id else '—'
+
+        # Determine modules count and bucket to 1 or 2
+        module_count = 0
+        if cand.modular_module_count:
+            module_count = int(cand.modular_module_count)
+        else:
+            # Fallback: count distinct CandidateModule enrollments
+            module_count = cand.candidatemodule_set.values('module_id').distinct().count()
+        module_bucket = 1 if module_count <= 1 else 2
+        # If a modular candidate has no enrolled modules, skip (no billing)
+        if module_count == 0:
+            continue
+
+        key = (center_name, 'Modular', occ_name, module_bucket)
+
+        # Determine fee strictly from enrollment bucket and level fees (ignore invoice/billing cache)
+        fee_amount = Decimal('0.00')
+        level = None
+        # 1) CandidateLevel if available
+        cl = getattr(cand, 'candidatelevel_set', None)
+        if cl:
+            lvl_obj = cl.first()
+            if lvl_obj:
+                level = lvl_obj.level
+        # 2) Fallback: first CandidateModule's level
+        if not level:
+            cm = cand.candidatemodule_set.select_related('module__level').first()
+            if cm and cm.module and cm.module.level:
+                level = cm.module.level
+        # 3) Fallback: best Level for occupation (prefer name startswith 'Level 1')
+        if not level and cand.occupation_id:
+            from .models import Level as LevelModel
+            level = (LevelModel.objects.filter(occupation_id=cand.occupation_id, name__istartswith='Level 1').first()
+                     or LevelModel.objects.filter(occupation_id=cand.occupation_id).order_by('id').first())
+        if level:
+            fee_amount = Decimal(level.get_fee_for_registration('Modular', module_bucket))
+        # If still zero, try to find any level in same occupation with non-zero modular fee
+        if fee_amount == 0 and cand.occupation_id:
+            from .models import Level as LevelModel
+            if module_bucket == 1:
+                alt_level = LevelModel.objects.filter(occupation_id=cand.occupation_id, modular_fee_single__gt=0).first()
+                if alt_level:
+                    fee_amount = Decimal(alt_level.modular_fee_single)
+            else:
+                alt_level = LevelModel.objects.filter(occupation_id=cand.occupation_id, modular_fee_double__gt=0).first()
+                if alt_level:
+                    fee_amount = Decimal(alt_level.modular_fee_double)
+
+        modular_groups[key]['fees'] += fee_amount
+        modular_groups[key]['cands'] += 1
+
+    row_idx = 2
+    for (center_name, regcat, occ_name, module_bucket), agg in sorted(modular_groups.items()):
+        # Show bucket value (1 or 2) in the No. of Modules column
+        values = [center_name, regcat, occ_name, module_bucket, float(agg['fees']), agg['cands']]
+        modular_ws.append(values)
+        for c in range(1, len(modular_headers) + 1):
+            modular_ws.cell(row=row_idx, column=c).border = border
+        row_idx += 1
+    autosize(modular_ws)
+
+    # ---------- Formal Sheet ----------
+    formal_ws = wb.create_sheet(title="Formal")
+    formal_headers = [
+        'Assessment Center', 'Reg Category', 'Occupation', 'Level', 'Fees', 'No. of Candidates'
+    ]
+    formal_ws.append(formal_headers)
+    for c in range(1, len(formal_headers) + 1):
+        cell = formal_ws.cell(row=1, column=c)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+
+    formal_groups = defaultdict(lambda: {'fees': Decimal('0.00'), 'cands': 0})
+
+    formal_qs = Candidate.objects.filter(
+        assessment_series=series,
+        registration_category='Formal',
+    ).select_related('assessment_center', 'occupation').prefetch_related('candidatelevel_set__level')
+
+    for cand in formal_qs:
+        center_name = cand.assessment_center.center_name if cand.assessment_center_id else '—'
+        occ_name = cand.occupation.name if cand.occupation_id else '—'
+        level_name = '—'
+        fee_amount = Decimal('0.00')
+        cl = cand.candidatelevel_set.first()
+        if cl:
+            level_name = cl.level.name
+            fee_amount = Decimal(cl.level.formal_fee)
+        key = (center_name, 'Formal', occ_name, level_name)
+        formal_groups[key]['fees'] += fee_amount
+        formal_groups[key]['cands'] += 1
+
+    row_idx = 2
+    for (center_name, regcat, occ_name, level_name), agg in sorted(formal_groups.items()):
+        values = [center_name, regcat, occ_name, level_name, float(agg['fees']), agg['cands']]
+        formal_ws.append(values)
+        for c in range(1, len(formal_headers) + 1):
+            formal_ws.cell(row=row_idx, column=c).border = border
+        row_idx += 1
+    autosize(formal_ws)
+
+    # ---------- Worker's PAS (Informal) Sheet ----------
+    informal_ws = wb.create_sheet(title="Worker's PAS")
+    informal_headers = [
+        'Assessment Center', 'Reg Category', 'No. of Modules', 'Fees', 'No. of Candidates'
+    ]
+    informal_ws.append(informal_headers)
+    for c in range(1, len(informal_headers) + 1):
+        cell = informal_ws.cell(row=1, column=c)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+
+    informal_groups = defaultdict(lambda: {'modules': 0, 'fees': Decimal('0.00'), 'cands': 0})
+
+    # Imports placed here to avoid circulars
+    from .models import CandidatePaper
+
+    informal_qs = Candidate.objects.filter(
+        assessment_series=series,
+        registration_category='Informal',
+    ).select_related('assessment_center').prefetch_related('candidatepaper_set')
+
+    for cand in informal_qs:
+        center_name = cand.assessment_center.center_name if cand.assessment_center_id else '—'
+        key = (center_name, "Worker's PAS")
+
+        # Distinct modules from CandidatePaper for this candidate
+        module_ids = list(cand.candidatepaper_set.values_list('module_id', flat=True).distinct())
+        modules_count = len([m for m in module_ids if m])
+
+        # Determine fee per module; use level from papers if set
+        fee_amount = Decimal('0.00')
+        if modules_count > 0:
+            # Attempt to read module fee from the first paper's level
+            first_paper = cand.candidatepaper_set.first()
+            if first_paper:
+                level = first_paper.level
+                per_module = getattr(level, 'workers_pas_module_fee', Decimal('0.00'))
+                fee_amount = Decimal(per_module) * modules_count
+
+        informal_groups[key]['modules'] += modules_count
+        informal_groups[key]['fees'] += fee_amount
+        informal_groups[key]['cands'] += 1
+
+    row_idx = 2
+    for (center_name, regcat), agg in sorted(informal_groups.items()):
+        values = [center_name, regcat, agg['modules'], float(agg['fees']), agg['cands']]
+        informal_ws.append(values)
+        for c in range(1, len(informal_headers) + 1):
+            informal_ws.cell(row=row_idx, column=c).border = border
+        row_idx += 1
+    autosize(informal_ws)
+
+    # Remove the default empty sheet if we created others
+    if default_ws and default_ws.title == 'Sheet' and len(wb.worksheets) > 1:
+        wb.remove(default_ws)
+
+    # Stream workbook
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    filename = f"AssessmentSeries_{series.name.replace(' ', '_')}_summary.xlsx"
+    response = HttpResponse(
+        stream.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+@login_required
 def generate_assessment_series_excel(request, year, month):
     """Generate Excel export of candidate-level data for an assessment series.
     Filters by registration category and optional level (Formal only), and returns

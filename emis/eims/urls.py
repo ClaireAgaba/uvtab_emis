@@ -175,6 +175,7 @@ urlpatterns = [
     path('assessment-series/create/<int:year>/', views.assessment_series_create_for_year, name='assessment_series_create_for_year'),  # Create for specific year
     path('assessment-series/create/', views.assessment_series_create, name='assessment_series_create'),  # Create without year
     path('assessment-series/<int:pk>/', views.assessment_series_view, name='assessment_series_view'),
+    path('assessment-series/<int:pk>/download-excel/', views.assessment_series_download_excel, name='assessment_series_download_excel'),
     path('assessment-series/<int:pk>/edit/', views.assessment_series_edit, name='assessment_series_edit'),
     path('assessment-series/<int:pk>/delete/', views.assessment_series_delete, name='assessment_series_delete'),
     path('assessment-series/<int:pk>/set-current/', views.assessment_series_set_current, name='assessment_series_set_current'),
