@@ -14830,6 +14830,8 @@ def complaints_bulk_assign(request):
 
     team_id = request.POST.get('team_id', '').strip()
     ids = request.POST.getlist('complaint_ids')
+    if not ids and request.POST.get('use_page'):
+        ids = request.POST.getlist('page_ids')
 
     if not team_id:
         messages.error(request, 'Select a helpdesk team to assign.')

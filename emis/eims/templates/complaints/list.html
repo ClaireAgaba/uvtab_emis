@@ -161,6 +161,8 @@
                               <button type="submit" id="assignBtn" formaction="{% url 'complaints_bulk_assign' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">Assign</button>
                             </div>
                             <div class="flex items-center gap-2 ml-auto">
+                              <button type="button" id="selectPageBtn" class="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm hover:bg-gray-50" onclick="(function(){var f=document.getElementById('bulkAssignForm');var team=f?f.querySelector('select[name=\'team_id\']'):null;var assign=document.getElementById('assignBtn');var arch=f?f.querySelector('button[formaction$=\'/complaints/bulk-archive/\']'):null;var unarch=f?f.querySelector('button[formaction$=\'/complaints/bulk-unarchive/\']'):null;var del=f?f.querySelector('button[formaction$=\'/complaints/bulk-delete/\']'):null;var cbs=document.querySelectorAll('.rowChk');var any=false;for(var i=0;i<cbs.length;i++){if(!cbs[i].checked){cbs[i].checked=true;} any=true;}if(assign){assign.disabled=!(any && team && team.value);assign.classList.toggle('opacity-50',assign.disabled);assign.classList.toggle('cursor-not-allowed',assign.disabled);} [arch,unarch,del].forEach(function(b){if(b){b.disabled=!any;b.classList.toggle('opacity-50',b.disabled);b.classList.toggle('cursor-not-allowed',b.disabled);}}); })()">Select page</button>
+                              <button type="button" id="clearSelectionBtn" class="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm hover:bg-gray-50" onclick="(function(){var f=document.getElementById('bulkAssignForm');var team=f?f.querySelector('select[name=\'team_id\']'):null;var assign=document.getElementById('assignBtn');var arch=f?f.querySelector('button[formaction$=\'/complaints/bulk-archive/\']'):null;var unarch=f?f.querySelector('button[formaction$=\'/complaints/bulk-unarchive/\']'):null;var del=f?f.querySelector('button[formaction$=\'/complaints/bulk-delete/\']'):null;var cbs=document.querySelectorAll('.rowChk');for(var i=0;i<cbs.length;i++){if(cbs[i].checked){cbs[i].checked=false;}} if(assign){assign.disabled=true;assign.classList.add('opacity-50','cursor-not-allowed');} [arch,unarch,del].forEach(function(b){if(b){b.disabled=true;b.classList.add('opacity-50','cursor-not-allowed');}}); })()">Clear</button>
                               <button type="submit" formaction="{% url 'complaints_bulk_archive' %}" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-2 rounded-md text-sm">Archive</button>
                               <button type="submit" formaction="{% url 'complaints_bulk_unarchive' %}" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-sm">Unarchive</button>
                               <button type="submit" formaction="{% url 'complaints_bulk_delete' %}" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm" onclick="return confirm('Delete selected complaint(s)? This cannot be undone.');">Delete</button>
@@ -174,7 +176,7 @@
                             <tr>
                                 {% if is_admin_or_staff %}
                                 <th class="px-5 py-4 text-left">
-                                    <input type="checkbox" id="selectAll" class="h-4 w-4 text-blue-600 border-gray-300 rounded" onclick="toggleAllComplaints(this)" />
+                                    <input type="checkbox" id="selectAll" class="h-4 w-4 text-blue-600 border-gray-300 rounded" onclick="(function(el){var f=document.getElementById('bulkAssignForm');var team=f?f.querySelector('select[name=\'team_id\']'):null;var assign=document.getElementById('assignBtn');var arch=f?f.querySelector('button[formaction$=\'/complaints/bulk-archive/\']'):null;var unarch=f?f.querySelector('button[formaction$=\'/complaints/bulk-unarchive/\']'):null;var del=f?f.querySelector('button[formaction$=\'/complaints/bulk-delete/\']'):null;var cbs=document.querySelectorAll('.rowChk');var any=false;for(var i=0;i<cbs.length;i++){if(cbs[i].checked!==el.checked){cbs[i].checked=el.checked;} any=any||el.checked;} if(assign){assign.disabled=!(any && team && team.value);assign.classList.toggle('opacity-50',assign.disabled);assign.classList.toggle('cursor-not-allowed',assign.disabled);} [arch,unarch,del].forEach(function(b){if(b){b.disabled=!any;b.classList.toggle('opacity-50',b.disabled);b.classList.toggle('cursor-not-allowed',b.disabled);}}); })(this)" />
                                 </th>
                                 {% endif %}
                                 <th class="px-8 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wide">Ticket</th>
@@ -327,6 +329,8 @@
     const archiveBtn = form.querySelector('button[formaction$="/complaints/bulk-archive/"]');
     const unarchiveBtn = form.querySelector('button[formaction$="/complaints/bulk-unarchive/"]');
     const deleteBtn = form.querySelector('button[formaction$="/complaints/bulk-delete/"]');
+    const selectPageBtn = document.getElementById('selectPageBtn');
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
 
     function updateButtonsState() {
       const anyChecked = rowChks().some(c => c.checked);
@@ -366,6 +370,26 @@
         if (e.target && e.target.id === 'selectAll') {
           setAll(e.target.checked);
         }
+      });
+      // Shift+click range selection on row checkboxes
+      let lastIndex = -1;
+      table.addEventListener('click', (e) => {
+        const el = e.target;
+        if (!(el && el.classList && el.classList.contains('rowChk'))) return;
+        const list = rowChks();
+        const idx = list.indexOf(el);
+        if (e.shiftKey && lastIndex >= 0 && idx >= 0) {
+          const [start, end] = idx > lastIndex ? [lastIndex, idx] : [idx, lastIndex];
+          const val = el.checked;
+          for (let i = start; i <= end; i++) {
+            if (list[i].checked !== val) {
+              list[i].checked = val;
+              list[i].dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        }
+        lastIndex = idx;
+        updateButtonsState();
       });
     }
     if (thead) {
@@ -417,10 +441,17 @@
       setAll(true);
     }
 
+    // Select page / Clear buttons
+    if (selectPageBtn) selectPageBtn.addEventListener('click', () => setAll(true));
+    if (clearSelectionBtn) clearSelectionBtn.addEventListener('click', () => setAll(false));
+
     // Expose a reliable global toggle for the header checkbox onclick
     window.toggleAllComplaints = function(headerEl) {
       setAll(!!(headerEl && headerEl.checked));
     };
+    // Expose global helpers for toolbar buttons
+    window.selectAllRows = function() { setAll(true); };
+    window.clearAllRows = function() { setAll(false); };
   })();
 </script>
 {% endblock %}
