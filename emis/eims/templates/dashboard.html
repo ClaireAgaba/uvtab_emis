@@ -33,6 +33,7 @@
           </div>
           <div class="text-xs sm:text-sm font-normal text-white text-center px-1">UVTAB Fees</div>
         </a>
+        
       {% elif user_department == "Research" %}
         <!-- Research Department Modules -->
         <a href="{% url 'assessment_center_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
@@ -73,6 +74,8 @@
           </div>
           <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Awards</div>
         </a>
+
+        
         
       {% elif user_department == "Data" %}
         <!-- Data Department Modules -->
@@ -191,6 +194,75 @@
           <div class="text-xs sm:text-sm font-normal text-white text-center px-1">Reports</div>
         </a>
 
+        
+
+        <a href="{% url 'uvtab_fees_home' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+          <div class="bg-green-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 18.75h15a2.25 2.25 0 002.25-2.25v-9M2.25 12h15m-12 6.75A2.25 2.25 0 013 16.5v-9A2.25 2.25 0 015.25 5.25h15M12 12a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z"></path>
+            </svg>
+          </div>
+          <div class="text-xs sm:text-sm font-normal text-white text-center px-1">UVTAB Fees</div>
+        </a>
+
+        <!-- Complaints for IT Department -->
+        <a href="{% url 'complaints_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+          <div class="bg-red-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+            </svg>
+          </div>
+          <div class="text-xs sm:text-sm font-normal text-white text-center px-1">Complaints</div>
+        </a>
+
+        <a href="{% url 'awards_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+          <div class="bg-indigo-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 3l9 4.5-9 4.5L3 7.5 12 3z"/>
+              <path d="M12 9l6 3.2V15l-6-2.7L6 15v-2.8L12 9z"/>
+            </svg>
+          </div>
+          <div class="text-xs sm:text-sm font-normal text-white text-center px-1">Awards</div>
+        </a>
+        
+        <!-- Practical Assessment Module -->
+        <a href="{% url 'practical_assessment_home' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+          <div class="bg-teal-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="text-xs sm:text-sm font-normal text-white text-center px-1">Practical Assessment</div>
+        </a>
+        
+        <a href="{% url 'results_home' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+          <div class="bg-emerald-500 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="text-xs sm:text-sm font-normal text-white text-center px-1">Results</div>
+        </a>
+
+        <a href="{% url 'awards_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+          <div class="bg-indigo-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 3l9 4.5-9 4.5L3 7.5 12 3z"/>
+              <path d="M12 9l6 3.2V15l-6-2.7L6 15v-2.8L12 9z"/>
+            </svg>
+          </div>
+          <div class="text-xs sm:text-sm font-normal text-white text-center px-1">Awards</div>
+        </a>
+        
+        <a href="{% url 'config_home' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
+          <div class="bg-amber-700 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="text-xs sm:text-sm font-normal text-white text-center px-1">Configuration</div>
+        </a>
+        
         <a href="{% url 'uvtab_fees_home' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
           <div class="bg-green-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
             <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -452,17 +524,9 @@
       
 
       
-      
-      <!-- UVTAB Fees for SupportStaff and CenterRep -->
-      <a href="{% url 'uvtab_fees_home' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
-        <div class="bg-green-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
-          <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 18.75h15a2.25 2.25 0 002.25-2.25v-9M2.25 12h15m-12 6.75A2.25 2.25 0 013 16.5v-9A2.25 2.25 0 015.25 5.25h15M12 12a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z"></path>
-          </svg>
-        </div>
-        <div class="text-xs sm:text-sm font-normal text-white text-center px-1" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">UVTAB Fees</div>
-      </a>
 
+      
+      
       <!-- Assessment Centers for SupportStaff and CenterRep -->
       <a href="{% url 'assessment_center_list' %}" class="transform hover:scale-105 transition-all duration-200 flex flex-col items-center touch-target">
         <div class="bg-amber-600 shadow-md rounded-xl p-4 mb-2 hover:shadow-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">

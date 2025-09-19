@@ -4102,6 +4102,9 @@ def dashboard(request):
     
     # Get user department if they are staff using session management utility
     staff, user_department, is_authenticated = get_user_staff_info(request)
+    # Superusers should have full access; default them to 'Admin' dashboard if no department
+    if request.user.is_superuser and not user_department:
+        user_department = "Admin"
     
     context = {
         'group_names': group_names,
@@ -14746,8 +14749,11 @@ def complaints_list(request):
     center = request.GET.get('center', '').strip()
     series = request.GET.get('series', '').strip()
     regcat = request.GET.get('regcat', '').strip()
+    category = request.GET.get('category', '').strip()
+    ticket = request.GET.get('ticket', '').strip()
     occupation = request.GET.get('occupation', '').strip()
     team = request.GET.get('team', '').strip()
+    show_archived = request.GET.get('show_archived', '').strip()  # '', '1', or 'only'
     if status:
         qs = qs.filter(status=status)
     if center:
@@ -14760,6 +14766,17 @@ def complaints_list(request):
         qs = qs.filter(occupation_id=occupation)
     if team:
         qs = qs.filter(helpdesk_team_id=team)
+    if ticket:
+        qs = qs.filter(ticket_no__icontains=ticket)
+    if category:
+        qs = qs.filter(category_id=category)
+    # Archived filtering: default exclude archived unless show_archived is '1' (include all) or 'only' (only archived)
+    if show_archived == 'only':
+        qs = qs.filter(archived=True)
+    elif show_archived == '1':
+        pass  # include both
+    else:
+        qs = qs.filter(archived=False)
 
     # For filter dropdowns
     registration_categories = RegistrationCategory.objects.all().order_by('name')
@@ -14793,10 +14810,12 @@ def complaints_list(request):
         'statuses': Complaint.STATUS_CHOICES,
         'centers': centers_qs,
         'series_list': AssessmentSeries.objects.all().order_by('-start_date'),
+        'categories': ComplaintCategory.objects.all().order_by('name'),
         'registration_categories': registration_categories,
         'occupations': occupations_qs.order_by('code'),
         'teams': HelpdeskTeam.objects.all().order_by('name'),
         'is_admin_or_staff': _is_admin_or_staff(request.user),
+        'show_archived': show_archived,
     }
     return render(request, 'complaints/list.html', context)
 
@@ -14824,6 +14843,110 @@ def complaints_bulk_assign(request):
     messages.success(request, f'Assigned helpdesk team to {updated} complaint(s).')
 
     # Redirect back to list with original filters if present
+    next_url = request.META.get('HTTP_REFERER') or reverse('complaints_list')
+    return redirect(next_url)
+
+
+@login_required
+@require_POST
+def complaints_bulk_action(request):
+    """Unified bulk action endpoint: assign, archive, unarchive, delete."""
+    if not _is_admin_or_staff(request.user):
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('complaints_list')
+
+    action = request.POST.get('bulk_action', '').strip()
+    ids = request.POST.getlist('complaint_ids')
+    if not ids:
+        messages.error(request, 'Select at least one complaint.')
+        return redirect('complaints_list')
+
+    qs = Complaint.objects.filter(id__in=ids)
+
+    if action == 'assign':
+        team_id = request.POST.get('team_id')
+        if not team_id:
+            messages.error(request, 'Select a helpdesk team to assign.')
+        else:
+            updated = qs.update(helpdesk_team_id=team_id, updated_by=request.user)
+            messages.success(request, f'Assigned helpdesk team to {updated} complaint(s).')
+    elif action == 'archive':
+        updated = qs.update(archived=True, updated_by=request.user)
+        messages.success(request, f'Archived {updated} complaint(s).')
+    elif action == 'unarchive':
+        updated = qs.update(archived=False, updated_by=request.user)
+        messages.success(request, f'Unarchived {updated} complaint(s).')
+    elif action == 'delete':
+        count = qs.count()
+        qs.delete()
+        messages.success(request, f'Deleted {count} complaint(s).')
+    else:
+        messages.error(request, 'Unknown bulk action.')
+
+    next_url = request.META.get('HTTP_REFERER') or reverse('complaints_list')
+    return redirect(next_url)
+
+
+@login_required
+@require_POST
+def complaints_bulk_delete(request):
+    """Bulk-delete selected complaints (staff/admin only)."""
+    if not _is_admin_or_staff(request.user):
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('complaints_list')
+
+    ids = request.POST.getlist('complaint_ids')
+    if not ids:
+        messages.error(request, 'Select at least one complaint to delete.')
+        return redirect('complaints_list')
+
+    qs = Complaint.objects.filter(id__in=ids)
+    count = qs.count()
+    qs.delete()
+    messages.success(request, f'Deleted {count} complaint(s).')
+
+    next_url = request.META.get('HTTP_REFERER') or reverse('complaints_list')
+    return redirect(next_url)
+
+
+@login_required
+@require_POST
+def complaints_bulk_unarchive(request):
+    """Bulk-unarchive selected complaints (staff/admin only)."""
+    if not _is_admin_or_staff(request.user):
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('complaints_list')
+
+    ids = request.POST.getlist('complaint_ids')
+    if not ids:
+        messages.error(request, 'Select at least one complaint to unarchive.')
+        return redirect('complaints_list')
+
+    qs = Complaint.objects.filter(id__in=ids)
+    updated = qs.update(archived=False, updated_by=request.user)
+    messages.success(request, f'Unarchived {updated} complaint(s).')
+
+    next_url = request.META.get('HTTP_REFERER') or reverse('complaints_list')
+    return redirect(next_url)
+
+
+@login_required
+@require_POST
+def complaints_bulk_archive(request):
+    """Bulk-archive selected complaints (staff/admin only)."""
+    if not _is_admin_or_staff(request.user):
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('complaints_list')
+
+    ids = request.POST.getlist('complaint_ids')
+    if not ids:
+        messages.error(request, 'Select at least one complaint to archive.')
+        return redirect('complaints_list')
+
+    qs = Complaint.objects.filter(id__in=ids)
+    updated = qs.update(archived=True, updated_by=request.user)
+    messages.success(request, f'Archived {updated} complaint(s).')
+
     next_url = request.META.get('HTTP_REFERER') or reverse('complaints_list')
     return redirect(next_url)
 

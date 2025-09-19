@@ -48,46 +48,71 @@
 
         <!-- Filters -->
         <div class="bg-white rounded-lg shadow mb-8 p-6">
-            <form method="get" class="grid grid-cols-1 lg:grid-cols-7 gap-6">
-                <div>
+            <form method="get" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+                <!-- Row 1 -->
+                <div class="lg:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                    <select name="status" class="w-full border border-gray-300 rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="status" class="w-full border border-gray-300 rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">All Statuses</option>
                         {% for value, label in statuses %}
                             <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Assessment Center</label>
-                    <select name="center" class="w-full border border-gray-300 rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">All Centers</option>
-                        {% for center in centers %}
-                            <option value="{{ center.id }}" {% if request.GET.center == center.id|stringformat:"s" %}selected{% endif %}>{{ center.center_number }} - {{ center.center_name }}</option>
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ticket Number</label>
+                    <input type="text" name="ticket" value="{{ request.GET.ticket|default_if_none:'' }}" placeholder="e.g. TKT250001"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Complaint Category</label>
+                    <select name="category" class="w-full border border-gray-300 rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Categories</option>
+                        {% for c in categories %}
+                            <option value="{{ c.id }}" {% if request.GET.category == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Assessment Series</label>
-                    <select name="series" class="w-full border border-gray-300 rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">All Series</option>
-                        {% for series in series_list %}
-                            <option value="{{ series.id }}" {% if request.GET.series == series.id|stringformat:"s" %}selected{% endif %}>{{ series.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
+                <div class="lg:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Registration Category</label>
-                    <select name="regcat" class="w-full border border-gray-300 rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="regcat" class="w-full border border-gray-300 rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">All Categories</option>
                         {% for rc in registration_categories %}
                             <option value="{{ rc.id }}" {% if request.GET.regcat == rc.id|stringformat:"s" %}selected{% endif %}>{{ rc.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div>
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assessment Center</label>
+                    <select name="center" class="w-full border border-gray-300 rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Centers</option>
+                        {% for center in centers %}
+                            <option value="{{ center.id }}" {% if request.GET.center == center.id|stringformat:"s" %}selected{% endif %}>{{ center.center_number }} - {{ center.center_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assessment Series</label>
+                    <select name="series" class="w-full border border-gray-300 rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Series</option>
+                        {% for series in series_list %}
+                            <option value="{{ series.id }}" {% if request.GET.series == series.id|stringformat:"s" %}selected{% endif %}>{{ series.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Archived</label>
+                    <select name="show_archived" class="w-full border border-gray-300 rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="" {% if not show_archived %}selected{% endif %}>Hide</option>
+                        <option value="1" {% if show_archived == '1' %}selected{% endif %}>Show All</option>
+                        <option value="only" {% if show_archived == 'only' %}selected{% endif %}>Only Archived</option>
+                    </select>
+                </div>
+                
+                <!-- Row 2 -->
+                <div class="lg:col-span-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Occupation</label>
-                    <select name="occupation" class="w-full border border-gray-300 rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="occupation" class="w-full border border-gray-300 rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">All Occupations</option>
                         {% for occ in occupations %}
                             <option value="{{ occ.id }}" {% if request.GET.occupation == occ.id|stringformat:"s" %}selected{% endif %}>{{ occ.code }} - {{ occ.name }}</option>
@@ -95,9 +120,9 @@
                     </select>
                 </div>
                 {% if is_admin_or_staff %}
-                <div>
+                <div class="lg:col-span-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Helpdesk Team</label>
-                    <select name="team" class="w-full border border-gray-300 rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="team" class="w-full border border-gray-300 rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">All Teams</option>
                         {% for t in teams %}
                             <option value="{{ t.id }}" {% if request.GET.team == t.id|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
@@ -105,8 +130,8 @@
                     </select>
                 </div>
                 {% endif %}
-                <div class="flex items-end">
-                    <button type="submit" class="w-full bg-gray-600 hover:bg-gray-700 text-white px-5 py-3 rounded-md font-medium transition-colors">
+                <div class="flex items-end justify-end md:col-span-2 lg:col-span-4">
+                    <button type="submit" class="w-full md:w-auto bg-gray-600 hover:bg-gray-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors">
                         Filter
                     </button>
                 </div>
@@ -122,17 +147,24 @@
                 {% if is_admin_or_staff %}
                 <form method="post" action="{% url 'complaints_bulk_assign' %}" id="bulkAssignForm">
                     {% csrf_token %}
-                    <div class="flex items-center justify-between p-3 border-b bg-gray-50">
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 p-3 border-b bg-gray-50">
                         <div class="text-sm text-gray-700">Bulk actions for selected complaints</div>
-                        <div class="flex items-center space-x-2">
-                            <label for="bulkTeam" class="text-sm text-gray-700">Helpdesk Team</label>
-                            <select id="bulkTeam" name="team_id" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="">Select team…</option>
-                                {% for t in teams %}
-                                    <option value="{{ t.id }}">{{ t.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">Assign</button>
+                        <div class="flex items-center flex-wrap gap-2 w-full">
+                            <div class="flex items-center gap-2">
+                              <label for="bulkTeam" class="text-sm text-gray-700">Assign to Helpdesk Team</label>
+                              <select id="bulkTeam" name="team_id" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                  <option value="">Select team…</option>
+                                  {% for t in teams %}
+                                      <option value="{{ t.id }}">{{ t.name }}</option>
+                                  {% endfor %}
+                              </select>
+                              <button type="submit" id="assignBtn" formaction="{% url 'complaints_bulk_assign' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">Assign</button>
+                            </div>
+                            <div class="flex items-center gap-2 ml-auto">
+                              <button type="submit" formaction="{% url 'complaints_bulk_archive' %}" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-2 rounded-md text-sm">Archive</button>
+                              <button type="submit" formaction="{% url 'complaints_bulk_unarchive' %}" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-sm">Unarchive</button>
+                              <button type="submit" formaction="{% url 'complaints_bulk_delete' %}" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm" onclick="return confirm('Delete selected complaint(s)? This cannot be undone.');">Delete</button>
+                            </div>
                         </div>
                     </div>
                 {% endif %}
@@ -142,7 +174,7 @@
                             <tr>
                                 {% if is_admin_or_staff %}
                                 <th class="px-5 py-4 text-left">
-                                    <input type="checkbox" id="selectAll" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                                    <input type="checkbox" id="selectAll" class="h-4 w-4 text-blue-600 border-gray-300 rounded" onclick="toggleAllComplaints(this)" />
                                 </th>
                                 {% endif %}
                                 <th class="px-8 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wide">Ticket</th>
@@ -286,22 +318,62 @@
   (function() {
     const selectAll = document.getElementById('selectAll');
     const form = document.getElementById('bulkAssignForm');
+    const table = document.querySelector('table');
+    const thead = table ? table.querySelector('thead') : null;
     if (!form) return; // center users won't have the form
     const rowChks = () => Array.from(document.querySelectorAll('.rowChk'));
-    const assignBtn = form.querySelector('button[type="submit"]');
     const teamSelect = form.querySelector('select[name="team_id"]');
+    const assignBtn = document.getElementById('assignBtn');
+    const archiveBtn = form.querySelector('button[formaction$="/complaints/bulk-archive/"]');
+    const unarchiveBtn = form.querySelector('button[formaction$="/complaints/bulk-unarchive/"]');
+    const deleteBtn = form.querySelector('button[formaction$="/complaints/bulk-delete/"]');
 
-    function updateAssignState() {
+    function updateButtonsState() {
       const anyChecked = rowChks().some(c => c.checked);
-      assignBtn.disabled = !anyChecked || !teamSelect.value;
-      assignBtn.classList.toggle('opacity-50', assignBtn.disabled);
-      assignBtn.classList.toggle('cursor-not-allowed', assignBtn.disabled);
+      if (assignBtn) {
+        const canAssign = anyChecked && !!teamSelect.value;
+        assignBtn.disabled = !canAssign;
+        assignBtn.classList.toggle('opacity-50', assignBtn.disabled);
+        assignBtn.classList.toggle('cursor-not-allowed', assignBtn.disabled);
+      }
+      [archiveBtn, unarchiveBtn, deleteBtn].forEach(btn => {
+        if (!btn) return;
+        btn.disabled = !anyChecked;
+        btn.classList.toggle('opacity-50', btn.disabled);
+        btn.classList.toggle('cursor-not-allowed', btn.disabled);
+      });
+    }
+
+    function setAll(checked) {
+      rowChks().forEach(c => {
+        if (c.checked !== checked) {
+          c.checked = checked;
+          // Fire change so any listeners update
+          c.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      updateButtonsState();
     }
 
     if (selectAll) {
-      selectAll.addEventListener('change', (e) => {
-        rowChks().forEach(c => { c.checked = e.target.checked; });
-        updateAssignState();
+      // Support both change and click to be resilient across browsers
+      selectAll.addEventListener('change', (e) => setAll(e.target.checked));
+      selectAll.addEventListener('click', (e) => setAll(e.target.checked));
+    }
+    // Delegate from table in case header checkbox is re-rendered by browser
+    if (table) {
+      table.addEventListener('change', (e) => {
+        if (e.target && e.target.id === 'selectAll') {
+          setAll(e.target.checked);
+        }
+      });
+    }
+    if (thead) {
+      thead.addEventListener('click', (e) => {
+        const target = e.target;
+        if (target && target.id === 'selectAll') {
+          setAll(target.checked);
+        }
       });
     }
 
@@ -311,23 +383,44 @@
           const all = rowChks();
           selectAll.checked = all.length > 0 && all.every(c => c.checked);
         }
-        updateAssignState();
+        updateButtonsState();
       }
-      if (e.target === teamSelect) {
-        updateAssignState();
-      }
+      if (e.target === teamSelect) updateButtonsState();
     });
 
     form.addEventListener('submit', (e) => {
       const anyChecked = rowChks().some(c => c.checked);
-      if (!anyChecked || !teamSelect.value) {
+      if (!anyChecked) {
         e.preventDefault();
-        updateAssignState();
+        updateButtonsState();
+        return;
       }
+      // If submitting via Assign button, ensure team selected
+      if (e.submitter && e.submitter.id === 'assignBtn' && !teamSelect.value) {
+        e.preventDefault();
+        updateButtonsState();
+        return;
+      }
+      if (e.submitter && e.submitter.getAttribute('formaction') && e.submitter.getAttribute('formaction').includes('bulk-delete')) {
+        const ok = window.confirm('Are you sure you want to permanently delete the selected complaint(s)? This cannot be undone.');
+        if (!ok) { e.preventDefault(); return; }
+      }
+      // Let normal submit proceed to the specific formaction or form action
     });
 
+    // No dedicated Apply button anymore
+
     // initial state
-    updateAssignState();
+    updateButtonsState();
+    // If selectAll is already checked (e.g., browser restore), sync rows
+    if (selectAll && selectAll.checked) {
+      setAll(true);
+    }
+
+    // Expose a reliable global toggle for the header checkbox onclick
+    window.toggleAllComplaints = function(headerEl) {
+      setAll(!!(headerEl && headerEl.checked));
+    };
   })();
 </script>
 {% endblock %}

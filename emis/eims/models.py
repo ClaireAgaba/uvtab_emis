@@ -468,6 +468,7 @@ class Complaint(models.Model):
     issue_description = models.TextField()
     team_response = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    archived = models.BooleanField(default=False, help_text="Soft archive flag; archived complaints are hidden by default")
 
     # Audit
     created_at = models.DateTimeField(auto_now_add=True)
