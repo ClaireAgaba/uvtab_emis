@@ -165,6 +165,7 @@
             <th>Photo</th>
             <th>Reg&nbsp;No.</th>
             <th>Full&nbsp;Name</th>
+            <th>Gender</th>
             <th>Occupation</th>
             <th>Reg&nbsp;Type</th>
             <th>Signature</th>
@@ -185,6 +186,7 @@
             </td>
             <td>{{ cand.reg_number }}</td>
             <td>{{ cand.full_name }}</td>
+            <td>{% if cand.gender %}{{ cand.get_gender_display }}{% else %}{% endif %}</td>
             <td>{{ cand.occupation.name }}</td>
             <td>{{ cand.registration_category }}</td>
             <td></td>

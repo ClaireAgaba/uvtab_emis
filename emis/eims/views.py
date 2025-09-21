@@ -5489,10 +5489,12 @@ def generate_album(request):
                 table_header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER, textColor=colors.white)
                 table_cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8, alignment=TA_LEFT, leading=10)
                 table_cell_center_style = ParagraphStyle('TableCellCenter', parent=table_cell_style, alignment=TA_CENTER)
+                # RegNo style: slightly smaller font and CJK wrapping to allow breaks within long tokens
+                table_regno_style = ParagraphStyle('TableCellRegNo', parent=table_cell_style, fontSize=7, leading=9, wordWrap='CJK')
                 
                 data = []
                 # Table Headers
-                header_row = [Paragraph(h, table_header_style) for h in ['S/N', 'PHOTO', 'REG NO.', 'FULL NAME', 'OCCUPATION', 'REG TYPE', 'SPECIAL NEEDS', 'SIGNATURE']]
+                header_row = [Paragraph(h, table_header_style) for h in ['S/N', 'PHOTO', 'REG NO.', 'FULL NAME', 'GENDER', 'OCCUPATION', 'REG TYPE', 'SPECIAL NEEDS', 'SIGNATURE']]
                 data.append(header_row)
                 
                 for i, cand_data in enumerate(candidates_data):
@@ -5515,11 +5517,18 @@ def generate_album(request):
                     else:
                         special_needs_text = "No"
                     
+                    # Gender display (uses Django choices helper if available)
+                    try:
+                        gender_display = cand.get_gender_display()
+                    except Exception:
+                        gender_display = (cand.gender or '') if hasattr(cand, 'gender') else ''
+
                     row = [
                         Paragraph(str(start_sn + i), table_cell_center_style),
                         photo_cell_flowables, # This is a list of flowables
-                        Paragraph(cand.reg_number or 'N/A', table_cell_style),
+                        Paragraph(cand.reg_number or 'N/A', table_regno_style),
                         Paragraph(cand.full_name.upper(), table_cell_style),
+                        Paragraph(gender_display, table_cell_center_style),
                         Paragraph(cand.occupation.name.upper() if cand.occupation else 'N/A', table_cell_style),
                         Paragraph(cand.registration_category.upper() if cand.registration_category else 'N/A', table_cell_style),
                         Paragraph(special_needs_text, table_cell_style),
@@ -5527,8 +5536,9 @@ def generate_album(request):
                     ]
                     data.append(row)
                 
-                # Column widths (adjust as needed, total should be around 10.2 inch for landscape letter with 0.4 margins)
-                col_widths = [0.4*inch, 1.2*inch, 1.4*inch, 2.2*inch, 1.2*inch, 1.0*inch, 1.8*inch, 1.2*inch]
+                # Column widths adjusted to total ~10.2 inches to fit landscape letter margins
+                # Columns: S/N, PHOTO, REG NO., FULL NAME, GENDER, OCCUPATION, REG TYPE, SPECIAL NEEDS, SIGNATURE
+                col_widths = [0.4*inch, 1.1*inch, 1.5*inch, 1.9*inch, 0.7*inch, 1.2*inch, 0.9*inch, 1.6*inch, 0.9*inch]
                 
                 candidate_table = Table(data, colWidths=col_widths, repeatRows=1)
                 candidate_table.setStyle(TableStyle([
@@ -5549,12 +5559,13 @@ def generate_album(request):
                     ('FONTSIZE', (0,1), (-1,-1), 8),
                     ('ALIGN', (0,1), (0,-1), 'CENTER'), # S/N centered
                     ('ALIGN', (1,1), (1,-1), 'CENTER'), # Photo centered horizontally
-                    ('ALIGN', (2,1), (2,-1), 'LEFT'), # Reg No left
-                    ('ALIGN', (3,1), (3,-1), 'LEFT'), # Full Name left
-                    ('ALIGN', (4,1), (4,-1), 'LEFT'), # Occupation left
-                    ('ALIGN', (5,1), (5,-1), 'CENTER'), # Reg Type center
-                    ('ALIGN', (6,1), (6,-1), 'LEFT'), # Special Needs left
-                    ('ALIGN', (7,1), (7,-1), 'CENTER'), # Signature center
+                    ('ALIGN', (2,1), (2,-1), 'LEFT'),   # Reg No left
+                    ('ALIGN', (3,1), (3,-1), 'LEFT'),   # Full Name left
+                    ('ALIGN', (4,1), (4,-1), 'CENTER'), # Gender center
+                    ('ALIGN', (5,1), (5,-1), 'LEFT'),   # Occupation left
+                    ('ALIGN', (6,1), (6,-1), 'CENTER'), # Reg Type center
+                    ('ALIGN', (7,1), (7,-1), 'LEFT'),   # Special Needs left
+                    ('ALIGN', (8,1), (8,-1), 'CENTER'), # Signature center
                     ('TOPPADDING', (0,1), (-1,-1), 2), # Reduced padding
                     ('BOTTOMPADDING', (0,1), (-1,-1), 2), # Reduced padding
                 ]))
