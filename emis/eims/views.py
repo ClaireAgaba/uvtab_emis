@@ -8492,8 +8492,17 @@ def edit_candidate(request, id):
                     if old_val != new_val:
                         changed_keys.append(k)
                 if changed_keys:
-                    updated.build_reg_number()
-                    updated.save(update_fields=['reg_number'])
+                    # Prevent accidental center loss (e.g., from disabled fields not posting)
+                    # If assessment_center was cleared but existed before, restore it before rebuild
+                    if getattr(updated, 'assessment_center_id', None) is None and original.get('assessment_center'):
+                        try:
+                            updated.assessment_center_id = original.get('assessment_center')
+                        except Exception:
+                            pass
+                    # Only regenerate when we have a valid center, occupation and registration_category
+                    if getattr(updated, 'assessment_center_id', None):
+                        updated.build_reg_number()
+                        updated.save(update_fields=['reg_number'])
             except Exception:
                 pass
             # Log bio data changes

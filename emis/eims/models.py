@@ -897,6 +897,10 @@ class Candidate(models.Model):
         Serial is always unique for (center, intake, year, occupation, reg cat).
         """
         from django.db import transaction
+        # Safety: if center is missing, do not rebuild to avoid downgrading to NOCNTR
+        # Keep the existing reg_number intact.
+        if not getattr(self, 'assessment_center_id', None):
+            return
         # Use 'U' for Uganda (robust), 'X' for any other country
         UGANDA_VALUES = {"uganda", "ugandan", "ug", "256"}
         nat_val = str(self.nationality).strip().lower()
