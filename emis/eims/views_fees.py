@@ -39,12 +39,15 @@ def uvtab_fees_home(request):
     if not has_perm and not is_center_rep and not request.user.is_superuser:
         return HttpResponse('Forbidden', status=403)
     # Calculate comprehensive financial metrics like the center fees list
-    # Restrict scope for Center Representatives
+    # Restrict scope for Center Representatives (center and optional branch)
     user_center = None
+    user_branch_id = None
     # Detect center by CenterRepresentative record rather than relying on group membership
     try:
         cr_obj = CenterRepresentative.objects.get(user=request.user)
         user_center = cr_obj.center
+        # If this CR account is scoped to a specific branch, capture it
+        user_branch_id = getattr(cr_obj, 'assessment_center_branch_id', None)
     except CenterRepresentative.DoesNotExist:
         user_center = None
     
@@ -58,6 +61,8 @@ def uvtab_fees_home(request):
     )
     if user_center:
         qs = qs.filter(assessment_center=user_center)
+    if user_branch_id:
+        qs = qs.filter(assessment_center_branch_id=user_branch_id)
     all_enrolled_candidates = qs.distinct()
     
     # Get ALL enrolled/billed candidates (both paid and unpaid) for dashboard table
@@ -208,6 +213,8 @@ def uvtab_fees_home(request):
         )
         if user_center:
             category_qs = category_qs.filter(assessment_center=user_center)
+        if user_branch_id:
+            category_qs = category_qs.filter(assessment_center_branch_id=user_branch_id)
         category_fees = category_qs.aggregate(total=models.Sum('fees_balance'))['total'] or Decimal('0.00')
 
         category_count_qs = Candidate.objects.filter(
@@ -216,6 +223,8 @@ def uvtab_fees_home(request):
         )
         if user_center:
             category_count_qs = category_count_qs.filter(assessment_center=user_center)
+        if user_branch_id:
+            category_count_qs = category_count_qs.filter(assessment_center_branch_id=user_branch_id)
         category_count = category_count_qs.count()
         
         fees_by_category[category] = {
@@ -234,6 +243,8 @@ def uvtab_fees_home(request):
         )
         if user_center:
             series_qs = series_qs.filter(assessment_center=user_center)
+        if user_branch_id:
+            series_qs = series_qs.filter(assessment_center_branch_id=user_branch_id)
         series_fees = series_qs.aggregate(total=models.Sum('fees_balance'))['total'] or Decimal('0.00')
         
         series_count_qs = Candidate.objects.filter(
@@ -242,6 +253,8 @@ def uvtab_fees_home(request):
         )
         if user_center:
             series_count_qs = series_count_qs.filter(assessment_center=user_center)
+        if user_branch_id:
+            series_count_qs = series_count_qs.filter(assessment_center_branch_id=user_branch_id)
         series_count = series_count_qs.count()
         
         fees_by_series[series.name] = {
@@ -252,7 +265,13 @@ def uvtab_fees_home(request):
     
     context = {
         'total_candidates': all_enrolled_candidates.count(),
-        'candidates_with_fees': (Candidate.objects.filter(fees_balance__gt=0, assessment_center=user_center).count() if user_center else Candidate.objects.filter(fees_balance__gt=0).count()),
+        'candidates_with_fees': (
+            Candidate.objects.filter(
+                fees_balance__gt=0,
+                assessment_center=user_center,
+                **({'assessment_center_branch_id': user_branch_id} if user_branch_id else {})
+            ).count() if user_center else Candidate.objects.filter(fees_balance__gt=0).count()
+        ),
         'total_fees': total_fees,
         'amount_paid': amount_paid,
         'amount_due': amount_due,
@@ -283,6 +302,8 @@ def candidate_fees_list(request):
     try:
         cr = CenterRepresentative.objects.get(user=request.user)
         candidates = candidates.filter(assessment_center=cr.center)
+        if getattr(cr, 'assessment_center_branch_id', None):
+            candidates = candidates.filter(assessment_center_branch_id=cr.assessment_center_branch_id)
     except CenterRepresentative.DoesNotExist:
         pass
     
@@ -362,7 +383,7 @@ def center_fees_list(request):
     # Get ALL candidates who have been enrolled (have level enrollment) - this includes both paid and unpaid
     from django.db.models import Q
     
-    # Get all candidates who have been billed or enrolled (level or modular)
+    # Get ALL candidates who have been billed or enrolled (level or modular)
     candidates_with_billing = Candidate.objects.filter(
         (
             Q(candidatelevel__isnull=False) |
@@ -375,6 +396,8 @@ def center_fees_list(request):
     try:
         cr = CenterRepresentative.objects.get(user=request.user)
         candidates_with_billing = candidates_with_billing.filter(assessment_center=cr.center)
+        if getattr(cr, 'assessment_center_branch_id', None):
+            candidates_with_billing = candidates_with_billing.filter(assessment_center_branch_id=cr.assessment_center_branch_id)
     except CenterRepresentative.DoesNotExist:
         pass
     candidates_with_billing = candidates_with_billing.distinct().select_related('assessment_center', 'assessment_series', 'assessment_center__district', 'assessment_center__village')
@@ -563,6 +586,13 @@ def center_candidates_report(request, center_id, series_id=None):
             Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
             Q(fees_balance__gt=0)
         ).distinct().select_related('occupation', 'assessment_series')
+        # If the requesting user is a Branch CenterRep, restrict to their branch
+        try:
+            cr = CenterRepresentative.objects.get(user=request.user)
+            if getattr(cr, 'assessment_center_branch_id', None):
+                candidates_query = candidates_query.filter(assessment_center_branch_id=cr.assessment_center_branch_id)
+        except CenterRepresentative.DoesNotExist:
+            pass
         
         if assessment_series:
             candidates_query = candidates_query.filter(assessment_series=assessment_series)

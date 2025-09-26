@@ -9,4 +9,63 @@
     <a href="{% url 'view_center_reps' %}" class="ml-4 text-gray-600">Cancel</a>
   </form>
 </div>
+
+<script>
+  (function() {
+    // Elements rendered by Django: ids are id_center and id_assessment_center_branch
+    var centerSelect = document.getElementById('id_center');
+    var branchSelect = document.getElementById('id_assessment_center_branch');
+    if (!centerSelect || !branchSelect) return;
+
+    function setBranchOptions(options, enabled) {
+      while (branchSelect.firstChild) branchSelect.removeChild(branchSelect.firstChild);
+      // Always include empty option for main center (no specific branch)
+      var emptyOpt = document.createElement('option');
+      emptyOpt.value = '';
+      emptyOpt.textContent = 'Main Center (no specific branch)';
+      branchSelect.appendChild(emptyOpt);
+      if (Array.isArray(options)) {
+        for (var i = 0; i < options.length; i++) {
+          var o = options[i];
+          var opt = document.createElement('option');
+          opt.value = o.id;
+          // Prefer full_name when available; fallback to branch_code
+          opt.textContent = (o.full_name || o.branch_code);
+          branchSelect.appendChild(opt);
+        }
+      }
+      branchSelect.disabled = !enabled;
+    }
+
+    function loadBranches(centerId) {
+      if (!centerId) {
+        setBranchOptions([], false);
+        return;
+      }
+      // Fetch branches for the selected center
+      var url = '{% url "api_assessment_center_branches" 0 %}'.replace('/0/', '/' + centerId + '/');
+      fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data && data.has_branches) {
+            setBranchOptions(data.branches || [], true);
+          } else {
+            // No branches: only main center option
+            setBranchOptions([], false);
+          }
+        })
+        .catch(function() {
+          // On error, keep only main center option
+          setBranchOptions([], false);
+        });
+    }
+
+    // Initialize on page load (use current value if any)
+    loadBranches(centerSelect.value);
+    // Update on change
+    centerSelect.addEventListener('change', function(e) {
+      loadBranches(e.target.value);
+    });
+  })();
+</script>
 {% endblock %}

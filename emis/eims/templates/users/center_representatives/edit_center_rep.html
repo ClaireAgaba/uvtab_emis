@@ -22,5 +22,53 @@
     <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded shadow">Save</button>
     <a href="{% url 'view_center_rep' rep.pk %}" class="ml-4 text-gray-600 hover:underline">Cancel</a>
   </form>
+  <script>
+  (function() {
+    var centerSelect = document.getElementById('id_center');
+    var branchSelect = document.getElementById('id_assessment_center_branch');
+    if (!centerSelect || !branchSelect) return;
+
+    function setBranchOptions(options, enabled) {
+      var currentValue = branchSelect.value;
+      while (branchSelect.firstChild) branchSelect.removeChild(branchSelect.firstChild);
+      var emptyOpt = document.createElement('option');
+      emptyOpt.value = '';
+      emptyOpt.textContent = 'Main Center (no specific branch)';
+      branchSelect.appendChild(emptyOpt);
+      if (Array.isArray(options)) {
+        for (var i = 0; i < options.length; i++) {
+          var o = options[i];
+          var opt = document.createElement('option');
+          opt.value = o.id;
+          opt.textContent = (o.full_name || o.branch_code);
+          branchSelect.appendChild(opt);
+        }
+      }
+      branchSelect.disabled = !enabled;
+      // Try to restore previous selection if still available
+      if (currentValue) {
+        branchSelect.value = currentValue;
+      }
+    }
+
+    function loadBranches(centerId) {
+      if (!centerId) { setBranchOptions([], false); return; }
+      var url = '{% url "api_assessment_center_branches" 0 %}'.replace('/0/', '/' + centerId + '/');
+      fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data && data.has_branches) {
+            setBranchOptions(data.branches || [], true);
+          } else {
+            setBranchOptions([], false);
+          }
+        })
+        .catch(function() { setBranchOptions([], false); });
+    }
+
+    loadBranches(centerSelect.value);
+    centerSelect.addEventListener('change', function(e) { loadBranches(e.target.value); });
+  })();
+  </script>
 </div>
 {% endblock %}

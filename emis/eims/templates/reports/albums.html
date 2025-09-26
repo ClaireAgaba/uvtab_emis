@@ -29,6 +29,7 @@
 <div class="bg-white max-w-2xl mx-auto rounded shadow p-6 mb-10">
   <form method="post" class="space-y-6">
     {% csrf_token %}
+    <span id="branch-prefill" data-branch-id="{{ selected_branch_id|default:'' }}" class="hidden"></span>
     {# Server-provided fallback JSON for Assessment Series #}
     {% if series_fallback %}
       {{ series_fallback|json_script:"series-fallback-data" }}
@@ -221,6 +222,8 @@
 async function loadBranchesForCenter(centerId){
   const wrap = document.getElementById('branch_wrapper');
   const sel  = document.getElementById('branch_id');
+  const prefillEl = document.getElementById('branch-prefill');
+  const prefillId = prefillEl ? (prefillEl.dataset.branchId || '') : '';
   if (!wrap || !sel){ return; }
   if (!centerId){
     wrap.classList.add('hidden');
@@ -250,6 +253,10 @@ async function loadBranchesForCenter(centerId){
         sel.appendChild(opt);
       });
       wrap.classList.remove('hidden');
+      // Preselect logged-in branch if provided
+      if (prefillId) {
+        sel.value = String(prefillId);
+      }
     } else {
       wrap.classList.add('hidden');
     }

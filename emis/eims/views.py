@@ -5246,6 +5246,7 @@ def generate_album(request):
     centers = AssessmentCenter.objects.all()
     selected_center_id = None
     is_center_rep = False
+    selected_branch_id = None
     try:
         # Lazy import to avoid circulars
         from .models import CenterRepresentative
@@ -5253,6 +5254,9 @@ def generate_album(request):
         centers = centers.filter(id=cr.center_id)
         selected_center_id = cr.center_id
         is_center_rep = True
+        # If this center rep is scoped to a specific branch, capture it for preselection
+        if getattr(cr, 'assessment_center_branch_id', None):
+            selected_branch_id = cr.assessment_center_branch_id
     except Exception:
         # Not a center rep or no mapping
         pass
@@ -5687,6 +5691,7 @@ def generate_album(request):
         'levels': levels,
         'form_action': reverse('generate_album'),
         'selected_center_id': selected_center_id,
+        'selected_branch_id': selected_branch_id,
         'series_fallback': series_fallback,
     })
 
