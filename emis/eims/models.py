@@ -946,8 +946,16 @@ class Candidate(models.Model):
                         max_serial = serial_int
                 except (ValueError, IndexError, AttributeError):
                     continue
+            # Start with next serial after observed max
             next_serial = max_serial + 1
-            serial_str = str(next_serial).zfill(3)
+            # Probe for uniqueness and increment until a free reg_number is found
+            while True:
+                serial_str = str(next_serial).zfill(3)
+                proposed = f"{center_code}/{nat}/{year}/{intake}/{occ_code}/{reg_type}/{serial_str}"
+                collision = Candidate.objects.filter(reg_number=proposed).exclude(pk=self.pk).exists()
+                if not collision:
+                    break
+                next_serial += 1
 
         self.reg_number = f"{center_code}/{nat}/{year}/{intake}/{occ_code}/{reg_type}/{serial_str}"
 
