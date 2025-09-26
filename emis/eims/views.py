@@ -5816,6 +5816,14 @@ def candidate_list(request):
             candidates = candidates.none()
 
     # Enhanced filtering logic from session filters
+    # For Center Representatives, do not allow switching centers via URL params
+    if is_center_rep and current_filters.get('assessment_center'):
+        try:
+            # Remove the key so downstream filtering doesn't exclude their own results
+            current_filters.pop('assessment_center', None)
+        except Exception:
+            pass
+
     if current_filters.get('reg_number'):
         candidates = candidates.filter(reg_number__icontains=current_filters.get('reg_number'))
     if current_filters.get('search'):

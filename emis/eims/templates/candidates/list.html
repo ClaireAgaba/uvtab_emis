@@ -419,12 +419,16 @@
               </select>
             </th>
             <th class="px-3 py-2">
+              {% if not is_center_rep %}
               <select name="assessment_center" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                 <option value="">All Centers</option>
                 {% for center in centers %}
                   <option value="{{ center.id }}" {% if filters.assessment_center == center.id|stringformat:"s" %}selected{% endif %}>{{center.center_number}} - {{ center.center_name }}</option>
                 {% endfor %}
               </select>
+              {% else %}
+              <div class="text-xs text-gray-500 italic py-1">Your Center</div>
+              {% endif %}
             </th>
             <th class="px-3 py-2">
                 <div class="flex gap-1">
