@@ -1901,6 +1901,7 @@ def download_marksheet(request):
     occupation_id = request.GET.get('occupation')
     level_id = request.GET.get('level')
     center_id = request.GET.get('assessment_center')
+    branch_param = request.GET.get('assessment_center_branch')
     modules_param = request.GET.get('modules')  # comma-separated module IDs
 
     # Get occupation, level, center
