@@ -145,6 +145,13 @@
               <!-- Options will be populated dynamically -->
             </select>
           </div>
+          <!-- Branch selector: only for Generate Marksheet -->
+          <div id="branch-field" class="hidden">
+            <label class="block font-medium mb-1">Branch (optional)</label>
+            <select name="assessment_center_branch" id="branch-select" class="border px-3 py-2 rounded w-full">
+              <option value="">-- All Branches --</option>
+            </select>
+          </div>
         </div>
       </div>
       
@@ -504,6 +511,52 @@
           }
       }
 
+      // --- Generate-only: load branches for selected center ---
+      async function loadGenerateBranches(centerId) {
+        const branchField = document.getElementById('branch-field');
+        const branchSelect = document.getElementById('branch-select');
+        if (!branchField || !branchSelect) return;
+        branchSelect.innerHTML = '<option value="">-- All Branches --</option>';
+        branchField.classList.add('hidden');
+        if (!centerId) return;
+        try {
+          console.debug('[Generate] Loading branches for center', centerId);
+          let resp = await fetch(`/eims/api/center-branches/?center_id=${encodeURIComponent(centerId)}`);
+          let data = null;
+          if (!resp.ok) {
+            // fallback JSON endpoint
+            resp = await fetch(`/eims/api/assessment-centers/${encodeURIComponent(centerId)}/branches/`);
+          }
+          if (resp.ok) {
+            data = await resp.json();
+          }
+          if (data && data.has_branches) {
+            // Add explicit "Main Center" option so user can target candidates registered under the head center
+            const centerSelectEl = document.getElementById('center-select');
+            if (centerSelectEl && centerSelectEl.value === String(centerId)) {
+              const centerName = centerSelectEl.options[centerSelectEl.selectedIndex]?.text || 'Main Center';
+              const mainOpt = document.createElement('option');
+              mainOpt.value = 'main';
+              mainOpt.textContent = `${centerName} (Main Center)`;
+              branchSelect.appendChild(mainOpt);
+            }
+            if (Array.isArray(data.branches) && data.branches.length) {
+              data.branches.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                opt.textContent = b.branch_code;
+                branchSelect.appendChild(opt);
+              });
+            }
+            branchField.classList.remove('hidden');
+          } else {
+            console.debug('[Generate] Center has no branches or API returned none');
+          }
+        } catch (err) {
+          console.warn('Could not load branches for center', centerId, err);
+        }
+      }
+
       function populateCentersDropdown(selectElement) {
           selectElement.innerHTML = '<option value="">-- All Centers --</option>';
           allCenters.forEach(c => {
@@ -582,6 +635,18 @@
               populateYearDropdown(yearSelect);
               populateCentersDropdown(centerSelect);
               updateOccupationOptions();
+              // For Generate modal: reset and preload branches if a center is already selected
+              if (config.modalId === 'marksheet-modal') {
+                const branchField = document.getElementById('branch-field');
+                const branchSelect = document.getElementById('branch-select');
+                if (branchField && branchSelect) {
+                  branchField.classList.add('hidden');
+                  branchSelect.innerHTML = '<option value="">-- All Branches --</option>';
+                  if (centerSelect && centerSelect.value) {
+                    try { await loadGenerateBranches(centerSelect.value); } catch (e) { console.warn('Branch preload failed', e); }
+                  }
+                }
+              }
               modal.classList.remove('hidden');
           });
 
@@ -592,6 +657,13 @@
 
           regCategorySelect.onchange = updateOccupationOptions;
           occupationSelect.onchange = updateLevelAndModuleOptions;
+        // For Generate modal only: attach branch loader on center change
+        if (config.modalId === 'marksheet-modal') {
+          centerSelect.addEventListener('change', async function() {
+            const centerId = this.value;
+            await loadGenerateBranches(centerId);
+          });
+        }
 
           function updateOccupationOptions() {
               const regcat = regCategorySelect.value;

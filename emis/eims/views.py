@@ -1024,6 +1024,7 @@ def generate_marksheet(request):
     occupation = request.POST.get('occupation')
     level = request.POST.get('level')
     center = request.POST.get('assessment_center')
+    branch = request.POST.get('assessment_center_branch')
     modules = request.POST.getlist('modules')  # Accept multiple module IDs
 
     # Determine structure_type for occupation/level
@@ -1044,6 +1045,9 @@ def generate_marksheet(request):
         'level': level,
         'assessment_center': center,
     }
+    # Include branch if present (either numeric id or 'main')
+    if branch:
+        params['assessment_center_branch'] = branch
     # Add modules to params for Modular
     if regcat and regcat.lower() == 'modular' and modules:
         params['modules'] = ','.join(modules)
@@ -1111,7 +1115,16 @@ def generate_marksheet(request):
         print(f'[DEBUG] After occupation ({occupation}) filter:', candidates.count())
     if center:
         candidates = candidates.filter(assessment_center=center)
-        print(f'[DEBUG] After center ({center}) filter:', candidates.count())
+        # Apply branch scoping for pre-validation to mirror download behavior
+        branch_param = (branch or '').strip().lower()
+        if branch_param == 'main':
+            candidates = candidates.filter(assessment_center_branch__isnull=True)
+            print("[DEBUG][generate] MAIN center-only prefilter applied", candidates.count())
+        elif branch_param and branch_param.isdigit():
+            candidates = candidates.filter(assessment_center_branch_id=int(branch_param))
+            print(f"[DEBUG][generate] Specific branch prefilter id={branch_param} count={candidates.count()}")
+        else:
+            print("[DEBUG] No branch filter applied (empty or invalid branch_param)")
     if not occ:
         return JsonResponse({'success': False, 'error': 'Please select an occupation.'})
     if lvl is None and regcat and regcat.lower() != 'modular':
@@ -1228,6 +1241,7 @@ def download_printed_marksheet(request):
     occupation = Occupation.objects.get(id=occupation_id)   
     level_id = request.GET.get('level')
     center_id = request.GET.get('assessment_center')
+    branch_param = request.GET.get('assessment_center_branch')
     module_ids_raw = request.GET.get('modules', '')
     module_ids = [mid for mid in module_ids_raw.split(',') if mid]
 
