@@ -2012,6 +2012,20 @@ def download_marksheet(request):
     print(f"Modules: {modules}")
     print(f"Papers: {papers}")
 
+    # --- Defensive re-scope by center/branch just before building the workbook ---
+    # This ensures any earlier operations did not inadvertently broaden the queryset.
+    if center:
+        candidates = candidates.filter(assessment_center=center)
+        branch_norm_final = (branch_param or '').strip().lower()
+        if branch_norm_final == 'main':
+            candidates = candidates.filter(assessment_center_branch__isnull=True)
+            print(f"[DEBUG] (final) MAIN filter applied. Count={candidates.count()}")
+        elif branch_norm_final and branch_norm_final.isdigit():
+            candidates = candidates.filter(assessment_center_branch_id=int(branch_norm_final))
+            print(f"[DEBUG] (final) Branch id filter applied id={branch_norm_final}. Count={candidates.count()}")
+        else:
+            print("[DEBUG] (final) No branch filter applied.")
+
     if regcat_normalized == 'modular' and modules:
         # --- Build Modular Marksheet ---
         wb = Workbook()

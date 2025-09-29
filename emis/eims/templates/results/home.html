@@ -628,6 +628,15 @@
           const centerSelect = document.getElementById(config.centerSelectId);
           const msgDiv = document.getElementById(config.msgId);
           const linkDiv = document.getElementById(config.linkId);
+          // For Generate modal: prepare a hidden input to ensure branch is posted
+          let branchHiddenInput = null;
+          if (config.modalId === 'marksheet-modal') {
+            branchHiddenInput = document.createElement('input');
+            branchHiddenInput.type = 'hidden';
+            branchHiddenInput.name = 'assessment_center_branch';
+            branchHiddenInput.id = 'branch-hidden-input';
+            form.appendChild(branchHiddenInput);
+          }
 
           // Attach event listeners
           openBtn.addEventListener('click', async () => {
@@ -645,6 +654,8 @@
                   if (centerSelect && centerSelect.value) {
                     try { await loadGenerateBranches(centerSelect.value); } catch (e) { console.warn('Branch preload failed', e); }
                   }
+                  // Reset hidden on open
+                  if (branchHiddenInput) branchHiddenInput.value = '';
                 }
               }
               modal.classList.remove('hidden');
@@ -662,6 +673,8 @@
           centerSelect.addEventListener('change', async function() {
             const centerId = this.value;
             await loadGenerateBranches(centerId);
+            // Clear hidden when center changes; user must explicitly pick a branch
+            if (branchHiddenInput) branchHiddenInput.value = '';
           });
         }
 
@@ -718,6 +731,13 @@
 
           form.onsubmit = async function(e) {
               e.preventDefault();
+              // Ensure branch value is present BEFORE creating FormData
+              if (config.modalId === 'marksheet-modal') {
+                  const branchSelectEl = document.getElementById('branch-select');
+                  if (branchHiddenInput && branchSelectEl) {
+                      branchHiddenInput.value = branchSelectEl.value || '';
+                  }
+              }
               const formData = new FormData(form);
               msgDiv.textContent = '';
               if(linkDiv) linkDiv.innerHTML = '';
@@ -739,6 +759,8 @@
                   msgDiv.textContent = 'A network error occurred. Please try again.';
               }
           };
+
+          // (no-op) additional submit listener removed; handled inside onsubmit above
       }
 
       // --- ENHANCED MODULE SELECTION FUNCTIONS ---
