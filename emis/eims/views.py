@@ -1524,6 +1524,137 @@ def assessment_series_download_excel(request, pk):
     return response
 
 @login_required
+def assessment_series_center_mapping_excel(request, pk: int):
+    """
+    Excel workbook with sheets per registration category (Modular, Formal, Worker's PAS).
+    Columns: Assessment Center Code, Assessment Center Name, District, Contact, Occupation, No. of Candidates.
+    Counts are for candidates in the specified assessment series grouped by center and occupation.
+    """
+    from django.shortcuts import get_object_or_404
+    from django.http import HttpResponse
+    from django.db.models import Q
+    import openpyxl
+    from openpyxl.styles import Font, Alignment
+    from io import BytesIO
+    from .models import AssessmentSeries, Candidate, AssessmentCenterBranch, CenterRepresentative
+
+    series = get_object_or_404(AssessmentSeries, pk=pk)
+
+    # Base queryset constrained to this series; include branch and its district for accurate mapping
+    base_qs = Candidate.objects.filter(assessment_series=series).select_related(
+        'assessment_center', 'assessment_center__district', 'assessment_center_branch', 'assessment_center_branch__district', 'occupation'
+    )
+
+    def qs_for_category(cat: str):
+        if cat == 'Modular':
+            return base_qs.filter(registration_category__iexact='Modular')
+        if cat == 'Formal':
+            return base_qs.filter(registration_category__iexact='Formal')
+        # Worker's PAS sheet includes variants and Informal
+        return base_qs.filter(
+            Q(registration_category__iexact="Worker's PAS") |
+            Q(registration_category__iexact='Workers PAS') |
+            Q(registration_category__iexact='Worker PAS') |
+            Q(registration_category__iexact='Informal') |
+            Q(registration_category__iregex=r"worker('?s)?\s*pas|informal")
+        )
+
+    # Create workbook
+    wb = openpyxl.Workbook()
+    first_ws = wb.active
+    categories = ['Modular', 'Formal', "Worker's PAS"]
+
+    def write_sheet(ws, cat: str):
+        ws.title = cat
+        headers = [
+            'Assessment Center Code',
+            'Assessment Center Name',
+            'District',
+            'Contact',
+            'Occupation',
+            'No. of Candidates',
+        ]
+        ws.append(headers)
+        for i in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=i)
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center')
+
+        qs = qs_for_category(cat)
+        # Aggregate in Python to handle branch-aware grouping safely
+        from collections import defaultdict
+        counts = defaultdict(int)
+
+        # Cache for branch contacts via reps to avoid repeated queries
+        branch_contact_cache = {}
+
+        for cand in qs:
+            center = cand.assessment_center
+            branch = getattr(cand, 'assessment_center_branch', None)
+            occupation = cand.occupation
+
+            # Code: prefer branch_code if branch is present, else center_number
+            if branch:
+                code = branch.branch_code
+                # District: from branch
+                district_name = getattr(getattr(branch, 'district', None), 'name', '')
+                # Contact: branch rep contact if available, else center contact
+                b_id = branch.id
+                if b_id in branch_contact_cache:
+                    contact_val = branch_contact_cache[b_id]
+                else:
+                    rep = CenterRepresentative.objects.filter(assessment_center_branch=branch).order_by('id').first()
+                    contact_val = rep.contact if rep else (center.contact if center else '')
+                    branch_contact_cache[b_id] = contact_val
+            else:
+                code = getattr(center, 'center_number', '')
+                district_name = getattr(getattr(center, 'district', None), 'name', '')
+                contact_val = getattr(center, 'contact', '')
+
+            occ_label = ''
+            if occupation and getattr(occupation, 'code', None) and getattr(occupation, 'name', None):
+                occ_label = f"{occupation.code} - {occupation.name}"
+            elif occupation and getattr(occupation, 'name', None):
+                occ_label = occupation.name
+
+            key = (code, getattr(center, 'center_name', ''), district_name, contact_val, occ_label)
+            counts[key] += 1
+
+        # Write rows
+        for (code, center_name, district_name, contact_val, occ_label), total in sorted(counts.items(), key=lambda x: (x[0][0], x[0][4])):
+            ws.append([
+                code,
+                center_name,
+                district_name,
+                contact_val,
+                occ_label,
+                total,
+            ])
+
+        # Auto-size columns
+        for column in ws.columns:
+            try:
+                max_len = max(len(str(c.value)) if c.value is not None else 0 for c in column)
+            except Exception:
+                max_len = 15
+            col_letter = column[0].column_letter
+            ws.column_dimensions[col_letter].width = min(max(max_len + 2, 10), 50)
+
+    # Populate sheets
+    write_sheet(first_ws, categories[0])
+    for cat in categories[1:]:
+        ws = wb.create_sheet(title=cat)
+        write_sheet(ws, cat)
+
+    # Stream response
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    filename = f"center_mapping_{series.start_date.year}_{series.start_date.month}.xlsx"
+    resp = HttpResponse(stream.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return resp
+@login_required
 def generate_assessment_series_excel(request, year, month):
     """Generate Excel export of candidate-level data for an assessment series.
     Filters by registration category and optional level (Formal only), and returns
@@ -11599,17 +11730,6 @@ def statistics_home(request):
         'years_sorted_desc': years_sorted_desc,
         'assessment_series_year_blocks': assessment_series_year_blocks,
     }
-    
-    return render(request, 'statistics/home.html', context)
-
-
-# =========================
-# Practical Assessment Module Views
-# =========================
-
-from .models import PracticalMarksheet, PracticalMark, RegistrationCategory
-from django.contrib import messages
-from django.db import transaction
 from django.core.exceptions import ValidationError
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
