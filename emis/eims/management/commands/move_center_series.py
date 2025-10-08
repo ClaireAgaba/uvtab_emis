@@ -31,6 +31,9 @@ class Command(BaseCommand):
         parser.add_argument('--results-any', action='store_true', help='Also move Result.assessment_series for selected candidates regardless of current series (useful when results have NULL or mismatched series).')
         parser.add_argument('--results-null', action='store_true', help='Include results with NULL assessment_series (when --results-any is not set).')
         parser.add_argument('--ignore-from-series', action='store_true', help='Select candidates by center (and optional branch) regardless of their current assessment_series.')
+        # Enrollment (CandidateModule) handling
+        parser.add_argument('--modules-any', action='store_true', help='Also move CandidateModule.assessment_series for selected candidates regardless of current series.')
+        parser.add_argument('--modules-null', action='store_true', help='Include CandidateModule with NULL assessment_series (when --modules-any is not set).')
         parser.add_argument('--report', action='store_true', help='In dry-run, print a breakdown by current series for candidates and results.')
         parser.add_argument('--log', default='', help='Optional path to write a CSV log of moved records')
 
@@ -96,6 +99,20 @@ class Command(BaseCommand):
                 results_qs = Result.objects.filter(assessment_series=from_series, **res_filters).only('id', 'candidate_id', 'assessment_series_id')
         total_results = results_qs.count()
 
+        # CandidateModule enrollments attached to those candidates
+        from eims.models import CandidateModule
+        if options['modules_any']:
+            modules_qs = CandidateModule.objects.filter(candidate_id__in=candidate_ids).only('id', 'candidate_id', 'assessment_series_id')
+        else:
+            mod_filters = {'candidate_id__in': candidate_ids}
+            if options['modules_null']:
+                from django.db.models import Q as Q2
+                mod_q = Q2(assessment_series=from_series) | Q2(assessment_series__isnull=True)
+                modules_qs = CandidateModule.objects.filter(mod_q, **mod_filters).only('id', 'candidate_id', 'assessment_series_id')
+            else:
+                modules_qs = CandidateModule.objects.filter(assessment_series=from_series, **mod_filters).only('id', 'candidate_id', 'assessment_series_id')
+        total_modules = modules_qs.count()
+
         self.stdout.write(self.style.NOTICE("=== DRY-RUN SUMMARY ===" if not apply_changes else "=== APPLY SUMMARY ==="))
         self.stdout.write(f"Center: {center_code}")
         if branch_code:
@@ -110,6 +127,11 @@ class Command(BaseCommand):
             self.stdout.write("Results selection: results in from-series OR NULL series (results-null=ON)")
         self.stdout.write(f"Candidates to move: {total_candidates}")
         self.stdout.write(f"Results to move:    {total_results}")
+        if options['modules_any']:
+            self.stdout.write("Modules selection: ALL CandidateModule for selected candidates (modules-any=ON)")
+        elif options['modules_null']:
+            self.stdout.write("Modules selection: CandidateModule in from-series OR NULL series (modules-null=ON)")
+        self.stdout.write(f"Enrollments (modules) to move: {total_modules}")
 
         # Optional breakdown report
         if options['report']:
@@ -144,6 +166,13 @@ class Command(BaseCommand):
             for sid, cnt in sorted(res_series.items(), key=_sort_key_res):
                 self.stdout.write(f"  series_id={sid}: {cnt}")
 
+            mod_series = Counter(
+                CandidateModule.objects.filter(candidate_id__in=candidate_ids).values_list('assessment_series_id', flat=True)
+            )
+            self.stdout.write("CandidateModule (enrollment) count by current series id (for selected candidates):")
+            for sid, cnt in sorted(mod_series.items(), key=_sort_key_res):
+                self.stdout.write(f"  series_id={sid}: {cnt}")
+
         writer = None
         log_file = None
         if log_path:
@@ -166,6 +195,8 @@ class Command(BaseCommand):
             updated_cands = candidates_qs.update(assessment_series=to_series)
             # Update results
             updated_results = results_qs.update(assessment_series=to_series)
+            # Update modules
+            updated_modules = modules_qs.update(assessment_series=to_series)
 
             ts = timezone.now().isoformat()
             if writer:
@@ -173,8 +204,10 @@ class Command(BaseCommand):
                     writer.writerow([ts, 'update', 'Candidate', cid, cid, from_series.id, to_series.id])
                 for rid in results_qs.values_list('id', flat=True):
                     writer.writerow([ts, 'update', 'Result', rid, '', from_series.id, to_series.id])
+                for mid in modules_qs.values_list('id', flat=True):
+                    writer.writerow([ts, 'update', 'CandidateModule', mid, '', from_series.id, to_series.id])
 
         if writer:
             fp.close()
 
-        self.stdout.write(self.style.SUCCESS(f"Moved {updated_cands} candidates and {updated_results} results from {from_series.name} -> {to_series.name} for center {center_code}."))
+        self.stdout.write(self.style.SUCCESS(f"Moved {updated_cands} candidates, {updated_results} results, and {updated_modules} enrollments from {from_series.name} -> {to_series.name} for center {center_code}."))

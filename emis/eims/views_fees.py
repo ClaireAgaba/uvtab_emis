@@ -1284,11 +1284,22 @@ def mark_centers_as_paid(request):
             
             if total_fees > 0:
                 # Clear fees ONLY for candidates in this specific center-series combination
+                # AND set payment tracking flags for audit trail
+                payment_ref = f"{center_id}_{series_id if series_id else 'none'}"
                 for candidate in candidates:
+                    # Store the amount being cleared for this candidate (for audit trail)
+                    amount_being_cleared = candidate.fees_balance
+                    
+                    # Clear the fees balance
                     candidate.fees_balance = Decimal('0.00')
-                    # Add payment status to track that this candidate was paid
-                    if hasattr(candidate, 'payment_status'):
-                        candidate.payment_status = 'paid'
+                    
+                    # Set payment tracking flags - CRITICAL for preventing anomalies
+                    candidate.payment_cleared = True
+                    candidate.payment_cleared_date = timezone.now()
+                    candidate.payment_cleared_by = request.user
+                    candidate.payment_amount_cleared = amount_being_cleared
+                    candidate.payment_center_series_ref = payment_ref
+                    
                     candidate.save()
                 
                 # Create or update CenterSeriesPayment record to track this payment

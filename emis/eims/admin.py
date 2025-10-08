@@ -83,14 +83,45 @@ class CandidateAdminForm(forms.ModelForm):
 
 class CandidateAdmin(admin.ModelAdmin):
     form = CandidateAdminForm
-    list_display = ('full_name', 'reg_number', 'registration_category', 'occupation', 'assessment_center', 'disability', 'get_nature_of_disability')
+    list_display = ('full_name', 'reg_number', 'registration_category', 'occupation', 'assessment_center', 'disability', 'get_nature_of_disability', 'payment_cleared_status')
     search_fields = ('full_name', 'reg_number')
-    list_filter = ('registration_category', 'occupation', 'assessment_center', 'disability')
+    list_filter = ('registration_category', 'occupation', 'assessment_center', 'disability', 'payment_cleared')
     filter_horizontal = ('nature_of_disability',)
+    readonly_fields = ('payment_cleared', 'payment_cleared_date', 'payment_cleared_by', 'payment_amount_cleared', 'payment_center_series_ref')
 
     def get_nature_of_disability(self, obj):
         return ", ".join([str(n) for n in obj.nature_of_disability.all()])
     get_nature_of_disability.short_description = 'Nature of Disability'
+    
+    def payment_cleared_status(self, obj):
+        if obj.payment_cleared:
+            return "🔒 PAID - CANNOT DELETE"
+        return "Not Paid"
+    payment_cleared_status.short_description = 'Payment Status'
+
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of paid candidates"""
+        if obj and obj.payment_cleared:
+            return False
+        return super().has_delete_permission(request, obj)
+    
+    def delete_model(self, request, obj):
+        """Additional safety check when deleting individual candidate"""
+        if obj.payment_cleared:
+            messages.error(request, f'Cannot delete {obj.full_name} ({obj.reg_number}). This candidate was included in a payment clearance and cannot be deleted to maintain audit trail.')
+            return
+        super().delete_model(request, obj)
+    
+    def delete_queryset(self, request, queryset):
+        """Prevent bulk deletion of paid candidates"""
+        paid_candidates = queryset.filter(payment_cleared=True)
+        if paid_candidates.exists():
+            paid_count = paid_candidates.count()
+            messages.error(request, f'Cannot delete {paid_count} candidate(s) who have been included in payment clearances. These candidates are protected to maintain payment audit trail.')
+            # Delete only non-paid candidates
+            queryset.filter(payment_cleared=False).delete()
+        else:
+            super().delete_queryset(request, queryset)
 
     def save_model(self, request, obj, form, change):
         # Save the object first to get the ID

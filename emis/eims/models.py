@@ -737,6 +737,39 @@ class Candidate(models.Model):
         default=0.00,
         help_text="Outstanding fees balance for this candidate"
     )
+    
+    # Payment tracking fields - CRITICAL for audit trail
+    payment_cleared = models.BooleanField(
+        default=False,
+        help_text="TRUE if this candidate's fees have been cleared/paid. Prevents deletion and provides audit trail."
+    )
+    payment_cleared_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date and time when fees were cleared for this candidate"
+    )
+    payment_cleared_by = models.ForeignKey(
+        get_user_model(),
+        related_name='candidates_payment_cleared',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text="User who processed the payment clearance"
+    )
+    payment_amount_cleared = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Amount that was cleared when payment was processed (for audit trail)"
+    )
+    payment_center_series_ref = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Reference to center-series payment transaction (format: centerID_seriesID)"
+    )
+    
     # Modular enrollment choices and billing cache
     modular_module_count = models.PositiveSmallIntegerField(
         null=True,
@@ -1031,6 +1064,23 @@ class Candidate(models.Model):
 
         super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        """
+        Override delete to prevent deletion of paid candidates
+        This is CRITICAL for maintaining payment audit trail
+        """
+        if self.payment_cleared:
+            from django.core.exceptions import ValidationError
+            raise ValidationError(
+                f"Cannot delete candidate {self.reg_number} ({self.full_name}). "
+                f"This candidate was included in a payment clearance on {self.payment_cleared_date.strftime('%Y-%m-%d') if self.payment_cleared_date else 'N/A'}. "
+                f"Amount cleared: UGX {self.payment_amount_cleared}. "
+                f"Transaction reference: {self.payment_center_series_ref}. "
+                f"Deletion blocked to maintain payment audit trail. "
+                f"Contact Finance/Admin department if deletion is absolutely necessary."
+            )
+        return super().delete(*args, **kwargs)
+    
     def __str__(self):
         return f"{self.reg_number} - {self.full_name}"
     
