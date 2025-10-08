@@ -37,18 +37,23 @@ class Command(BaseCommand):
         self.stdout.write(f'   Payment Records: {payment_count}')
         self.stdout.write(f'   Total amount_paid: UGX {payment_total:,.2f}')
         
-        # Check specific centers
-        self.stdout.write(f'\n🔍 CHECKING SPECIFIC CENTERS:')
+        # Check ALL centers with paid candidates or payment records
+        centers_with_data = set()
         
-        test_centers = ['UV1985', 'UV1449', 'UVT003']
+        # Add centers with paid candidates
+        for candidate in paid_candidates:
+            if candidate.assessment_center:
+                centers_with_data.add(candidate.assessment_center)
         
-        for center_num in test_centers:
-            center = AssessmentCenter.objects.filter(center_number=center_num).first()
-            if not center:
-                self.stdout.write(f'\n   {center_num}: NOT FOUND')
-                continue
+        # Add centers with payment records
+        for payment_rec in payment_records:
+            centers_with_data.add(payment_rec.assessment_center)
+        
+        self.stdout.write(f'\n🔍 CHECKING ALL CENTERS WITH PAYMENT DATA ({len(centers_with_data)} centers):')
+        
+        for center in sorted(centers_with_data, key=lambda c: c.center_number):
             
-            self.stdout.write(f'\n   {center_num} - {center.center_name}:')
+            self.stdout.write(f'\n   {center.center_number} - {center.center_name}:')
             
             # Count paid candidates
             paid_cands = Candidate.objects.filter(
