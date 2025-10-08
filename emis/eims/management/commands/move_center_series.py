@@ -121,13 +121,27 @@ class Command(BaseCommand):
                 ).values_list('assessment_series_id', flat=True)
             )
             self.stdout.write("Candidate count by current series id:")
-            for sid, cnt in sorted(cand_series.items(), key=lambda x: (0 if x[0]==getattr(from_series,'id',None) else 1, x[0])):
+            def _sort_key_cand(item):
+                sid, cnt = item
+                from_id = getattr(from_series, 'id', None)
+                # Primary: put from_series id first, then others; treat None as max
+                primary = 0 if (sid == from_id) else 1
+                secondary = (sid if sid is not None else float('inf'))
+                return (primary, secondary)
+            for sid, cnt in sorted(cand_series.items(), key=_sort_key_cand):
                 self.stdout.write(f"  series_id={sid}: {cnt}")
             res_series = Counter(
                 Result.objects.filter(candidate_id__in=candidate_ids).values_list('assessment_series_id', flat=True)
             )
             self.stdout.write("Result count by current series id (for selected candidates):")
-            for sid, cnt in sorted(res_series.items(), key=lambda x: (0 if x[0]==getattr(from_series,'id',None) else 1, str(x[0]))):
+            def _sort_key_res(item):
+                sid, cnt = item
+                from_id = getattr(from_series, 'id', None)
+                primary = 0 if (sid == from_id) else 1
+                # Use string for stable ordering; None goes last
+                secondary = (str(sid) if sid is not None else 'zzzzzz')
+                return (primary, secondary)
+            for sid, cnt in sorted(res_series.items(), key=_sort_key_res):
                 self.stdout.write(f"  series_id={sid}: {cnt}")
 
         writer = None
