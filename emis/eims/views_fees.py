@@ -453,8 +453,10 @@ def center_fees_list(request):
                 ).first()
             
             amount_paid = payment_record.amount_paid if payment_record else Decimal('0.00')
-        except:
-            # If CenterSeriesPayment table doesn't exist yet, default to 0
+        except Exception as e:
+            # If CenterSeriesPayment table doesn't exist yet or other error, default to 0
+            import logging
+            logging.error(f"Error getting payment record for {center.center_name}: {e}")
             amount_paid = Decimal('0.00')
         
         # Calculate the original total amount that was ever billed
