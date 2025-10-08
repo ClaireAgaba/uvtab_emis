@@ -29,6 +29,8 @@ class Command(BaseCommand):
         parser.add_argument('--to-month', type=int, help='DEPRECATED: Destination series month (1-12)')
         parser.add_argument('--apply', action='store_true', help='Actually perform the move. Without this, runs as a dry-run.')
         parser.add_argument('--results-any', action='store_true', help='Also move Result.assessment_series for selected candidates regardless of current series (useful when results have NULL or mismatched series).')
+        parser.add_argument('--results-null', action='store_true', help='Include results with NULL assessment_series (when --results-any is not set).')
+        parser.add_argument('--ignore-from-series', action='store_true', help='Select candidates by center (and optional branch) regardless of their current assessment_series.')
         parser.add_argument('--report', action='store_true', help='In dry-run, print a breakdown by current series for candidates and results.')
         parser.add_argument('--log', default='', help='Optional path to write a CSV log of moved records')
 
@@ -68,11 +70,12 @@ class Command(BaseCommand):
         from_series = resolve_series(from_series_id, from_series_name, from_year, from_month, 'From')
         to_series = resolve_series(to_series_id, to_series_name, to_year, to_month, 'To')
 
-        # Candidates strictly in the specified center and (optionally) branch, in the from_series
+        # Candidates selection by center/branch; optionally constrained by from_series
         cand_filters = {
             'assessment_center__center_number': center_code,
-            'assessment_series': from_series,
         }
+        if not options['ignore_from_series']:
+            cand_filters['assessment_series'] = from_series
         if branch_code:
             cand_filters['assessment_center_branch__branch_code'] = branch_code
         candidates_qs = Candidate.objects.filter(**cand_filters).only('id', 'assessment_series', 'assessment_center_id')
@@ -84,7 +87,13 @@ class Command(BaseCommand):
         if options['results_any']:
             results_qs = Result.objects.filter(candidate_id__in=candidate_ids).only('id', 'candidate_id', 'assessment_series_id')
         else:
-            results_qs = Result.objects.filter(candidate_id__in=candidate_ids, assessment_series=from_series).only('id', 'candidate_id', 'assessment_series_id')
+            res_filters = {'candidate_id__in': candidate_ids}
+            if options['results_null']:
+                from django.db.models import Q
+                res_q = Q(assessment_series=from_series) | Q(assessment_series__isnull=True)
+                results_qs = Result.objects.filter(res_q, **res_filters).only('id', 'candidate_id', 'assessment_series_id')
+            else:
+                results_qs = Result.objects.filter(assessment_series=from_series, **res_filters).only('id', 'candidate_id', 'assessment_series_id')
         total_results = results_qs.count()
 
         self.stdout.write(self.style.NOTICE("=== DRY-RUN SUMMARY ===" if not apply_changes else "=== APPLY SUMMARY ==="))
@@ -93,6 +102,12 @@ class Command(BaseCommand):
             self.stdout.write(f"Branch: {branch_code}")
         self.stdout.write(f"From series: {from_series.name} [id={from_series.id}] ({from_series.start_date:%Y-%m})")
         self.stdout.write(f"To series:   {to_series.name} [id={to_series.id}] ({to_series.start_date:%Y-%m})")
+        if options['ignore_from_series']:
+            self.stdout.write("Candidate selection is NOT constrained by from-series (ignore-from-series=ON)")
+        if options['results_any']:
+            self.stdout.write("Results selection: ALL results for selected candidates (results-any=ON)")
+        elif options['results_null']:
+            self.stdout.write("Results selection: results in from-series OR NULL series (results-null=ON)")
         self.stdout.write(f"Candidates to move: {total_candidates}")
         self.stdout.write(f"Results to move:    {total_results}")
 
