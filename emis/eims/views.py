@@ -1566,14 +1566,26 @@ def assessment_series_center_mapping_excel(request, pk: int):
 
     def write_sheet(ws, cat: str):
         ws.title = cat
-        headers = [
-            'Assessment Center Code',
-            'Assessment Center Name',
-            'District',
-            'Contact',
-            'Occupation',
-            'No. of Candidates',
-        ]
+        # Headers: for Formal include Level column
+        if cat == 'Formal':
+            headers = [
+                'Assessment Center Code',
+                'Assessment Center Name',
+                'District',
+                'Contact',
+                'Occupation',
+                'Level',
+                'No. of Candidates',
+            ]
+        else:
+            headers = [
+                'Assessment Center Code',
+                'Assessment Center Name',
+                'District',
+                'Contact',
+                'Occupation',
+                'No. of Candidates',
+            ]
         ws.append(headers)
         for i in range(1, len(headers) + 1):
             cell = ws.cell(row=1, column=i)
@@ -1592,6 +1604,14 @@ def assessment_series_center_mapping_excel(request, pk: int):
             center = cand.assessment_center
             branch = getattr(cand, 'assessment_center_branch', None)
             occupation = cand.occupation
+            level_name = ''
+            if cat == 'Formal':
+                # Derive the candidate's level (first CandidateLevel)
+                cl = getattr(cand, 'candidatelevel_set', None)
+                if cl:
+                    first_level = cl.first()
+                    if first_level and getattr(first_level, 'level', None):
+                        level_name = getattr(first_level.level, 'name', '')
 
             # Code: prefer branch_code if branch is present, else center_number
             if branch:
@@ -1617,19 +1637,34 @@ def assessment_series_center_mapping_excel(request, pk: int):
             elif occupation and getattr(occupation, 'name', None):
                 occ_label = occupation.name
 
-            key = (code, getattr(center, 'center_name', ''), district_name, contact_val, occ_label)
+            if cat == 'Formal':
+                key = (code, getattr(center, 'center_name', ''), district_name, contact_val, occ_label, level_name)
+            else:
+                key = (code, getattr(center, 'center_name', ''), district_name, contact_val, occ_label)
             counts[key] += 1
 
         # Write rows
-        for (code, center_name, district_name, contact_val, occ_label), total in sorted(counts.items(), key=lambda x: (x[0][0], x[0][4])):
-            ws.append([
-                code,
-                center_name,
-                district_name,
-                contact_val,
-                occ_label,
-                total,
-            ])
+        if cat == 'Formal':
+            for (code, center_name, district_name, contact_val, occ_label, level_name), total in sorted(counts.items(), key=lambda x: (x[0][0], x[0][4], x[0][5])):
+                ws.append([
+                    code,
+                    center_name,
+                    district_name,
+                    contact_val,
+                    occ_label,
+                    level_name,
+                    total,
+                ])
+        else:
+            for (code, center_name, district_name, contact_val, occ_label), total in sorted(counts.items(), key=lambda x: (x[0][0], x[0][4])):
+                ws.append([
+                    code,
+                    center_name,
+                    district_name,
+                    contact_val,
+                    occ_label,
+                    total,
+                ])
 
         # Auto-size columns
         for column in ws.columns:
