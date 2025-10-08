@@ -116,14 +116,41 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label for="{{ form.assessment_center.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_center.label }}{% if form.assessment_center.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
-          {{ form.assessment_center|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+          {% if is_branch_rep %}
+            <!-- Read-only chip showing locked center for branch reps -->
+            <div class="px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700">
+              {{ rep_center.center_name }}
+            </div>
+            <!-- Render field but keep hidden so POST contains correct value -->
+            <div class="hidden">{{ form.assessment_center }}</div>
+          {% else %}
+            {{ form.assessment_center|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+          {% endif %}
         </div>
         
-        <div id="branch-field-wrapper" class="hidden">
-          <label for="{{ form.assessment_center_branch.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_center_branch.label }} <span class="text-red-500">*</span></label>
-          {{ form.assessment_center_branch|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
-          <span id="branch-loading" class="text-xs text-gray-500 hidden">Loading branches...</span>
-          <p id="branch-help-text" class="text-xs text-gray-500 mt-1">Select the branch for this candidate</p>
+        <div id="branch-field-wrapper" class="{% if is_branch_rep %}block{% else %}hidden{% endif %}">
+          <label for="{{ form.assessment_center_branch.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.assessment_center_branch.label }}{% if is_branch_rep and rep_center.has_branches %} <span class="text-red-500">*</span>{% endif %}</label>
+          {% if is_branch_rep %}
+            {% if rep_center.has_branches %}
+              <div class="px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700">
+                {% if rep_branch %}
+                  {{ rep_branch.branch_code }}
+                {% else %}
+                  Main Center (no specific branch)
+                {% endif %}
+              </div>
+            {% else %}
+              <div class="px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-500">This center has no branches</div>
+            {% endif %}
+            <!-- Keep field in DOM but hidden to preserve POST and disabled state from form -->
+            <div class="hidden">{{ form.assessment_center_branch }}</div>
+            <span id="branch-loading" class="text-xs text-gray-500 hidden">Loading branches...</span>
+            <p id="branch-help-text" class="text-xs text-gray-500 mt-1">Your account is locked to this branch.</p>
+          {% else %}
+            {{ form.assessment_center_branch|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
+            <span id="branch-loading" class="text-xs text-gray-500 hidden">Loading branches...</span>
+            <p id="branch-help-text" class="text-xs text-gray-500 mt-1">Select the branch for this candidate</p>
+          {% endif %}
         </div>
         
         <div>

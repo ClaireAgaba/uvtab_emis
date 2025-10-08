@@ -7773,6 +7773,20 @@ def generate_testimonial(request, id):
 
 def candidate_create(request):
     from .models import CandidateDraft
+    # Detect if user is a Center Representative and capture their scoped center/branch
+    is_branch_rep = False
+    rep_center = None
+    rep_branch = None
+    try:
+        if request.user and request.user.groups.filter(name='CenterRep').exists():
+            from .models import CenterRepresentative
+            cr = CenterRepresentative.objects.filter(user=request.user).select_related('center', 'assessment_center_branch').first()
+            if cr and cr.center:
+                is_branch_rep = True
+                rep_center = cr.center
+                rep_branch = getattr(cr, 'assessment_center_branch', None)
+    except Exception:
+        pass
     draft_id = request.GET.get('draft')
     draft_data = None
     if draft_id:
@@ -7808,6 +7822,19 @@ def candidate_create(request):
     if request.method == 'POST':
         if form.is_valid():
             candidate = form.save(commit=False)
+            # Enforce branch locking for Center Representatives
+            if is_branch_rep and rep_center:
+                candidate.assessment_center = rep_center
+                # Only set branch if the rep is tied to a specific branch
+                try:
+                    if rep_branch and getattr(rep_center, 'has_branches', False):
+                        candidate.assessment_center_branch = rep_branch
+                    else:
+                        # Ensure main center when rep has no specific branch
+                        candidate.assessment_center_branch = None
+                except Exception:
+                    # Fallback: do not set branch if anything goes wrong
+                    pass
             candidate.created_by = request.user
             candidate.updated_by = request.user
             candidate.save()
@@ -7819,7 +7846,17 @@ def candidate_create(request):
             except Exception:
                 pass
             return redirect('candidate_view', id=candidate.id)
-    return render(request, 'candidates/create.html', {'form': form, 'draft_id': draft_id})
+    return render(
+        request,
+        'candidates/create.html',
+        {
+            'form': form,
+            'draft_id': draft_id,
+            'is_branch_rep': is_branch_rep,
+            'rep_center': rep_center,
+            'rep_branch': rep_branch,
+        },
+    )
 
 
 
@@ -7912,6 +7949,19 @@ def submit_candidate_from_draft(request, draft_id: int):
     form = CandidateForm(post_data, None, user=request.user)
     if form.is_valid():
         candidate = form.save(commit=False)
+        # Enforce branch locking for Center Representatives on draft submission as well
+        try:
+            if request.user and request.user.groups.filter(name='CenterRep').exists():
+                from .models import CenterRepresentative
+                cr = CenterRepresentative.objects.filter(user=request.user).select_related('center', 'assessment_center_branch').first()
+                if cr and cr.center:
+                    candidate.assessment_center = cr.center
+                    if getattr(cr, 'assessment_center_branch_id', None) and getattr(cr.center, 'has_branches', False):
+                        candidate.assessment_center_branch_id = cr.assessment_center_branch_id
+                    else:
+                        candidate.assessment_center_branch = None
+        except Exception:
+            pass
         candidate.created_by = request.user
         candidate.updated_by = request.user
         candidate.save()

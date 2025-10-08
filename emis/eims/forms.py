@@ -517,24 +517,33 @@ class CandidateForm(forms.ModelForm):
         
         # Refugee number field visibility is also controlled entirely by JavaScript
         # This ensures consistent behavior and prevents server/client conflicts
+        branch_locked = False
+        rep_branch_id = None
         if user and user.groups.filter(name='CenterRep').exists():
             from .models import CenterRepresentative
             try:
                 center_rep = CenterRepresentative.objects.get(user=user)
                 self.fields['assessment_center'].queryset = self.fields['assessment_center'].queryset.filter(pk=center_rep.center.pk)
                 self.fields['assessment_center'].initial = center_rep.center.pk
-                self.fields['assessment_center'].disabled = True
+                self.fields['assessment_center'].required = False
+                # Use HiddenInput so the value is submitted; do not disable (disabled fields are not submitted)
+                self.fields['assessment_center'].widget = forms.HiddenInput()
                 # Branch scoping: if this user is tied to a specific branch, restrict and lock the branch field
                 if getattr(center_rep, 'assessment_center_branch_id', None):
-                    self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(
-                        pk=center_rep.assessment_center_branch_id
-                    )
+                    branch_locked = True
+                    rep_branch_id = center_rep.assessment_center_branch_id
+                    self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(pk=center_rep.assessment_center_branch_id)
                     self.fields['assessment_center_branch'].initial = center_rep.assessment_center_branch_id
-                    self.fields['assessment_center_branch'].disabled = True
+                    self.fields['assessment_center_branch'].required = False
+                    # Hidden input so it posts; not disabled
+                    self.fields['assessment_center_branch'].widget = forms.HiddenInput()
                     self.fields['assessment_center_branch'].help_text = "Your account is scoped to this branch."
                 else:
-                    # Main center (no branch): keep branch empty to force Main Center only
+                    # Main center (no branch): hide branch field and keep empty
                     self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.none()
+                    self.fields['assessment_center_branch'].initial = None
+                    self.fields['assessment_center_branch'].required = False
+                    self.fields['assessment_center_branch'].widget = forms.HiddenInput()
                     self.fields['assessment_center_branch'].help_text = "Main Center account (no specific branch)."
             except CenterRepresentative.DoesNotExist:
                 self.fields['assessment_center'].queryset = self.fields['assessment_center'].queryset.none()
@@ -639,37 +648,39 @@ class CandidateForm(forms.ModelForm):
         # Handle assessment center branch selection
         self.fields['assessment_center_branch'].required = False  # Always optional to allow main center assignment
         self.fields['assessment_center_branch'].empty_label = "Main Center (no specific branch)"
-        self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.none()  # Start with empty queryset
-        
-        if 'assessment_center' in self.data:  # If form is submitted with data
-            try:
-                center_id = int(self.data.get('assessment_center'))
-                center = AssessmentCenter.objects.get(pk=center_id)
+
+        # If the user is branch-locked, do NOT overwrite the queryset/initial above
+        if not branch_locked:
+            self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.none()  # Start with empty queryset
+            if 'assessment_center' in self.data:  # If form is submitted with data
+                try:
+                    center_id = int(self.data.get('assessment_center'))
+                    center = AssessmentCenter.objects.get(pk=center_id)
+                    if center.has_branches:
+                        self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(assessment_center_id=center_id).order_by('branch_code')
+                        self.fields['assessment_center_branch'].help_text = "This center has branches. Select a specific branch or leave blank for main center."
+                    else:
+                        self.fields['assessment_center_branch'].help_text = "This center does not have branches."
+                except (ValueError, TypeError, AssessmentCenter.DoesNotExist):
+                    pass
+            elif self.instance.pk and self.instance.assessment_center:  # If editing existing instance
+                center = self.instance.assessment_center
                 if center.has_branches:
-                    self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(assessment_center_id=center_id).order_by('branch_code')
+                    self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(assessment_center=center).order_by('branch_code')
                     self.fields['assessment_center_branch'].help_text = "This center has branches. Select a specific branch or leave blank for main center."
                 else:
                     self.fields['assessment_center_branch'].help_text = "This center does not have branches."
-            except (ValueError, TypeError, AssessmentCenter.DoesNotExist):
-                pass
-        elif self.instance.pk and self.instance.assessment_center:  # If editing existing instance
-            center = self.instance.assessment_center
-            if center.has_branches:
-                self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(assessment_center=center).order_by('branch_code')
-                self.fields['assessment_center_branch'].help_text = "This center has branches. Select a specific branch or leave blank for main center."
-            else:
-                self.fields['assessment_center_branch'].help_text = "This center does not have branches."
-        elif self.initial.get('assessment_center'):  # If initial data has assessment center
-            try:
-                center_id = int(self.initial.get('assessment_center'))
-                center = AssessmentCenter.objects.get(pk=center_id)
-                if center.has_branches:
-                    self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(assessment_center_id=center_id).order_by('branch_code')
-                    self.fields['assessment_center_branch'].help_text = "This center has branches. Select a specific branch or leave blank for main center."
-                else:
-                    self.fields['assessment_center_branch'].help_text = "This center does not have branches."
-            except (ValueError, TypeError, AssessmentCenter.DoesNotExist):
-                pass
+            elif self.initial.get('assessment_center'):  # If initial data has assessment center
+                try:
+                    center_id = int(self.initial.get('assessment_center'))
+                    center = AssessmentCenter.objects.get(pk=center_id)
+                    if center.has_branches:
+                        self.fields['assessment_center_branch'].queryset = AssessmentCenterBranch.objects.filter(assessment_center_id=center_id).order_by('branch_code')
+                        self.fields['assessment_center_branch'].help_text = "This center has branches. Select a specific branch or leave blank for main center."
+                    else:
+                        self.fields['assessment_center_branch'].help_text = "This center does not have branches."
+                except (ValueError, TypeError, AssessmentCenter.DoesNotExist):
+                    pass
     class Meta:
         model = Candidate
         exclude = ['status', 'fees_balance', 'verification_status', 'verification_date', 'verified_by', 'decline_reason']
@@ -737,6 +748,58 @@ class CandidateForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Ensure branch-locked values are present even if browser didn't submit hidden inputs
+        try:
+            user = getattr(self, 'user', None)
+        except Exception:
+            user = None
+        try:
+            # Fallback: we passed user via __init__ kwarg, store it on self for reuse
+            if not user and hasattr(self, 'initial'):
+                user = None
+        except Exception:
+            user = None
+        try:
+            req_user = None
+        except Exception:
+            req_user = None
+        # Our __init__ doesn't store user on self; read from closure via local var passed to __init__.
+        # Instead, re-derive from request by checking for a hidden field we set; if absent, pull from CenterRepresentative.
+        try:
+            from .models import CenterRepresentative
+            if hasattr(self, 'data') and isinstance(self.data, (dict,)):
+                pass
+        except Exception:
+            pass
+        # Explicitly set assessment_center/branch from CenterRep if field is blank
+        try:
+            if hasattr(self, 'initial') and hasattr(self, 'fields'):
+                # When the form was constructed we set hidden inputs; if not in POST, force values here
+                if 'assessment_center' in self.fields and not cleaned_data.get('assessment_center'):
+                    # Try to derive from field queryset initial
+                    ac_initial = self.fields['assessment_center'].initial
+                    if ac_initial:
+                        try:
+                            from .models import AssessmentCenter
+                            if isinstance(ac_initial, AssessmentCenter):
+                                cleaned_data['assessment_center'] = ac_initial
+                            else:
+                                cleaned_data['assessment_center'] = AssessmentCenter.objects.get(pk=ac_initial)
+                        except Exception:
+                            pass
+                if 'assessment_center_branch' in self.fields and not cleaned_data.get('assessment_center_branch'):
+                    acb_initial = self.fields['assessment_center_branch'].initial
+                    if acb_initial:
+                        try:
+                            from .models import AssessmentCenterBranch
+                            if isinstance(acb_initial, AssessmentCenterBranch):
+                                cleaned_data['assessment_center_branch'] = acb_initial
+                            else:
+                                cleaned_data['assessment_center_branch'] = AssessmentCenterBranch.objects.get(pk=acb_initial)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
         disability = cleaned_data.get('disability')
         nature_of_disability = cleaned_data.get('nature_of_disability')
         # Enforce: If disability is checked, nature_of_disability must be selected
