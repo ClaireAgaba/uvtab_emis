@@ -16,6 +16,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--center', required=True, help='Assessment center code (center_number), e.g., UVT794')
+        parser.add_argument('--branch-code', help='Optional: limit to a specific branch_code under the center')
         # Preferred: identify series explicitly
         parser.add_argument('--from-series-id', type=int, help='Source AssessmentSeries ID (preferred)')
         parser.add_argument('--to-series-id', type=int, help='Destination AssessmentSeries ID (preferred)')
@@ -27,10 +28,13 @@ class Command(BaseCommand):
         parser.add_argument('--to-year', type=int, help='DEPRECATED: Destination series year')
         parser.add_argument('--to-month', type=int, help='DEPRECATED: Destination series month (1-12)')
         parser.add_argument('--apply', action='store_true', help='Actually perform the move. Without this, runs as a dry-run.')
+        parser.add_argument('--results-any', action='store_true', help='Also move Result.assessment_series for selected candidates regardless of current series (useful when results have NULL or mismatched series).')
+        parser.add_argument('--report', action='store_true', help='In dry-run, print a breakdown by current series for candidates and results.')
         parser.add_argument('--log', default='', help='Optional path to write a CSV log of moved records')
 
     def handle(self, *args, **options):
         center_code = options['center'].strip()
+        branch_code = (options.get('branch_code') or '').strip() or None
         from_series_id = options.get('from_series_id')
         to_series_id = options.get('to_series_id')
         from_series_name = options.get('from_series_name')
@@ -64,25 +68,52 @@ class Command(BaseCommand):
         from_series = resolve_series(from_series_id, from_series_name, from_year, from_month, 'From')
         to_series = resolve_series(to_series_id, to_series_name, to_year, to_month, 'To')
 
-        # Candidates strictly in the specified center (any branch under it) and in the from_series
-        candidates_qs = Candidate.objects.filter(
-            assessment_center__center_number=center_code,
-            assessment_series=from_series,
-        ).only('id', 'assessment_series', 'assessment_center_id')
+        # Candidates strictly in the specified center and (optionally) branch, in the from_series
+        cand_filters = {
+            'assessment_center__center_number': center_code,
+            'assessment_series': from_series,
+        }
+        if branch_code:
+            cand_filters['assessment_center_branch__branch_code'] = branch_code
+        candidates_qs = Candidate.objects.filter(**cand_filters).only('id', 'assessment_series', 'assessment_center_id')
 
         candidate_ids = list(candidates_qs.values_list('id', flat=True))
         total_candidates = len(candidate_ids)
 
-        # Results attached to those candidates and in the from_series
-        results_qs = Result.objects.filter(candidate_id__in=candidate_ids, assessment_series=from_series).only('id', 'candidate_id', 'assessment_series_id')
+        # Results attached to those candidates
+        if options['results_any']:
+            results_qs = Result.objects.filter(candidate_id__in=candidate_ids).only('id', 'candidate_id', 'assessment_series_id')
+        else:
+            results_qs = Result.objects.filter(candidate_id__in=candidate_ids, assessment_series=from_series).only('id', 'candidate_id', 'assessment_series_id')
         total_results = results_qs.count()
 
         self.stdout.write(self.style.NOTICE("=== DRY-RUN SUMMARY ===" if not apply_changes else "=== APPLY SUMMARY ==="))
         self.stdout.write(f"Center: {center_code}")
+        if branch_code:
+            self.stdout.write(f"Branch: {branch_code}")
         self.stdout.write(f"From series: {from_series.name} [id={from_series.id}] ({from_series.start_date:%Y-%m})")
         self.stdout.write(f"To series:   {to_series.name} [id={to_series.id}] ({to_series.start_date:%Y-%m})")
         self.stdout.write(f"Candidates to move: {total_candidates}")
         self.stdout.write(f"Results to move:    {total_results}")
+
+        # Optional breakdown report
+        if options['report']:
+            from collections import Counter
+            cand_series = Counter(
+                Candidate.objects.filter(
+                    assessment_center__center_number=center_code,
+                    **({ 'assessment_center_branch__branch_code': branch_code } if branch_code else {})
+                ).values_list('assessment_series_id', flat=True)
+            )
+            self.stdout.write("Candidate count by current series id:")
+            for sid, cnt in sorted(cand_series.items(), key=lambda x: (0 if x[0]==getattr(from_series,'id',None) else 1, x[0])):
+                self.stdout.write(f"  series_id={sid}: {cnt}")
+            res_series = Counter(
+                Result.objects.filter(candidate_id__in=candidate_ids).values_list('assessment_series_id', flat=True)
+            )
+            self.stdout.write("Result count by current series id (for selected candidates):")
+            for sid, cnt in sorted(res_series.items(), key=lambda x: (0 if x[0]==getattr(from_series,'id',None) else 1, str(x[0]))):
+                self.stdout.write(f"  series_id={sid}: {cnt}")
 
         writer = None
         log_file = None
