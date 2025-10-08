@@ -757,7 +757,7 @@ class Candidate(models.Model):
         help_text="User who processed the payment clearance"
     )
     payment_amount_cleared = models.DecimalField(
-        max_digits=10,
+        max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
@@ -1515,7 +1515,7 @@ class CenterSeriesPayment(models.Model):
     """
     assessment_center = models.ForeignKey('AssessmentCenter', on_delete=models.CASCADE)
     assessment_series = models.ForeignKey('AssessmentSeries', on_delete=models.CASCADE, null=True, blank=True)
-    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)  # Increased from 10 to 12 to support large amounts
     payment_date = models.DateTimeField(auto_now_add=True)
     paid_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     
