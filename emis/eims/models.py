@@ -842,6 +842,14 @@ class Candidate(models.Model):
         if self.registration_category == 'Modular':
             # Decoupled modular billing: use stored center choice instead of live enrollments
             selected_count = self.modular_module_count or 0
+            
+            # CRITICAL FIX: If modular_module_count is not set, use actual enrolled module count
+            if selected_count == 0:
+                actual_module_count = self.candidatemodule_set.count()
+                if actual_module_count > 0:
+                    # Candidate has modules but no module count set - use actual count
+                    selected_count = min(actual_module_count, 2)  # Cap at 2 for billing
+            
             if selected_count in (1, 2):
                 # If we have a cached amount, prefer it to preserve historical billing
                 if self.modular_billing_amount is not None:

@@ -66,7 +66,8 @@ class Command(BaseCommand):
     def mark_historical_cleared_candidates(self, dry_run):
         """
         Mark candidates with fees_balance=0 and enrollments as historically cleared
-        These are candidates who were paid before the payment tracking system was implemented
+        These are candidates who were paid/cleared before the payment tracking system was implemented
+        CRITICAL: These candidates need to be counted in PAID amounts, not lost!
         """
         # Find candidates who:
         # 1. Have fees_balance = 0
@@ -88,14 +89,24 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('   ✓ No historical cleared candidates found'))
             return
         
-        self.stdout.write(f'\n   Found {count} historical cleared candidates:')
+        self.stdout.write(f'\n   Found {count} historical cleared candidates (already paid before payment tracking):')
         
         # Get a system user for historical records
         system_user = User.objects.filter(is_superuser=True).first()
         
+        # Group by center-series for CenterSeriesPayment updates
+        from collections import defaultdict
+        center_series_totals = defaultdict(lambda: {'candidates': [], 'total': Decimal('0.00')})
+        
         for candidate in historical_candidates:
             # Calculate what their original fee would have been
+            # Since fees_balance is 0, we need to recalculate what they SHOULD have been billed
             original_fee = candidate.calculate_fees_balance()
+            
+            # If calculation returns 0, it means the candidate has no billable enrollments
+            # Skip these candidates
+            if original_fee == 0:
+                continue
             
             center_name = candidate.assessment_center.center_name if candidate.assessment_center else 'Unknown'
             series_name = candidate.assessment_series.name if candidate.assessment_series else 'No Series'
@@ -125,11 +136,50 @@ class Command(BaseCommand):
                     'payment_amount_cleared',
                     'payment_center_series_ref'
                 ])
+                
+                # Track for CenterSeriesPayment updates
+                center = candidate.assessment_center
+                series = candidate.assessment_series
+                key = f"{center.id if center else 'none'}_{series.id if series else 'none'}"
+                center_series_totals[key]['candidates'].append(candidate)
+                center_series_totals[key]['total'] += original_fee
+                center_series_totals[key]['center'] = center
+                center_series_totals[key]['series'] = series
         
         if not dry_run:
             self.stdout.write(self.style.SUCCESS(f'\n   ✓ Marked {count} candidates as historically cleared'))
+            
+            # Update or create CenterSeriesPayment records for historical payments
+            if center_series_totals:
+                self.stdout.write('\n   Updating CenterSeriesPayment records for historical payments...')
+                for key, data in center_series_totals.items():
+                    center = data['center']
+                    series = data['series']
+                    total = data['total']
+                    
+                    if not center:
+                        continue
+                    
+                    # Get or create payment record
+                    from eims.models import CenterSeriesPayment
+                    payment_record, created = CenterSeriesPayment.objects.get_or_create(
+                        assessment_center=center,
+                        assessment_series=series,
+                        defaults={
+                            'amount_paid': total,
+                            'paid_by': system_user
+                        }
+                    )
+                    
+                    if not created:
+                        # Add to existing payment record
+                        payment_record.amount_paid += total
+                        payment_record.save(update_fields=['amount_paid'])
+                        self.stdout.write(f'      ✓ Updated {center.center_name} / {series.name if series else "No Series"}: Added UGX {total:,.2f}')
+                    else:
+                        self.stdout.write(f'      ✓ Created {center.center_name} / {series.name if series else "No Series"}: UGX {total:,.2f}')
         else:
-            self.stdout.write(self.style.NOTICE(f'\n   ℹ Would mark {count} candidates as historically cleared'))
+            self.stdout.write(self.style.NOTICE(f'\n   ℹ Would mark {count} candidates as historically cleared and update payment records'))
 
     def recalculate_payment_records(self, dry_run):
         """
