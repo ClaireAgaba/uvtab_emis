@@ -35,6 +35,7 @@ class Command(BaseCommand):
         
         total_candidates = candidates.count()
         self.stdout.write(f'\nFound {total_candidates} candidates with enrollments\n')
+        self.stdout.write('Processing candidates...\n')
         
         candidates_changed = 0
         total_fees_added = Decimal('0.00')
@@ -44,7 +45,14 @@ class Command(BaseCommand):
         formal_fixed = []
         workers_pas_fixed = []
         
+        processed = 0
         for candidate in candidates:
+            processed += 1
+            
+            # Show progress every 1000 candidates
+            if processed % 1000 == 0:
+                self.stdout.write(f'  Progress: {processed}/{total_candidates} candidates ({(processed/total_candidates*100):.1f}%)')
+                self.stdout.flush()
             old_fee = candidate.fees_balance
             calculated_fee = candidate.calculate_fees_balance()
             
@@ -90,6 +98,9 @@ class Command(BaseCommand):
                 if not dry_run:
                     candidate.fees_balance = calculated_fee
                     candidate.save(update_fields=['fees_balance'])
+        
+        # Show final progress
+        self.stdout.write(f'  Progress: {total_candidates}/{total_candidates} candidates (100.0%)\n')
         
         # Report results
         self.stdout.write('\n' + '='*80)

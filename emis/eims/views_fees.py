@@ -53,11 +53,13 @@ def uvtab_fees_home(request):
     
     # Get all billed/enrolled candidates (both paid and unpaid)
     # Treat Modular candidates with billed count or any module enrollment as billed even without level enrollment
+    # CRITICAL: Also include candidates with payment_cleared=True (historical paid candidates)
     qs = Candidate.objects.filter(
         Q(candidatelevel__isnull=False) |
         Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
         Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
-        Q(fees_balance__gt=0)
+        Q(fees_balance__gt=0) |
+        Q(payment_cleared=True)  # Include historically cleared/paid candidates
     )
     if user_center:
         qs = qs.filter(assessment_center=user_center)
@@ -384,12 +386,14 @@ def center_fees_list(request):
     from django.db.models import Q
     
     # Get ALL candidates who have been billed or enrolled (level or modular)
+    # CRITICAL: Include payment_cleared=True to count historically cleared/paid candidates
     candidates_with_billing = Candidate.objects.filter(
         (
             Q(candidatelevel__isnull=False) |
             Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
             Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
-            Q(fees_balance__gt=0)
+            Q(fees_balance__gt=0) |
+            Q(payment_cleared=True)  # Include historically cleared/paid candidates
         ),
         assessment_center__isnull=False
     )
@@ -423,6 +427,7 @@ def center_fees_list(request):
             }
         
         center_series_data[key]['candidates'].append(candidate)
+        # Add current unpaid fees only (fees_balance)
         center_series_data[key]['total_fees'] += candidate.fees_balance
         center_series_data[key]['candidate_count'] += 1
         center_series_data[key]['enrolled_count'] += 1  # All these candidates are enrolled
