@@ -45,13 +45,47 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.NOTICE('\n🔍 AUDIT MODE - Will only report issues\n'))
         
-        # Get all enrolled candidates (with level or module enrollments)
-        all_enrolled = Candidate.objects.filter(
-            Q(candidatelevel__isnull=False) | Q(candidatemodule__isnull=False)
-        ).distinct().select_related('assessment_center', 'assessment_series')
+        # Get all billed candidates (same query as UVTAB Fees view)
+        # Include: enrolled candidates OR candidates with fees OR paid candidates
+        try:
+            # Try including payment_cleared (if migration has been run)
+            all_enrolled = Candidate.objects.filter(
+                Q(candidatelevel__isnull=False) |
+                Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+                Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+                Q(fees_balance__gt=0) |
+                Q(payment_cleared=True)
+            ).distinct().select_related('assessment_center', 'assessment_series')
+        except:
+            # If payment_cleared column doesn't exist yet, use simpler query
+            self.stdout.write(self.style.WARNING('⚠️  payment_cleared column not found - run migration first!'))
+            self.stdout.write(self.style.WARNING('   Using basic query without payment tracking...\n'))
+            all_enrolled = Candidate.objects.filter(
+                Q(candidatelevel__isnull=False) |
+                Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+                Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+                Q(fees_balance__gt=0)
+            ).distinct().select_related('assessment_center', 'assessment_series')
         
         if specific_center:
+            # Debug: check if center exists
+            center_obj = AssessmentCenter.objects.filter(center_number=specific_center).first()
+            if not center_obj:
+                self.stdout.write(self.style.ERROR(f'❌ Center {specific_center} not found in database!'))
+                self.stdout.write(self.style.WARNING('Available centers:'))
+                for c in AssessmentCenter.objects.filter(center_number__icontains=specific_center[:3])[:5]:
+                    self.stdout.write(f'  - {c.center_number}: {c.center_name}')
+                return
+            
             all_enrolled = all_enrolled.filter(assessment_center__center_number=specific_center)
+            
+            # Debug: show what we found
+            self.stdout.write(f'Center: {center_obj.center_name} ({specific_center})')
+            self.stdout.write(f'Total candidates for this center: {Candidate.objects.filter(assessment_center=center_obj).count()}')
+            self.stdout.write(f'Candidates with fees_balance > 0: {Candidate.objects.filter(assessment_center=center_obj, fees_balance__gt=0).count()}')
+            self.stdout.write(f'Candidates with level enrollment: {Candidate.objects.filter(assessment_center=center_obj, candidatelevel__isnull=False).distinct().count()}')
+            self.stdout.write(f'Candidates with module enrollment: {Candidate.objects.filter(assessment_center=center_obj, candidatemodule__isnull=False).distinct().count()}')
+            self.stdout.write('')
         
         # Group by center-series
         center_series_groups = defaultdict(lambda: {
