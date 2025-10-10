@@ -92,7 +92,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     </div>
 </div>
 
-<div class="max-w-7xl w-full mx-auto mt-6 space-y-6">
+<div class="max-w-7xl w-full mx-auto mt-6 space-y-6 candidate-page lg:pr-[26rem]">
 
   <!-- Candidate Portal Welcome Message -->
   {% if is_candidate_portal %}
@@ -129,33 +129,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
   {% endif %}
   {% endif %}
 
-  <!-- PAYMENT CLEARED WARNING BANNER -->
-  {% if candidate.payment_cleared %}
-  <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 rounded-lg p-5 mb-6 shadow-md">
-    <div class="flex items-start">
-      <div class="flex-shrink-0">
-        <svg class="w-8 h-8 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-        </svg>
-      </div>
-      <div class="ml-4 flex-1">
-        <h3 class="text-lg font-bold text-yellow-900 mb-2">
-          🔒 PAYMENT CLEARED - CANDIDATE IN PAYMENT AUDIT TRAIL
-        </h3>
-        <div class="text-sm text-yellow-800 space-y-1">
-          <p><strong>Payment Cleared:</strong> {{ candidate.payment_cleared_date|date:"F d, Y \a\t h:i A" }}</p>
-          <p><strong>Amount Cleared:</strong> UGX {{ candidate.payment_amount_cleared|floatformat:2|default:"N/A" }}</p>
-          <p><strong>Cleared By:</strong> {{ candidate.payment_cleared_by.get_full_name|default:candidate.payment_cleared_by.username }}</p>
-          <p><strong>Transaction Reference:</strong> {{ candidate.payment_center_series_ref }}</p>
-          <div class="mt-3 p-3 bg-red-50 border border-red-200 rounded">
-            <p class="font-semibold text-red-900">⚠️ CRITICAL: This candidate CANNOT be deleted from the system</p>
-            <p class="text-red-800 text-xs mt-1">They are part of a financial audit trail. Any modifications must be approved by Finance/Admin department.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
+  {# Removed old large PAYMENT CLEARED banner; payment info now in sidebar Payment Trail #}
 
   <!-- Header -->
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -487,11 +461,14 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
 
   {% if request.user.is_superuser or request.user.is_staff or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
   <!-- Activity Log Sidebar (visible on large screens) -->
-  <aside class="hidden lg:block fixed right-6 top-28 w-96 z-10">
-    <div class="bg-white p-4 rounded shadow">
+  <aside id="activitySidebar" class="hidden lg:block fixed right-4 top-24 w-96 z-30">
+    <div class="bg-white p-4 rounded shadow-lg border border-gray-200">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold">Activity Log</h2>
-        <span class="text-xs text-gray-500">Most recent 50</span>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-500">Most recent 50</span>
+          <button id="hideActivityBtn" class="text-xs text-gray-600 hover:text-gray-800">Hide</button>
+        </div>
       </div>
       {% if change_logs %}
         <div class="overflow-y-auto max-h-[70vh] pr-1">
@@ -521,10 +498,53 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
       {% else %}
         <div class="text-sm text-gray-500">No activity recorded yet.</div>
       {% endif %}
+
+      <!-- Payment Trail (below activity table) -->
+      <div class="mt-4 border-t pt-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-base font-semibold">Payment Trail</h3>
+          {% if candidate.payment_cleared %}
+            <span class="inline-flex items-center px-2 py-0.5 text-[11px] rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300">Cleared</span>
+          {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 text-[11px] rounded-full bg-red-100 text-red-700 border border-red-200">Unpaid</span>
+          {% endif %}
+        </div>
+        {% if candidate.payment_cleared %}
+        <div class="text-sm text-gray-700 space-y-1">
+          <div><span class="text-gray-500">Cleared:</span> {{ candidate.payment_cleared_date|date:"Y-m-d H:i" }}</div>
+          <div><span class="text-gray-500">Amount:</span> UGX {{ candidate.payment_amount_cleared|floatformat:2|default:"N/A" }}</div>
+          <div><span class="text-gray-500">By:</span> {{ candidate.payment_cleared_by.get_full_name|default:candidate.payment_cleared_by.username }}</div>
+          <div><span class="text-gray-500">Reference:</span> {{ candidate.payment_center_series_ref|default:"—" }}</div>
+        </div>
+        {% else %}
+          <div class="text-sm text-gray-500">No payment clearance recorded for this candidate.</div>
+        {% endif %}
+      </div>
     </div>
   </aside>
-  <!-- Right spacer to balance layout so content doesn't run under the fixed sidebar -->
-  <div class="hidden lg:block float-right w-96"></div>
+  <!-- Floating show button (appears when sidebar hidden) -->
+  <button id="showActivityBtn" class="hidden lg:flex items-center gap-2 fixed right-4 top-24 bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded shadow z-20">Show Activity</button>
+  <script>
+    (function(){
+      const sidebar = document.getElementById('activitySidebar');
+      const hideBtn = document.getElementById('hideActivityBtn');
+      const showBtn = document.getElementById('showActivityBtn');
+      const page = document.querySelector('.candidate-page');
+      if (!sidebar || !hideBtn || !showBtn || !page) return;
+      function hideSidebar(){
+        sidebar.classList.add('hidden');
+        showBtn.classList.remove('hidden');
+        page.classList.remove('lg:pr-[26rem]');
+      }
+      function showSidebar(){
+        sidebar.classList.remove('hidden');
+        showBtn.classList.add('hidden');
+        if (!page.classList.contains('lg:pr-[26rem]')) page.classList.add('lg:pr-[26rem]');
+      }
+      hideBtn.addEventListener('click', hideSidebar);
+      showBtn.addEventListener('click', showSidebar);
+    })();
+  </script>
   {% endif %}
 
   <!-- Summary Info + Photo -->
