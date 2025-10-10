@@ -486,11 +486,32 @@ def center_fees_list(request):
         
         amount_due = current_outstanding  # Current outstanding amount
         
+        # Re-compute candidate count using the SAME billing query used by modal/PDF
+        # to avoid any edge-case discrepancies from in-memory grouping
+        try:
+            billing_qs = Candidate.objects.filter(
+                assessment_center=center
+            ).filter(
+                Q(candidatelevel__isnull=False) |
+                Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+                Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+                Q(fees_balance__gt=0) |
+                Q(payment_cleared=True)
+            )
+            if series:
+                billing_qs = billing_qs.filter(assessment_series=series)
+            else:
+                billing_qs = billing_qs.filter(assessment_series__isnull=True)
+            candidate_count_exact = billing_qs.distinct().count()
+        except Exception:
+            # Fallback to grouped count if anything goes wrong
+            candidate_count_exact = data['candidate_count']
+
         center_fees_data.append({
             'key': key,
             'center': center,
             'assessment_series': series,
-            'candidate_count': data['candidate_count'],
+            'candidate_count': candidate_count_exact,
             'enrolled_count': data['enrolled_count'],
             'total_fees': original_total_billed,  # Original amount ever billed
             'amount_paid': amount_paid,   # Amount already paid
@@ -621,57 +642,26 @@ def center_candidates_report(request, center_id, series_id=None):
         
         candidates = candidates_query.order_by('reg_number')
         
-        # Calculate totals
+        # Calculate totals using authoritative data
         total_candidates = candidates.count()
-        current_outstanding = sum(c.fees_balance for c in candidates)  # Current outstanding fees
-        
-        # Calculate what the original billing should have been for all enrolled candidates
-        # Use the candidate's calculate_fees_balance method to get original fees
-        original_billing_total = Decimal('0.00')
-        for candidate in candidates:
-            try:
-                # Calculate what this candidate should be charged based on their enrollment
-                if hasattr(candidate, 'calculate_fees_balance'):
-                    # Get the original calculated fees (ignoring current balance)
-                    original_fee = candidate.calculate_fees_balance()
-                    # Fallback: if calculated is zero but a current balance exists, use current balance
-                    if (original_fee or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
-                        original_fee = candidate.fees_balance
-                    original_billing_total += original_fee
-                else:
-                    # Fallback: if no calculation method, assume current balance is correct
-                    # But if balance is 0 and they have enrollments, try to estimate
-                    if candidate.fees_balance == 0 and candidate.candidatelevel_set.exists():
-                        # This candidate was likely paid - try to estimate original fee
-                        levels = candidate.candidatelevel_set.all()
-                        for level_enrollment in levels:
-                            level = level_enrollment.level
-                            if candidate.registration_category == 'modular':
-                                modules = candidate.candidatemodule_set.filter(level=level)
-                                if modules.count() == 1:
-                                    original_billing_total += level.single_module_fee or Decimal('0.00')
-                                elif modules.count() >= 2:
-                                    original_billing_total += level.double_module_fee or Decimal('0.00')
-                            elif candidate.registration_category == 'formal':
-                                original_billing_total += level.formal_fee or Decimal('0.00')
-                            elif candidate.registration_category in ['informal', 'workers_pas']:
-                                modules = candidate.candidatemodule_set.filter(level=level)
-                                module_fee = level.occupation.workers_pas_module_fee or Decimal('0.00')
-                                original_billing_total += module_fee * modules.count()
-                    else:
-                        original_billing_total += candidate.fees_balance
-            except Exception as e:
-                # If calculation fails, add current balance as fallback
-                original_billing_total += candidate.fees_balance
-        
-        # Calculate amount paid: if current outstanding is less than original billing, 
-        # the difference has been paid
-        if original_billing_total > current_outstanding:
-            amount_paid = original_billing_total - current_outstanding
-        else:
+        current_outstanding = sum((c.fees_balance or Decimal('0.00')) for c in candidates)
+        # Paid comes from CenterSeriesPayment for this center+series
+        try:
+            if assessment_series:
+                pr = CenterSeriesPayment.objects.filter(
+                    assessment_center=center,
+                    assessment_series=assessment_series
+                ).first()
+            else:
+                pr = CenterSeriesPayment.objects.filter(
+                    assessment_center=center,
+                    assessment_series__isnull=True
+                ).first()
+            amount_paid = pr.amount_paid if pr else Decimal('0.00')
+        except Exception:
             amount_paid = Decimal('0.00')
         
-        total_bill = original_billing_total
+        total_bill = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
         amount_due = current_outstanding
         
         # Prepare candidate data for invoice
