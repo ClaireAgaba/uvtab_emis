@@ -92,7 +92,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
     </div>
 </div>
 
-<div class="max-w-7xl w-full mx-auto mt-6 space-y-6 candidate-page lg:pr-[26rem]">
+<div class="max-w-[1600px] w-full mx-auto mt-6 space-y-6 candidate-page lg:pr-[30rem]">
 
   <!-- Candidate Portal Welcome Message -->
   {% if is_candidate_portal %}
@@ -461,7 +461,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
 
   {% if request.user.is_superuser or request.user.is_staff or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}
   <!-- Activity Log Sidebar (visible on large screens) -->
-  <aside id="activitySidebar" class="hidden lg:block fixed right-4 top-24 w-96 z-30">
+  <aside id="activitySidebar" class="hidden lg:block fixed right-4 top-24 w-[28rem] z-30">
     <div class="bg-white p-4 rounded shadow-lg border border-gray-200">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold">Activity Log</h2>
