@@ -65,25 +65,28 @@ class Command(BaseCommand):
         except AssessmentCenter.DoesNotExist:
             raise CommandError('Center not found with the provided identifier')
 
-        candidates_qs = Candidate.objects.filter(assessment_center=center)
+        # Build base scope first (unsliced)
+        scope_qs = Candidate.objects.filter(assessment_center=center)
         if series_id:
-            candidates_qs = candidates_qs.filter(assessment_series_id=series_id)
+            scope_qs = scope_qs.filter(assessment_series_id=series_id)
 
-        protected_paid_qs = candidates_qs.filter(payment_cleared=True)
+        protected_paid_qs = scope_qs.filter(payment_cleared=True)
         if protected_paid_qs.exists() and not include_paid:
             raise CommandError(
                 f"Refusing to purge: {protected_paid_qs.count()} candidates are marked as paid. "
                 f"Re-run with --include-paid to override."
             )
 
-        total_candidates = candidates_qs.count()
+        total_candidates = scope_qs.count()
+        target_qs = scope_qs.order_by('id')
         if limit:
-            candidates_qs = candidates_qs.order_by('id')[:limit]
-        target_ids = list(candidates_qs.values_list('id', flat=True))
+            target_qs = target_qs[:limit]
+        target_ids = list(target_qs.values_list('id', flat=True))
 
-        # Summaries
-        paid_sum = candidates_qs.aggregate(total=models.Sum('payment_amount_cleared'))['total'] or Decimal('0.00')
-        paid_count = candidates_qs.filter(payment_cleared=True).count()
+        # Summaries (on the selected targets only)
+        summary_qs = scope_qs.filter(id__in=target_ids)
+        paid_sum = summary_qs.aggregate(total=models.Sum('payment_amount_cleared'))['total'] or Decimal('0.00')
+        paid_count = summary_qs.filter(payment_cleared=True).count()
 
         self.stdout.write(self.style.WARNING('================== DRY RUN ==================' if not force else '================== EXECUTION =================='))
         self.stdout.write(f"Center: {center.center_number} - {center.center_name}")
