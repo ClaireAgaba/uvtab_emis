@@ -8,7 +8,7 @@ from eims.models import CandidateDraft
 class Command(BaseCommand):
     help = (
         "Delete CandidateDraft entries. By default, removes records older than the specified age\n"
-        "(default: 2 hours). Use --all to delete ALL drafts regardless of age.\n"
+        "(default: 12 hours). Use --all to delete ALL drafts regardless of age.\n"
         "Use --dry-run to preview the deletions without applying them."
     )
 
@@ -16,8 +16,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--hours",
             type=int,
-            default=2,
-            help="Age threshold in hours. Drafts older than this will be deleted (default: 2).",
+            default=12,
+            help="Age threshold in hours. Drafts older than this will be deleted (default: 12).",
         )
         parser.add_argument(
             "--days",

@@ -6105,6 +6105,15 @@ def candidate_list(request):
     filter_params = urllib.parse.urlencode(current_filters)
 
     from .models import NatureOfDisability, CandidateDraft
+    # Auto-cleanup: delete drafts older than 12 hours on access (no separate job needed)
+    try:
+        from django.utils import timezone
+        from datetime import timedelta
+        _threshold = timezone.now() - timedelta(hours=12)
+        CandidateDraft.objects.filter(updated_at__lt=_threshold).delete()
+    except Exception:
+        # Do not block the view if cleanup fails for any reason
+        pass
     # Fetch drafts for visibility (current user's drafts first; staff can see all)
     if request.user.is_staff or request.user.is_superuser:
         candidate_drafts = CandidateDraft.objects.select_related('assessment_center').all()
