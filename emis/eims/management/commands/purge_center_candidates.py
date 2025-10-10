@@ -4,7 +4,7 @@ from django.utils import timezone
 from decimal import Decimal
 import os
 
-from emis.eims.models import (
+from eims.models import (
     Candidate,
     AssessmentCenter,
     AssessmentSeries,
@@ -12,7 +12,7 @@ from emis.eims.models import (
 
 # Optional import: payments model may not exist in all installations
 try:
-    from emis.eims.models import CenterSeriesPayment
+    from eims.models import CenterSeriesPayment
 except Exception:  # pragma: no cover
     CenterSeriesPayment = None
 
