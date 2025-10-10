@@ -136,55 +136,16 @@ def uvtab_fees_home(request):
     current_outstanding = all_enrolled_candidates.aggregate(
         total=models.Sum('fees_balance')
     )['total'] or Decimal('0.00')
-    
-    # Calculate original billing total using the same logic as invoice generation
-    original_billing_total = Decimal('0.00')
-    for candidate in all_enrolled_candidates:
-        try:
-            # Calculate what this candidate should be charged based on their enrollment
-            if hasattr(candidate, 'calculate_fees_balance'):
-                # Get the original calculated fees (ignoring current balance)
-                orig = candidate.calculate_fees_balance()
-                # If calculated is zero but a current balance exists, fall back to current balance
-                if (orig or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
-                    orig = candidate.fees_balance
-                original_billing_total += orig
-            else:
-                # Fallback: if no calculation method, assume current balance is correct
-                # But if balance is 0 and they have enrollments, try to estimate
-                if candidate.fees_balance == 0 and candidate.candidatelevel_set.exists():
-                    # This candidate was likely paid - try to estimate original fee
-                    levels = candidate.candidatelevel_set.all()
-                    for level_enrollment in levels:
-                        level = level_enrollment.level
-                        if candidate.registration_category == 'modular':
-                            modules = candidate.candidatemodule_set.filter(level=level)
-                            if modules.count() == 1:
-                                original_billing_total += level.single_module_fee or Decimal('0.00')
-                            elif modules.count() >= 2:
-                                original_billing_total += level.double_module_fee or Decimal('0.00')
-                        elif candidate.registration_category == 'formal':
-                            original_billing_total += level.formal_fee or Decimal('0.00')
-                        elif candidate.registration_category in ['informal', 'workers_pas']:
-                            modules = candidate.candidatemodule_set.filter(level=level)
-                            # Use Level.workers_pas_module_fee (per-module) for Worker's PAS/Informal
-                            module_fee = level.workers_pas_module_fee or Decimal('0.00')
-                            original_billing_total += module_fee * modules.count()
-                else:
-                    original_billing_total += candidate.fees_balance
-        except Exception as e:
-            # If calculation fails, add current balance as fallback
-            original_billing_total += candidate.fees_balance
-    
-    # Calculate amount paid: if current outstanding is less than original billing, 
-    # the difference has been paid
-    if original_billing_total > current_outstanding:
-        amount_paid = original_billing_total - current_outstanding
+
+    # Authoritative paid total from CenterSeriesPayment for this scope
+    if user_center:
+        paid_qs = CenterSeriesPayment.objects.filter(assessment_center=user_center)
     else:
-        amount_paid = Decimal('0.00')
-    
-    # Summary metrics for dashboard
-    total_fees = original_billing_total  # Total amount ever billed
+        paid_qs = CenterSeriesPayment.objects.all()
+    amount_paid = paid_qs.aggregate(total=models.Sum('amount_paid'))['total'] or Decimal('0.00')
+
+    # Summary metrics for dashboard (align with Center Fees + invoices)
+    total_fees = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
     amount_due = current_outstanding     # Current outstanding amount
     
     # Get centers with highest total fees (top 10) – for CenterRep, only their center
