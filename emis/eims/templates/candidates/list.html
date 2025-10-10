@@ -2,6 +2,18 @@
 
 {% block content %}
 <div class="w-full px-2 md:px-8 mt-4 md:mt-8">
+  <!-- Lightweight UI enhancements: Tom Select + compact table styles -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.1/dist/css/tom-select.css">
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.1/dist/js/tom-select.complete.min.js"></script>
+  <style>
+    /* Compact, clean table */
+    .candidate-table thead th { position: sticky; top: 0; z-index: 10; background: #f9fafb; }
+    .candidate-table th, .candidate-table td { padding: 8px 10px !important; }
+    .candidate-table tbody tr:nth-child(odd) { background: #fff; }
+    .candidate-table tbody tr:nth-child(even) { background: #fcfcfc; }
+    .candidate-table tbody tr:hover { background: #f5f7ff; }
+    .candidate-photo { height: 56px; width: 56px; border-radius: 9999px; object-fit: cover; }
+  </style>
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
     <h1 class="text-xl md:text-2xl font-normal" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Candidates</h1>
     <div class="flex flex-col sm:flex-row gap-2 mb-4">
@@ -319,7 +331,7 @@
 </div>
 
 <div class="bg-white shadow-sm border border-gray-200 rounded-lg">
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="min-w-full divide-y divide-gray-200 candidate-table">
       <thead class="bg-gray-50">
         <tr>
           <th class="px-2 py-2 text-center">
@@ -350,13 +362,13 @@
             <th></th> <!-- Checkbox column, no filter -->
             <th></th> <!-- Image column, no filter -->
             <th class="px-3 py-2">
-              <input type="text" name="reg_number" value="{{ filters.reg_number }}" placeholder="Search Reg No" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+              <input type="text" name="reg_number" value="{{ filters.reg_number }}" placeholder="Search Reg No" class="filter-input border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
             </th>
             <th class="px-3 py-2">
-              <input type="text" name="search" value="{{ filters.search }}" placeholder="Search Name" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+              <input type="text" name="search" value="{{ filters.search }}" placeholder="Search Name" class="filter-input border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
             </th>
             <th class="px-3 py-2">
-              <select name="occupation" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <select name="occupation" class="filter-select border border-gray-300 rounded px-2 py-1 text-sm w-full" placeholder="All Occupations">
                 <option value="">All Occupations</option>
                 {% for occupation in occupations %}
                   <option value="{{ occupation.id }}" {% if filters.occupation == occupation.id|stringformat:"s" %}selected{% endif %}>{{ occupation.name }}</option>
@@ -364,7 +376,7 @@
               </select>
             </th>
             <th class="px-3 py-2">
-              <select name="sector" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <select name="sector" class="filter-select border border-gray-300 rounded px-2 py-1 text-sm w-full" placeholder="All Sectors">
                 <option value="">All Sectors</option>
                 {% for sector in sectors %}
                   <option value="{{ sector.id }}" {% if filters.sector == sector.id|stringformat:"s" %}selected{% endif %}>{{ sector.name }}</option>
@@ -372,7 +384,7 @@
               </select>
             </th>
             <th class="px-3 py-2">
-              <select name="registration_category" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <select name="registration_category" class="filter-select border border-gray-300 rounded px-2 py-1 text-sm w-full" placeholder="All Categories">
                 <option value="">All Categ...</option>
                 <option value="Formal" {% if filters.registration_category == 'Formal' %}selected{% endif %}>Formal</option>
                 <option value="Modular" {% if filters.registration_category == 'Modular' %}selected{% endif %}>Modular</option>
@@ -381,7 +393,7 @@
             </th>
             <th class="px-3 py-2">
               <div class="flex gap-1">
-                <select name="assessment_month" class="border border-gray-300 rounded px-1 py-1 text-xs w-1/2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <select name="assessment_month" class="filter-select border border-gray-300 rounded px-1 py-1 text-xs w-1/2" placeholder="Month">
                   <option value="">Month</option>
                   <option value="1" {% if filters.assessment_month == '1' %}selected{% endif %}>Jan</option>
                   <option value="2" {% if filters.assessment_month == '2' %}selected{% endif %}>Feb</option>
@@ -396,7 +408,7 @@
                   <option value="11" {% if filters.assessment_month == '11' %}selected{% endif %}>Nov</option>
                   <option value="12" {% if filters.assessment_month == '12' %}selected{% endif %}>Dec</option>
                 </select>
-                <select name="assessment_year" class="border border-gray-300 rounded px-1 py-1 text-xs w-1/2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <select name="assessment_year" class="filter-select border border-gray-300 rounded px-1 py-1 text-xs w-1/2" placeholder="Year">
                   <option value="">Year</option>
                   {% for year in assessment_years %}
                     <option value="{{ year }}" {% if filters.assessment_year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
@@ -405,14 +417,14 @@
               </div>
             </th>
             <th class="px-3 py-2">
-              <select name="disability" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <select name="disability" class="filter-select border border-gray-300 rounded px-2 py-1 text-sm w-full" placeholder="All">
                 <option value="">All</option>
                 <option value="true" {% if filters.disability == 'true' %}selected{% endif %}>Yes</option>
                 <option value="false" {% if filters.disability == 'false' %}selected{% endif %}>No</option>
               </select>
             </th>
             <th class="px-3 py-2">
-              <select name="is_refugee" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <select name="is_refugee" class="filter-select border border-gray-300 rounded px-2 py-1 text-sm w-full" placeholder="All">
                 <option value="">All</option>
                 <option value="true" {% if filters.is_refugee == 'true' %}selected{% endif %}>Yes</option>
                 <option value="false" {% if filters.is_refugee == 'false' %}selected{% endif %}>No</option>
@@ -420,7 +432,7 @@
             </th>
             <th class="px-3 py-2">
               {% if not is_center_rep %}
-              <select name="assessment_center" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <select name="assessment_center" class="filter-select border border-gray-300 rounded px-2 py-1 text-sm w-full" placeholder="All Centers">
                 <option value="">All Centers</option>
                 {% for center in centers %}
                   <option value="{{ center.id }}" {% if filters.assessment_center == center.id|stringformat:"s" %}selected{% endif %}>{{center.center_number}} - {{ center.center_name }}</option>
@@ -446,14 +458,14 @@
             <input type="checkbox" class="candidate-checkbox form-checkbox h-4 w-4" value="{{ candidate.id }}">
           </td>
           <td class="px-3 py-3">
-            <div class="flex flex-col items-center w-32 mx-auto">
+            <div class="flex items-center justify-center w-16 mx-auto">
               {# Show regno-stamped photo if available, else fallback to original, else show No photo #}
               {% if candidate.passport_photo_with_regno %}
-                <img src="{{ candidate.passport_photo_with_regno.url }}" alt="Candidate Photo with Regno" class="h-32 w-32 object-cover rounded" />
+                <img src="{{ candidate.passport_photo_with_regno.url }}" alt="Candidate Photo with Regno" class="candidate-photo" />
               {% elif candidate.passport_photo %}
-                <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="h-32 w-32 object-cover rounded" />
+                <img src="{{ candidate.passport_photo.url }}" alt="Candidate Photo" class="candidate-photo" />
               {% else %}
-                <div class="h-32 w-32 flex items-center justify-center bg-gray-100 text-gray-400 rounded border">No photo</div>
+                <div class="candidate-photo flex items-center justify-center bg-gray-100 text-gray-400 border">—</div>
               {% endif %}
             </div>
           </td>
@@ -524,6 +536,41 @@
 <span id="page-flags" data-uvtstaff="{% if request.user.is_superuser or request.user.is_staff or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data' %}true{% else %}false{% endif %}" class="hidden"></span>
 
 <script>
+// Filter enhancements: searchable selects and debounced text inputs
+(function() {
+  const filterForm = document.querySelector('thead form');
+  if (!filterForm) return;
+  // Initialize Tom Select on all select filters
+  document.querySelectorAll('select.filter-select').forEach(function(sel) {
+    try {
+      const ts = new TomSelect(sel, {
+        allowEmptyOption: true,
+        maxOptions: 5000,
+        create: false,
+        plugins: ['clear_button'],
+        render: {
+          option: function(data, escape) {
+            return '<div>' + escape(data.text) + '</div>';
+          }
+        }
+      });
+      ts.on('change', function() { filterForm.requestSubmit(); });
+      // Keep keyboard Enter behavior submitting the form
+      sel.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); filterForm.requestSubmit(); } });
+    } catch(e) { /* fail-safe: ignore */ }
+  });
+
+  // Debounce helper
+  function debounce(fn, wait) {
+    let t; return function() { const ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, wait); };
+  }
+  // Debounced text inputs (reg no, name)
+  document.querySelectorAll('input.filter-input').forEach(function(inp) {
+    inp.addEventListener('input', debounce(function(){ filterForm.requestSubmit(); }, 300));
+    inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); filterForm.requestSubmit(); } });
+  });
+})();
+
 // Bulk select logic
 const selectAll = document.getElementById('select-all');
 const checkboxes = document.querySelectorAll('.candidate-checkbox');
