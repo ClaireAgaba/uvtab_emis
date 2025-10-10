@@ -797,57 +797,28 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     
     candidates = candidates_query.order_by('reg_number')
     
-    # Calculate totals using the same logic as the modal
+    # Authoritative totals for PDF:
+    # - total_candidates: count of candidates in billing set
+    # - current_outstanding: sum of current fees_balance
+    # - amount_paid: CenterSeriesPayment.amount_paid for this center+series
+    # - total_bill = amount_paid + current_outstanding
     total_candidates = candidates.count()
-    current_outstanding = sum(c.fees_balance for c in candidates)  # Current outstanding fees
-    
-    # Calculate what the original billing should have been for all enrolled candidates
-    # Use the candidate's calculate_fees_balance method to get original fees
-    original_billing_total = Decimal('0.00')
-    for candidate in candidates:
-        try:
-            # Calculate what this candidate should be charged based on their enrollment
-            if hasattr(candidate, 'calculate_fees_balance'):
-                # Get the original calculated fees (ignoring current balance)
-                original_fee = candidate.calculate_fees_balance()
-                # Fallback: if calculated is zero but a current balance exists, use current balance
-                if (original_fee or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
-                    original_fee = candidate.fees_balance
-                original_billing_total += original_fee
-            else:
-                # Fallback: if no calculation method, assume current balance is correct
-                # But if balance is 0 and they have enrollments, try to estimate
-                if candidate.fees_balance == 0 and candidate.candidatelevel_set.exists():
-                    # This candidate was likely paid - try to estimate original fee
-                    levels = candidate.candidatelevel_set.all()
-                    for level_enrollment in levels:
-                        level = level_enrollment.level
-                        if candidate.registration_category == 'modular':
-                            modules = candidate.candidatemodule_set.filter(level=level)
-                            if modules.count() == 1:
-                                original_billing_total += level.single_module_fee or Decimal('0.00')
-                            elif modules.count() >= 2:
-                                original_billing_total += level.double_module_fee or Decimal('0.00')
-                        elif candidate.registration_category == 'formal':
-                            original_billing_total += level.formal_fee or Decimal('0.00')
-                        elif candidate.registration_category in ['informal', 'workers_pas']:
-                            modules = candidate.candidatemodule_set.filter(level=level)
-                            module_fee = level.occupation.workers_pas_module_fee or Decimal('0.00')
-                            original_billing_total += module_fee * modules.count()
-                else:
-                    original_billing_total += candidate.fees_balance
-        except Exception as e:
-            # If calculation fails, add current balance as fallback
-            original_billing_total += candidate.fees_balance
-    
-    # Calculate amount paid: if current outstanding is less than original billing, 
-    # the difference has been paid
-    if original_billing_total > current_outstanding:
-        amount_paid = original_billing_total - current_outstanding
-    else:
+    current_outstanding = sum((c.fees_balance or Decimal('0.00')) for c in candidates)
+    try:
+        if assessment_series:
+            pr = CenterSeriesPayment.objects.filter(
+                assessment_center=center,
+                assessment_series=assessment_series
+            ).first()
+        else:
+            pr = CenterSeriesPayment.objects.filter(
+                assessment_center=center,
+                assessment_series__isnull=True
+            ).first()
+        amount_paid = pr.amount_paid if pr else Decimal('0.00')
+    except Exception:
         amount_paid = Decimal('0.00')
-    
-    total_bill = original_billing_total
+    total_bill = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
     amount_due = current_outstanding
     
     # Registration category breakdown (counts and current outstanding per category)
@@ -1082,6 +1053,12 @@ def generate_pdf_invoice(request, center_id, series_id=None):
                 name = 'N/A'
             return name
 
+        def level_order(c):
+            import re as _re
+            lvl = get_level_name(c)
+            m = _re.search(r'(\d+)', lvl or '')
+            return int(m.group(1)) if m else 999
+
         def is_workers_pas(c):
             try:
                 cat = c.occupation.category.name if c.occupation and c.occupation.category else ''
@@ -1105,23 +1082,40 @@ def generate_pdf_invoice(request, center_id, series_id=None):
         if modular:
             elements.append(Paragraph('Modular Candidates Details', subheader_style))
             elements.append(Spacer(1, 6))
-            mod_data = [['Reg. Number', 'Name', 'Occupation', 'No. of Modules', 'Amount (UGX)', 'Specify Modules Candidate Trained In']]
+            mod_data = [['Reg. Number', 'Name', 'Occupation', 'No. of Modules', 'Billed (UGX)', 'Paid (UGX)', 'Due (UGX)', 'Specify Modules Candidate Trained In']]
             for c in modular:
                 try:
-                    num_mods = CandidateModule.objects.filter(candidate=c).count()
+                    mods_qs = CandidateModule.objects.filter(candidate=c).select_related('module')
+                    num_mods = mods_qs.count()
                 except Exception:
                     num_mods = getattr(c, 'modular_module_count', 0) or 0
+                # Original billed per candidate
+                try:
+                    billed = c.calculate_fees_balance() if hasattr(c, 'calculate_fees_balance') else Decimal('0.00')
+                    if (billed or Decimal('0.00')) <= 0 and (c.fees_balance or Decimal('0.00')) > 0:
+                        billed = c.fees_balance
+                except Exception:
+                    billed = c.fees_balance or Decimal('0.00')
+                # Paid/due per candidate
+                paid = getattr(c, 'payment_amount_cleared', None) or (billed if getattr(c, 'payment_cleared', False) else Decimal('0.00'))
+                due = c.fees_balance or Decimal('0.00')
+                try:
+                    mods_str = ', '.join(m.module.name for m in mods_qs) if num_mods else ''
+                except Exception:
+                    mods_str = ''
                 mod_data.append([
                     c.reg_number,
                     short(c.full_name, 25),
                     short(c.occupation.name if c.occupation else 'N/A', 20),
                     str(num_mods),
-                    f'{float(c.fees_balance):,.2f}',
-                    ''  # left blank for centers
+                    f'{float(billed):,.2f}',
+                    f'{float(paid):,.2f}',
+                    f'{float(due):,.2f}',
+                    short(mods_str, 60)
                 ])
             # Landscape width budget ~9.69in (A4 landscape minus default left/right margins). Keep <= 9.6in
             # Widen Reg. Number and reduce right-most column slightly
-            mod_table = Table(mod_data, colWidths=[1.8*inch, 2.0*inch, 1.5*inch, 0.9*inch, 1.1*inch, 2.3*inch])
+            mod_table = Table(mod_data, colWidths=[1.6*inch, 1.8*inch, 1.4*inch, 0.7*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.7*inch])
             mod_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1f2937')),
@@ -1144,20 +1138,31 @@ def generate_pdf_invoice(request, center_id, series_id=None):
             elements.append(mod_table)
             elements.append(Spacer(1, 14))
 
-        # Formal Candidates Details
+        # Formal Candidates Details (sorted by level order)
         if formal:
             elements.append(Paragraph('Formal Candidates Details', subheader_style))
             elements.append(Spacer(1, 6))
-            for_data = [['Reg. Number', 'Name', 'Occupation', 'Level', 'Amount (UGX)']]
-            for c in formal:
+            formal_sorted = sorted(formal, key=level_order)
+            for_data = [['Reg. Number', 'Name', 'Occupation', 'Level', 'Billed (UGX)', 'Paid (UGX)', 'Due (UGX)']]
+            for c in formal_sorted:
+                try:
+                    billed_f = c.calculate_fees_balance() if hasattr(c, 'calculate_fees_balance') else Decimal('0.00')
+                    if (billed_f or Decimal('0.00')) <= 0 and (c.fees_balance or Decimal('0.00')) > 0:
+                        billed_f = c.fees_balance
+                except Exception:
+                    billed_f = c.fees_balance or Decimal('0.00')
+                paid_f = getattr(c, 'payment_amount_cleared', None) or (billed_f if getattr(c, 'payment_cleared', False) else Decimal('0.00'))
+                due_f = c.fees_balance or Decimal('0.00')
                 for_data.append([
                     c.reg_number,
                     short(c.full_name, 25),
                     short(c.occupation.name if c.occupation else 'N/A', 20),
                     get_level_name(c),
-                    f'{float(c.fees_balance):,.2f}'
+                    f'{float(billed_f):,.2f}',
+                    f'{float(paid_f):,.2f}',
+                    f'{float(due_f):,.2f}'
                 ])
-            for_table = Table(for_data, colWidths=[1.8*inch, 2.0*inch, 1.6*inch, 1.0*inch, 1.0*inch])
+            for_table = Table(for_data, colWidths=[1.6*inch, 1.8*inch, 1.5*inch, 0.9*inch, 1.0*inch, 1.0*inch, 1.0*inch])
             for_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1f2937')),
@@ -1184,22 +1189,32 @@ def generate_pdf_invoice(request, center_id, series_id=None):
         if workers:
             elements.append(Paragraph("Worker's PAS Candidates Details", subheader_style))
             elements.append(Spacer(1, 6))
-            pas_data = [['Reg. Number', 'Name', 'Occupation', 'Level', 'Amount (UGX)', 'Modules Candidate Is Enrolled In']]
+            pas_data = [['Reg. Number', 'Name', 'Occupation', 'Level', 'Billed (UGX)', 'Paid (UGX)', 'Due (UGX)', 'Modules Candidate Is Enrolled In']]
             for c in workers:
                 try:
                     mods = CandidateModule.objects.filter(candidate=c).select_related('module')
                     mods_str = ', '.join(short(m.module.name, 18) for m in mods) if mods else ''
                 except Exception:
                     mods_str = ''
+                try:
+                    billed_w = c.calculate_fees_balance() if hasattr(c, 'calculate_fees_balance') else Decimal('0.00')
+                    if (billed_w or Decimal('0.00')) <= 0 and (c.fees_balance or Decimal('0.00')) > 0:
+                        billed_w = c.fees_balance
+                except Exception:
+                    billed_w = c.fees_balance or Decimal('0.00')
+                paid_w = getattr(c, 'payment_amount_cleared', None) or (billed_w if getattr(c, 'payment_cleared', False) else Decimal('0.00'))
+                due_w = c.fees_balance or Decimal('0.00')
                 pas_data.append([
                     c.reg_number,
                     short(c.full_name, 25),
                     short(c.occupation.name if c.occupation else 'N/A', 20),
                     get_level_name(c),
-                    f'{float(c.fees_balance):,.2f}',
+                    f'{float(billed_w):,.2f}',
+                    f'{float(paid_w):,.2f}',
+                    f'{float(due_w):,.2f}',
                     mods_str
                 ])
-            pas_table = Table(pas_data, colWidths=[1.8*inch, 2.0*inch, 1.5*inch, 1.0*inch, 1.0*inch, 2.2*inch])
+            pas_table = Table(pas_data, colWidths=[1.6*inch, 1.8*inch, 1.5*inch, 0.9*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.7*inch])
             pas_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1f2937')),
