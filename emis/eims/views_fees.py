@@ -584,15 +584,28 @@ def center_candidates_report(request, center_id, series_id=None):
     
     try:
         # Get ALL candidates for this center-series combination (both paid and unpaid)
-        # Include: level enrollments, modular billed/enrolled, or any positive fees_balance
-        candidates_query = Candidate.objects.filter(
-            assessment_center=center
-        ).filter(
-            Q(candidatelevel__isnull=False) |
-            Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
-            Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
-            Q(fees_balance__gt=0)
-        ).distinct().select_related('occupation', 'assessment_series')
+        # Include: level enrollments, modular billed/enrolled, any positive fees_balance, OR paid candidates
+        try:
+            # Include payment_cleared to capture all paid candidates
+            candidates_query = Candidate.objects.filter(
+                assessment_center=center
+            ).filter(
+                Q(candidatelevel__isnull=False) |
+                Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+                Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+                Q(fees_balance__gt=0) |
+                Q(payment_cleared=True)
+            ).distinct().select_related('occupation', 'assessment_series')
+        except:
+            # Fallback if payment_cleared column doesn't exist
+            candidates_query = Candidate.objects.filter(
+                assessment_center=center
+            ).filter(
+                Q(candidatelevel__isnull=False) |
+                Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+                Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+                Q(fees_balance__gt=0)
+            ).distinct().select_related('occupation', 'assessment_series')
         # If the requesting user is a Branch CenterRep, restrict to their branch
         try:
             cr = CenterRepresentative.objects.get(user=request.user)
@@ -764,15 +777,28 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     invoice_type = request.GET.get('type', 'summary')
     
     # Get ALL candidates for this center-series combination (both paid and unpaid)
-    # Use the same logic as the modal - get all enrolled candidates
-    candidates_query = Candidate.objects.filter(
-        assessment_center=center
-    ).filter(
-        Q(candidatelevel__isnull=False) |
-        Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
-        Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
-        Q(fees_balance__gt=0)
-    ).distinct().select_related('occupation', 'assessment_series')
+    # Use the same logic as the audit command - include enrolled AND paid candidates
+    try:
+        # Include payment_cleared to capture all paid candidates
+        candidates_query = Candidate.objects.filter(
+            assessment_center=center
+        ).filter(
+            Q(candidatelevel__isnull=False) |
+            Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+            Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+            Q(fees_balance__gt=0) |
+            Q(payment_cleared=True)
+        ).distinct().select_related('occupation', 'assessment_series')
+    except:
+        # Fallback if payment_cleared column doesn't exist
+        candidates_query = Candidate.objects.filter(
+            assessment_center=center
+        ).filter(
+            Q(candidatelevel__isnull=False) |
+            Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
+            Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
+            Q(fees_balance__gt=0)
+        ).distinct().select_related('occupation', 'assessment_series')
     
     if assessment_series:
         candidates_query = candidates_query.filter(assessment_series=assessment_series)
