@@ -138,11 +138,36 @@ def uvtab_fees_home(request):
     )['total'] or Decimal('0.00')
 
     # Authoritative paid total from CenterSeriesPayment for this scope
+    # IMPORTANT: Only include payment records for series that actually have candidates
     if user_center:
         paid_qs = CenterSeriesPayment.objects.filter(assessment_center=user_center)
     else:
         paid_qs = CenterSeriesPayment.objects.all()
-    amount_paid = paid_qs.aggregate(total=models.Sum('amount_paid'))['total'] or Decimal('0.00')
+
+    # Determine which series are present in the enrolled candidates set
+    present_series_ids = list(
+        all_enrolled_candidates.exclude(assessment_series__isnull=True)
+        .values_list('assessment_series_id', flat=True).distinct()
+    )
+    has_none_series = all_enrolled_candidates.filter(assessment_series__isnull=True).exists()
+
+    if present_series_ids:
+        paid_qs = paid_qs.filter(
+            models.Q(assessment_series_id__in=present_series_ids) |
+            models.Q(assessment_series__isnull=True) if has_none_series else models.Q(assessment_series_id__in=present_series_ids)
+        )
+    elif has_none_series:
+        paid_qs = paid_qs.filter(assessment_series__isnull=True)
+    else:
+        paid_qs = paid_qs.none()
+
+    # Paid total derived from candidates to avoid double-counting duplicate payment records
+    paid_candidates_qs = Candidate.objects.filter(payment_cleared=True)
+    if user_center:
+        paid_candidates_qs = paid_candidates_qs.filter(assessment_center=user_center)
+    if user_branch_id:
+        paid_candidates_qs = paid_candidates_qs.filter(assessment_center_branch_id=user_branch_id)
+    amount_paid = paid_candidates_qs.aggregate(total=models.Sum('payment_amount_cleared'))['total'] or Decimal('0.00')
 
     # Summary metrics for dashboard (align with Center Fees + invoices)
     total_fees = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
