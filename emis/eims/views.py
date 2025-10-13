@@ -11576,8 +11576,6 @@ def _create_photo_cell_content(candidate, styles, photo_width=0.8*inch, photo_he
     reg_category_short = candidate.registration_category.upper() if candidate.registration_category else 'N/A'
     
     return cell_elements
-    
-    return render(request, 'statistics/home.html', context)
 @login_required
 def statistics_home(request):
     """Enhanced statistics dashboard showing system overview and detailed metrics including assessment series"""
@@ -11774,6 +11772,7 @@ def statistics_home(request):
         'years_sorted_desc': years_sorted_desc,
         'assessment_series_year_blocks': assessment_series_year_blocks,
     }
+    return render(request, 'statistics/home.html', context)
 from django.core.exceptions import ValidationError
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
