@@ -1,7 +1,8 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Count, F, Value, DecimalField, ExpressionWrapper, Subquery, OuterRef
+from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -10,6 +11,7 @@ from decimal import Decimal
 from django.utils import timezone
 import io
 import json
+from urllib.parse import urlencode
 
 # ReportLab imports for PDF generation
 from reportlab.pdfgen import canvas
@@ -20,7 +22,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
-from .models import Candidate, AssessmentCenter, Occupation, Level, AssessmentSeries, CenterSeriesPayment, CenterRepresentative, CandidateModule
+from .models import Candidate, AssessmentCenter, Occupation, Level, AssessmentSeries, CenterSeriesPayment, CenterRepresentative, CandidateModule, CandidateLevel
 from .views import require_staff_permissions
 from django.conf import settings
 import os
@@ -51,89 +53,115 @@ def uvtab_fees_home(request):
     except CenterRepresentative.DoesNotExist:
         user_center = None
     
-    # Get all billed/enrolled candidates (both paid and unpaid)
-    # Treat Modular candidates with billed count or any module enrollment as billed even without level enrollment
-    # CRITICAL: Also include candidates with payment_cleared=True (historical paid candidates)
+    # Base queryset: ALL billed/enrolled candidates (both paid and unpaid)
     qs = Candidate.objects.filter(
         Q(candidatelevel__isnull=False) |
         Q(registration_category__iexact='modular', modular_module_count__in=[1, 2]) |
         Q(registration_category__iexact='modular', candidatemodule__isnull=False) |
         Q(fees_balance__gt=0) |
-        Q(payment_cleared=True)  # Include historically cleared/paid candidates
+        Q(payment_cleared=True)
     )
     if user_center:
         qs = qs.filter(assessment_center=user_center)
     if user_branch_id:
         qs = qs.filter(assessment_center_branch_id=user_branch_id)
-    all_enrolled_candidates = qs.distinct()
-    
-    # Get ALL enrolled/billed candidates (both paid and unpaid) for dashboard table
-    # Show all candidates who were billed OR currently owe
-    all_candidates_with_fees = []
-    
-    for candidate in all_enrolled_candidates:
-        # Calculate original fee for sorting
-        original_fee = Decimal('0.00')
-        try:
-            if hasattr(candidate, 'calculate_fees_balance'):
-                original_fee = candidate.calculate_fees_balance()
-            else:
-                # Fallback calculation for candidates without the method
-                if candidate.fees_balance == 0 and candidate.candidatelevel_set.exists():
-                    # This candidate was likely paid - estimate original fee
-                    levels = candidate.candidatelevel_set.all()
-                    for level_enrollment in levels:
-                        level = level_enrollment.level
-                        if candidate.registration_category == 'modular':
-                            modules = candidate.candidatemodule_set.filter(level=level)
-                            if modules.count() == 1:
-                                original_fee += level.single_module_fee or Decimal('0.00')
-                            elif modules.count() >= 2:
-                                original_fee += level.double_module_fee or Decimal('0.00')
-                        elif candidate.registration_category == 'formal':
-                            original_fee += level.formal_fee or Decimal('0.00')
-                        elif candidate.registration_category in ['informal', 'workers_pas']:
-                            modules = candidate.candidatemodule_set.filter(level=level)
-                            # Use Level.workers_pas_module_fee (per-module) for Worker's PAS/Informal
-                            module_fee = level.workers_pas_module_fee or Decimal('0.00')
-                            original_fee += module_fee * modules.count()
-                else:
-                    original_fee = candidate.fees_balance
-        except Exception as e:
-            original_fee = candidate.fees_balance
-        
-        # If calculated original is 0 but current balance is positive, use current as original for listing purposes
-        if (original_fee or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
-            original_fee = candidate.fees_balance
+    # Only fetch fields we show; pull related foreign keys in one go
+    qs = qs.select_related('assessment_center', 'occupation', 'assessment_series').distinct()
 
-        # Always include billed/enrolled candidates (both paid and unpaid)
-        payment_status = 'Paid' if candidate.fees_balance == 0 else 'Not Paid'
-        all_candidates_with_fees.append({
-            'candidate': candidate,
-            'original_fee': original_fee,
-            'payment_status': payment_status
-        })
-    
-    # Sort by original fee (descending)
-    all_candidates_with_fees.sort(key=lambda x: x['original_fee'], reverse=True)
-    
-    # Pagination
-    paginator = Paginator(all_candidates_with_fees, 10)  # Show 10 candidates per page
+    # Filters for redesigned list
+    search = (request.GET.get('search') or '').strip()
+    center_id = request.GET.get('center') or ''
+    series_id = request.GET.get('series') or ''
+    category = request.GET.get('category') or ''
+    occupation_id = request.GET.get('occupation') or ''
+    payment_status = request.GET.get('payment_status') or ''  # paid|not_paid
+
+    if search:
+        qs = qs.filter(
+            Q(full_name__icontains=search) |
+            Q(reg_number__icontains=search) |
+            Q(assessment_center__center_name__icontains=search)
+        )
+    if center_id:
+        qs = qs.filter(assessment_center_id=center_id)
+    if series_id:
+        qs = qs.filter(assessment_series_id=series_id)
+    if category:
+        qs = qs.filter(registration_category__iexact=category)
+    if occupation_id:
+        qs = qs.filter(occupation_id=occupation_id)
+
+    # Lightweight annotations for counts and totals (explicit Decimal output)
+    qs = qs.annotate(
+        module_count=Count('candidatemodule', distinct=True),
+        amount_paid=Coalesce(
+            F('payment_amount_cleared'),
+            Value(Decimal('0.00')),
+            output_field=DecimalField(max_digits=14, decimal_places=2)
+        ),
+        fees_out=Coalesce(
+            F('fees_balance'),
+            Value(Decimal('0.00')),
+            output_field=DecimalField(max_digits=14, decimal_places=2)
+        ),
+        # First enrolled level name for the candidate (if any)
+        level_name=Subquery(
+            CandidateLevel.objects.filter(candidate_id=OuterRef('pk'))
+            .order_by('id')
+            .values('level__name')[:1]
+        ),
+    ).annotate(
+        total_amount=ExpressionWrapper(
+            F('amount_paid') + F('fees_out'),
+            output_field=DecimalField(max_digits=14, decimal_places=2)
+        )
+    )
+
+    # Optional filter by payment status
+    if payment_status == 'paid':
+        qs = qs.filter(total_amount__gt=0, fees_balance=0)
+    elif payment_status == 'not_paid':
+        qs = qs.filter(Q(total_amount__gt=0) & ~Q(fees_balance=0) | Q(total_amount=0))
+
+    # Pagination directly on queryset — allow variable page_size
     page_number = request.GET.get('page')
     try:
-        page_obj = paginator.page(page_number)
+        page_size = int(request.GET.get('page_size') or 25)
+    except ValueError:
+        page_size = 25
+    if page_size not in [10, 25, 50, 100]:
+        page_size = 25
+    paginator = Paginator(qs.order_by('-total_amount', '-fees_balance', 'reg_number'), page_size)
+    try:
+        page_qs = paginator.page(page_number)
     except PageNotAnInteger:
-        page_obj = paginator.page(1)
+        page_qs = paginator.page(1)
     except EmptyPage:
-        page_obj = paginator.page(paginator.num_pages)
-    
-    # Add payment status to candidates for template
-    for item in page_obj:
-        item['candidate'].payment_status = item['payment_status']
-        item['candidate'].original_fee = item['original_fee']
+        page_qs = paginator.page(paginator.num_pages)
+
+    # Build lightweight items for current page
+    page_items = []
+    for candidate in page_qs.object_list:
+        status_label = 'Paid' if (candidate.total_amount or Decimal('0')) > 0 and (candidate.fees_balance or Decimal('0')) == 0 else 'Not Paid'
+        # Determine display values
+        page_items.append({
+            'candidate': candidate,
+            'name': candidate.full_name,
+            'reg_number': candidate.reg_number,
+            'assessment_center': candidate.assessment_center,
+            'registration_category': (candidate.registration_category or '').lower(),
+            'occupation': candidate.occupation,
+            'module_count': getattr(candidate, 'module_count', 0),
+            'level_name': getattr(candidate, 'level_name', None),
+            'assessment_series': candidate.assessment_series,
+            'total_amount': getattr(candidate, 'total_amount', Decimal('0.00')),
+            'amount_paid': getattr(candidate, 'amount_paid', Decimal('0.00')),
+            'fees_balance': candidate.fees_balance or Decimal('0.00'),
+            'payment_status': status_label,
+        })
     
     # Calculate current outstanding fees (amount due)
-    current_outstanding = all_enrolled_candidates.aggregate(
+    current_outstanding = qs.aggregate(
         total=models.Sum('fees_balance')
     )['total'] or Decimal('0.00')
 
@@ -146,10 +174,10 @@ def uvtab_fees_home(request):
 
     # Determine which series are present in the enrolled candidates set
     present_series_ids = list(
-        all_enrolled_candidates.exclude(assessment_series__isnull=True)
+        qs.exclude(assessment_series__isnull=True)
         .values_list('assessment_series_id', flat=True).distinct()
     )
-    has_none_series = all_enrolled_candidates.filter(assessment_series__isnull=True).exists()
+    has_none_series = qs.filter(assessment_series__isnull=True).exists()
 
     if present_series_ids:
         paid_qs = paid_qs.filter(
@@ -251,22 +279,41 @@ def uvtab_fees_home(request):
             'is_current': series.is_current
         }
     
+    # Options for filters (lightweight)
+    centers = AssessmentCenter.objects.all().order_by('center_name')
+    occupations = Occupation.objects.all().order_by('name')
+    series_opts = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
+
+    # Build query string without 'page' for pagination links
+    qs_params = request.GET.copy()
+    qs_params.pop('page', None)
+    query_no_page = urlencode([(k, v) for k, v in qs_params.items() if v])
+
     context = {
-        'total_candidates': all_enrolled_candidates.count(),
-        'candidates_with_fees': (
-            Candidate.objects.filter(
-                fees_balance__gt=0,
-                assessment_center=user_center,
-                **({'assessment_center_branch_id': user_branch_id} if user_branch_id else {})
-            ).count() if user_center else Candidate.objects.filter(fees_balance__gt=0).count()
-        ),
+        'total_candidates': qs.count(),
+        'candidates_with_fees': (Candidate.objects.filter(fees_balance__gt=0, assessment_center=user_center, **({'assessment_center_branch_id': user_branch_id} if user_branch_id else {})).count() if user_center else Candidate.objects.filter(fees_balance__gt=0).count()),
         'total_fees': total_fees,
         'amount_paid': amount_paid,
         'amount_due': amount_due,
-        'page_obj': page_obj,
+        'page_qs': page_qs,           # paginator metadata
+        'page_items': page_items,     # optimized rows for current page
         'top_centers': top_centers,
         'fees_by_category': fees_by_category,
         'fees_by_series': fees_by_series,
+        # filters echo
+        'search': search,
+        'center_id': str(center_id),
+        'series_id': str(series_id),
+        'category': category,
+        'occupation_id': str(occupation_id),
+        'payment_status_filter': payment_status,
+        'page_size': page_size,
+        # filter options
+        'centers': centers,
+        'occupations': occupations,
+        'series_opts': series_opts,
+        'query_no_page': query_no_page,
+        'is_center_rep': is_center_rep,
     }
     
     return render(request, 'fees/uvtab_fees_home.html', context)

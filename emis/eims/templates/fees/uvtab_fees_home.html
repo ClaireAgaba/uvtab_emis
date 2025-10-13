@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 {% load humanize %}
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="w-full max-w-full mx-auto px-4 sm:px-6 lg:px-6 py-4">
   <!-- Header Section -->
-  <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+  <div class="bg-white shadow-sm border border-gray-200 p-4 mb-4">
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
       <div class="flex-1">
         <div class="flex items-center space-x-3 mb-2">
@@ -34,9 +34,9 @@
   </div>
 
   <!-- Statistics Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
     <!-- Total Fees -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="bg-white shadow-sm border border-gray-200 p-4">
       <div class="flex items-center">
         <div class="flex-shrink-0">
           <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -91,7 +91,7 @@
   </div>
 
   <!-- Tabbed Content -->
-  <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+  <div class="bg-white shadow-sm border border-gray-200 overflow-visible">
     <!-- Tab Navigation -->
     <div class="border-b border-gray-200">
       <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
@@ -122,102 +122,170 @@
     <div class="p-6">
       <!-- Candidates Tab -->
       <div id="candidates-content" class="tab-content">
-        <div class="flex justify-between items-center mb-6">
-          <h3 class="text-lg font-medium text-gray-900">Candidates</h3>
-          <div class="flex items-center space-x-4">
-            <!-- Payment Status Filter -->
-            <div class="flex items-center space-x-2">
-              <label for="statusFilter" class="text-sm font-medium text-gray-700">Filter by Status:</label>
-              <select id="statusFilter" onchange="filterCandidates()" 
-                      class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                <option value="all">All Candidates</option>
-                <option value="paid">Paid Only</option>
-                <option value="not-paid">Not Paid Only</option>
+        <!-- CSRF source for JS -->
+        <form id="csrfForm" class="hidden">{% csrf_token %}</form>
+        <form method="get" class="mb-3">
+          <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
+            <div>
+              <input type="text" name="search" value="{{ search }}" placeholder="Search name or reg no"
+                     class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+            </div>
+            <div>
+              <select name="center" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                <option value="">All centers</option>
+                {% for c in centers %}
+                  <option value="{{ c.id }}" {% if center_id == c.id|stringformat:'s' %}selected{% endif %}>{{ c.center_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <select name="series" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                <option value="">All series</option>
+                {% for s in series_opts %}
+                  <option value="{{ s.id }}" {% if series_id == s.id|stringformat:'s' %}selected{% endif %}>{{ s.name }}{% if s.is_current %} (Current){% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <select name="category" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                <option value="">All categories</option>
+                <option value="formal" {% if category == 'formal' %}selected{% endif %}>Formal</option>
+                <option value="modular" {% if category == 'modular' %}selected{% endif %}>Modular</option>
+                <option value="informal" {% if category == 'informal' %}selected{% endif %}>Informal / Workers' PAS</option>
+              </select>
+            </div>
+            <div>
+              <select name="occupation" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                <option value="">All occupations</option>
+                {% for o in occupations %}
+                  <option value="{{ o.id }}" {% if occupation_id == o.id|stringformat:'s' %}selected{% endif %}>{{ o.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <select name="payment_status" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                <option value="">All statuses</option>
+                <option value="paid" {% if payment_status_filter == 'paid' %}selected{% endif %}>Paid</option>
+                <option value="not_paid" {% if payment_status_filter == 'not_paid' %}selected{% endif %}>Not Paid</option>
               </select>
             </div>
           </div>
+          <div class="mt-2 flex items-center gap-2">
+            <div>
+              <label class="text-xs text-gray-500">Page size</label>
+              <select name="page_size" class="ml-2 border border-gray-300 rounded px-2 py-1 text-sm">
+                <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
+                <option value="25" {% if page_size == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+              </select>
+            </div>
+            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm">Apply</button>
+          </div>
+        </form>
+
+        <!-- Bulk Actions Bar (hidden by default) -->
+        {% if not is_center_rep %}
+        <div id="candidateBulkActions" class="hidden bg-blue-50 border border-blue-200 rounded mb-3 px-4 py-2">
+          <div class="flex items-center justify-between">
+            <span id="candidateSelectedCount" class="text-sm text-blue-900">0 selected</span>
+            <div class="flex gap-2">
+              <button type="button" id="candidateMarkPaid" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">Mark As Paid</button>
+              <button type="button" id="candidateClearSel" class="border border-gray-300 px-3 py-1 rounded text-sm">Clear</button>
+            </div>
+          </div>
         </div>
+        {% endif %}
 
         <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <colgroup>
+              {% if not is_center_rep %}<col style="width:4%">{% endif %}
+              <col style="width:14%">
+              <col style="width:16%">
+              <col style="width:14%">
+              <col style="width:12%">
+              <col style="width:12%">
+              <col style="width:12%">
+              <col style="width:8%">
+              <col style="width:8%">
+              <col style="width:8%">
+              <col style="width:6%">
+            </colgroup>
             <thead class="bg-gray-50">
               <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Number</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Center</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment Series</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Type</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fees Balance</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                {% if not is_center_rep %}
+                <th class="px-2 py-2 text-left w-10">
+                  <input type="checkbox" id="candidateSelectAll" class="h-4 w-4 text-green-600 border-gray-300 rounded" />
+                </th>
+                {% endif %}
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Name</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Reg No</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Assessment Center</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Reg Category</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Occupation</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">No. of Modules / Level</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Assessment Series</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Amount Paid</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Status</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              {% for item in page_obj %}
+              {% for item in page_items %}
                 <tr class="hover:bg-gray-50 transition-colors duration-150">
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {{ item.candidate.full_name }}
+                  {% if not is_center_rep %}
+                  <td class="px-2 py-2">
+                    <input type="checkbox"
+                           class="candidate-checkbox h-4 w-4 text-green-600 border-gray-300 rounded"
+                           data-center-id="{{ item.assessment_center.id }}"
+                           data-series-id="{% if item.assessment_series %}{{ item.assessment_series.id }}{% else %}none{% endif %}">
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ item.candidate.reg_number }}
+                  {% endif %}
+                  <td class="px-3 py-2 text-sm text-gray-900">{{ item.name }}</td>
+                  <td class="px-3 py-2 text-sm text-gray-700 whitespace-nowrap font-mono">{{ item.reg_number }}</td>
+                  <td class="px-3 py-2 text-sm text-gray-700 whitespace-nowrap">{{ item.assessment_center.center_name }}</td>
+                  <td class="px-3 py-2">
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                    {% if item.registration_category == 'formal' %}bg-blue-100 text-blue-800{% elif item.registration_category == 'modular' %}bg-green-100 text-green-800{% elif item.registration_category == 'informal' %}bg-purple-100 text-purple-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                      {{ item.registration_category|title }}
+                    </span>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ item.candidate.assessment_center.center_name }}
+                  <td class="px-3 py-2 text-sm text-gray-700 whitespace-nowrap">{{ item.occupation.name }}</td>
+                  <td class="px-3 py-2 text-sm text-gray-700 whitespace-nowrap">
+                    {% if item.registration_category == 'formal' %}
+                      {{ item.level_name|default:'—' }}
+                    {% else %}
+                      {{ item.module_count|default:0 }}
+                    {% endif %}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {% if item.candidate.assessment_series %}
-                      {{ item.candidate.assessment_series.name }}
-                      {% if item.candidate.assessment_series.is_current %}
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 ml-1">
-                          Current
-                        </span>
+                  <td class="px-3 py-2 text-sm text-gray-700">
+                    {% if item.assessment_series %}
+                      {{ item.assessment_series.name }}
+                      {% if item.assessment_series.is_current %}
+                        <span class="ml-1 text-xs text-green-700 bg-green-100 rounded px-1">Current</span>
                       {% endif %}
                     {% else %}
                       <span class="text-gray-400">Not assigned</span>
                     {% endif %}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                      {% if item.candidate.registration_category == 'formal' %}bg-blue-100 text-blue-800
-                      {% elif item.candidate.registration_category == 'modular' %}bg-green-100 text-green-800
-                      {% elif item.candidate.registration_category == 'informal' %}bg-purple-100 text-purple-800
-                      {% else %}bg-gray-100 text-gray-800{% endif %}">
-                      {{ item.candidate.registration_category|title }}
-                    </span>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
+                  <td class="px-3 py-2 text-sm text-right text-gray-900 whitespace-nowrap">UGX {{ item.total_amount|floatformat:0|intcomma }}</td>
+                  <td class="px-3 py-2 text-sm text-right text-gray-700 whitespace-nowrap">UGX {{ item.amount_paid|floatformat:0|intcomma }}</td>
+                  <td class="px-3 py-2">
                     {% if item.payment_status == 'Paid' %}
-                      <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                        </svg>
-                        Paid
-                      </span>
+                      <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Paid</span>
                     {% else %}
-                      <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-                        </svg>
-                        Not Paid
-                      </span>
+                      <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Not Paid</span>
                     {% endif %}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm">
-                    {% if item.payment_status == 'Paid' %}
-                      <span class="text-green-600 font-semibold">UGX 0</span>
-                      <div class="text-xs text-gray-500">Originally: UGX {{ item.original_fee|floatformat:0|intcomma }}</div>
-                    {% else %}
-                      <span class="text-red-600 font-semibold">UGX {{ item.candidate.get_formatted_fees_balance }}</span>
-                    {% endif %}
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <a href="{% url 'candidate_view' item.candidate.id %}" 
-                       class="text-green-600 hover:text-green-900 transition-colors duration-150">View Details</a>
+                  <td class="px-3 py-2 text-sm font-medium">
+                    <a href="{% url 'candidate_view' item.candidate.id %}" class="text-green-600 hover:text-green-800">View</a>
                   </td>
                 </tr>
               {% empty %}
                 <tr>
-                  <td colspan="8" class="px-6 py-12 text-center">
+                  <td colspan="11" class="px-6 py-12 text-center">
                     <div class="flex flex-col items-center">
                       <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
@@ -233,11 +301,11 @@
         </div>
 
         <!-- Pagination Controls -->
-        {% if page_obj.has_other_pages %}
+        {% if page_qs.has_other_pages %}
           <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
             <div class="flex-1 flex justify-between sm:hidden">
-              {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}" 
+              {% if page_qs.has_previous %}
+                <a href="?{{ query_no_page }}&page={{ page_qs.previous_page_number }}" 
                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                   Previous
                 </a>
@@ -247,8 +315,8 @@
                 </span>
               {% endif %}
               
-              {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}" 
+              {% if page_qs.has_next %}
+                <a href="?{{ query_no_page }}&page={{ page_qs.next_page_number }}" 
                    class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                   Next
                 </a>
@@ -263,17 +331,17 @@
               <div>
                 <p class="text-sm text-gray-700">
                   Showing
-                  <span class="font-medium">{{ page_obj.start_index }}</span>
+                  <span class="font-medium">{{ page_qs.start_index }}</span>
                   to
-                  <span class="font-medium">{{ page_obj.end_index }}</span>
+                  <span class="font-medium">{{ page_qs.end_index }}</span>
                   of
-                  <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                  <span class="font-medium">{{ page_qs.paginator.count }}</span>
                   candidates
                 </p>
               </div>
               <div>
                 <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                  {% if page_obj.has_previous %}
+                  {% if page_qs.has_previous %}
                     <a href="?page=1" 
                        class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                       <span class="sr-only">First</span>
@@ -281,7 +349,7 @@
                         <path fill-rule="evenodd" d="M15.707 15.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L11.414 10l4.293 4.293a1 1 0 010 1.414zm-6 0a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L5.414 10l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"></path>
                       </svg>
                     </a>
-                    <a href="?page={{ page_obj.previous_page_number }}" 
+                    <a href="?page={{ page_qs.previous_page_number }}" 
                        class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                       <span class="sr-only">Previous</span>
                       <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
@@ -290,12 +358,12 @@
                     </a>
                   {% endif %}
                   
-                  {% for num in page_obj.paginator.page_range %}
-                    {% if page_obj.number == num %}
+                  {% for num in page_qs.paginator.page_range %}
+                    {% if page_qs.number == num %}
                       <span class="relative inline-flex items-center px-4 py-2 border border-green-500 bg-green-50 text-sm font-medium text-green-600">
                         {{ num }}
                       </span>
-                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    {% elif num > page_qs.number|add:'-3' and num < page_qs.number|add:'3' %}
                       <a href="?page={{ num }}" 
                          class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                         {{ num }}
@@ -303,15 +371,15 @@
                     {% endif %}
                   {% endfor %}
                   
-                  {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}" 
+                  {% if page_qs.has_next %}
+                    <a href="?page={{ page_qs.next_page_number }}" 
                        class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                       <span class="sr-only">Next</span>
                       <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                       </svg>
                     </a>
-                    <a href="?page={{ page_obj.paginator.num_pages }}" 
+                    <a href="?page={{ page_qs.paginator.num_pages }}" 
                        class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                       <span class="sr-only">Last</span>
                       <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
@@ -446,5 +514,80 @@ function filterCandidates() {
     }
   }
 }
+
+// Candidate bulk selection and mark-as-paid
+document.addEventListener('DOMContentLoaded', function() {
+  const isCenterRep = {{ is_center_rep|yesno:'true,false' }};
+  if (isCenterRep) return;
+
+  const selectAll = document.getElementById('candidateSelectAll');
+  const checkboxes = Array.from(document.querySelectorAll('.candidate-checkbox'));
+  const bulkBar = document.getElementById('candidateBulkActions');
+  const selCount = document.getElementById('candidateSelectedCount');
+  const btnPaid = document.getElementById('candidateMarkPaid');
+  const btnClear = document.getElementById('candidateClearSel');
+
+  function currentSelection() {
+    const ids = new Set();
+    checkboxes.filter(cb => cb.checked).forEach(cb => {
+      const centerId = cb.getAttribute('data-center-id');
+      const seriesId = cb.getAttribute('data-series-id');
+      ids.add(`${centerId}_${seriesId}`);
+    });
+    return Array.from(ids);
+  }
+
+  function updateBar() {
+    const count = currentSelection().length;
+    if (count > 0) {
+      bulkBar.classList.remove('hidden');
+      selCount.textContent = `${count} selected`;
+    } else {
+      bulkBar.classList.add('hidden');
+    }
+    // manage selectAll
+    const checkedCount = checkboxes.filter(cb => cb.checked).length;
+    if (checkedCount === 0) { selectAll.checked = false; selectAll.indeterminate = false; }
+    else if (checkedCount === checkboxes.length) { selectAll.checked = true; selectAll.indeterminate = false; }
+    else { selectAll.checked = false; selectAll.indeterminate = true; }
+  }
+
+  checkboxes.forEach(cb => cb.addEventListener('change', updateBar));
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+      updateBar();
+    });
+  }
+
+  btnClear && btnClear.addEventListener('click', function() {
+    checkboxes.forEach(cb => { cb.checked = false; });
+    updateBar();
+  });
+
+  btnPaid && btnPaid.addEventListener('click', function() {
+    const groups = currentSelection();
+    if (groups.length === 0) { alert('Please select at least one candidate.'); return; }
+    if (!confirm(`Mark paid for ${groups.length} center-series group(s)?`)) { return; }
+
+    const csrftoken = document.querySelector('#csrfForm [name=csrfmiddlewaretoken]').value;
+    btnPaid.disabled = true;
+    btnPaid.textContent = 'Processing...';
+    fetch('/eims/fees/centers/mark-as-paid/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+      body: JSON.stringify({ center_series_ids: groups })
+    }).then(r => r.json()).then(data => {
+      // On success, reload to reflect new payment statuses
+      window.location.reload();
+    }).catch(() => {
+      alert('Failed to mark as paid.');
+    }).finally(() => {
+      btnPaid.disabled = false;
+      btnPaid.textContent = 'Mark As Paid';
+    });
+  });
+});
 </script>
 {% endblock %}
