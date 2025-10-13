@@ -521,7 +521,16 @@ def center_fees_list(request):
             # Calculate what they should have been billed based on their enrolled candidates
             calculated_total = Decimal('0.00')
             for candidate in data['candidates']:
-                # Get the candidate's calculated fees (what they should be billed)
+                # Prefer cached modular billing amount when present (preserves original invoice for modular)
+                try:
+                    if str(getattr(candidate, 'registration_category', '')).lower() == 'modular':
+                        mba = getattr(candidate, 'modular_billing_amount', None)
+                        if mba:
+                            calculated_total += mba
+                            continue
+                except Exception:
+                    pass
+                # Otherwise compute from current rules
                 if hasattr(candidate, 'calculate_fees_balance'):
                     try:
                         calculated_fees = candidate.calculate_fees_balance()
@@ -530,6 +539,18 @@ def center_fees_list(request):
                         # If calculation fails, use a default or skip
                         pass
             
+            # Fallback 1: use candidate-level cleared amounts if fee calc yields 0
+            if calculated_total == 0:
+                cleared_sum = Decimal('0.00')
+                for candidate in data['candidates']:
+                    try:
+                        if getattr(candidate, 'payment_cleared', False) and getattr(candidate, 'payment_amount_cleared', None):
+                            cleared_sum += (candidate.payment_amount_cleared or Decimal('0.00'))
+                    except Exception:
+                        continue
+                if cleared_sum > 0:
+                    calculated_total = cleared_sum
+
             # If we calculated a total but current balance is 0, assume it was paid
             if calculated_total > 0 and current_outstanding == 0:
                 original_total_billed = calculated_total

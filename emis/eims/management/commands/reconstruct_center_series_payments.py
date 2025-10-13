@@ -59,6 +59,7 @@ class Command(BaseCommand):
                 candidate_count=Count('id', distinct=True),
                 outstanding_sum=Sum('fees_balance'),
                 paid_sum_candidates=Sum('payment_amount_cleared', filter=Q(payment_cleared=True)),
+                modular_billed_sum=Sum('modular_billing_amount', filter=Q(registration_category__iexact='Modular')),
             )
             .order_by('assessment_center_id', 'assessment_series_id')
         )
@@ -94,6 +95,7 @@ class Command(BaseCommand):
             series = series_map.get(g['assessment_series_id']) if g['assessment_series_id'] else None
             outstanding = g['outstanding_sum'] or Decimal('0.00')
             paid_from_candidates = g['paid_sum_candidates'] or Decimal('0.00')
+            modular_billed_sum = g.get('modular_billed_sum') or Decimal('0.00')
 
             # Load or create payment record (do not create on dry-run unless needed for reporting)
             pr = CenterSeriesPayment.objects.filter(
@@ -109,6 +111,10 @@ class Command(BaseCommand):
             if outstanding == 0 and paid_from_candidates > 0 and (current_paid or Decimal('0.00')) == 0:
                 action = 'SET_FROM_CANDIDATES'
                 amount_set = paid_from_candidates
+            elif outstanding == 0 and (current_paid or Decimal('0.00')) == 0 and paid_from_candidates == 0 and modular_billed_sum > 0:
+                # Modular fallback: use persisted modular_billing_amount when invoice status was set via module count
+                action = 'SET_FROM_MODULAR_BILL'
+                amount_set = modular_billed_sum
             elif outstanding == 0 and (current_paid or Decimal('0.00')) == 0 and paid_from_candidates == 0 and use_fee_calc:
                 # Optional fallback: reconstruct by summing expected fees for all billed candidates
                 # Only consider candidates within this group
@@ -120,7 +126,10 @@ class Command(BaseCommand):
                 total_calc = Decimal('0.00')
                 for c in cands.iterator(chunk_size=1000):
                     try:
-                        if hasattr(c, 'calculate_fees_balance'):
+                        # Prefer modular_billing_amount for modular candidates
+                        if str(getattr(c, 'registration_category', '')).lower() == 'modular' and getattr(c, 'modular_billing_amount', None):
+                            amt = c.modular_billing_amount
+                        elif hasattr(c, 'calculate_fees_balance'):
                             amt = c.calculate_fees_balance()
                         else:
                             amt = c.fees_balance or Decimal('0.00')

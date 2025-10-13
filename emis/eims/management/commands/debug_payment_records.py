@@ -3,14 +3,20 @@ Debug command to check what's actually in the payment records vs what the view s
 """
 
 from django.core.management.base import BaseCommand
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from decimal import Decimal
-from eims.models import Candidate, CenterSeriesPayment, AssessmentCenter
+from eims.models import Candidate, CenterSeriesPayment, AssessmentCenter, AssessmentSeries
 
 class Command(BaseCommand):
-    help = 'Debug payment records to see why PAID column shows UGX 0'
+    help = 'Debug payment records to see why PAID column shows UGX 0 (supports filtering by center and series)'
+
+    def add_arguments(self, parser):
+        parser.add_argument('--center-number', type=str, help='Filter by assessment center number (e.g., UVT001)')
+        parser.add_argument('--series-name', type=str, help='Filter by assessment series name (exact match); use "No series" to target null series')
 
     def handle(self, *args, **options):
+        center_number = options.get('center_number')
+        series_name = options.get('series_name')
         self.stdout.write(self.style.WARNING('='*100))
         self.stdout.write(self.style.WARNING('DEBUG: PAYMENT RECORDS VS CANDIDATES'))
         self.stdout.write(self.style.WARNING('='*100))
@@ -37,17 +43,24 @@ class Command(BaseCommand):
         self.stdout.write(f'   Payment Records: {payment_count}')
         self.stdout.write(f'   Total amount_paid: UGX {payment_total:,.2f}')
         
-        # Check ALL centers with paid candidates or payment records
+        # If specific center filter provided, scope down
         centers_with_data = set()
+        if center_number:
+            try:
+                center = AssessmentCenter.objects.get(center_number__iexact=center_number)
+                centers_with_data.add(center)
+            except AssessmentCenter.DoesNotExist:
+                self.stdout.write(self.style.ERROR(f"Center {center_number} not found"))
+                return
         
-        # Add centers with paid candidates
-        for candidate in paid_candidates:
-            if candidate.assessment_center:
-                centers_with_data.add(candidate.assessment_center)
-        
-        # Add centers with payment records
-        for payment_rec in payment_records:
-            centers_with_data.add(payment_rec.assessment_center)
+        if not centers_with_data:
+            # Add centers with paid candidates
+            for candidate in paid_candidates:
+                if candidate.assessment_center:
+                    centers_with_data.add(candidate.assessment_center)
+            # Add centers with payment records
+            for payment_rec in payment_records:
+                centers_with_data.add(payment_rec.assessment_center)
         
         self.stdout.write(f'\n🔍 CHECKING ALL CENTERS WITH PAYMENT DATA ({len(centers_with_data)} centers):')
         
@@ -55,10 +68,23 @@ class Command(BaseCommand):
             
             self.stdout.write(f'\n   {center.center_number} - {center.center_name}:')
             
+            # Series scoping
+            series_obj = None
+            series_filter_q = Q()
+            if series_name:
+                if series_name.lower() == 'no series':
+                    series_filter_q = Q(assessment_series__isnull=True)
+                else:
+                    try:
+                        series_obj = AssessmentSeries.objects.get(name=series_name)
+                        series_filter_q = Q(assessment_series=series_obj)
+                    except AssessmentSeries.DoesNotExist:
+                        self.stdout.write(self.style.ERROR(f"Series '{series_name}' not found"))
+                        return
+
             # Count paid candidates
             paid_cands = Candidate.objects.filter(
-                assessment_center=center,
-                payment_cleared=True
+                Q(assessment_center=center) & Q(payment_cleared=True) & series_filter_q
             )
             paid_cands_count = paid_cands.count()
             paid_cands_total = paid_cands.aggregate(
@@ -67,8 +93,7 @@ class Command(BaseCommand):
             
             # Count unpaid candidates
             unpaid_cands = Candidate.objects.filter(
-                assessment_center=center,
-                fees_balance__gt=0
+                Q(assessment_center=center) & Q(fees_balance__gt=0) & series_filter_q
             )
             unpaid_cands_count = unpaid_cands.count()
             unpaid_cands_total = unpaid_cands.aggregate(
@@ -80,6 +105,10 @@ class Command(BaseCommand):
             
             # Check CenterSeriesPayment records for this center
             payment_recs = CenterSeriesPayment.objects.filter(assessment_center=center)
+            if series_obj is not None:
+                payment_recs = payment_recs.filter(assessment_series=series_obj)
+            elif series_name and series_name.lower() == 'no series':
+                payment_recs = payment_recs.filter(assessment_series__isnull=True)
             payment_recs_count = payment_recs.count()
             payment_recs_total = payment_recs.aggregate(
                 total=Sum('amount_paid')
