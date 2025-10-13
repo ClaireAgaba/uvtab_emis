@@ -31,6 +31,7 @@ urlpatterns = [
     path('occupations/<int:pk>/detail/', views.occupation_detail, name='occupation_detail'),
     path('occupations/<int:pk>/update-fees/', views.update_occupation_fees, name='update_occupation_fees'),
     path('occupations/<int:pk>/edit/', views.occupation_edit, name='occupation_edit'),
+    path('occupations/bulk/change-sector/', views.occupations_bulk_change_sector, name='occupations_bulk_change_sector'),
     path('occupations/<int:occupation_id>/add-level/', views.add_level, name='add_level'),
     
     # UVTAB Fees Module

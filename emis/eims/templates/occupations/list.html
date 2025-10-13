@@ -12,8 +12,21 @@
     </div>
   </div>
 
-  <div class="mb-6">
+  <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
     <a href="{% url 'occupation_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Create Occupation</a>
+    <!-- Bulk Actions -->
+    <form id="bulkFormTop" method="post" action="{% url 'occupations_bulk_change_sector' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="flex items-center gap-2">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="change_sector">
+      <label class="text-sm text-gray-600">Change sector for selected:</label>
+      <select name="sector_id" class="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+        <option value="">Select sector</option>
+        {% for sector in sectors %}
+          <option value="{{ sector.id }}">{{ sector.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" id="bulkApplyBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium disabled:opacity-50" disabled>Apply</button>
+    </form>
   </div>
 <!-- Count and Pagination Info -->
 <div class="mb-2 text-sm text-gray-600 flex justify-between items-center">
@@ -33,9 +46,14 @@
 </div>
 
 <div class="bg-white shadow-sm border border-gray-200 rounded-lg">
+    <form id="bulkFormTable" method="post" action="{% url 'occupations_bulk_change_sector' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+    {% csrf_token %}
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
+          <th class="px-3 py-3">
+            <input type="checkbox" id="selectAll" class="rounded border-gray-300">
+          </th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Code</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Name</th>
           <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Category</th>
@@ -44,6 +62,9 @@
         </tr>
         <tr>
           <form method="get">
+            <th class="px-3 py-2">
+              <!-- empty header for checkboxes -->
+            </th>
             <th class="px-3 py-2">
               <input type="text" name="code" value="{{ request.GET.code }}" placeholder="Filter code" class="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
             </th>
@@ -74,8 +95,11 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for occ in occupations %}
-        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'occupation_detail' occ.pk %}{% if request.GET.code or request.GET.name or request.GET.category or request.GET.sector or request.GET.page %}?{% endif %}{% if request.GET.code %}code={{ request.GET.code }}{% endif %}{% if request.GET.name %}{% if request.GET.code %}&{% endif %}name={{ request.GET.name }}{% endif %}{% if request.GET.category %}{% if request.GET.code or request.GET.name %}&{% endif %}category={{ request.GET.category }}{% endif %}{% if request.GET.sector %}{% if request.GET.code or request.GET.name or request.GET.category %}&{% endif %}sector={{ request.GET.sector }}{% endif %}{% if request.GET.page %}{% if request.GET.code or request.GET.name or request.GET.category or request.GET.sector %}&{% endif %}page={{ request.GET.page }}{% endif %}'">
-          <td class="px-3 py-3 text-sm text-gray-900">{{ occ.code }}</td>
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-3 py-3">
+            <input type="checkbox" name="occupation_ids" value="{{ occ.id }}" class="rowCheckbox rounded border-gray-300">
+          </td>
+          <td class="px-3 py-3 text-sm text-gray-900 cursor-pointer" onclick="window.location='{% url 'occupation_detail' occ.pk %}{% if request.GET.code or request.GET.name or request.GET.category or request.GET.sector or request.GET.page %}?{% endif %}{% if request.GET.code %}code={{ request.GET.code }}{% endif %}{% if request.GET.name %}{% if request.GET.code %}&{% endif %}name={{ request.GET.name }}{% endif %}{% if request.GET.category %}{% if request.GET.code or request.GET.name %}&{% endif %}category={{ request.GET.category }}{% endif %}{% if request.GET.sector %}{% if request.GET.code or request.GET.name or request.GET.category %}&{% endif %}sector={{ request.GET.sector }}{% endif %}{% if request.GET.page %}{% if request.GET.code or request.GET.name or request.GET.category or request.GET.sector %}&{% endif %}page={{ request.GET.page }}{% endif %}'">{{ occ.code }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ occ.name }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ occ.category.name }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ occ.sector.name }}</td>
@@ -87,6 +111,43 @@
         {% endfor %}
       </tbody>
     </table>
+     <!-- Hidden inputs will be injected here when top form submits -->
+    </form>
   </div>
+</div>
+
+<script>
+  // Sync selection across forms and enable Apply button
+  function updateBulkState() {
+    const anyChecked = Array.from(document.querySelectorAll('.rowCheckbox')).some(cb => cb.checked);
+    document.getElementById('bulkApplyBtn').disabled = !anyChecked;
+  }
+  document.querySelectorAll('.rowCheckbox').forEach(cb => cb.addEventListener('change', updateBulkState));
+  const selectAll = document.getElementById('selectAll');
+  if (selectAll) {
+    selectAll.addEventListener('change', function(){
+      const checked = this.checked;
+      document.querySelectorAll('.rowCheckbox').forEach(cb => { cb.checked = checked; });
+      updateBulkState();
+    });
+  }
+
+  // When submitting the top bulk form, copy checked IDs into hidden inputs
+  document.getElementById('bulkFormTop').addEventListener('submit', function(e){
+    const ids = Array.from(document.querySelectorAll('.rowCheckbox:checked')).map(cb => cb.value);
+    if (ids.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    // attach ids as hidden inputs so backend receives them
+    ids.forEach(id => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'occupation_ids';
+      input.value = id;
+      this.appendChild(input);
+    });
+  });
+</script>
 </div>
 {% endblock %}

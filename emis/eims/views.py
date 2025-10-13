@@ -4687,6 +4687,53 @@ def occupation_list(request):
         'sectors': sectors,
     })
 
+
+@login_required
+def occupations_bulk_change_sector(request):
+    """Bulk action: change sector for selected occupations."""
+    # Block Center Representatives
+    from .models import CenterRepresentative, Sector
+    try:
+        CenterRepresentative.objects.get(user=request.user)
+        return HttpResponse(status=403)
+    except CenterRepresentative.DoesNotExist:
+        pass
+
+    if request.method != 'POST':
+        return redirect('occupation_list')
+
+    # Collect IDs and target sector
+    ids = request.POST.getlist('occupation_ids')
+    sector_id = request.POST.get('sector_id')
+
+    if not ids:
+        messages.warning(request, 'No occupations selected.')
+        return redirect('occupation_list')
+
+    if not sector_id:
+        messages.error(request, 'Please select a sector to apply.')
+        return redirect('occupation_list')
+
+    # Validate sector exists
+    try:
+        target_sector = Sector.objects.get(pk=sector_id)
+    except Sector.DoesNotExist:
+        messages.error(request, 'Selected sector was not found.')
+        return redirect('occupation_list')
+
+    # Perform update
+    updated = Occupation.objects.filter(id__in=ids).update(sector_id=target_sector.id, updated_by=request.user)
+
+    messages.success(request, f'Successfully updated sector for {updated} occupation(s).')
+
+    # Preserve current filters from query string on redirect
+    from django.urls import reverse
+    from urllib.parse import urlencode
+    params = {k: v for k, v in request.GET.items() if v}
+    list_url = reverse('occupation_list')
+    redirect_url = f"{list_url}?{urlencode(params)}" if params else list_url
+    return redirect(redirect_url)
+
 def occupation_create(request):
     # Block Center Representatives from creating occupations
     from .models import CenterRepresentative
