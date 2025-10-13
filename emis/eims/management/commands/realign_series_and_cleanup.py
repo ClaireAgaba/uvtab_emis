@@ -22,15 +22,24 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--apply', action='store_true', help='Persist changes')
-        parser.add_argument('--year', type=int, default=2025, help='Target assessment year (default 2025)')
+        parser.add_argument('--year', type=int, help='Target assessment year (omit to include all years)')
         parser.add_argument('--center', type=int, help='Filter by assessment center id')
         parser.add_argument('--export', type=str, help='Export CSV audit to this path')
         parser.add_argument('--limit', type=int, help='Limit candidates for testing')
+        parser.add_argument('--include-unbilled', action='store_true', help='Include candidates with fees_balance>0 but no enrollments')
 
     def _find_series_for_date(self, d: date):
-        # Prefer series that covers the date in its start..end window
-        s = AssessmentSeries.objects.filter(start_date__lte=d, end_date__gte=d).order_by('start_date').first()
-        return s
+        # 1) Exact month/year match, pick series whose start_date month/year equals d
+        s = (
+            AssessmentSeries.objects
+            .filter(start_date__year=d.year, start_date__month=d.month)
+            .order_by('start_date')
+            .first()
+        )
+        if s:
+            return s
+        # 2) Fallback: date window coverage
+        return AssessmentSeries.objects.filter(start_date__lte=d, end_date__gte=d).order_by('start_date').first()
 
     def handle(self, *args, **opts):
         apply = opts.get('apply')
@@ -38,18 +47,23 @@ class Command(BaseCommand):
         center_id = opts.get('center')
         export = opts.get('export')
         limit = opts.get('limit')
+        include_unbilled = opts.get('include_unbilled')
 
-        # "Invoice set" definition consistent with UI: enrollment exists OR fees_balance>0
+        # Base queryset: series missing
         qs = (
             Candidate.objects
             .select_related('assessment_center', 'assessment_series', 'occupation')
             .annotate(level_count=Count('candidatelevel'), module_count=Count('candidatemodule', distinct=True))
             .filter(assessment_series__isnull=True)
-            .filter(
-                Q(level_count__gt=0) | Q(module_count__gt=0) | Q(fees_balance__gt=0)
-            )
-            .filter(assessment_date__year=target_year)
         )
+        # Scope: enrolled candidates by default (center invoices focus)
+        enrolled_q = Q(level_count__gt=0) | Q(module_count__gt=0)
+        if include_unbilled:
+            qs = qs.filter(enrolled_q | Q(fees_balance__gt=0))
+        else:
+            qs = qs.filter(enrolled_q)
+        if target_year:
+            qs = qs.filter(assessment_date__year=target_year)
         if center_id:
             qs = qs.filter(assessment_center_id=center_id)
         if limit:
@@ -112,7 +126,7 @@ class Command(BaseCommand):
                     assigned += 1
                 else:
                     action = 'NO_SERIES_FOUND'
-                    notes = 'No AssessmentSeries window found for this assessment_date.'
+                    notes = 'No AssessmentSeries found by month/year or window for this assessment_date.'
 
             if writer:
                 writer.writerow({
