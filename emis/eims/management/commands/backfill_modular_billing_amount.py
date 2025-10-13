@@ -19,6 +19,9 @@ class Command(BaseCommand):
         parser.add_argument('--series', type=int, help='Filter by assessment series id; 0 means NULL series')
         parser.add_argument('--export', type=str, help='CSV export path', default='tmp/modular_backfill_audit.csv')
         parser.add_argument('--limit', type=int, help='Limit number of candidates (for testing)')
+        # Hardcoded fee fallback for Modular pricing when fee tables are incomplete
+        parser.add_argument('--default-modular-1', type=int, default=70000, help='Default fee for 1 module if lookup returns 0')
+        parser.add_argument('--default-modular-2', type=int, default=90000, help='Default fee for 2 modules if lookup returns 0')
 
     def handle(self, *args, **opts):
         apply = opts.get('apply')
@@ -26,6 +29,8 @@ class Command(BaseCommand):
         series_id = opts.get('series')
         export = opts.get('export')
         limit = opts.get('limit')
+        default_mod1 = Decimal(str(opts.get('default_modular_1') or 70000))
+        default_mod2 = Decimal(str(opts.get('default_modular_2') or 90000))
 
         qs = Candidate.objects.filter(
             registration_category__iexact='Modular',
@@ -84,8 +89,14 @@ class Command(BaseCommand):
                 if level is None:
                     return Decimal('0.00')
 
-                fee = level.get_fee_for_registration('Modular', count)
-                return Decimal(fee)
+                fee = Decimal(level.get_fee_for_registration('Modular', count))
+                # If fee tables are incomplete, use hardcoded defaults
+                if (fee or Decimal('0.00')) == 0:
+                    if count == 1:
+                        fee = default_mod1
+                    elif count == 2:
+                        fee = default_mod2
+                return fee
             except Exception:
                 return Decimal('0.00')
 
