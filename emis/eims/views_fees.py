@@ -437,6 +437,24 @@ def center_fees_list(request):
             candidates_with_billing = candidates_with_billing.filter(assessment_center_branch_id=cr.assessment_center_branch_id)
     except CenterRepresentative.DoesNotExist:
         pass
+    # Apply DB-side filters from query params
+    search_query = request.GET.get('search', '').strip()
+    series_filter = request.GET.get('series', '')
+    center_no = (request.GET.get('center_no') or '').strip()
+    if search_query:
+        candidates_with_billing = candidates_with_billing.filter(
+            Q(assessment_center__center_name__icontains=search_query) |
+            Q(assessment_center__center_number__icontains=search_query) |
+            Q(assessment_center__district__name__icontains=search_query)
+        )
+    if series_filter:
+        if series_filter == 'none':
+            candidates_with_billing = candidates_with_billing.filter(assessment_series__isnull=True)
+        else:
+            candidates_with_billing = candidates_with_billing.filter(assessment_series_id=series_filter)
+    if center_no:
+        candidates_with_billing = candidates_with_billing.filter(assessment_center__center_number__icontains=center_no)
+
     candidates_with_billing = candidates_with_billing.distinct().select_related('assessment_center', 'assessment_series', 'assessment_center__district', 'assessment_center__village')
     
     # Group by center and assessment series
@@ -551,7 +569,16 @@ def center_fees_list(request):
             'amount_due': amount_due,     # Current outstanding amount
         })
     
+    # In-memory filters no longer needed (handled in DB), keep variables for template
+
     show_with_fees_only = request.GET.get('with_fees_only', '') == 'true'
+    # Optional filter: center number (exact or partial)
+    center_no = (request.GET.get('center_no') or '').strip()
+    if center_no:
+        center_fees_data = [
+            d for d in center_fees_data
+            if d['center'] and center_no.lower() in (d['center'].center_number or '').lower()
+        ]
     # Note: with_fees_only intentionally not applied to show full billing picture
     
     # Sort by total fees (descending)
@@ -573,6 +600,8 @@ def center_fees_list(request):
     # Ensure filter vars exist for template context (avoid NameError)
     search_query = request.GET.get('search', '').strip()
     series_filter = request.GET.get('series', '')
+    # Ensure center_no is available to the template
+    center_no = (request.GET.get('center_no') or '').strip()
     
     context = {
         'page_obj': page_obj,
@@ -584,6 +613,7 @@ def center_fees_list(request):
         'total_system_fees': total_system_fees,
         'total_entries': len(center_fees_data),  # Total center-series combinations
         'is_center_rep': request.user.groups.filter(name='CenterRep').exists(),
+        'center_no': center_no,
     }
     
     return render(request, 'fees/center_fees_list.html', context)

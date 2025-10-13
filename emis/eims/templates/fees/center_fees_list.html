@@ -54,7 +54,7 @@
   <!-- Search and Filters -->
   <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
     <form method="GET" class="space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <!-- Search -->
         <div>
           <label for="search" class="block text-sm font-medium text-gray-700 mb-2">Search</label>
@@ -66,6 +66,17 @@
                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
         </div>
         
+        <!-- Center Number Filter -->
+        <div>
+          <label for="center_no" class="block text-sm font-medium text-gray-700 mb-2">Center Number</label>
+          <input type="text"
+                 id="center_no"
+                 name="center_no"
+                 value="{{ center_no }}"
+                 placeholder="e.g. UVT001"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+        </div>
+
         <!-- Assessment Series Filter -->
         <div>
           <label for="series" class="block text-sm font-medium text-gray-700 mb-2">Assessment Series</label>
@@ -244,13 +255,13 @@
     <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-8 rounded-lg shadow-sm">
       <div class="flex-1 flex justify-between sm:hidden">
         {% if page_obj.has_previous %}
-          <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}" 
+          <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}{% if center_no %}&center_no={{ center_no }}{% endif %}" 
              class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             Previous
           </a>
         {% endif %}
         {% if page_obj.has_next %}
-          <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}" 
+          <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}{% if center_no %}&center_no={{ center_no }}{% endif %}" 
              class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             Next
           </a>
@@ -286,7 +297,7 @@
                   {{ num }}
                 </span>
               {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}" 
+                <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}{% if center_no %}&center_no={{ center_no }}{% endif %}" 
                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                   {{ num }}
                 </a>
@@ -294,7 +305,7 @@
             {% endfor %}
             
             {% if page_obj.has_next %}
-              <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}" 
+              <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if series_filter %}&series={{ series_filter }}{% endif %}{% if center_no %}&center_no={{ center_no }}{% endif %}" 
                  class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                 <span class="sr-only">Next</span>
                 <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
