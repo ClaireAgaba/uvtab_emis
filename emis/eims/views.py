@@ -4805,8 +4805,9 @@ def occupation_detail(request, pk):
             content = Paper.objects.filter(occupation=occupation, level=ol.level)
         level_data.append({'level': ol.level, 'structure_type': ol.structure_type, 'content': content})
 
-    # Compute back URL: if linked from center view, go back there; else occupations list
+    # Compute back URL with sticky filters
     from django.urls import reverse
+    from urllib.parse import urlencode
     from_center = request.GET.get('from_center')
     if from_center:
         try:
@@ -4814,7 +4815,11 @@ def occupation_detail(request, pk):
         except Exception:
             back_url = reverse('occupation_list')
     else:
-        back_url = reverse('occupation_list')
+        # Preserve filter params when returning to list
+        filter_keys = ['code', 'name', 'category', 'sector', 'page']
+        params = {k: request.GET.get(k) for k in filter_keys if request.GET.get(k)}
+        base_list_url = reverse('occupation_list')
+        back_url = f"{base_list_url}?{urlencode(params)}" if params else base_list_url
 
     return render(request, 'occupations/view.html', {
         'occupation': occupation,

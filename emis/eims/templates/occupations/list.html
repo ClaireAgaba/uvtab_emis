@@ -22,10 +22,12 @@
   </span>
   <span>
     {% if page_obj.has_previous %}
-      <a href="?page={{ page_obj.previous_page_number }}" class="inline-block px-2">&#60;</a>
+      <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.code %}&code={{ request.GET.code }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.sector %}&sector={{ request.GET.sector }}{% endif %}"
+         class="inline-block px-2">&#60;</a>
     {% endif %}
     {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.next_page_number }}" class="inline-block px-2">&#62;</a>
+      <a href="?page={{ page_obj.next_page_number }}{% if request.GET.code %}&code={{ request.GET.code }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.sector %}&sector={{ request.GET.sector }}{% endif %}"
+         class="inline-block px-2">&#62;</a>
     {% endif %}
   </span>
 </div>
@@ -72,13 +74,14 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for occ in occupations %}
-        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'occupation_detail' occ.pk %}'">
+        <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'occupation_detail' occ.pk %}{% if request.GET.code or request.GET.name or request.GET.category or request.GET.sector or request.GET.page %}?{% endif %}{% if request.GET.code %}code={{ request.GET.code }}{% endif %}{% if request.GET.name %}{% if request.GET.code %}&{% endif %}name={{ request.GET.name }}{% endif %}{% if request.GET.category %}{% if request.GET.code or request.GET.name %}&{% endif %}category={{ request.GET.category }}{% endif %}{% if request.GET.sector %}{% if request.GET.code or request.GET.name or request.GET.category %}&{% endif %}sector={{ request.GET.sector }}{% endif %}{% if request.GET.page %}{% if request.GET.code or request.GET.name or request.GET.category or request.GET.sector %}&{% endif %}page={{ request.GET.page }}{% endif %}'">
           <td class="px-3 py-3 text-sm text-gray-900">{{ occ.code }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ occ.name }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ occ.category.name }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ occ.sector.name }}</td>
           <td class="px-3 py-3 text-sm">
-            <a href="{% url 'occupation_detail' occ.pk %}" class="text-blue-600 hover:text-blue-900 font-medium" onclick="event.stopPropagation();">View</a>
+            <a href="{% url 'occupation_detail' occ.pk %}{% if request.GET.code or request.GET.name or request.GET.category or request.GET.sector or request.GET.page %}?{% endif %}{% if request.GET.code %}code={{ request.GET.code }}{% endif %}{% if request.GET.name %}{% if request.GET.code %}&{% endif %}name={{ request.GET.name }}{% endif %}{% if request.GET.category %}{% if request.GET.code or request.GET.name %}&{% endif %}category={{ request.GET.category }}{% endif %}{% if request.GET.sector %}{% if request.GET.code or request.GET.name or request.GET.category %}&{% endif %}sector={{ request.GET.sector }}{% endif %}{% if request.GET.page %}{% if request.GET.code or request.GET.name or request.GET.category or request.GET.sector %}&{% endif %}page={{ request.GET.page }}{% endif %}"
+               class="text-blue-600 hover:text-blue-900 font-medium" onclick="event.stopPropagation();">View</a>
           </td>
         </tr>
         {% endfor %}
