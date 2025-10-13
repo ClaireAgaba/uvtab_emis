@@ -569,6 +569,10 @@ def center_fees_list(request):
     
     # Get filter options
     assessment_series = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
+
+    # Ensure filter vars exist for template context (avoid NameError)
+    search_query = request.GET.get('search', '').strip()
+    series_filter = request.GET.get('series', '')
     
     context = {
         'page_obj': page_obj,
