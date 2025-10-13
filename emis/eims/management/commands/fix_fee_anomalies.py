@@ -27,7 +27,12 @@ class Command(BaseCommand):
         limit = opts.get('limit')
         export = opts.get('export')
 
-        qs = Candidate.objects.select_related('assessment_center', 'assessment_series', 'occupation').all()
+        qs = (
+            Candidate.objects
+            .select_related('assessment_center', 'assessment_series', 'occupation')
+            .prefetch_related('candidatelevel_set__level')
+            .annotate(module_count=Count('candidatemodule', distinct=True))
+        )
         if center_id:
             qs = qs.filter(assessment_center_id=center_id)
         if series_id:
@@ -44,26 +49,36 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.WARNING(f'Auditing {total} candidate(s)... apply={apply}'))
 
-        rows = []
         fixed = 0
         anomalies = 0
+        writer = None
+        f = None
 
-        for cand in qs.iterator(chunk_size=500):
+        # Prepare CSV if requested (streaming write)
+        if export:
+            out_path = Path(export)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            f = out_path.open('w', newline='', encoding='utf-8')
+            import csv as _csv
+            writer = _csv.DictWriter(f, fieldnames=[
+                'id','reg_number','name','center','series','category','level','module_count',
+                'expected_total','amount_paid','current_fees_balance','current_total','new_balance','mismatch'
+            ])
+            writer.writeheader()
+
+        processed = 0
+        for cand in qs.iterator(chunk_size=1000):
             reg_cat = (cand.registration_category or '').lower()
             amount_paid = cand.payment_amount_cleared or Decimal('0.00')
 
-            # Determine level for fee lookup (first enrolled level)
-            level_obj = (
-                Level.objects.filter(occupation=cand.occupation, occupation_levels__isnull=False)
-                .first()
-            )
-            # Prefer explicit CandidateLevel
-            cl = CandidateLevel.objects.filter(candidate=cand).order_by('id').select_related('level').first()
-            if cl:
-                level_obj = cl.level
+            # Determine level from prefetched candidatelevel_set (first enrolled level)
+            cl = None
+            if hasattr(cand, 'candidatelevel_set'):
+                cl = next(iter(cand.candidatelevel_set.all()), None)
+            level_obj = cl.level if cl else None
 
-            # Count modules (for modular/workers PAS when module-based)
-            module_count = CandidateModule.objects.filter(candidate=cand).count()
+            # Module count from annotation
+            module_count = getattr(cand, 'module_count', 0) or 0
 
             expected_total = Decimal('0.00')
             if reg_cat == 'formal':
@@ -101,7 +116,7 @@ class Command(BaseCommand):
             if mismatch:
                 anomalies += 1
 
-            rows.append({
+            row = {
                 'id': cand.id,
                 'reg_number': cand.reg_number or '',
                 'name': cand.full_name,
@@ -116,7 +131,9 @@ class Command(BaseCommand):
                 'current_total': f"{current_total:.2f}",
                 'new_balance': f"{new_balance:.2f}",
                 'mismatch': 'YES' if mismatch else 'NO',
-            })
+            }
+            if writer:
+                writer.writerow(row)
 
             if apply and mismatch:
                 cand.fees_balance = new_balance
@@ -126,15 +143,14 @@ class Command(BaseCommand):
                 cand.save(update_fields=['fees_balance', 'modular_billing_amount'] if reg_cat == 'modular' else ['fees_balance'])
                 fixed += 1
 
-        # Export CSV if requested
-        if export:
-            out_path = Path(export)
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            with out_path.open('w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-                writer.writeheader()
-                writer.writerows(rows)
-            self.stdout.write(self.style.SUCCESS(f'Exported audit CSV to {out_path}'))
+            processed += 1
+            if processed % 5000 == 0:
+                self.stdout.write(f"Processed {processed}/{total}...")
+
+        # Close CSV if open
+        if f:
+            f.close()
+            self.stdout.write(self.style.SUCCESS(f'Exported audit CSV to {export}'))
 
         self.stdout.write(self.style.WARNING(f'Anomalies found: {anomalies}'))
         if apply:
