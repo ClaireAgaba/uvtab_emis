@@ -551,27 +551,8 @@ def center_fees_list(request):
             'amount_due': amount_due,     # Current outstanding amount
         })
     
-    # Apply filters
-    search_query = request.GET.get('search', '').strip()
-    series_filter = request.GET.get('series', '')
     show_with_fees_only = request.GET.get('with_fees_only', '') == 'true'
-    
-    if search_query:
-        center_fees_data = [
-            data for data in center_fees_data
-            if search_query.lower() in data['center'].center_name.lower() or
-               search_query.lower() in data['center'].center_number.lower()
-        ]
-    
-    if series_filter:
-        if series_filter == 'none':
-            center_fees_data = [data for data in center_fees_data if data['assessment_series'] is None]
-        else:
-            center_fees_data = [data for data in center_fees_data if data['assessment_series'] and str(data['assessment_series'].id) == series_filter]
-    
-    # Note: Removed the "with_fees_only" filter since we now want to show all billed candidates
-    # if show_with_fees_only:
-    #     center_fees_data = [data for data in center_fees_data if data['amount_due'] > 0]
+    # Note: with_fees_only intentionally not applied to show full billing picture
     
     # Sort by total fees (descending)
     center_fees_data.sort(key=lambda x: x['total_fees'], reverse=True)
@@ -583,8 +564,8 @@ def center_fees_list(request):
     page_obj = paginator.get_page(page_number)
     
     # Calculate totals
-    unique_centers = len(set(data['center'].id for data in center_fees_data))
-    total_system_fees = sum(data['total_fees'] for data in center_fees_data)
+    unique_centers = len({data['center'].id for data in center_fees_data})
+    total_system_fees = sum((data['total_fees'] or Decimal('0.00')) for data in center_fees_data)
     
     # Get filter options
     assessment_series = AssessmentSeries.objects.all().order_by('-is_current', '-start_date')
