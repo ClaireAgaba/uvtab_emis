@@ -14461,7 +14461,6 @@ def api_assessment_series(request):
             'error': str(e)
         })
 
-@login_required
 def check_session_status(request):
     """API endpoint to check if user session is still valid and return user role info"""
     try:
@@ -14472,7 +14471,16 @@ def check_session_status(request):
                 'is_center_rep': False,
                 'is_admin_or_staff': False
             })
-        
+
+        # Keep-alive: extend session expiry on active use
+        try:
+            from django.conf import settings as django_settings
+            ttl = getattr(django_settings, 'SESSION_COOKIE_AGE', 1800)
+            request.session.set_expiry(ttl)
+            request.session.modified = True
+        except Exception:
+            pass
+
         # Determine user role
         is_center_rep = hasattr(request.user, 'centerrep')
         is_admin_or_staff = (
