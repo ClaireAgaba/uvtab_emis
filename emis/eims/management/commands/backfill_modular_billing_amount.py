@@ -33,8 +33,9 @@ class Command(BaseCommand):
         default_mod2 = Decimal(str(opts.get('default_modular_2') or 90000))
 
         qs = Candidate.objects.filter(
-            registration_category__iexact='Modular',
-            modular_billing_amount__isnull=True,
+            registration_category__iexact='Modular'
+        ).filter(
+            Q(modular_billing_amount__isnull=True) | Q(modular_billing_amount=0)
         ).filter(
             Q(modular_module_count__in=[1,2]) | Q(candidatemodule__isnull=False)
         ).distinct().select_related('assessment_center','assessment_series','occupation')
