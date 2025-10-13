@@ -697,7 +697,22 @@ class Candidate(models.Model):
     updated_by = models.ForeignKey(get_user_model(), related_name='updated_candidates', null=True, blank=True, on_delete=models.SET_NULL)
 
     def is_enrolled(self):
-        return self.candidatelevel_set.exists() or self.candidatemodule_set.exists()
+        """Return True if candidate has any enrollment recorded.
+
+        - Formal: any `CandidateLevel` exists.
+        - Modular: either `CandidateModule` exists OR a center has set `modular_module_count` (>0),
+          which represents modular enrollment when modules are not explicitly captured.
+        - Worker's PAS/Informal: same logic as modular (modules often represent enrollment).
+        """
+        if self.candidatelevel_set.exists() or self.candidatemodule_set.exists():
+            return True
+        # Handle modular enrollment recorded via summarized field
+        try:
+            if (self.registration_category == 'Modular') and (self.modular_module_count or 0) > 0:
+                return True
+        except Exception:
+            pass
+        return False
 
     enrollment_label = models.CharField(max_length=100, blank=True, null=True)
 
