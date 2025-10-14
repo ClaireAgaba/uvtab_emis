@@ -72,6 +72,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'eims.context_processors.env_flags',
             ],
         },
     },
@@ -79,7 +80,6 @@ TEMPLATES = [
 
 
 WSGI_APPLICATION = 'emis.wsgi.application'
-
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -104,7 +104,6 @@ if POSTGRES_HOST and POSTGRES_DB and POSTGRES_USER:
             # Keep DB connections open for up to 5 minutes to reduce churn under load
             'CONN_MAX_AGE': int(os.getenv('CONN_MAX_AGE', '300')),
             'OPTIONS': {
-                # Uncomment if you require SSL in production
                 # 'sslmode': os.getenv('POSTGRES_SSLMODE', 'prefer'),
             }
         }
@@ -117,134 +116,12 @@ else:
         }
     }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
-
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
-USE_I18N = True
-
-USE_TZ = True
-
-
-# Logging Configuration
-# Ensure logs directory exists before configuring LOGGING
-import os
-LOG_DIR = os.path.join(BASE_DIR, '..', 'logs')
-os.makedirs(LOG_DIR, exist_ok=True)
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-        'file': {
-            'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, '..', 'logs', 'emis.log'),
-            'when': 'D',
-            'interval': 1,
-            'backupCount': 7,
-            'formatter': 'verbose',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'eims': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-}
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
-STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
-# STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/login/'
-
-# Custom authentication backend to check staff status
-AUTHENTICATION_BACKENDS = [
-    'eims.backends.StatusCheckBackend',  # Our custom backend
-    'django.contrib.auth.backends.ModelBackend',  # Default backend as fallback
-]
-
-# Session Timeout Settings
-SESSION_COOKIE_AGE = 30 * 60  # 30 minutes in seconds (30 * 60 = 1800)
-SESSION_SAVE_EVERY_REQUEST = True # Reset timer on each request for inactivity timeout
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True # Expire session when browser is closed
-
-# In production, avoid writing sessions on every request to reduce DB load.
-if os.getenv('DJANGO_PROD') == '1':
-    SESSION_SAVE_EVERY_REQUEST = False
-
-
-COUNTRIES_FIRST = [
-    'UG',  # Uganda
-    'KE',  # Kenya
-    'SS',  # South Sudan
-    'CD',  # Democratic Republic of the Congo
-    'TZ',  # Tanzania
-]
-
-
-COUNTRIES_FIRST_BREAK = _("--- Other Countries ---")
-
 AUTO_LOGOUT = {
         'IDLE_TIME': timedelta(minutes=30),  # Logout after 10 minutes of inactivity
         # 'SESSION_TIME': timedelta(minutes=), # Logout after 1 hour from last login (optional)
         'MESSAGE': 'Your session has expired due to inactivity. Please log in again.', # Optional message
     }
+
+# Environment flags (default values; can be overridden per environment)
+IS_STAGING = False
+SITE_NAME = os.getenv('SITE_NAME', 'EMIS Dashboard')

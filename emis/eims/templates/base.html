@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMIS Dashboard</title>
+    <title>{{ SITE_NAME }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom styles for better mobile experience */
@@ -37,7 +37,7 @@
                 <!-- Logo/Brand -->
                 <div class="flex-shrink-0">
                     <a href="{% url 'dashboard' %}" class="text-lg font-semibold text-gray-900 hover:text-blue-900">
-                        EMIS Dashboard
+                        {{ SITE_NAME }}
                     </a>
                 </div>
                 
@@ -94,6 +94,19 @@
     </nav>
     {% endif %}
     
+    {% if IS_STAGING %}
+    <!-- Staging/Training Banner -->
+    <div class="bg-yellow-100 border-b border-yellow-300 text-yellow-900">
+        <div class="max-w-7xl mx-auto px-4 py-2 text-sm flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-200 text-yellow-900">Training</span>
+                <span>You are using the EMIS Training environment. Data entered here will NOT affect live.</span>
+            </div>
+            <div class="text-xs text-yellow-800">Server time: {% now 'Y-m-d H:i' %}</div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Page Content -->
     <div class="p-4 sm:p-6">
         {% if messages %}
