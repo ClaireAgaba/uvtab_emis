@@ -4820,8 +4820,8 @@ def occupation_create(request):
 
 
 def occupation_view(request, pk):
-    occupation = get_object_or_404(Occupation, pk=pk)
-    return render(request, 'occupations/view.html', {'occupation': occupation})
+    """Compat route. Always use the detailed occupation page."""
+    return redirect('occupation_detail', pk=pk)
 
 
 def occupation_detail(request, pk):
@@ -10138,7 +10138,8 @@ def occupation_edit(request, pk):
                     'selected_levels': selected_levels,
                     'error': error
                 })
-            return redirect('occupation_detail', pk=occupation.pk)
+            # Go back to the full occupation page after successful edit
+            return redirect('occupation_view', pk=occupation.pk)
     else:
         form = OccupationForm(instance=occupation)
     # For edit, build levels with stype attribute for template

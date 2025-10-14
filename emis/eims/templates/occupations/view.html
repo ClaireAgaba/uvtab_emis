@@ -8,7 +8,14 @@
         ← Back to Occupations
       </a>
     <div class="flex justify-between items-center mt-4">
-      <h1 class="text-3xl font-normal" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{{ occupation.name }} <span class="text-gray-500">({{ occupation.code }})</span></h1>
+      <h1 class="text-3xl font-normal flex items-center gap-3" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+        {{ occupation.name }} <span class="text-gray-500">({{ occupation.code }})</span>
+        {% if occupation.is_active %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span>
+        {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">Inactive (hidden from centers)</span>
+        {% endif %}
+      </h1>
       {% if can_modify %}
         <a href="{% url 'occupation_edit' pk=occupation.pk %}" 
            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
@@ -24,7 +31,7 @@
   <!-- General Info Card -->
   <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
     <h2 class="text-xl font-normal mb-4" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">General Information</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div>
         <p class="text-gray-600">Category</p>
         <p class="text-lg">{{ occupation.category.name }}</p>
@@ -32,6 +39,14 @@
       <div>
         <p class="text-gray-600">Sector</p>
         <p class="text-lg">{{ occupation.sector.name }}</p>
+      </div>
+      <div>
+        <p class="text-gray-600">Status</p>
+        {% if occupation.is_active %}
+          <p class="text-lg"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span></p>
+        {% else %}
+          <p class="text-lg"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">Inactive (hidden from centers)</span></p>
+        {% endif %}
       </div>
     </div>
     <div class="mt-6">

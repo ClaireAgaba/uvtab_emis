@@ -732,18 +732,58 @@ def center_candidates_report(request, center_id, series_id=None):
         
         total_bill = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
         amount_due = current_outstanding
+        # Fallback for modular-cleared rows: reconstruct original bill when bill and paid read 0
+        if (total_bill or Decimal('0.00')) == 0 and (amount_due or Decimal('0.00')) == 0:
+            fallback_total = Decimal('0.00')
+            for c in candidates:
+                try:
+                    cat = (c.registration_category or '').strip().lower()
+                    if cat == 'modular':
+                        mba = getattr(c, 'modular_billing_amount', None)
+                        if mba and Decimal(mba) > 0:
+                            fallback_total += Decimal(mba)
+                        else:
+                            # hard defaults: 1 module = 70,000; 2 modules = 90,000
+                            mcount = c.modular_module_count or c.candidatemodule_set.count()
+                            if mcount == 1:
+                                fallback_total += Decimal('70000')
+                            elif mcount == 2:
+                                fallback_total += Decimal('90000')
+                            else:
+                                # last resort
+                                if hasattr(c, 'calculate_fees_balance'):
+                                    fallback_total += Decimal(c.calculate_fees_balance() or 0)
+                    else:
+                        if hasattr(c, 'calculate_fees_balance'):
+                            fallback_total += Decimal(c.calculate_fees_balance() or 0)
+                        else:
+                            fallback_total += Decimal(c.fees_balance or 0)
+                except Exception:
+                    fallback_total += Decimal(c.fees_balance or 0)
+            if fallback_total > 0:
+                total_bill = fallback_total
+                amount_paid = fallback_total
         
         # Prepare candidate data for invoice
         candidates_data = []
         for candidate in candidates:
-            # Determine original billed amount per candidate
+            # Determine original billed amount per candidate (prefer modular cache/defaults)
             try:
-                if hasattr(candidate, 'calculate_fees_balance'):
-                    original_fee_local = candidate.calculate_fees_balance()
-                    if (original_fee_local or Decimal('0.00')) <= 0 and (candidate.fees_balance or Decimal('0.00')) > 0:
-                        original_fee_local = candidate.fees_balance
+                cat = (candidate.registration_category or '').strip().lower()
+                if cat == 'modular':
+                    mba = getattr(candidate, 'modular_billing_amount', None)
+                    if mba and Decimal(mba) > 0:
+                        original_fee_local = Decimal(mba)
+                    else:
+                        mcount = candidate.modular_module_count or candidate.candidatemodule_set.count()
+                        if mcount == 1:
+                            original_fee_local = Decimal('70000')
+                        elif mcount == 2:
+                            original_fee_local = Decimal('90000')
+                        else:
+                            original_fee_local = Decimal(candidate.calculate_fees_balance() or 0) if hasattr(candidate, 'calculate_fees_balance') else (candidate.fees_balance or Decimal('0.00'))
                 else:
-                    original_fee_local = candidate.fees_balance
+                    original_fee_local = Decimal(candidate.calculate_fees_balance() or 0) if hasattr(candidate, 'calculate_fees_balance') else (candidate.fees_balance or Decimal('0.00'))
             except Exception:
                 original_fee_local = candidate.fees_balance
 
@@ -889,6 +929,35 @@ def generate_pdf_invoice(request, center_id, series_id=None):
         amount_paid = Decimal('0.00')
     total_bill = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
     amount_due = current_outstanding
+    # Fallback for modular-cleared rows: reconstruct bill if both bill and paid are 0 while candidates exist
+    if (total_bill or Decimal('0.00')) == 0 and (amount_due or Decimal('0.00')) == 0 and total_candidates > 0:
+        fallback_total = Decimal('0.00')
+        for c in candidates:
+            try:
+                cat = (c.registration_category or '').strip().lower()
+                if cat == 'modular':
+                    mba = getattr(c, 'modular_billing_amount', None)
+                    if mba and Decimal(mba) > 0:
+                        fallback_total += Decimal(mba)
+                    else:
+                        mcount = c.modular_module_count or c.candidatemodule_set.count()
+                        if mcount == 1:
+                            fallback_total += Decimal('70000')
+                        elif mcount == 2:
+                            fallback_total += Decimal('90000')
+                        else:
+                            if hasattr(c, 'calculate_fees_balance'):
+                                fallback_total += Decimal(c.calculate_fees_balance() or 0)
+                else:
+                    if hasattr(c, 'calculate_fees_balance'):
+                        fallback_total += Decimal(c.calculate_fees_balance() or 0)
+                    else:
+                        fallback_total += Decimal(c.fees_balance or 0)
+            except Exception:
+                fallback_total += Decimal(c.fees_balance or 0)
+        if fallback_total > 0:
+            total_bill = fallback_total
+            amount_paid = fallback_total
     
     # Registration category breakdown (counts and current outstanding per category)
     modular_candidates = []
@@ -916,14 +985,33 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     for candidate in candidates:
         # Determine payment status
         payment_status = 'paid' if candidate.fees_balance == 0 and total_bill > 0 else 'unpaid'
-        
+        # Determine original billed amount per candidate (align with JSON endpoint)
+        try:
+            cat = (candidate.registration_category or '').strip().lower()
+            if cat == 'modular':
+                mba = getattr(candidate, 'modular_billing_amount', None)
+                if mba and Decimal(mba) > 0:
+                    original_fee_local = Decimal(mba)
+                else:
+                    mcount = candidate.modular_module_count or candidate.candidatemodule_set.count()
+                    if mcount == 1:
+                        original_fee_local = Decimal('70000')
+                    elif mcount == 2:
+                        original_fee_local = Decimal('90000')
+                    else:
+                        original_fee_local = Decimal(candidate.calculate_fees_balance() or 0) if hasattr(candidate, 'calculate_fees_balance') else (candidate.fees_balance or Decimal('0.00'))
+            else:
+                original_fee_local = Decimal(candidate.calculate_fees_balance() or 0) if hasattr(candidate, 'calculate_fees_balance') else (candidate.fees_balance or Decimal('0.00'))
+        except Exception:
+            original_fee_local = candidate.fees_balance
+
         candidates_data.append({
             'reg_number': candidate.reg_number,
             'full_name': candidate.full_name,
             'occupation': candidate.occupation.name if candidate.occupation else 'N/A',
             'registration_category': candidate.registration_category or 'N/A',
-            'fees_balance': float(candidate.fees_balance),  # Current balance
-            'original_fee': float(candidate.fees_balance),  # Simplified for now
+            'fees_balance': float(candidate.fees_balance),
+            'original_fee': float(original_fee_local),
             'payment_status': payment_status,
         })
     

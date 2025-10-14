@@ -564,9 +564,9 @@
   function debounce(fn, wait) {
     let t; return function() { const ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, wait); };
   }
-  // Debounced text inputs (reg no, name)
+  // Text inputs (reg no, name) — do NOT auto-submit on each keystroke.
+  // Submit only on Enter or via the "Apply Filters" button to prevent reload per character.
   document.querySelectorAll('input.filter-input').forEach(function(inp) {
-    inp.addEventListener('input', debounce(function(){ filterForm.requestSubmit(); }, 300));
     inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); filterForm.requestSubmit(); } });
   });
 })();

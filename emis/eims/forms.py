@@ -244,13 +244,14 @@ class AssessmentCenterBranchForm(forms.ModelForm):
 class OccupationForm(forms.ModelForm):
     class Meta:
         model = Occupation
-        fields = ['code', 'name', 'category', 'sector', 'has_modular']
+        fields = ['code', 'name', 'category', 'sector', 'has_modular', 'is_active']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'name': forms.TextInput(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'category': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'sector': forms.Select(attrs={'class': 'border rounded px-3 py-2 w-full'}),
             'has_modular': forms.CheckboxInput(attrs={'class': 'ml-2'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'ml-2'}),
         }
 
 class LevelForm(forms.ModelForm):
@@ -557,19 +558,28 @@ class CandidateForm(forms.ModelForm):
         elif hasattr(self, 'instance') and getattr(self.instance, 'registration_category', None):
             reg_cat = self.instance.registration_category
 
-        # UX: Show occupation dropdown enabled by default with all occupations,
-        # then narrow results if a registration category is chosen
-        self.fields['occupation'].queryset = Occupation.objects.all().order_by('code')
+        # UX: Show occupation dropdown enabled by default.
+        # Center Representatives should only see ACTIVE occupations.
+        occ_qs = Occupation.objects.all()
+        if user and user.groups.filter(name='CenterRep').exists():
+            occ_qs = occ_qs.filter(is_active=True)
+        self.fields['occupation'].queryset = occ_qs.order_by('code')
         reg_cat_val = str(reg_cat).strip().lower() if reg_cat and str(reg_cat).strip() else None
         if reg_cat_val:
             # Modular: has_modular occupations
             if reg_cat_val == 'modular':
-                self.fields['occupation'].queryset = Occupation.objects.filter(has_modular=True).order_by('code')
+                qs = Occupation.objects.filter(has_modular=True)
+                if user and user.groups.filter(name='CenterRep').exists():
+                    qs = qs.filter(is_active=True)
+                self.fields['occupation'].queryset = qs.order_by('code')
             # Formal: occupation category 'Formal'
             elif reg_cat_val == 'formal':
                 try:
                     cat = OccupationCategory.objects.get(name__iexact='Formal')
-                    self.fields['occupation'].queryset = Occupation.objects.filter(category=cat).order_by('code')
+                    qs = Occupation.objects.filter(category=cat)
+                    if user and user.groups.filter(name='CenterRep').exists():
+                        qs = qs.filter(is_active=True)
+                    self.fields['occupation'].queryset = qs.order_by('code')
                 except OccupationCategory.DoesNotExist:
                     self.fields['occupation'].queryset = Occupation.objects.none()
             # Informal/Worker's PAS: occupation category 'Worker's PAS'
@@ -582,7 +592,10 @@ class CandidateForm(forms.ModelForm):
                     # Try regex for even more flexibility
                     cat = OccupationCategory.objects.filter(name__iregex=r"worker('?s)? pas").first()
                 if cat:
-                    self.fields['occupation'].queryset = Occupation.objects.filter(category=cat).order_by('code')
+                    qs = Occupation.objects.filter(category=cat)
+                    if user and user.groups.filter(name='CenterRep').exists():
+                        qs = qs.filter(is_active=True)
+                    self.fields['occupation'].queryset = qs.order_by('code')
                 else:
                     self.fields['occupation'].queryset = Occupation.objects.none()
         # Disable some fields in edit mode ONLY if candidate is verified; otherwise keep editable

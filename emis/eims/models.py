@@ -230,6 +230,11 @@ class Occupation(models.Model):
         default=False,
         help_text="Tick if this occupation allows Modular registration (Level 1 only)"
     )
+    # Availability control
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Uncheck to disable this occupation for centers. Disabled occupations are hidden from center registration forms."
+    )
 
     # Audit trail fields
     created_at = models.DateTimeField(auto_now_add=True)
