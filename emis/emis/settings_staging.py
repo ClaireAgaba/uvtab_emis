@@ -17,5 +17,11 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
     DATABASES['default']['NAME'] = BASE_DIR / 'db_staging.sqlite3'
 
+# Static/Media for staging
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'static'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Allow all hosts by default for staging unless overridden
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',') if isinstance(ALLOWED_HOSTS, list) is False else ALLOWED_HOSTS
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
