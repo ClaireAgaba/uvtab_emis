@@ -968,7 +968,14 @@ class Candidate(models.Model):
         nat = 'U' if nat_val in UGANDA_VALUES else 'X'
         year     = str(self.entry_year)[-2:]    # last 2 digits
         intake   = self.intake.upper()          # “M” or “A”
-        occ_code = self.occupation.code if self.occupation else "XXX"
+        # Normalize occupation code for reg number: remove trailing '-old', strip spaces, uppercase
+        occ_code_raw = self.occupation.code if self.occupation else "XXX"
+        occ_code = (occ_code_raw or "XXX").strip()
+        # If code ends with '-old' (case-insensitive), drop the suffix for reg numbers
+        if occ_code.lower().endswith('-old'):
+            occ_code = occ_code[:-4]
+        # Remove internal spaces and standardize to uppercase in regno
+        occ_code = occ_code.replace(' ', '').upper()
         reg_type = self.registration_category[0].upper() if self.registration_category else "X"
         center_code = self.assessment_center.center_number if self.assessment_center else "NOCNTR"
 
