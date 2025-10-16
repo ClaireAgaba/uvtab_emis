@@ -8871,66 +8871,7 @@ def enroll_candidate_view(request, id):
     can_admin_bypass_flag = (request.user.is_superuser or request.user.is_staff)
     enroll_triggered = (request.POST.get('_enroll') == '1') or can_admin_bypass_flag
     if request.method == 'POST' and enroll_triggered:
-        # Special case: Center Representatives for Modular candidates only set module count and billing
-        if candidate.registration_category == 'Modular' and is_center_rep:
-            # If any module enrollments already exist, lock center from changing billing
-            try:
-                if candidate.candidatemodule_set.exists():
-                    messages.error(request, 'Modules have already been enrolled for this candidate. Center cannot change the billed module count.')
-                    return redirect('candidate_view', id=id)
-            except Exception:
-                pass
-            # Capture assessment series for Modular individual enrollment (centers flow)
-            modular_choice = request.POST.get('modular_module_count')
-            series_id = request.POST.get('assessment_series') or request.POST.get('assessment_series_id')
-            selected_series = None
-            if series_id:
-                try:
-                    selected_series = AssessmentSeries.objects.get(id=series_id)
-                except AssessmentSeries.DoesNotExist:
-                    selected_series = None
-            try:
-                modular_choice_val = int(modular_choice) if modular_choice is not None else None
-            except ValueError:
-                modular_choice_val = None
-            if modular_choice_val in (1, 2):
-                # Require assessment series
-                if not selected_series:
-                    messages.error(request, 'Please select an Assessment Series for this enrollment.')
-                    return render(request, 'candidates/enroll.html', {
-                        'form': EnrollmentForm(candidate=candidate, user=request.user),
-                        'candidate': candidate,
-                        'is_center_rep': is_center_rep,
-                    })
-                candidate.assessment_series = selected_series
-                candidate.modular_module_count = modular_choice_val
-                # Compute and cache modular billing amount using Level 1 (or first configured) if available
-                level_for_fee = None
-                first_module = candidate.candidatemodule_set.first()
-                if first_module and first_module.module:
-                    level_for_fee = first_module.module.level
-                if level_for_fee is None and candidate.occupation_id:
-                    try:
-                        from .models import OccupationLevel
-                        occ_levels = OccupationLevel.objects.filter(occupation=candidate.occupation).select_related('level')
-                        level1 = next((ol.level for ol in occ_levels if '1' in str(ol.level.name)), None)
-                        level_for_fee = level1 or (occ_levels.first().level if occ_levels.exists() else None)
-                    except Exception:
-                        level_for_fee = None
-                if level_for_fee is not None:
-                    candidate.modular_billing_amount = level_for_fee.get_fee_for_registration('Modular', modular_choice_val)
-                candidate.save(update_fields=['assessment_series', 'modular_module_count', 'modular_billing_amount'])
-                # Update fees using decoupled billing
-                candidate.update_fees_balance()
-                messages.success(request, 'Module number saved. Billing updated for this candidate.')
-                return redirect('candidate_view', id=id)
-            else:
-                messages.error(request, 'Please select 1 or 2 modules.')
-                return render(request, 'candidates/enroll.html', {
-                    'form': EnrollmentForm(candidate=candidate, user=request.user),
-                    'candidate': candidate,
-                    'is_center_rep': is_center_rep,
-                })
+        # Center reps now use the same module enrollment flow as admins (no 1/2 module pre-selection)
 
         form = EnrollmentForm(request.POST, candidate=candidate, user=request.user)
         if form.is_valid():
