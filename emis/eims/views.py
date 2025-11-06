@@ -4812,12 +4812,20 @@ def occupation_list(request):
         'paginator': paginator,
         'categories': categories,
         'sectors': sectors,
+        'filters': {
+            'code': code,
+            'name': name,
+            'category': category,
+            'sector': sector,
+        }
     })
 
 
 @login_required
 def occupations_export(request):
-    """Export selected occupations to Excel (code, name, category, sector)."""
+    """Export selected occupations to Excel (code, name, category, sector).
+    Supports select_all + filters to export all filtered results across pages.
+    """
     if request.method != 'POST':
         return redirect('occupation_list')
 
@@ -4830,12 +4838,28 @@ def occupations_export(request):
         pass
 
     ids = request.POST.getlist('occupation_ids')
-    if not ids:
-        messages.error(request, 'No occupations selected for export.')
-        return redirect('occupation_list')
+    select_all = request.POST.get('select_all') in ['1', 'true', 'True', 'on']
 
-    # Fetch occupations
-    occ_qs = Occupation.objects.filter(id__in=ids).select_related('category', 'sector').order_by('code')
+    # Build queryset with optional filters
+    occ_qs = Occupation.objects.all().select_related('category', 'sector').order_by('code')
+    if select_all:
+        code = (request.POST.get('code') or '').strip()
+        name = (request.POST.get('name') or '').strip()
+        category = (request.POST.get('category') or '').strip()
+        sector = (request.POST.get('sector') or '').strip()
+        if code:
+            occ_qs = occ_qs.filter(code__icontains=code)
+        if name:
+            occ_qs = occ_qs.filter(name__icontains=name)
+        if category:
+            occ_qs = occ_qs.filter(category_id=category)
+        if sector:
+            occ_qs = occ_qs.filter(sector_id=sector)
+    else:
+        if not ids:
+            messages.error(request, 'No occupations selected for export.')
+            return redirect('occupation_list')
+        occ_qs = occ_qs.filter(id__in=ids)
 
     # Build workbook
     wb = Workbook()
@@ -4883,7 +4907,9 @@ def occupations_export(request):
 
 @login_required
 def occupations_bulk_change_sector(request):
-    """Bulk action: change sector for selected occupations."""
+    """Bulk action: change sector for selected occupations.
+    Supports select_all + filters to apply across all filtered results.
+    """
     # Block Center Representatives
     from .models import CenterRepresentative, Sector
     try:
@@ -4898,10 +4924,7 @@ def occupations_bulk_change_sector(request):
     # Collect IDs and target sector
     ids = request.POST.getlist('occupation_ids')
     sector_id = request.POST.get('sector_id')
-
-    if not ids:
-        messages.warning(request, 'No occupations selected.')
-        return redirect('occupation_list')
+    select_all = request.POST.get('select_all') in ['1', 'true', 'True', 'on']
 
     if not sector_id:
         messages.error(request, 'Please select a sector to apply.')
@@ -4914,8 +4937,29 @@ def occupations_bulk_change_sector(request):
         messages.error(request, 'Selected sector was not found.')
         return redirect('occupation_list')
 
+    # Build queryset
+    qs = Occupation.objects.all()
+    if select_all:
+        code = (request.POST.get('code') or '').strip()
+        name = (request.POST.get('name') or '').strip()
+        category = (request.POST.get('category') or '').strip()
+        sector = (request.POST.get('sector') or '').strip()
+        if code:
+            qs = qs.filter(code__icontains=code)
+        if name:
+            qs = qs.filter(name__icontains=name)
+        if category:
+            qs = qs.filter(category_id=category)
+        if sector:
+            qs = qs.filter(sector_id=sector)
+    else:
+        if not ids:
+            messages.warning(request, 'No occupations selected.')
+            return redirect('occupation_list')
+        qs = qs.filter(id__in=ids)
+
     # Perform update
-    updated = Occupation.objects.filter(id__in=ids).update(sector_id=target_sector.id, updated_by=request.user)
+    updated = qs.update(sector_id=target_sector.id, updated_by=request.user)
 
     messages.success(request, f'Successfully updated sector for {updated} occupation(s).')
 

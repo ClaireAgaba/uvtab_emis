@@ -32,6 +32,7 @@
         {% csrf_token %}
         <button type="submit" id="exportBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm font-medium disabled:opacity-50" disabled>Export</button>
       </form>
+      <button id="selectAllResults" type="button" class="text-sm text-blue-600 hover:underline hidden"></button>
     </div>
   </div>
 <!-- Count and Pagination Info -->
@@ -50,6 +51,10 @@
     {% endif %}
   </span>
 </div>
+
+<!-- Safe JSON for totals & filters -->
+{{ paginator.count|json_script:"occ_total" }}
+{{ filters|json_script:"occ_filters" }}
 
 <div class="bg-white shadow-sm border border-gray-200 rounded-lg">
     <!-- Dedicated GET form for filters -->
@@ -119,12 +124,26 @@
 
   <script>
     // Sync selection across forms and enable Apply/Export buttons
+    var allSelectedAcrossPages = false;
+    var TOTAL_COUNT = 0;
+    var CURRENT_FILTERS = {};
+    try { TOTAL_COUNT = JSON.parse(document.getElementById('occ_total').textContent) || 0; } catch(e) { TOTAL_COUNT = 0; }
+    try { CURRENT_FILTERS = JSON.parse(document.getElementById('occ_filters').textContent) || {}; } catch(e) { CURRENT_FILTERS = {}; }
     function updateBulkState() {
       var anyChecked = Array.from(document.querySelectorAll('.rowCheckbox')).some(function(cb){ return cb.checked; });
       var applyBtn = document.getElementById('bulkApplyBtn');
       if (applyBtn) applyBtn.disabled = !anyChecked;
       var exportBtn = document.getElementById('exportBtn');
       if (exportBtn) exportBtn.disabled = !anyChecked;
+      var selAllBtn = document.getElementById('selectAllResults');
+      var onPage = document.querySelectorAll('.rowCheckbox').length;
+      var checkedCount = document.querySelectorAll('.rowCheckbox:checked').length;
+      if (!allSelectedAcrossPages && anyChecked && checkedCount === onPage && TOTAL_COUNT > onPage) {
+        selAllBtn.textContent = 'Select all ' + TOTAL_COUNT + ' results';
+        selAllBtn.classList.remove('hidden');
+      } else {
+        selAllBtn.classList.add('hidden');
+      }
     }
     Array.from(document.querySelectorAll('.rowCheckbox')).forEach(function(cb){ cb.addEventListener('change', updateBulkState); });
     var selectAll = document.getElementById('selectAll');
@@ -132,14 +151,32 @@
       selectAll.addEventListener('change', function(){
         var checked = this.checked;
         Array.from(document.querySelectorAll('.rowCheckbox')).forEach(function(cb){ cb.checked = checked; });
+        if (!checked) { allSelectedAcrossPages = false; }
         updateBulkState();
       });
     }
+
+    // Select all across pages
+    document.getElementById('selectAllResults').addEventListener('click', function(){
+      allSelectedAcrossPages = true;
+      this.classList.add('hidden');
+      updateBulkState();
+    });
 
     // When submitting the top bulk form, copy checked IDs into hidden inputs
     document.getElementById('bulkFormTop').addEventListener('submit', function(e){
       var ids = Array.from(document.querySelectorAll('.rowCheckbox:checked')).map(function(cb){ return cb.value; });
       if (ids.length === 0) { e.preventDefault(); return; }
+      // If selecting across pages, add select_all + filters
+      if (allSelectedAcrossPages) {
+        var sel = document.createElement('input'); sel.type = 'hidden'; sel.name = 'select_all'; sel.value = '1'; e.target.appendChild(sel);
+        Object.keys(CURRENT_FILTERS || {}).forEach(function(k){
+          var v = CURRENT_FILTERS[k];
+          if (v !== undefined && v !== null && String(v).length > 0) {
+            var inp = document.createElement('input'); inp.type = 'hidden'; inp.name = k; inp.value = v; e.target.appendChild(inp);
+          }
+        });
+      }
       ids.forEach(function(id){
         var input = document.createElement('input');
         input.type = 'hidden';
@@ -153,6 +190,15 @@
     document.getElementById('exportForm').addEventListener('submit', function(e){
       var ids = Array.from(document.querySelectorAll('.rowCheckbox:checked')).map(function(cb){ return cb.value; });
       if (ids.length === 0) { e.preventDefault(); return; }
+      if (allSelectedAcrossPages) {
+        var sel = document.createElement('input'); sel.type = 'hidden'; sel.name = 'select_all'; sel.value = '1'; e.target.appendChild(sel);
+        Object.keys(CURRENT_FILTERS || {}).forEach(function(k){
+          var v = CURRENT_FILTERS[k];
+          if (v !== undefined && v !== null && String(v).length > 0) {
+            var inp = document.createElement('input'); inp.type = 'hidden'; inp.name = k; inp.value = v; e.target.appendChild(inp);
+          }
+        });
+      }
       ids.forEach(function(id){
         var input = document.createElement('input');
         input.type = 'hidden';
