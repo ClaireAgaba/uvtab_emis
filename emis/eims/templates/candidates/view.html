@@ -26,6 +26,8 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
                     <img src="{% static 'images/uvtab_logo.png' %}" alt="UVTAB Logo" class="w-8 h-8 mr-3">
                     <span class="text-xl font-semibold">UVTAB Candidate Portal</span>
                 </div>
+
+  
             </div>
             
             <!-- Candidate Info and Logout -->
@@ -90,6 +92,27 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
             {% endif %}
         {% endif %}
     </div>
+</div>
+
+<!-- Change Assessment Series Modal -->
+<div id="changeSeriesModal" class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40 hidden">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+    <button type="button" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            onclick="closeSeriesModal()">&times;</button>
+    <h3 class="text-lg font-semibold mb-4">Change Assessment Series</h3>
+    <div>
+      <label for="seriesSelect" class="block mb-2 font-medium">Select New Assessment Series</label>
+      <select id="seriesSelect" class="w-full border rounded px-3 py-2 mb-1">
+        <option value="">-- Select Assessment Series --</option>
+      </select>
+      <div id="seriesInfo" class="text-xs text-gray-500 mb-4"></div>
+    </div>
+    <div id="seriesChangeError" class="text-red-600 text-sm mb-2 hidden"></div>
+    <div class="flex justify-between mt-2">
+      <button type="button" class="text-gray-600 hover:underline" onclick="closeSeriesModal()">Cancel</button>
+      <button type="button" id="saveSeriesBtn" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Apply</button>
+    </div>
+  </div>
 </div>
 
 <div class="max-w-[1600px] w-full mx-auto mt-6 space-y-6 candidate-page lg:pr-[30rem]">
@@ -293,6 +316,7 @@ DEBUG: enrollment_summary in context? {{ enrollment_summary }}
 
             {% endif %}
             <a href="#" id="changeCenterAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Assessment Center</a>
+            <a href="#" id="changeSeriesAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Assessment Series</a>
             <a href="#" id="changeOccupationAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Occupation</a>
             <a href="#" id="changeRegCatAction" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Change Registration Category</a>
 
@@ -1527,6 +1551,93 @@ document.addEventListener('DOMContentLoaded', function() {
   // Expose close function globally so inline onclick works
   window.closeCenterModal = function() {
     document.getElementById('changeCenterModal').classList.add('hidden');
+  }
+
+  // Change Assessment Series Modal
+  var seriesBtn = document.getElementById('changeSeriesAction');
+  if (seriesBtn) {
+    seriesBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      openSeriesModal();
+      document.getElementById('actionDropdownMenu').classList.add('hidden');
+    });
+  }
+  function openSeriesModal(){
+    var modal = document.getElementById('changeSeriesModal');
+    modal.classList.remove('hidden');
+    populateSeriesDropdown();
+  }
+  window.closeSeriesModal = function(){
+    document.getElementById('changeSeriesModal').classList.add('hidden');
+  }
+  function populateSeriesDropdown(){
+    var select = document.getElementById('seriesSelect');
+    var info = document.getElementById('seriesInfo');
+    select.innerHTML = '<option value="">Loading...</option>';
+    fetch('{% url "api_assessment_series" %}')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        select.innerHTML = '<option value="">-- Select Assessment Series --</option>';
+        if (data && data.assessment_series){
+          var currentSeriesId = '{{ candidate.assessment_series.id|default:"" }}';
+          data.assessment_series.forEach(function(s){
+            var opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.name + (s.is_current ? ' (Current)' : '');
+            opt.setAttribute('data-range', (s.start_date || '') + ' - ' + (s.end_date || ''));
+            // Preselect current candidate series
+            if (currentSeriesId && String(s.id) === String(currentSeriesId)) {
+              opt.selected = true;
+            }
+            select.appendChild(opt);
+          });
+        }
+        info.textContent = '';
+        select.onchange = function(){
+          var sel = select.options[select.selectedIndex];
+          info.textContent = sel && sel.getAttribute('data-range') ? ('Period: ' + sel.getAttribute('data-range')) : '';
+        };
+        // Trigger to show current range
+        select.onchange();
+      })
+      .catch(function(){ select.innerHTML = '<option value="">Failed to load series</option>'; });
+  }
+  var saveSeriesBtn = document.getElementById('saveSeriesBtn');
+  if (saveSeriesBtn){
+    saveSeriesBtn.addEventListener('click', function(){
+      var select = document.getElementById('seriesSelect');
+      var errorDiv = document.getElementById('seriesChangeError');
+      errorDiv.classList.add('hidden');
+      var sid = select.value;
+      if (!sid){
+        errorDiv.textContent = 'Please select an assessment series.';
+        errorDiv.classList.remove('hidden');
+        return;
+      }
+      fetch('{% url "change_assessment_series" candidate.id %}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ assessment_series: sid })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data && data.success){
+          // Reload so both enrollment card and results table reflect the change
+          window.location.reload();
+        } else {
+          errorDiv.textContent = (data && data.error) ? data.error : 'Failed to update assessment series.';
+          errorDiv.classList.remove('hidden');
+        }
+      })
+      .catch(function(){
+        errorDiv.textContent = 'Failed to update assessment series.';
+        errorDiv.classList.remove('hidden');
+      });
+    });
   }
   
   // Function to load branches for a center

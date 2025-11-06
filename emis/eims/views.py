@@ -3157,9 +3157,47 @@ def bulk_candidate_action(request):
         level_id = data.get('level_id')
         paper_ids = data.get('paper_ids')
         print(f"[DEBUG] action: {action}, candidate_ids: {ids}, module_ids: {module_ids}, level_id: {level_id}, paper_ids: {paper_ids}")
-        if isinstance(ids, str):
-            ids = ids.split(',')
-        candidate_ids = [int(i) for i in ids if str(i).isdigit()]
+        # If user chose Select All across pages, rebuild ids from filters
+        select_all = data.get('select_all', False)
+        if select_all:
+            filters = data.get('filters', {}) or {}
+            from django.db.models import Prefetch, Q, Exists, OuterRef
+            from .models import Result
+            qs = Candidate.objects.filter(
+                Q(candidatelevel__isnull=False) | Q(candidatemodule__isnull=False)
+            ).distinct()
+            reg_number = (filters.get('reg_number') or '').strip()
+            name = (filters.get('name') or '').strip()
+            center = (filters.get('center') or '').strip()
+            occupation = (filters.get('occupation') or '').strip()
+            assessment_series = (filters.get('assessment_series') or '').strip()
+            registration_category = (filters.get('registration_category') or '').strip()
+            has_marks_filter = (filters.get('has_marks') or '').strip().lower()
+            if reg_number:
+                qs = qs.filter(reg_number__icontains=reg_number)
+            if name:
+                qs = qs.filter(full_name__icontains=name)
+            if center:
+                qs = qs.filter(assessment_center__center_name__icontains=center)
+            if occupation:
+                qs = qs.filter(occupation__name__icontains=occupation)
+            if assessment_series:
+                qs = qs.filter(assessment_series_id=assessment_series)
+            if registration_category:
+                qs = qs.filter(registration_category__iexact=registration_category)
+                if registration_category.strip().lower() == 'modular':
+                    qs = qs.filter(candidatemodule__isnull=False)
+            results_subquery = Result.objects.filter(candidate=OuterRef('pk'))
+            if assessment_series:
+                results_subquery = results_subquery.filter(assessment_series_id=assessment_series)
+            qs = qs.annotate(has_marks=Exists(results_subquery))
+            if has_marks_filter in ('yes', 'no'):
+                qs = qs.filter(has_marks=(has_marks_filter == 'yes'))
+            candidate_ids = list(qs.values_list('id', flat=True))
+        else:
+            if isinstance(ids, str):
+                ids = ids.split(',')
+            candidate_ids = [int(i) for i in ids if str(i).isdigit()]
     except Exception:
         return JsonResponse({'success': False, 'error': 'Invalid request.'}, status=400)
 
@@ -3745,6 +3783,59 @@ def bulk_candidate_action(request):
         return JsonResponse({
             'success': True,
             'message': f'Successfully changed assessment center to {center_display} for {updated} candidate' + ('' if updated == 1 else 's') + '. Registration numbers have been updated.'
+        })
+    
+    elif action == 'change_assessment_series':
+        # Bulk change assessment series for candidates and align results
+        # Permissions: mirror single endpoint – block CenterRep; allow superuser/staff/Admin/IT/Data
+        is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+        if is_center_rep and not (request.user.is_superuser or request.user.is_staff or user_department in ['Admin', 'IT', 'Data']):
+            return JsonResponse({'success': False, 'error': 'You do not have permission to change assessment series.'}, status=403)
+
+        series_id = data.get('assessment_series_id') or data.get('assessment_series')
+        if not series_id:
+            return JsonResponse({'success': False, 'error': 'Assessment Series is required.'}, status=400)
+
+        from .models import AssessmentSeries, Result
+        series = AssessmentSeries.objects.filter(pk=series_id).first()
+        if not series:
+            return JsonResponse({'success': False, 'error': 'Selected assessment series not found.'}, status=404)
+
+        from django.db import transaction
+        updated = 0
+        with transaction.atomic():
+            # Update candidates
+            for c in candidates:
+                c.assessment_series = series
+                c.save(update_fields=['assessment_series'])
+                updated += 1
+            # Align results in bulk
+            Result.objects.filter(candidate__in=candidates).update(assessment_series=series)
+
+            # Best-effort logging
+            try:
+                from .models import CandidateChangeLog
+                for c in candidates:
+                    CandidateChangeLog.objects.create(
+                        candidate=c,
+                        action='change_assessment_series',
+                        details=f"Bulk change: set assessment series to {series.name}. Updated results to match.",
+                        performed_by=request.user,
+                        request_path=request.path,
+                        ip_address=request.META.get('REMOTE_ADDR')
+                    )
+            except Exception:
+                pass
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully changed assessment series to {series.name} for {updated} candidate' + ('' if updated == 1 else 's') + '.',
+            'assessment_series': {
+                'id': series.id,
+                'name': series.name,
+                'start_date': getattr(series, 'start_date', None),
+                'end_date': getattr(series, 'end_date', None),
+            }
         })
     
     elif action == 'verify':
@@ -4376,6 +4467,15 @@ def assessment_center_list(request):
         'paginator': paginator,
         'categories': categories,
         'is_center_rep': is_center_rep,
+        'filters': {
+            'center_number': center_number,
+            'center_name': center_name,
+            'district': district,
+            'region': region,
+            'village': village,
+            'category': category,
+            'has_branches': has_branches,
+        }
     })
 
 
@@ -4386,15 +4486,42 @@ def export_centers(request):
         return HttpResponseRedirect(reverse('assessment_center_list'))
     
     center_ids = request.POST.getlist('center_ids')
-    if not center_ids:
-        messages.error(request, 'No centers selected for export.')
-        return HttpResponseRedirect(reverse('assessment_center_list'))
+    select_all = request.POST.get('select_all') in ['1', 'true', 'True', 'on']
+    
+    # Build queryset
+    centers_qs = AssessmentCenter.objects.all().order_by('center_number').select_related('district', 'village', 'category')
+    if select_all:
+        # Apply filters from POST to mirror assessment_center_list
+        center_number = (request.POST.get('center_number') or '').strip()
+        center_name = (request.POST.get('center_name') or '').strip()
+        district = (request.POST.get('district') or '').strip()
+        region = (request.POST.get('region') or '').strip()
+        village = (request.POST.get('village') or '').strip()
+        category = (request.POST.get('category') or '').strip()
+        has_branches = (request.POST.get('has_branches') or '').strip()
+        if center_number:
+            centers_qs = centers_qs.filter(center_number__icontains=center_number)
+        if center_name:
+            centers_qs = centers_qs.filter(center_name__icontains=center_name)
+        if district:
+            centers_qs = centers_qs.filter(district__name__icontains=district)
+        if region:
+            centers_qs = centers_qs.filter(district__region=region)
+        if village:
+            centers_qs = centers_qs.filter(village__name__icontains=village)
+        if category:
+            centers_qs = centers_qs.filter(category_id=category)
+        if has_branches:
+            centers_qs = centers_qs.filter(has_branches=(has_branches.lower() == 'true'))
+    else:
+        if not center_ids:
+            messages.error(request, 'No centers selected for export.')
+            return HttpResponseRedirect(reverse('assessment_center_list'))
+        centers_qs = centers_qs.filter(id__in=center_ids)
     
     try:
         # Get selected centers with related data
-        centers = AssessmentCenter.objects.filter(
-            id__in=center_ids
-        ).select_related('district', 'village', 'category').order_by('center_number')
+        centers = centers_qs
         
         # Create workbook and worksheet
         wb = Workbook()
@@ -4687,6 +4814,72 @@ def occupation_list(request):
         'sectors': sectors,
     })
 
+
+@login_required
+def occupations_export(request):
+    """Export selected occupations to Excel (code, name, category, sector)."""
+    if request.method != 'POST':
+        return redirect('occupation_list')
+
+    # Block Center Representatives
+    from .models import CenterRepresentative
+    try:
+        CenterRepresentative.objects.get(user=request.user)
+        return HttpResponse(status=403)
+    except CenterRepresentative.DoesNotExist:
+        pass
+
+    ids = request.POST.getlist('occupation_ids')
+    if not ids:
+        messages.error(request, 'No occupations selected for export.')
+        return redirect('occupation_list')
+
+    # Fetch occupations
+    occ_qs = Occupation.objects.filter(id__in=ids).select_related('category', 'sector').order_by('code')
+
+    # Build workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Occupations'
+
+    headers = ['Occupation Code', 'Occupation Name', 'Category', 'Sector']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    row_idx = 2
+    for occ in occ_qs:
+        data = [
+            occ.code or '',
+            occ.name or '',
+            occ.category.name if getattr(occ, 'category', None) else '',
+            occ.sector.name if getattr(occ, 'sector', None) else '',
+        ]
+        for col, value in enumerate(data, 1):
+            c = ws.cell(row=row_idx, column=col, value=value)
+            c.alignment = Alignment(horizontal='left', vertical='center')
+        row_idx += 1
+
+    # Auto width
+    for col in range(1, len(headers) + 1):
+        letter = get_column_letter(col)
+        max_len = 0
+        for r in ws[letter]:
+            try:
+                max_len = max(max_len, len(str(r.value)))
+            except Exception:
+                pass
+        ws.column_dimensions[letter].width = min(max_len + 2, 60)
+
+    # Response
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    from datetime import datetime
+    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+    response['Content-Disposition'] = f'attachment; filename="occupations_{ts}.xlsx"'
+    wb.save(response)
+    return response
 
 @login_required
 def occupations_bulk_change_sector(request):
@@ -9521,6 +9714,69 @@ def change_registration_category(request, id):
         "success": True,
         "registration_category": new_reg_cat,
         "reg_number": candidate.reg_number
+    })
+
+@login_required
+@require_POST
+def change_assessment_series(request, id):
+    """Change a candidate's assessment series and align any existing results.
+
+    - Updates Candidate.assessment_series to the provided series_id
+    - Updates all Result.assessment_series for this candidate (if results exist)
+    - Does NOT alter assessment_date or any enrollment artifacts
+    - Staff/Admin only (Center representatives blocked)
+    """
+    from django.db import transaction
+    candidate = get_object_or_404(Candidate, id=id)
+
+    # Permissions: block center reps; allow superuser/staff/admin departments
+    staff, user_department, is_authenticated = get_user_staff_info(request)
+    is_center_rep = request.user.groups.filter(name='CenterRep').exists()
+    if is_center_rep and not (request.user.is_superuser or request.user.is_staff or user_department == 'Admin' or user_department == 'IT' or user_department == 'Data'):
+        return JsonResponse({"success": False, "error": "You do not have permission to change assessment series."}, status=403)
+
+    try:
+        data = json.loads(request.body or '{}')
+        series_id = int(data.get('assessment_series'))
+    except (ValueError, TypeError):
+        return JsonResponse({"success": False, "error": "Invalid assessment series selection."}, status=400)
+
+    from .models import AssessmentSeries, Result
+    series = AssessmentSeries.objects.filter(pk=series_id).first()
+    if not series:
+        return JsonResponse({"success": False, "error": "Selected assessment series not found."}, status=404)
+
+    with transaction.atomic():
+        old_series = candidate.assessment_series
+        candidate.assessment_series = series
+        candidate.save(update_fields=['assessment_series'])
+
+        # Align results (if any)
+        Result.objects.filter(candidate=candidate).update(assessment_series=series)
+
+        # Log change (best-effort)
+        try:
+            from .models import CandidateChangeLog
+            details = f"Changed assessment series from {getattr(old_series, 'name', 'None')} to {series.name}. Updated results to match."
+            CandidateChangeLog.objects.create(
+                candidate=candidate,
+                action='change_assessment_series',
+                details=details,
+                performed_by=request.user,
+                request_path=request.path,
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+        except Exception:
+            pass
+
+    return JsonResponse({
+        "success": True,
+        "assessment_series": {
+            "id": series.id,
+            "name": series.name,
+            "start_date": getattr(series, 'start_date', None),
+            "end_date": getattr(series, 'end_date', None),
+        }
     })
 
 @login_required

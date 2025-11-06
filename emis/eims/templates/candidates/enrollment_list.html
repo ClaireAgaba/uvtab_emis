@@ -77,11 +77,14 @@
           <span class="text-sm font-medium">Select All</span>
         </label>
         <span id="selected-count" class="text-sm text-gray-600">0 selected</span>
+        <button id="select-all-results" type="button" class="text-sm text-blue-600 hover:underline hidden"></button>
+        <button id="clear-all-selection" type="button" class="text-sm text-gray-600 hover:underline hidden">Clear selection</button>
       </div>
       <div class="flex gap-2">
         <select id="bulk-action-select" class="border rounded px-3 py-2 text-sm" disabled>
           <option value="">Select Action</option>
           <option value="change_center">Change Assessment Center</option>
+          <option value="change_assessment_series">Change Assessment Series</option>
           <option value="clear_enrollment">Clear Enrollment</option>
           <option value="clear_enrollment_results">Clear Enrollment and Results</option>
           <option value="export">Export Selected</option>
@@ -240,7 +243,11 @@
   </div>
   {% endif %}
 
-</div>
+ </div>
+
+ <!-- Data for JS (safe JSON) -->
+ {{ candidates.paginator.count|json_script:"enrollment_total" }}
+ {{ filters|json_script:"enrollment_filters" }}
 
 <!-- Bulk Change Assessment Center Modal -->
 <div id="bulk-change-center-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
@@ -299,21 +306,52 @@
   </div>
   </div>
 
+<!-- Bulk Change Assessment Series Modal -->
+<div id="bulk-change-series-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-sm p-6 relative">
+    <h2 class="text-lg font-bold mb-4">Change Assessment Series</h2>
+    <label for="bulk-series-select" class="block mb-2 font-medium">Select New Assessment Series</label>
+    <select id="bulk-series-select" class="w-full border rounded px-3 py-2 mb-2" required>
+      <option value="">-- Select Assessment Series --</option>
+    </select>
+    <div id="bulk-series-info" class="text-xs text-gray-500 mb-4"></div>
+    <div class="flex justify-end gap-2">
+      <button id="cancel-bulk-change-series" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancel</button>
+      <button id="apply-bulk-change-series" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Apply</button>
+    </div>
+  </div>
+  </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Provide totals and filters to JS (no Django syntax inside JS)
+    var TOTAL_COUNT = 0;
+    var CURRENT_FILTERS = {};
+    try {
+      TOTAL_COUNT = JSON.parse(document.getElementById('enrollment_total').textContent) || 0;
+    } catch(e) { TOTAL_COUNT = 0; }
+    try {
+      CURRENT_FILTERS = JSON.parse(document.getElementById('enrollment_filters').textContent) || {};
+    } catch(e) { CURRENT_FILTERS = {}; }
+
     const selectAllCheckbox = document.getElementById('select-all');
     const headerSelectAllCheckbox = document.getElementById('header-select-all');
     const candidateCheckboxes = document.querySelectorAll('.candidate-checkbox');
     const selectedCountSpan = document.getElementById('selected-count');
     const bulkActionSelect = document.getElementById('bulk-action-select');
     const applyBulkActionBtn = document.getElementById('apply-bulk-action');
+    const selectAllResultsBtn = document.getElementById('select-all-results');
+    const clearAllSelectionBtn = document.getElementById('clear-all-selection');
+
+    let allSelectedAcrossPages = false;
 
     // Update selected count and enable/disable bulk actions
     function updateBulkActions() {
         const selectedCheckboxes = document.querySelectorAll('.candidate-checkbox:checked');
-        const count = selectedCheckboxes.length;
+        const pageCount = selectedCheckboxes.length;
+        const count = allSelectedAcrossPages ? TOTAL_COUNT : pageCount;
         
-        selectedCountSpan.textContent = count + ' selected';
+        selectedCountSpan.textContent = count + ' selected' + (allSelectedAcrossPages ? ' (across all pages)' : '');
         
         if (count > 0) {
             bulkActionSelect.disabled = false;
@@ -325,6 +363,16 @@ document.addEventListener('DOMContentLoaded', function() {
             applyBulkActionBtn.disabled = true;
             bulkActionSelect.value = '';
         }
+
+        // Toggle the "Select all results" helper
+        const totalOnPage = document.querySelectorAll('.candidate-checkbox').length;
+        if (!allSelectedAcrossPages && pageCount === totalOnPage && TOTAL_COUNT > totalOnPage) {
+          selectAllResultsBtn.textContent = 'Select all ' + TOTAL_COUNT + ' results';
+          selectAllResultsBtn.classList.remove('hidden');
+        } else {
+          selectAllResultsBtn.classList.add('hidden');
+        }
+        clearAllSelectionBtn.classList.toggle('hidden', !(allSelectedAcrossPages));
     }
 
     // Select all functionality
@@ -332,6 +380,10 @@ document.addEventListener('DOMContentLoaded', function() {
         candidateCheckboxes.forEach(checkbox => {
             checkbox.checked = checked;
         });
+        // Reset cross-page select when toggling page select
+        if (!checked) {
+          allSelectedAcrossPages = false;
+        }
         updateBulkActions();
     }
 
@@ -348,6 +400,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Individual checkbox changes
     candidateCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function() {
+            // Any manual change cancels cross-page selection
+            allSelectedAcrossPages = false;
             updateBulkActions();
             
             // Update select all checkboxes
@@ -363,7 +417,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Enable apply button when action is selected
     bulkActionSelect.addEventListener('change', function() {
-        const selectedCount = document.querySelectorAll('.candidate-checkbox:checked').length;
+        const selectedCount = allSelectedAcrossPages ? TOTAL_COUNT : document.querySelectorAll('.candidate-checkbox:checked').length;
         applyBulkActionBtn.disabled = !(this.value && selectedCount > 0);
     });
 
@@ -381,6 +435,9 @@ document.addEventListener('DOMContentLoaded', function() {
           case 'change_center':
             showBulkChangeCenterModal(selectedCandidates);
             break;
+          case 'change_assessment_series':
+            showBulkChangeSeriesModal(selectedCandidates);
+            break;
           case 'clear_enrollment':
             showClearEnrollmentModal(selectedCandidates);
             break;
@@ -393,10 +450,88 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Select all results across pages
+    selectAllResultsBtn.addEventListener('click', function() {
+        allSelectedAcrossPages = true;
+        updateBulkActions();
+    });
+    clearAllSelectionBtn.addEventListener('click', function() {
+        allSelectedAcrossPages = false;
+        handleSelectAll(false);
+    });
+
     // Bulk change center modal
     function showBulkChangeCenterModal(candidateIds) {
         document.getElementById('bulk-change-center-modal').classList.remove('hidden');
     }
+
+    // Bulk change assessment series modal
+    function showBulkChangeSeriesModal(candidateIds) {
+        const modal = document.getElementById('bulk-change-series-modal');
+        const select = document.getElementById('bulk-series-select');
+        const info = document.getElementById('bulk-series-info');
+        modal.classList.remove('hidden');
+        // Load series list
+        select.innerHTML = '<option value="">Loading...</option>';
+        fetch('{% url "api_assessment_series" %}')
+          .then(r => r.json())
+          .then(data => {
+            select.innerHTML = '<option value="">-- Select Assessment Series --</option>';
+            if (data && data.assessment_series) {
+              data.assessment_series.forEach(function(s){
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name + (s.is_current ? ' (Current)' : '');
+                opt.setAttribute('data-range', (s.start_date || '') + ' - ' + (s.end_date || ''));
+                select.appendChild(opt);
+              });
+            }
+            select.onchange = function(){
+              const sel = select.options[select.selectedIndex];
+              info.textContent = sel && sel.getAttribute('data-range') ? ('Period: ' + sel.getAttribute('data-range')) : '';
+            };
+          })
+          .catch(() => {
+            select.innerHTML = '<option value="">Failed to load series</option>';
+          });
+    }
+
+    document.getElementById('cancel-bulk-change-series').addEventListener('click', function(){
+        document.getElementById('bulk-change-series-modal').classList.add('hidden');
+    });
+
+    document.getElementById('apply-bulk-change-series').addEventListener('click', function(){
+        const seriesId = document.getElementById('bulk-series-select').value;
+        if (!seriesId){ alert('Please select an assessment series.'); return; }
+        const selectedCandidates = Array.from(document.querySelectorAll('.candidate-checkbox:checked')).map(cb => cb.value);
+        const data = {
+          action: 'change_assessment_series',
+          candidate_ids: selectedCandidates,
+          assessment_series_id: seriesId
+        };
+        if (allSelectedAcrossPages) {
+          data.select_all = true;
+          data.filters = CURRENT_FILTERS;
+        }
+        fetch('{% url "bulk_candidate_action" %}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+          },
+          body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.success){
+            alert('Assessment series updated successfully.');
+            location.reload();
+          } else {
+            alert('Error: ' + (data.error || 'Failed to update assessment series.'));
+          }
+        })
+        .catch(() => alert('Failed to update assessment series.'));
+    });
 
     // Clear enrollment modal
     function showClearEnrollmentModal(candidateIds) {
@@ -512,6 +647,10 @@ document.addEventListener('DOMContentLoaded', function() {
             candidate_ids: selectedCandidates,
             center_id: centerId
         };
+        if (allSelectedAcrossPages) {
+            data.select_all = true;
+            data.filters = CURRENT_FILTERS;
+        }
         
         if (hasBranches && branchId) {
             if (branchId === 'main') {
@@ -553,6 +692,10 @@ document.addEventListener('DOMContentLoaded', function() {
             action: 'clear_enrollment',
             candidate_ids: selectedCandidates
         };
+        if (allSelectedAcrossPages) {
+          data.select_all = true;
+          data.filters = CURRENT_FILTERS;
+        }
         
         fetch('{% url "bulk_candidate_action" %}', {
             method: 'POST',
@@ -585,6 +728,10 @@ document.addEventListener('DOMContentLoaded', function() {
             action: 'clear_enrollment_results',
             candidate_ids: selectedCandidates
         };
+        if (allSelectedAcrossPages) {
+          data.select_all = true;
+          data.filters = CURRENT_FILTERS;
+        }
 
         fetch('{% url "bulk_candidate_action" %}', {
             method: 'POST',

@@ -14,6 +14,7 @@
     <div id="bulk-actions" class="hidden">
       <div class="flex items-center gap-3">
         <span id="selection-count" class="text-sm text-gray-600">0 selected</span>
+        <button id="select-all-results" type="button" class="text-sm text-blue-600 hover:underline hidden"></button>
         <select id="bulk-action-select" class="border border-gray-300 rounded px-3 py-2 text-sm">
           <option value="">Choose Action...</option>
           <option value="export">Export to Excel</option>
@@ -38,6 +39,11 @@
     {% endif %}
   </span>
 </div>
+
+<!-- Safe JSON for totals & filters and CSRF token exposure -->
+{{ page_obj.paginator.count|json_script:"center_total" }}
+{{ filters|json_script:"center_filters" }}
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
 
 <div class="bg-white shadow-sm border border-gray-200 rounded-lg">
     <table class="min-w-full divide-y divide-gray-200">
@@ -149,19 +155,38 @@ document.addEventListener('DOMContentLoaded', function() {
     const bulkActionSelect = document.getElementById('bulk-action-select');
     const applyBulkActionBtn = document.getElementById('apply-bulk-action');
     const clearSelectionBtn = document.getElementById('clear-selection');
+    const selectAllResultsBtn = document.getElementById('select-all-results');
+
+    // Read totals and filters
+    var TOTAL_COUNT = 0;
+    var CURRENT_FILTERS = {};
+    try { TOTAL_COUNT = JSON.parse(document.getElementById('center_total').textContent) || 0; } catch(e) { TOTAL_COUNT = 0; }
+    try { CURRENT_FILTERS = JSON.parse(document.getElementById('center_filters').textContent) || {}; } catch(e) { CURRENT_FILTERS = {}; }
+
+    let allSelectedAcrossPages = false;
 
     // Update selection count and show/hide bulk actions
     function updateBulkActions() {
         const selectedCheckboxes = document.querySelectorAll('.center-checkbox:checked');
-        const count = selectedCheckboxes.length;
+        const pageCount = selectedCheckboxes.length;
+        const count = allSelectedAcrossPages ? TOTAL_COUNT : pageCount;
         
-        selectionCount.textContent = count + ' selected';
+        selectionCount.textContent = count + ' selected' + (allSelectedAcrossPages ? ' (across all pages)' : '');
         
         if (count > 0) {
             bulkActionsDiv.classList.remove('hidden');
         } else {
             bulkActionsDiv.classList.add('hidden');
             bulkActionSelect.value = '';
+        }
+
+        // Toggle helper link when all on page are selected and there are more results
+        const totalOnPage = document.querySelectorAll('.center-checkbox').length;
+        if (!allSelectedAcrossPages && pageCount === totalOnPage && TOTAL_COUNT > totalOnPage) {
+            selectAllResultsBtn.textContent = 'Select all ' + TOTAL_COUNT + ' results';
+            selectAllResultsBtn.classList.remove('hidden');
+        } else {
+            selectAllResultsBtn.classList.add('hidden');
         }
     }
 
@@ -170,6 +195,7 @@ document.addEventListener('DOMContentLoaded', function() {
         centerCheckboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
+        if (!this.checked) { allSelectedAcrossPages = false; }
         updateBulkActions();
     });
 
@@ -180,6 +206,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const checkedCount = document.querySelectorAll('.center-checkbox:checked').length;
             selectAllCheckbox.checked = checkedCount === centerCheckboxes.length;
             selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < centerCheckboxes.length;
+            // Manual edits cancel cross-page selection
+            allSelectedAcrossPages = false;
             
             updateBulkActions();
         });
@@ -192,6 +220,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         selectAllCheckbox.checked = false;
         selectAllCheckbox.indeterminate = false;
+        updateBulkActions();
+    });
+
+    // Select all results across pages
+    selectAllResultsBtn.addEventListener('click', function(){
+        allSelectedAcrossPages = true;
         updateBulkActions();
     });
 
@@ -224,14 +258,30 @@ document.addEventListener('DOMContentLoaded', function() {
             csrfInput.value = csrfToken;
             form.appendChild(csrfInput);
             
-            // Add selected center IDs
-            selectedCenters.forEach(centerId => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'center_ids';
-                input.value = centerId;
-                form.appendChild(input);
-            });
+            if (allSelectedAcrossPages) {
+                // Include filters and select_all flag instead of individual IDs
+                const selAll = document.createElement('input');
+                selAll.type = 'hidden'; selAll.name = 'select_all'; selAll.value = '1';
+                form.appendChild(selAll);
+                // Attach filters used on the page
+                Object.keys(CURRENT_FILTERS || {}).forEach(function(key){
+                    const v = CURRENT_FILTERS[key];
+                    if (v !== undefined && v !== null && String(v).length > 0) {
+                        const inp = document.createElement('input');
+                        inp.type = 'hidden'; inp.name = key; inp.value = v;
+                        form.appendChild(inp);
+                    }
+                });
+            } else {
+                // Add selected center IDs
+                selectedCenters.forEach(centerId => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'center_ids';
+                    input.value = centerId;
+                    form.appendChild(input);
+                });
+            }
             
             document.body.appendChild(form);
             form.submit();
