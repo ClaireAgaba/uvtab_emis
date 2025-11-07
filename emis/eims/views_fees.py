@@ -1072,7 +1072,7 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     header_table_data = [
         [Paragraph("P.O.Box 1499<br/>Email: info@uvtab.go.ug", contact_style), 
          logo_image, 
-         Paragraph("Tel: 256 414 289786", contact_style)]
+         Paragraph("Tel: +256392002468", contact_style)]
     ]
     header_table = Table(header_table_data, colWidths=[2.5*inch, 2*inch, 2.5*inch])
     header_table.setStyle(TableStyle([
@@ -1089,7 +1089,7 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     # Board Title below the contact+logo row
     elements.append(Paragraph("UGANDA VOCATIONAL AND TECHNICAL ASSESSMENT BOARD (UVTAB)", board_title_style))
     address_style = ParagraphStyle('Address', parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, spaceAfter=12)
-    elements.append(Paragraph("P.O.Box 1499, Plot 7, Valley Drive, Ntinda-Kyambogo Road<br/>Kampala, Uganda | +256 414 289786 | info@uvtab.go.ug", address_style))
+    elements.append(Paragraph("P.O.Box 1499, Plot 7, Valley Drive, Ntinda-Kyambogo Road<br/>Kampala, Uganda | +256392002468 | info@uvtab.go.ug", address_style))
     elements.append(Spacer(1, 6))
     
     # Invoice Title

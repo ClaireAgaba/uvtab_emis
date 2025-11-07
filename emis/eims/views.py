@@ -5937,7 +5937,7 @@ def generate_album(request):
                 header_table_data = [
                     [Paragraph("P.O.Box 1499<br/>Email: info@uvtab.go.ug", contact_style), 
                      logo_image, 
-                     Paragraph("Tel: 256 414 289786", contact_style)]
+                     Paragraph("Tel: +256392002468", contact_style)]
                 ]
                 header_table = Table(header_table_data, colWidths=[3*inch, 3*inch, 3*inch])
                 header_table.setStyle(TableStyle([
@@ -7267,7 +7267,7 @@ def generate_verified_results(request, id):
                             ParagraphStyle('LeftContact', parent=normal_style, fontSize=10, alignment=TA_LEFT))
     
     # Right contact info  
-    right_contact = Paragraph("P.O.Box 1499, Kampala,<br/>Tel: +256 414 289786", 
+    right_contact = Paragraph("P.O.Box 1499, Kampala,<br/>Tel: +256392002468", 
                              ParagraphStyle('RightContact', parent=normal_style, fontSize=10, alignment=TA_RIGHT))
     
     # Try to add UVTAB logo
@@ -7738,7 +7738,7 @@ def generate_testimonial(request, id):
                             ParagraphStyle('LeftContact', parent=normal_style, fontSize=10, alignment=TA_LEFT))
     
     # Right contact info  
-    right_contact = Paragraph("P.O.Box 1499, Kampala,<br/>Tel: +256 414 289786", 
+    right_contact = Paragraph("P.O.Box 1499, Kampala,<br/>Tel: +256392002468", 
                              ParagraphStyle('RightContact', parent=normal_style, fontSize=10, alignment=TA_RIGHT))
     
     # Try to add UVTAB logo
