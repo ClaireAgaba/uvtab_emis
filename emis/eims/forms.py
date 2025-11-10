@@ -1,4 +1,5 @@
 from django import forms
+import re
 from django.contrib.auth.models import User, Group
 from .models import (
     Candidate, District, Village, Level, Module, Paper, Occupation, OccupationLevel,
@@ -145,22 +146,48 @@ class AssessmentCenterForm(forms.ModelForm):
         """Validate center name and format to proper sentence case"""
         center_name = self.cleaned_data.get('center_name')
         if center_name:
-            # Convert to proper sentence case with articles in lowercase
-            words = center_name.strip().split()
+            # Preserve any text wrapped in #...# (or ##...##) exactly as uppercase and remove the hashes.
+            # Example: "Aiq #AIQ# Skilling" -> "Aiq AIQ Skilling" (AIQ remains uppercase)
+            # We first extract wrapped segments and replace with placeholders, then apply sentence-case to the rest,
+            # and finally restore the preserved segments (uppercased) without hashes.
+            original = center_name
+            placeholders = {}
+            idx = 0
+            
+            # Match either #TEXT# or ##TEXT## (balanced count of #)
+            # Capture group 1 = hashes (one or two), group 2 = inner text (no # inside)
+            pattern = re.compile(r'(#{1,2})([^#]+?)\1')
+            
+            def repl(m):
+                nonlocal idx
+                key = f"__EXACT_{idx}__"
+                idx += 1
+                # Uppercase inner text, strip outer spaces
+                placeholders[key] = m.group(2).strip().upper()
+                return key
+            
+            temp = pattern.sub(repl, original)
+            
+            # Convert remaining text to proper sentence case with small words kept lowercase (except first word)
+            words = temp.strip().split()
             formatted_words = []
-            
-            # Articles and prepositions to keep lowercase (except at start)
             lowercase_words = {'in', 'and', 'for', 'of', 'the', 'at', 'on', 'by', 'with', 'to'}
-            
             for i, word in enumerate(words):
-                if i == 0:  # First word is always capitalized
+                if word in placeholders:  # keep placeholders as-is
+                    formatted_words.append(word)
+                    continue
+                if i == 0:
                     formatted_words.append(word.capitalize())
                 elif word.lower() in lowercase_words:
                     formatted_words.append(word.lower())
                 else:
                     formatted_words.append(word.capitalize())
+            temp = ' '.join(formatted_words)
             
-            center_name = ' '.join(formatted_words)
+            # Restore preserved segments
+            for key, val in placeholders.items():
+                temp = temp.replace(key, val)
+            center_name = re.sub(r'\s+', ' ', temp).strip()
             
             # Check for exact duplicate names (case-insensitive)
             existing_center = AssessmentCenter.objects.filter(center_name__iexact=center_name)
