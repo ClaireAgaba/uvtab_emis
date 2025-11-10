@@ -12,8 +12,65 @@
 </div>
 
 <div class="max-w-4xl mx-auto mt-6 sm:mt-10 bg-white p-4 sm:p-6 shadow rounded-lg">
-  <h1 class="text-xl sm:text-2xl font-normal mb-4 sm:mb-6" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Register New Candidate</h1>
+  <h1 class="text-xl sm:text-2xl font-normal mb-4 sm:mb-2" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Register New Candidate</h1>
+
+  <!-- Header panel: quick badges + image preview -->
+  <div class="mb-4 sm:mb-6 border border-gray-200 rounded-lg p-3 sm:p-4">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <!-- Left: badges/info -->
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs text-gray-500">Registration Number:</span>
+        <span class="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700">/</span>
+        <span class="px-2 py-1 text-xs rounded bg-emerald-50 text-emerald-700 border border-emerald-200">0.00 UGX Fees Balance</span>
+        {% if current_series %}
+          <span class="px-2 py-1 text-xs rounded bg-indigo-50 text-indigo-700 border border-indigo-200">Series: {{ current_series.name }}</span>
+        {% endif %}
+        <span class="px-2 py-1 text-xs rounded bg-gray-50 text-gray-600 border border-gray-200">Status: New</span>
+      </div>
+  <style>
+    /* Fallback: if JS fails, the :target pane will show when hash is present */
+    .tab-pane { display: none; }
+    .tab-pane:target { display: block; }
+  </style>
+  <script>
+    // One-shot initializer: if URL has a pane hash, show it immediately
+    (function(){
+      var h = (location.hash||'').trim();
+      var ids = ['#pane-bio','#pane-assessment','#pane-attachments'];
+      if (ids.indexOf(h) === -1) return; // leave default (bio) visible
+      ids.forEach(function(sel){
+        var el = document.querySelector(sel);
+        if (!el) return;
+        if (sel === h) { el.classList.remove('hidden'); el.classList.add('block'); }
+        else { el.classList.add('hidden'); el.classList.remove('block'); }
+      });
+    })();
+  </script>
+      <!-- Right: image preview and trigger -->
+      <div class="flex items-center gap-3">
+        <div class="w-28 h-28 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
+          <img id="candidate-photo-preview" alt="photo preview" class="object-cover w-full h-full hidden" />
+          <svg id="candidate-photo-placeholder" xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 3a2 2 0 110 4 2 2 0 010-4zm-3 9l2.5-3 1.5 2 2.5-3 3.5 4H4z"/></svg>
+        </div>
+        <button type="button" id="trigger-photo" class="px-3 py-2 text-sm bg-gray-700 text-white rounded hover:bg-gray-800">Upload Photo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs navigation -->
+  <div class="border-b border-gray-200 mb-4 overflow-x-auto">
+    <nav class="flex gap-2" id="candidate-tabs">
+      <a href="#pane-bio" class="tab-link active px-3 py-2 text-sm rounded-t bg-white border border-b-0">Bio Data & General Info</a>
+      <a href="#pane-assessment" class="tab-link px-3 py-2 text-sm rounded-t bg-white border border-b-0">Assessment Information</a>
+      <a href="#pane-attachments" class="tab-link px-3 py-2 text-sm rounded-t bg-white border border-b-0">Attachments</a>
+    </nav>
+  </div>
   
+  <!-- Keep the actual file input in the DOM but hidden so header Upload Photo works -->
+  <div class="hidden">
+    {{ form.passport_photo }}
+  </div>
+
   {% if form.errors %}
     <div class="mb-4">
       <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
@@ -40,8 +97,10 @@
       <input type="hidden" id="draft_id" name="draft_id" value="" />
     {% endif %}
     
+    <!-- Pane: Bio & General -->
+    <div id="pane-bio" class="tab-pane" style="display:block;">
     <!-- Personal Information Section -->
-    <div class="bg-gray-50 p-4 rounded-lg">
+    <div id="section-personal" class="bg-gray-50 p-4 rounded-lg">
       <h3 class="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -81,16 +140,12 @@
           {% endif %}
         </div>
         
-        <div>
-          <label for="{{ form.passport_photo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Passport photo (JPEG/PNG){% if form.passport_photo.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
-          {{ form.passport_photo|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-target" }}
-          <p class="mt-1 text-xs text-gray-500">Accepted formats: JPG, JPEG, PNG.</p>
-        </div>
+        <!-- Removed visible passport field; handled via header upload -->
       </div>
     </div>
 
     <!-- Contact & Location Section -->
-    <div class="bg-gray-50 p-4 rounded-lg">
+    <div id="section-contact" class="bg-gray-50 p-4 rounded-lg">
       <h3 class="text-lg font-medium text-gray-900 mb-4">Contact & Location</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -110,8 +165,54 @@
       </div>
     </div>
 
+    <!-- Disability Section -->
+    <div id="section-disability" class="bg-gray-50 p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Disability Information</h3>
+      <div class="space-y-4">
+        <!-- Disability Checkbox - Compact Design -->
+        <div class="flex items-center space-x-3">
+          <div class="flex items-center">
+            <input type="checkbox" id="{{ form.disability.id_for_label }}" name="{{ form.disability.name }}" 
+                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                   {% if form.disability.value %}checked{% endif %}>
+            <label for="{{ form.disability.id_for_label }}" class="ml-2 text-sm font-medium text-gray-700">
+              {{ form.disability.label }}
+            </label>
+          </div>
+        </div>
+        
+        <!-- Nature of Disability - Compact Grid Layout -->
+        <div id="nature-of-disability-group" class="hidden">
+          <label class="block text-sm font-medium text-gray-700 mb-2">{{ form.nature_of_disability.label }} <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2">
+            {% for choice in form.nature_of_disability %}
+              <div class="flex items-center">
+                {{ choice.tag }}
+                <label for="{{ choice.id_for_label }}" class="ml-2 text-sm text-gray-600">
+                  {{ choice.choice_label }}
+                </label>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+        
+        <!-- Disability Specification - Full Width -->
+        <div id="disability-specification-group" class="hidden">
+          <label for="{{ form.disability_specification.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            {{ form.disability_specification.label }}
+          </label>
+          {{ form.disability_specification|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" }}
+          <p class="text-xs text-gray-500 mt-1">{{ form.disability_specification.help_text }}</p>
+        </div>
+      </div>
+    </div>
+
+    </div><!-- end pane-bio -->
+
+    <!-- Pane: Assessment -->
+    <div id="pane-assessment" class="tab-pane">
     <!-- Assessment Info Section -->
-    <div class="bg-gray-50 p-4 rounded-lg">
+    <div id="section-assessment" class="bg-gray-50 p-4 rounded-lg">
       <h3 class="text-lg font-medium text-gray-900 mb-4">Assessment Info</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -183,50 +284,8 @@
       </div>
     </div>
 
-    <!-- Disability Section -->
-    <div class="bg-gray-50 p-4 rounded-lg">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">Disability Information</h3>
-      <div class="space-y-4">
-        <!-- Disability Checkbox - Compact Design -->
-        <div class="flex items-center space-x-3">
-          <div class="flex items-center">
-            <input type="checkbox" id="{{ form.disability.id_for_label }}" name="{{ form.disability.name }}" 
-                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
-                   {% if form.disability.value %}checked{% endif %}>
-            <label for="{{ form.disability.id_for_label }}" class="ml-2 text-sm font-medium text-gray-700">
-              {{ form.disability.label }}
-            </label>
-          </div>
-        </div>
-        
-        <!-- Nature of Disability - Compact Grid Layout -->
-        <div id="nature-of-disability-group" class="hidden">
-          <label class="block text-sm font-medium text-gray-700 mb-2">{{ form.nature_of_disability.label }} <span class="text-red-500">*</span></label>
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2">
-            {% for choice in form.nature_of_disability %}
-              <div class="flex items-center">
-                {{ choice.tag }}
-                <label for="{{ choice.id_for_label }}" class="ml-2 text-sm text-gray-600">
-                  {{ choice.choice_label }}
-                </label>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-        
-        <!-- Disability Specification - Full Width -->
-        <div id="disability-specification-group" class="hidden">
-          <label for="{{ form.disability_specification.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-            {{ form.disability_specification.label }}
-          </label>
-          {{ form.disability_specification|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" }}
-          <p class="text-xs text-gray-500 mt-1">{{ form.disability_specification.help_text }}</p>
-        </div>
-      </div>
-    </div>
-
     <!-- Assessment Dates Section -->
-    <div class="bg-gray-50 p-4 rounded-lg">
+    <div id="section-dates" class="bg-gray-50 p-4 rounded-lg">
       <h3 class="text-lg font-medium text-gray-900 mb-4">Assessment Dates</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -246,11 +305,12 @@
       </div>
     </div>
 
+    <!-- Pane: Attachments -->
+    <div id="pane-attachments" class="tab-pane" style="display:block;">
     <!-- Relevant Documents Section (Optional) -->
-    <div class="bg-gray-50 p-4 rounded-lg">
+    <div id="section-docs" class="bg-gray-50 p-4 rounded-lg">
       <h3 class="text-lg font-medium text-gray-900 mb-4">Relevant Documents </h3>
       <p class="text-sm text-gray-600 mb-4">Attach supporting documents. Accepted formats: PNG, JPG, PDF</p>
-      
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label for="{{ form.identification_document.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
@@ -278,6 +338,7 @@
           {% endif %}
         </div>
       </div>
+    </div>
     </div>
 
     <!-- Action Buttons -->
@@ -820,5 +881,87 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // --- End Refugee Status Logic ---
+
+// --- Tabs, Image Preview, Unsaved-Changes Guard ---
+document.addEventListener('DOMContentLoaded', function() {
+  // Tabs navigation: show only selected pane
+  const tabs = document.querySelectorAll('#candidate-tabs .tab-link');
+  const panes = ['#pane-bio', '#pane-assessment', '#pane-attachments']
+    .map(id => document.querySelector(id))
+    .filter(Boolean);
+  function showPane(hash) {
+    // toggle tabs
+    tabs.forEach(t => t.classList.remove('border-b-white','font-medium'));
+    const active = Array.from(tabs).find(t => t.getAttribute('href') === hash);
+    if (active) active.classList.add('border-b-white','font-medium');
+    // toggle panes
+    panes.forEach(p => {
+      if ('#' + p.id === hash) {
+        p.style.display = 'block';
+      } else {
+        p.style.display = 'none';
+      }
+    });
+    try {
+      const activePane = document.querySelector(hash);
+      if (activePane) activePane.scrollIntoView({behavior:'smooth', block:'start'});
+      console.log('Switched to pane', hash);
+    } catch(e) {}
+  }
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function(){
+      // Let the browser update the hash; our hashchange handler will toggle panes
+      // No preventDefault here
+    });
+  });
+  // Set initial active
+  const initial = location.hash && ['#pane-bio','#pane-assessment','#pane-attachments'].includes(location.hash)
+    ? location.hash
+    : '#pane-bio';
+  showPane(initial);
+  window.addEventListener('hashchange', function(){
+    const h = location.hash && ['#pane-bio','#pane-assessment','#pane-attachments'].includes(location.hash)
+      ? location.hash
+      : '#pane-bio';
+    showPane(h);
+  });
+
+  // Image preview and trigger
+  const fileInput = document.getElementById('id_passport_photo');
+  const triggerBtn = document.getElementById('trigger-photo');
+  const previewImg = document.getElementById('candidate-photo-preview');
+  const placeholder = document.getElementById('candidate-photo-placeholder');
+  if (triggerBtn && fileInput) {
+    triggerBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', function(){
+      const file = this.files && this.files[0];
+      if (!file) { return; }
+      const valid = ['image/jpeg','image/png','image/jpg'];
+      if (valid.indexOf(file.type) === -1) { return; }
+      const reader = new FileReader();
+      reader.onload = function(e){
+        previewImg.src = e.target.result;
+        previewImg.classList.remove('hidden');
+        if (placeholder) placeholder.classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Unsaved-changes guard (skip when form successfully submits)
+  const form = document.getElementById('candidate-form');
+  let dirty = false;
+  if (form) {
+    form.addEventListener('input', () => { dirty = true; }, true);
+    form.addEventListener('change', () => { dirty = true; }, true);
+    form.addEventListener('submit', () => { dirty = false; });
+  }
+  window.addEventListener('beforeunload', function (e) {
+    if (!dirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+});
+// --- End Tabs, Image Preview, Unsaved-Changes Guard ---
 </script>
 {% endblock %}
