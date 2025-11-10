@@ -3207,6 +3207,8 @@ def bulk_candidate_action(request):
 
     if action == 'enroll':
         # Bulk enrollment for formal/informal/worker's pas/modular
+        from .models import AssessmentSeries, Level, Module, Paper, CandidateLevel, CandidateModule, CandidatePaper, Result
+        
         level_id = data.get('level_id')
         paper_ids = data.get('paper_ids', [])
         module_ids = data.get('module_ids', [])
@@ -3233,7 +3235,6 @@ def bulk_candidate_action(request):
         else:
             assessment_series = None
     
-        from .models import Level, Module, Paper, CandidateLevel, CandidateModule, CandidatePaper, Result
         enrolled = 0
     
          # --- FORMAL ---
@@ -3482,21 +3483,6 @@ def bulk_candidate_action(request):
                 return JsonResponse({'success': False, 'error': 'Assessment series is required for Modular bulk enrollment.'}, status=400)
             if not (1 <= len(module_ids) <= 2):
                 return JsonResponse({'success': False, 'error': 'Select 1 or 2 modules.'}, status=400)
-            # Enforce selected module count matches chosen/billed module_count when available
-            chosen_count = data.get('module_count')
-            try:
-                chosen_count = int(chosen_count) if chosen_count is not None else None
-            except (TypeError, ValueError):
-                chosen_count = None
-            if chosen_count not in (1, 2):
-                # Try infer from candidates if they all share the same pre-selected count
-                candidate_counts = set(getattr(c, 'modular_module_count', None) for c in candidates)
-                if len(candidate_counts) == 1:
-                    only = list(candidate_counts)[0]
-                    if only in (1, 2):
-                        chosen_count = only
-            if chosen_count in (1, 2) and len(module_ids) != chosen_count:
-                return JsonResponse({'success': False, 'error': f'Please select exactly {chosen_count} module' + ('' if chosen_count == 1 else 's') + '.'}, status=400)
             # Determine level to use (respect incoming level_id if present)
             level = Level.objects.filter(id=level_id).first() if level_id else lvl
             print(f"[DEBUG] Found level: {level}")
@@ -6290,7 +6276,7 @@ def candidate_list(request):
             del request.session['candidate_filters']
         return redirect('candidate_list')
 
-    candidates = Candidate.objects.select_related('occupation', 'occupation__sector', 'assessment_center').order_by('-created_at')
+    candidates = Candidate.objects.select_related('occupation', 'occupation__sector', 'assessment_center').prefetch_related('candidatemodule_set__module').order_by('-created_at')
     
     # Restrict for Center Representatives
     if request.user.groups.filter(name='CenterRep').exists():
@@ -8299,6 +8285,38 @@ def candidate_create(request):
                 except Exception:
                     # Fallback: do not set branch if anything goes wrong
                     pass
+            # Promote draft files if present and no new upload in FILES
+            try:
+                from django.core.files.base import File
+                from django.core.files.storage import default_storage
+                import os
+                
+                # Passport photo
+                if 'passport_photo' not in request.FILES:
+                    draft_photo_path = request.POST.get('passport_photo_draft_path')
+                    if draft_photo_path and default_storage.exists(draft_photo_path):
+                        with default_storage.open(draft_photo_path, 'rb') as f:
+                            filename = os.path.basename(draft_photo_path)
+                            candidate.passport_photo.save(filename, File(f), save=False)
+                
+                # Identification document
+                if 'identification_document' not in request.FILES:
+                    draft_id_path = request.POST.get('identification_document_draft_path')
+                    if draft_id_path and default_storage.exists(draft_id_path):
+                        with default_storage.open(draft_id_path, 'rb') as f:
+                            filename = os.path.basename(draft_id_path)
+                            candidate.identification_document.save(filename, File(f), save=False)
+                
+                # Qualification document
+                if 'qualification_document' not in request.FILES:
+                    draft_qual_path = request.POST.get('qualification_document_draft_path')
+                    if draft_qual_path and default_storage.exists(draft_qual_path):
+                        with default_storage.open(draft_qual_path, 'rb') as f:
+                            filename = os.path.basename(draft_qual_path)
+                            candidate.qualification_document.save(filename, File(f), save=False)
+            except Exception:
+                pass
+
             candidate.created_by = request.user
             candidate.updated_by = request.user
             candidate.save()
@@ -8310,6 +8328,31 @@ def candidate_create(request):
             except Exception:
                 pass
             return redirect('candidate_view', id=candidate.id)
+    # Compute draft photo url for preview when reloading a draft
+    draft_photo_url = ''
+    draft_photo_path = ''
+    try:
+        from django.core.files.storage import default_storage
+        from django.conf import settings
+        # Get path from draft_data
+        if draft_data:
+            draft_photo_path = draft_data.get('passport_photo_draft_path', '')
+            if draft_photo_path:
+                # Try storage-provided URL; fallback to MEDIA_URL + path
+                try:
+                    draft_photo_url = default_storage.url(draft_photo_path)
+                except Exception:
+                    from urllib.parse import urljoin
+                    draft_photo_url = urljoin(getattr(settings, 'MEDIA_URL', '/media/'), draft_photo_path)
+    except Exception:
+        draft_photo_url = ''
+
+    from django.conf import settings
+    # Debug: print draft_data to see what's in it
+    if draft_data:
+        print(f"DEBUG: draft_data keys: {draft_data.keys()}")
+        print(f"DEBUG: passport_photo_draft_path in draft_data: {draft_data.get('passport_photo_draft_path', 'NOT FOUND')}")
+    
     return render(
         request,
         'candidates/create.html',
@@ -8319,6 +8362,10 @@ def candidate_create(request):
             'is_branch_rep': is_branch_rep,
             'rep_center': rep_center,
             'rep_branch': rep_branch,
+            'draft_photo_url': draft_photo_url,
+            'draft_photo_path': draft_photo_path,
+            'draft_data': draft_data or {},
+            'MEDIA_URL': getattr(settings, 'MEDIA_URL', '/media/'),
         },
     )
 
@@ -8344,6 +8391,11 @@ def save_candidate_draft(request):
     # Strip csrf token and empty strings
     if 'csrfmiddlewaretoken' in payload:
         payload.pop('csrfmiddlewaretoken', None)
+    
+    # DEBUG: Print what's being saved
+    print(f"DEBUG SAVE: passport_photo_draft_path = {payload.get('passport_photo_draft_path', 'NOT IN PAYLOAD')}")
+    print(f"DEBUG SAVE: All keys in payload: {list(payload.keys())[:10]}")  # First 10 keys
+    
     # Keep only simple serializable values
     draft_id = payload.get('draft_id')
     if draft_id:
@@ -8372,6 +8424,35 @@ def save_candidate_draft(request):
             status='draft',
         )
     return JsonResponse({'success': True, 'draft_id': draft.id})
+
+
+@login_required
+@require_POST
+def upload_candidate_photo_draft(request):
+    """Handle immediate upload of passport photo for draft persistence.
+    Returns JSON with the temporary storage path and URL for preview.
+    """
+    from django.core.files.storage import default_storage
+    from django.core.files.base import ContentFile
+    from django.conf import settings
+    import os, time
+    photo = request.FILES.get('passport_photo')
+    if not photo:
+        return JsonResponse({'success': False, 'error': 'No file'}, status=400)
+    # Build deterministic temp path
+    safe_name = os.path.basename(photo.name)
+    rel_dir = f"candidate_drafts/{request.user.id}/"
+    rel_path = os.path.join(rel_dir, f"{int(time.time())}_{safe_name}")
+    try:
+        saved_path = default_storage.save(rel_path, ContentFile(photo.read()))
+        try:
+            url = default_storage.url(saved_path)
+        except Exception:
+            from urllib.parse import urljoin
+            url = urljoin(getattr(settings, 'MEDIA_URL', '/media/'), saved_path)
+        return JsonResponse({'success': True, 'path': saved_path, 'url': url})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required

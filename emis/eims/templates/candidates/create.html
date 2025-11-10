@@ -28,24 +28,9 @@
         <span class="px-2 py-1 text-xs rounded bg-gray-50 text-gray-600 border border-gray-200">Status: New</span>
       </div>
   <style>
-    /* Fallback: if JS fails, the :target pane will show when hash is present */
     .tab-pane { display: none; }
-    .tab-pane:target { display: block; }
+    .tab-pane.active { display: block; }
   </style>
-  <script>
-    // One-shot initializer: if URL has a pane hash, show it immediately
-    (function(){
-      var h = (location.hash||'').trim();
-      var ids = ['#pane-bio','#pane-assessment','#pane-attachments'];
-      if (ids.indexOf(h) === -1) return; // leave default (bio) visible
-      ids.forEach(function(sel){
-        var el = document.querySelector(sel);
-        if (!el) return;
-        if (sel === h) { el.classList.remove('hidden'); el.classList.add('block'); }
-        else { el.classList.add('hidden'); el.classList.remove('block'); }
-      });
-    })();
-  </script>
       <!-- Right: image preview and trigger -->
       <div class="flex items-center gap-3">
         <div class="w-28 h-28 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
@@ -70,6 +55,10 @@
   <div class="hidden">
     {{ form.passport_photo }}
   </div>
+  <!-- Hidden paths for draft files persisted on server -->
+  <input type="hidden" id="passport_photo_draft_path" name="passport_photo_draft_path" value="{{ draft_data.passport_photo_draft_path|default:'' }}" />
+  <input type="hidden" id="identification_document_draft_path" name="identification_document_draft_path" value="{% if draft_data.identification_document_draft_path %}{{ draft_data.identification_document_draft_path }}{% endif %}" />
+  <input type="hidden" id="qualification_document_draft_path" name="qualification_document_draft_path" value="{% if draft_data.qualification_document_draft_path %}{{ draft_data.qualification_document_draft_path }}{% endif %}" />
 
   {% if form.errors %}
     <div class="mb-4">
@@ -98,7 +87,7 @@
     {% endif %}
     
     <!-- Pane: Bio & General -->
-    <div id="pane-bio" class="tab-pane" style="display:block;">
+    <div id="pane-bio" class="tab-pane active">
     <!-- Personal Information Section -->
     <div id="section-personal" class="bg-gray-50 p-4 rounded-lg">
       <h3 class="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
@@ -305,8 +294,10 @@
       </div>
     </div>
 
+    </div><!-- end pane-assessment -->
+
     <!-- Pane: Attachments -->
-    <div id="pane-attachments" class="tab-pane" style="display:block;">
+    <div id="pane-attachments" class="tab-pane">
     <!-- Relevant Documents Section (Optional) -->
     <div id="section-docs" class="bg-gray-50 p-4 rounded-lg">
       <h3 class="text-lg font-medium text-gray-900 mb-4">Relevant Documents </h3>
@@ -318,6 +309,7 @@
           </label>
           <p class="text-xs text-gray-500 mb-2">National ID, Birth Certificate, or other identification</p>
           {{ form.identification_document|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" }}
+          <p class="text-sm text-green-600 font-medium mt-2" id="id-doc-status" style="display:none;">✓ Document uploaded and saved</p>
           {% if form.identification_document.errors %}
             <div class="text-red-600 text-sm mt-1">
               {{ form.identification_document.errors }}
@@ -331,6 +323,7 @@
           </label>
           <p class="text-xs text-gray-500 mb-2">Relevant qualifications (for Full Occupation candidates)</p>
           {{ form.qualification_document|add_class:"w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" }}
+          <p class="text-sm text-green-600 font-medium mt-2" id="qual-doc-status" style="display:none;">✓ Document uploaded and saved</p>
           {% if form.qualification_document.errors %}
             <div class="text-red-600 text-sm mt-1">
               {{ form.qualification_document.errors }}
@@ -439,6 +432,21 @@
         const res = await r.json();
         if (res && res.success){
           if (draftIdEl) draftIdEl.value = res.draft_id;
+          
+          // Move temp file paths to proper draft ID keys in localStorage
+          const tempIdDoc = localStorage.getItem('temp_id_doc_path');
+          const tempQualDoc = localStorage.getItem('temp_qual_doc_path');
+          if (tempIdDoc) {
+            localStorage.setItem('draft_id_doc_' + res.draft_id, tempIdDoc);
+            localStorage.removeItem('temp_id_doc_path');
+            console.log('Moved ID doc to draft key:', res.draft_id);
+          }
+          if (tempQualDoc) {
+            localStorage.setItem('draft_qual_doc_' + res.draft_id, tempQualDoc);
+            localStorage.removeItem('temp_qual_doc_path');
+            console.log('Moved Qual doc to draft key:', res.draft_id);
+          }
+          
           // Once the user has explicitly saved once, enable autosave from now on
           autosaveEnabled = true;
           if (statusEl){
@@ -465,6 +473,15 @@
         saveDraft(true);
       });
     }
+
+    // Proxy buttons in sticky bar
+    const saveProxy = document.getElementById('save-draft-proxy');
+    const cancelProxy = document.getElementById('cancel-proxy');
+    const submitProxy = document.getElementById('submit-proxy');
+    const cancelReal = document.getElementById('cancel-btn');
+    if (saveProxy) saveProxy.addEventListener('click', function(e){ e.preventDefault(); if (saveBtn) saveBtn.click(); });
+    if (cancelProxy && cancelReal) cancelProxy.addEventListener('click', function(e){ e.preventDefault(); cancelReal.click(); });
+    if (submitProxy) submitProxy.addEventListener('click', function(e){ e.preventDefault(); form.requestSubmit(); });
 
     // Debounced autosave on changes
     let debounceTimer = null;
@@ -563,12 +580,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (districtSelect && villageSelect) {
+        // Store the initial village value from draft
+        const initialVillageValue = villageSelect.value;
+        console.log('Initial village value from draft:', initialVillageValue);
+        
         // Set initial state for village dropdown
         if (!districtSelect.value) {
             villageSelect.innerHTML = '';
             const option = new Option(`--- ${villagePleaseSelectDistrictText} ---`, '');
             villageSelect.add(option);
             villageSelect.disabled = true;
+        } else if (initialVillageValue) {
+            // If district is set and village has a value, trigger district change to load villages
+            console.log('Triggering district change to load villages for draft');
+            districtSelect.dispatchEvent(new Event('change'));
         }
 
         districtSelect.addEventListener('change', function() {
@@ -594,6 +619,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                     .then(data => {
                         updateVillageOptions(data);
+                        // Restore village value if it was set from draft
+                        if (initialVillageValue) {
+                            villageSelect.value = initialVillageValue;
+                            console.log('Restored village value:', initialVillageValue);
+                        }
                     })
                     .catch(error => {
                         console.error('Error fetching villages:', error);
@@ -882,55 +912,77 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 // --- End Refugee Status Logic ---
 
-// --- Tabs, Image Preview, Unsaved-Changes Guard ---
+// --- Tab Switching, Image Preview, Upload-on-Select, Draft Restore ---
 document.addEventListener('DOMContentLoaded', function() {
-  // Tabs navigation: show only selected pane
+  // Tab switching
   const tabs = document.querySelectorAll('#candidate-tabs .tab-link');
-  const panes = ['#pane-bio', '#pane-assessment', '#pane-attachments']
-    .map(id => document.querySelector(id))
-    .filter(Boolean);
-  function showPane(hash) {
-    // toggle tabs
-    tabs.forEach(t => t.classList.remove('border-b-white','font-medium'));
-    const active = Array.from(tabs).find(t => t.getAttribute('href') === hash);
-    if (active) active.classList.add('border-b-white','font-medium');
-    // toggle panes
-    panes.forEach(p => {
-      if ('#' + p.id === hash) {
-        p.style.display = 'block';
-      } else {
-        p.style.display = 'none';
-      }
-    });
-    try {
-      const activePane = document.querySelector(hash);
-      if (activePane) activePane.scrollIntoView({behavior:'smooth', block:'start'});
-      console.log('Switched to pane', hash);
-    } catch(e) {}
-  }
+  const panes = document.querySelectorAll('.tab-pane');
   tabs.forEach(tab => {
-    tab.addEventListener('click', function(){
-      // Let the browser update the hash; our hashchange handler will toggle panes
-      // No preventDefault here
+    tab.addEventListener('click', function(e) {
+      e.preventDefault();
+      const targetId = this.getAttribute('href').substring(1);
+      // Hide all panes
+      panes.forEach(p => p.classList.remove('active'));
+      // Show target pane
+      const targetPane = document.getElementById(targetId);
+      if (targetPane) targetPane.classList.add('active');
+      // Update tab styling
+      tabs.forEach(t => t.classList.remove('border-b-white', 'font-medium'));
+      this.classList.add('border-b-white', 'font-medium');
     });
-  });
-  // Set initial active
-  const initial = location.hash && ['#pane-bio','#pane-assessment','#pane-attachments'].includes(location.hash)
-    ? location.hash
-    : '#pane-bio';
-  showPane(initial);
-  window.addEventListener('hashchange', function(){
-    const h = location.hash && ['#pane-bio','#pane-assessment','#pane-attachments'].includes(location.hash)
-      ? location.hash
-      : '#pane-bio';
-    showPane(h);
   });
 
-  // Image preview and trigger
   const fileInput = document.getElementById('id_passport_photo');
   const triggerBtn = document.getElementById('trigger-photo');
   const previewImg = document.getElementById('candidate-photo-preview');
   const placeholder = document.getElementById('candidate-photo-placeholder');
+  const draftPathInput = document.getElementById('passport_photo_draft_path');
+
+  // Restore draft photo on load
+  const draftPhotoUrl = "{{ draft_photo_url|default:'' }}";
+  const draftId = document.getElementById('draft_id').value;
+  
+  console.log('=== DRAFT PHOTO RESTORE ===');
+  console.log('Draft ID:', draftId);
+  console.log('Draft photo URL from backend:', draftPhotoUrl);
+  console.log('Draft path input value:', draftPathInput ? draftPathInput.value : 'N/A');
+  
+  // Try localStorage first (most reliable)
+  if (draftId && previewImg) {
+    const storedUrl = localStorage.getItem('draft_photo_url_' + draftId);
+    const storedPath = localStorage.getItem('draft_photo_' + draftId);
+    console.log('LocalStorage URL:', storedUrl);
+    console.log('LocalStorage path:', storedPath);
+    
+    if (storedUrl) {
+      console.log('Using localStorage URL');
+      previewImg.src = storedUrl;
+      previewImg.classList.remove('hidden');
+      if (placeholder) placeholder.classList.add('hidden');
+      if (draftPathInput && storedPath) draftPathInput.value = storedPath;
+      return; // Exit early
+    }
+  }
+  
+  // Fallback to backend URL
+  if (draftPhotoUrl && previewImg) {
+    console.log('Using backend URL');
+    previewImg.src = draftPhotoUrl;
+    previewImg.classList.remove('hidden');
+    if (placeholder) placeholder.classList.add('hidden');
+  } else if (draftPathInput && draftPathInput.value && previewImg) {
+    // Fallback: construct URL from path if backend didn't provide URL
+    const mediaUrl = "{{ MEDIA_URL|default:'/media/' }}";
+    const photoUrl = mediaUrl + draftPathInput.value;
+    console.log('Using constructed URL:', photoUrl);
+    previewImg.src = photoUrl;
+    previewImg.classList.remove('hidden');
+    if (placeholder) placeholder.classList.add('hidden');
+  } else {
+    console.log('No photo to restore');
+  }
+
+
   if (triggerBtn && fileInput) {
     triggerBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', function(){
@@ -938,6 +990,27 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!file) { return; }
       const valid = ['image/jpeg','image/png','image/jpg'];
       if (valid.indexOf(file.type) === -1) { return; }
+
+      // Upload immediately to server for draft persistence
+      const fd = new FormData();
+      fd.append('passport_photo', file);
+      fd.append('csrfmiddlewaretoken', document.querySelector('[name="csrfmiddlewaretoken"]').value);
+      fetch('{% url "upload_candidate_photo_draft" %}', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && draftPathInput) {
+            draftPathInput.value = data.path;
+            // Store in localStorage as backup
+            const draftId = document.getElementById('draft_id').value;
+            if (draftId) {
+              localStorage.setItem('draft_photo_' + draftId, data.path);
+              localStorage.setItem('draft_photo_url_' + draftId, data.url);
+            }
+          }
+        })
+        .catch(e => console.error('Photo upload error', e));
+
+      // Local preview
       const reader = new FileReader();
       reader.onload = function(e){
         previewImg.src = e.target.result;
@@ -948,13 +1021,97 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  // Upload-on-select for identification document
+  const idDocInput = document.getElementById('id_identification_document');
+  const idDocPathInput = document.getElementById('identification_document_draft_path');
+  const idDocStatus = document.getElementById('id-doc-status');
+  
+  // Restore from localStorage on load
+  if (draftId && idDocPathInput && idDocStatus) {
+    const storedPath = localStorage.getItem('draft_id_doc_' + draftId);
+    console.log('ID Doc - Draft ID:', draftId);
+    console.log('ID Doc - Stored path:', storedPath);
+    console.log('ID Doc - Status element:', idDocStatus);
+    if (storedPath) {
+      idDocPathInput.value = storedPath;
+      idDocStatus.style.display = 'block';
+      console.log('ID Doc - Status shown');
+    }
+  }
+  
+  if (idDocInput) {
+    // Show status if already uploaded
+    if (idDocPathInput && idDocPathInput.value && idDocStatus) {
+      idDocStatus.style.display = 'block';
+    }
+    idDocInput.addEventListener('change', function() {
+      const file = this.files && this.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('passport_photo', file); // reuse same endpoint
+      fd.append('csrfmiddlewaretoken', document.querySelector('[name="csrfmiddlewaretoken"]').value);
+      fetch('{% url "upload_candidate_photo_draft" %}', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && idDocPathInput) {
+            idDocPathInput.value = data.path;
+            if (idDocStatus) idDocStatus.style.display = 'block';
+            // Store in localStorage with temp key, will update with draft ID later
+            localStorage.setItem('temp_id_doc_path', data.path);
+            console.log('ID doc uploaded, temp stored:', data.path);
+          }
+        })
+        .catch(e => console.error('ID doc upload error', e));
+    });
+  }
+
+  // Upload-on-select for qualification document
+  const qualDocInput = document.getElementById('id_qualification_document');
+  const qualDocPathInput = document.getElementById('qualification_document_draft_path');
+  const qualDocStatus = document.getElementById('qual-doc-status');
+  
+  // Restore from localStorage on load
+  if (draftId && qualDocPathInput && qualDocStatus) {
+    const storedPath = localStorage.getItem('draft_qual_doc_' + draftId);
+    if (storedPath) {
+      qualDocPathInput.value = storedPath;
+      qualDocStatus.style.display = 'block';
+    }
+  }
+  
+  if (qualDocInput) {
+    // Show status if already uploaded
+    if (qualDocPathInput && qualDocPathInput.value && qualDocStatus) {
+      qualDocStatus.style.display = 'block';
+    }
+    qualDocInput.addEventListener('change', function() {
+      const file = this.files && this.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('passport_photo', file); // reuse same endpoint
+      fd.append('csrfmiddlewaretoken', document.querySelector('[name="csrfmiddlewaretoken"]').value);
+      fetch('{% url "upload_candidate_photo_draft" %}', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && qualDocPathInput) {
+            qualDocPathInput.value = data.path;
+            if (qualDocStatus) qualDocStatus.style.display = 'block';
+            // Store in localStorage with temp key, will update with draft ID later
+            localStorage.setItem('temp_qual_doc_path', data.path);
+            console.log('Qual doc uploaded, temp stored:', data.path);
+          }
+        })
+        .catch(e => console.error('Qual doc upload error', e));
+    });
+  }
+
   // Unsaved-changes guard (skip when form successfully submits)
-  const form = document.getElementById('candidate-form');
+  const candidateForm = document.getElementById('candidate-form');
   let dirty = false;
-  if (form) {
-    form.addEventListener('input', () => { dirty = true; }, true);
-    form.addEventListener('change', () => { dirty = true; }, true);
-    form.addEventListener('submit', () => { dirty = false; });
+  if (candidateForm) {
+    candidateForm.addEventListener('input', () => { dirty = true; }, true);
+    candidateForm.addEventListener('change', () => { dirty = true; }, true);
+    candidateForm.addEventListener('submit', () => { dirty = false; });
   }
   window.addEventListener('beforeunload', function (e) {
     if (!dirty) return;

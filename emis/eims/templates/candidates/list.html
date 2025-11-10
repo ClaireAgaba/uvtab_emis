@@ -189,15 +189,6 @@
         <div id="bulk-informal-modules-papers" class="hidden w-full sm:w-auto" style="min-width:240px; max-width:100%; max-height:320px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
         <!-- Module selector for Modular bulk enroll -->
         <div id="bulk-module-checkboxes" class="hidden w-full sm:w-auto" style="min-width:240px; min-height:120px; max-height:240px; overflow-y:auto; border:1px solid #ccc; border-radius:6px; padding:8px 12px; background:#fff"></div>
-        <!-- Simple module count for Modular (center billing flow) -->
-        <div id="bulk-module-count" class="hidden w-full sm:w-auto" style="min-width:180px;">
-          <label for="bulk-module-count-select" class="block text-xs font-semibold text-gray-700 mb-1">Number of Modules:</label>
-          <select id="bulk-module-count-select" class="border px-3 py-2 rounded w-full text-sm touch-target">
-            <option value="">Select</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-          </select>
-        </div>
         <button id="bulk-action-apply" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm touch-target">Apply</button>
       </div>
     </div>
@@ -471,7 +462,21 @@
           </td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.reg_number }}</td>
           <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.full_name }}</td>
-          <td class="px-3 py-3 text-sm text-gray-900">{{ candidate.occupation.name }}</td>
+          <td class="px-3 py-3 text-sm text-gray-900">
+            {% if candidate.registration_category == 'modular' %}
+              {% with modules=candidate.candidatemodule_set.all %}
+                {% if modules %}
+                  {% for cm in modules %}
+                    <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-1 mb-1">{{ cm.module.code }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span class="text-gray-500 text-xs">No modules</span>
+                {% endif %}
+              {% endwith %}
+            {% else %}
+              {{ candidate.occupation.name }}
+            {% endif %}
+          </td>
           <td class="px-3 py-3 text-sm text-gray-900">
             {% if candidate.occupation.sector %}
               <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">{{ candidate.occupation.sector.name }}</span>
@@ -958,8 +963,6 @@ checkboxes.forEach(cb => {
 
 // --- Bulk Modular Module Selection Logic (with checkboxes) ---
 const bulkModuleBox = document.getElementById('bulk-module-checkboxes');
-const bulkModuleCount = document.getElementById('bulk-module-count');
-const bulkModuleCountSelect = document.getElementById('bulk-module-count-select');
 const bulkLevelWrapper = document.getElementById('bulk-level-select-wrapper');
 const bulkLevelSelect = document.getElementById('bulk-level-select');
 const bulkInformalBox = document.getElementById('bulk-informal-modules-papers');
@@ -1122,17 +1125,15 @@ function setupBulkPaperValidation() {
   // Initial count update
   updateBulkPaperCount();
 }
-
 function updateBulkSelectors() {
   const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
-  if (bulkSelect.value !== 'enroll' || checked.length === 0) {
-    bulkAssessmentSeriesWrapper.classList.add('hidden');
-    bulkAssessmentSeriesSelect.innerHTML = '';
+  if (bulkSelect.value !== 'enroll' || !checked.length) {
     bulkLevelWrapper.classList.add('hidden');
     bulkLevelSelect.innerHTML = '';
     bulkInformalBox.classList.add('hidden');
     bulkInformalBox.innerHTML = '';
-    bulkModuleCount.classList.add('hidden');
+    bulkModuleBox.classList.add('hidden');
+    bulkModuleBox.innerHTML = '';
     return;
   }
   // Determine regcat and occupation
@@ -1145,7 +1146,8 @@ function updateBulkSelectors() {
     bulkLevelSelect.innerHTML = '';
     bulkInformalBox.classList.add('hidden');
     bulkInformalBox.innerHTML = '';
-    bulkModuleCount.classList.add('hidden');
+    bulkModuleBox.classList.add('hidden');
+    bulkModuleBox.innerHTML = '';
     return;
   }
   if (regcat === 'Formal' || regcat === 'Informal' || regcat === "Worker's PAS" || regcat === 'Modular') {
@@ -1255,15 +1257,9 @@ function updateBulkSelectors() {
             bulkModuleBox.innerHTML = '';
             return;
           }
-          if (isUvtStaff) {
-            updateBulkModuleSelector();
-            bulkModuleCount.classList.remove('hidden');
-          }
+          // Always show module checkboxes for everyone
+          updateBulkModuleSelector();
         };
-        // For centers (non-staff), show simple module count selector
-        if (!isUvtStaff) {
-          bulkModuleCount.classList.remove('hidden');
-        }
         // Always hide cross-level box in Modular
         bulkInformalBox.classList.add('hidden');
         bulkInformalBox.innerHTML = '';
@@ -1276,13 +1272,6 @@ function updateBulkSelectors() {
     bulkLevelSelect.innerHTML = '';
     bulkInformalBox.classList.add('hidden');
     bulkInformalBox.innerHTML = '';
-    // Show simple module count selector for Modular
-    const {regcat: r2} = getBulkRegcatAndOcc();
-    if (r2 === 'Modular' && !isUvtStaff) {
-      bulkModuleCount.classList.remove('hidden');
-    } else {
-      bulkModuleCount.classList.add('hidden');
-    }
   }
 }
 
@@ -1308,23 +1297,14 @@ function fetchModulesForCandidates(candidateIds, callback) {
 function updateBulkModuleSelector() {
   const checked = Array.from(document.querySelectorAll('.candidate-checkbox:checked'));
   if (bulkSelect.value === 'enroll' && checked.length > 0) {
-    // Skip fetching modules for Modular center flow
+    // Always fetch and show modules for Modular
     const {regcat} = getBulkRegcatAndOcc();
-    if (regcat === 'Modular' && !isUvtStaff) {
-      bulkModuleBox.innerHTML = '';
-      bulkModuleBox.classList.add('hidden');
-      return;
-    }
     fetchModulesForCandidates(checked.map(cb => cb.value), function(data) {
       // --- Debug: log backend response ---
       console.log('[BULK ENROLL][MODULES RESPONSE]', data);
       // Store the returned level_id for use in bulk enroll POST
       window.bulkModularLevelId = data.level_id || null;
       if (data.success && data.modules && data.modules.length > 0) {
-        // Prefill module_count if backend suggested
-        if (data.suggested_count && bulkModuleCountSelect) {
-          bulkModuleCountSelect.value = String(data.suggested_count);
-        }
         bulkModuleBox.innerHTML = '<div class="font-semibold mb-2 text-gray-800">Select Modules (max 2):</div>';
         data.modules.forEach(m => {
           const id = 'bulkmod_' + m.id;
@@ -1351,29 +1331,15 @@ function updateBulkModuleSelector() {
           });
         });
         // --- Ensure module box is visible ---
-        // Show for:
-        // - Non-Modular categories (Formal when showing papers)
-        // - Modular staff detailed path (isUvtStaff true)
-        // Hide only for Modular center simple flow
-        const {regcat} = getBulkRegcatAndOcc();
-        if ((regcat && regcat !== 'Modular') || (regcat === 'Modular' && isUvtStaff)) {
-          bulkModuleBox.classList.remove('hidden');
-        } else {
-          bulkModuleBox.classList.add('hidden');
-        }
+        // Always show module box for everyone (staff and centers)
+        bulkModuleBox.classList.remove('hidden');
       } else {
-        const {regcat} = getBulkRegcatAndOcc();
-        if (regcat === 'Modular' && isUvtStaff) {
-          // Show helpful message to staff users if backend didn't return modules
-          const errMsg = (data && data.error) ? data.error : 'No modules available for the selected occupation/level.';
-          bulkModuleBox.innerHTML = `<div class="text-sm text-gray-600">${errMsg}</div>`;
-          bulkModuleBox.classList.remove('hidden');
-          // Also surface in the error area
-          bulkError.textContent = errMsg;
-        } else {
-          bulkModuleBox.innerHTML = '';
-          bulkModuleBox.classList.add('hidden');
-        }
+        // Show helpful message if backend didn't return modules
+        const errMsg = (data && data.error) ? data.error : 'No modules available for the selected occupation/level.';
+        bulkModuleBox.innerHTML = `<div class="text-sm text-gray-600">${errMsg}</div>`;
+        bulkModuleBox.classList.remove('hidden');
+        // Also surface in the error area
+        bulkError.textContent = errMsg;
       }
     });
   } else {
@@ -1716,24 +1682,15 @@ bulkApply && bulkApply.addEventListener('click', function() {
         return;
       }
     }
-    // Modular flow: allow module_count without specific modules (for centers and staff)
+    // Modular flow: require module selection
     if (regcat === 'Modular') {
-      const mc = parseInt(bulkModuleCountSelect.value || '0', 10);
       if (moduleIds.length === 0) {
-        if (![1,2].includes(mc)) {
-          bulkError.textContent = 'Please select number of modules (1 or 2).';
-          return;
-        }
-      } else {
-        // If modules provided, enforce they match selected count
-        if (![1,2].includes(mc)) {
-          bulkError.textContent = 'Please select number of modules (1 or 2).';
-          return;
-        }
-        if (moduleIds.length !== mc) {
-          bulkError.textContent = `You selected ${moduleIds.length} module(s). Please set "Number of Modules" to ${moduleIds.length}.`;
-          return;
-        }
+        bulkError.textContent = 'Please select at least one module (max 2).';
+        return;
+      }
+      if (moduleIds.length > 2) {
+        bulkError.textContent = 'You can select a maximum of 2 modules.';
+        return;
       }
     }
   }
@@ -1843,7 +1800,7 @@ bulkApply && bulkApply.addEventListener('click', function() {
       candidate_ids: checked.map(cb => cb.value),
       module_ids: moduleIds,
       level_id: (bulkSelect.value === 'enroll' && document.getElementById('bulk-module-checkboxes') && window.bulkModularLevelId) ? window.bulkModularLevelId : levelId,
-      module_count: (function(){ const {regcat}=getBulkRegcatAndOcc(); return regcat==='Modular' && (!moduleIds || moduleIds.length===0) ? parseInt(bulkModuleCountSelect.value||'0',10) : null; })(),
+      module_count: null,
       paper_ids: paperIds,
       assessment_series_id: assessmentSeriesId
     })

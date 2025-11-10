@@ -91,6 +91,7 @@ urlpatterns = [
     path('api/modules/', views.api_modules, name='api_modules'),
     path('api/occupation-category/', views.api_occupation_category, name='api_occupation_category'),
     path('candidates/create/', views.candidate_create, name='candidate_create'),
+    path('candidates/draft/upload-photo/', views.upload_candidate_photo_draft, name='upload_candidate_photo_draft'),
     path('candidates/drafts/save/', views.save_candidate_draft, name='save_candidate_draft'),
     path('candidates/drafts/<int:draft_id>/get/', views.get_candidate_draft, name='get_candidate_draft'),
     path('candidates/drafts/<int:draft_id>/submit/', views.submit_candidate_from_draft, name='submit_candidate_from_draft'),
