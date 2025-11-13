@@ -743,16 +743,18 @@ def center_candidates_report(request, center_id, series_id=None):
                         if mba and Decimal(mba) > 0:
                             fallback_total += Decimal(mba)
                         else:
-                            # hard defaults: 1 module = 70,000; 2 modules = 90,000
-                            mcount = c.modular_module_count or c.candidatemodule_set.count()
-                            if mcount == 1:
-                                fallback_total += Decimal('70000')
-                            elif mcount == 2:
-                                fallback_total += Decimal('90000')
-                            else:
-                                # last resort
-                                if hasattr(c, 'calculate_fees_balance'):
-                                    fallback_total += Decimal(c.calculate_fees_balance() or 0)
+                            # Use calculate_fees_balance which pulls from Level model fees
+                            if hasattr(c, 'calculate_fees_balance'):
+                                calculated = Decimal(c.calculate_fees_balance() or 0)
+                                if calculated > 0:
+                                    fallback_total += calculated
+                                else:
+                                    # Fallback: get fee from Level model directly
+                                    mcount = c.modular_module_count or c.candidatemodule_set.count()
+                                    first_module = c.candidatemodule_set.first()
+                                    if first_module and first_module.module and first_module.module.level:
+                                        level = first_module.module.level
+                                        fallback_total += level.get_fee_for_registration('Modular', mcount)
                     else:
                         if hasattr(c, 'calculate_fees_balance'):
                             fallback_total += Decimal(c.calculate_fees_balance() or 0)
@@ -775,13 +777,22 @@ def center_candidates_report(request, center_id, series_id=None):
                     if mba and Decimal(mba) > 0:
                         original_fee_local = Decimal(mba)
                     else:
-                        mcount = candidate.modular_module_count or candidate.candidatemodule_set.count()
-                        if mcount == 1:
-                            original_fee_local = Decimal('70000')
-                        elif mcount == 2:
-                            original_fee_local = Decimal('90000')
+                        # Use calculate_fees_balance which pulls from Level model fees
+                        if hasattr(candidate, 'calculate_fees_balance'):
+                            calculated = Decimal(candidate.calculate_fees_balance() or 0)
+                            if calculated > 0:
+                                original_fee_local = calculated
+                            else:
+                                # Fallback: get fee from Level model directly
+                                mcount = candidate.modular_module_count or candidate.candidatemodule_set.count()
+                                first_module = candidate.candidatemodule_set.first()
+                                if first_module and first_module.module and first_module.module.level:
+                                    level = first_module.module.level
+                                    original_fee_local = level.get_fee_for_registration('Modular', mcount)
+                                else:
+                                    original_fee_local = candidate.fees_balance or Decimal('0.00')
                         else:
-                            original_fee_local = Decimal(candidate.calculate_fees_balance() or 0) if hasattr(candidate, 'calculate_fees_balance') else (candidate.fees_balance or Decimal('0.00'))
+                            original_fee_local = candidate.fees_balance or Decimal('0.00')
                 else:
                     original_fee_local = Decimal(candidate.calculate_fees_balance() or 0) if hasattr(candidate, 'calculate_fees_balance') else (candidate.fees_balance or Decimal('0.00'))
             except Exception:
