@@ -79,7 +79,7 @@ class Command(BaseCommand):
                     if level_name not in formal_by_level:
                         formal_by_level[level_name] = {
                             'count': 0,
-                            'fee': cl.level.base_fee or 0
+                            'fee': cl.level.formal_fee or 0
                         }
                     formal_by_level[level_name]['count'] += 1
         

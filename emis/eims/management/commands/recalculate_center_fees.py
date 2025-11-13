@@ -122,11 +122,11 @@ class Command(BaseCommand):
                         total_fees = level.modular_fee_double or 0
         
         elif candidate.registration_category == 'Formal':
-            # Formal: Based on level base_fee
+            # Formal: Based on level formal_fee
             level_enrollments = CandidateLevel.objects.filter(candidate=candidate).select_related('level')
             for level_enrollment in level_enrollments:
                 if level_enrollment.level:
-                    total_fees += level_enrollment.level.base_fee or 0
+                    total_fees += level_enrollment.level.formal_fee or 0
         
         elif candidate.registration_category == 'Informal':
             # Informal/Worker's PAS: Based on number of modules × workers_pas_module_fee
