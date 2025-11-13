@@ -523,19 +523,21 @@ def center_fees_list(request):
             for candidate in data['candidates']:
                 # Prefer cached modular billing amount when present (preserves original invoice for modular)
                 try:
-                    if str(getattr(candidate, 'registration_category', '')).lower() == 'modular':
+                    cat = str(getattr(candidate, 'registration_category', '')).lower()
+                    if cat == 'modular':
                         mba = getattr(candidate, 'modular_billing_amount', None)
-                        if mba:
-                            calculated_total += mba
+                        if mba and Decimal(mba) > 0:
+                            calculated_total += Decimal(mba)
                             continue
                 except Exception:
                     pass
-                # Otherwise compute from current rules
+                # Otherwise compute from current rules using calculate_fees_balance
                 if hasattr(candidate, 'calculate_fees_balance'):
                     try:
                         calculated_fees = candidate.calculate_fees_balance()
-                        calculated_total += calculated_fees
-                    except:
+                        if calculated_fees and Decimal(calculated_fees) > 0:
+                            calculated_total += Decimal(calculated_fees)
+                    except Exception:
                         # If calculation fails, use a default or skip
                         pass
             
