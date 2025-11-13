@@ -211,9 +211,9 @@
     </div>
     <nav class="flex items-center space-x-1">
       {% if candidates.has_previous %}
-        <a href="?page=1{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
+        <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
            class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500 hover:bg-gray-50 rounded-l">First</a>
-        <a href="?page={{ candidates.previous_page_number }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
+        <a href="?page={{ candidates.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
            class="px-3 py-2 text-sm bg-white border-t border-b border-gray-300 text-gray-500 hover:bg-gray-50">‹ Prev</a>
       {% endif %}
       
@@ -224,15 +224,15 @@
         {% elif page_num == candidates.paginator.ELLIPSIS %}
           <span class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500">…</span>
         {% else %}
-          <a href="?page={{ page_num }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
+          <a href="?page={{ page_num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
              class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500 hover:bg-gray-50">{{ page_num }}</a>
         {% endif %}
       {% endfor %}
       
       {% if candidates.has_next %}
-        <a href="?page={{ candidates.next_page_number }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
+        <a href="?page={{ candidates.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
            class="px-3 py-2 text-sm bg-white border-t border-b border-gray-300 text-gray-500 hover:bg-gray-50">Next ›</a>
-        <a href="?page={{ candidates.paginator.num_pages }}{% if request.GET.reg_number %}&reg_number={{ request.GET.reg_number }}{% endif %}{% if request.GET.name %}&name={{ request.GET.name }}{% endif %}{% if request.GET.center %}&center={{ request.GET.center }}{% endif %}{% if request.GET.occupation %}&occupation={{ request.GET.occupation }}{% endif %}{% if request.GET.assessment_series %}&assessment_series={{ request.GET.assessment_series }}{% endif %}{% if request.GET.registration_category %}&registration_category={{ request.GET.registration_category }}{% endif %}{% if request.GET.has_marks %}&has_marks={{ request.GET.has_marks }}{% endif %}" 
+        <a href="?page={{ candidates.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
            class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500 hover:bg-gray-50 rounded-r">Last</a>
       {% endif %}
     </nav>
