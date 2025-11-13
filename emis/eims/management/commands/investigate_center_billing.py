@@ -121,28 +121,101 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS('\n✓ Billing is accurate'))
         
-        # Detailed candidate breakdown
-        self.stdout.write(f'\n--- DETAILED CANDIDATE FEES ---')
-        self.stdout.write(f'{"Reg No":<20} {"Name":<30} {"Category":<10} {"Modules/Levels":<15} {"Fees Balance":<15}')
-        self.stdout.write('-' * 90)
+        # Find candidates with non-zero fees
+        self.stdout.write(f'\n--- CANDIDATES WITH FEES (NON-ZERO ONLY) ---')
+        candidates_with_fees = candidates.filter(fees_balance__gt=0).order_by('-fees_balance')
         
-        for candidate in candidates.order_by('registration_category', 'reg_number'):
+        if candidates_with_fees.count() == 0:
+            self.stdout.write(self.style.WARNING('No candidates have fees balance > 0'))
+        else:
+            self.stdout.write(f'{"Reg No":<20} {"Category":<10} {"Enrollment":<20} {"Expected Fee":<15} {"Actual Fee":<15} {"Diff":<12}')
+            self.stdout.write('-' * 102)
+            
+            total_expected = 0
+            total_actual = 0
+            
+            for candidate in candidates_with_fees:
+                # Calculate expected fee
+                if candidate.registration_category == 'Modular':
+                    module_count = CandidateModule.objects.filter(candidate=candidate).count()
+                    level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
+                    if level_enrollment and level_enrollment.level:
+                        if module_count == 1:
+                            expected_fee = level_enrollment.level.modular_fee_single or 0
+                        elif module_count >= 2:
+                            expected_fee = level_enrollment.level.modular_fee_double or 0
+                        else:
+                            expected_fee = 0
+                    else:
+                        expected_fee = 0
+                    enrollment_info = f'{module_count} module(s)'
+                    
+                elif candidate.registration_category == 'Formal':
+                    level_enrollments = CandidateLevel.objects.filter(candidate=candidate).select_related('level')
+                    expected_fee = sum(le.level.formal_fee or 0 for le in level_enrollments)
+                    level_count = level_enrollments.count()
+                    enrollment_info = f'{level_count} level(s)'
+                    
+                else:  # Informal
+                    module_count = CandidateModule.objects.filter(candidate=candidate).count()
+                    level_enrollment = CandidateLevel.objects.filter(candidate=candidate).first()
+                    if level_enrollment and level_enrollment.level:
+                        workers_pas_fee = level_enrollment.level.workers_pas_module_fee or 0
+                        expected_fee = workers_pas_fee * module_count
+                    else:
+                        expected_fee = 0
+                    enrollment_info = f'{module_count} module(s)'
+                
+                actual_fee = candidate.fees_balance
+                difference = actual_fee - expected_fee
+                
+                total_expected += expected_fee
+                total_actual += actual_fee
+                
+                # Mark mismatches
+                status = '⚠️' if abs(difference) > 0.01 else '✓'
+                
+                self.stdout.write(
+                    f'{candidate.reg_number:<20} '
+                    f'{candidate.registration_category:<10} '
+                    f'{enrollment_info:<20} '
+                    f'UGX {expected_fee:>12,.2f} '
+                    f'UGX {actual_fee:>12,.2f} '
+                    f'{status} {difference:>10,.2f}'
+                )
+            
+            self.stdout.write('-' * 102)
+            self.stdout.write(
+                f'{"TOTALS":<20} {"":10} {"":20} '
+                f'UGX {total_expected:>12,.2f} '
+                f'UGX {total_actual:>12,.2f} '
+                f'  {total_actual - total_expected:>10,.2f}'
+            )
+        
+        # Show candidates with zero fees but enrolled
+        self.stdout.write(f'\n--- ENROLLED CANDIDATES WITH ZERO FEES ---')
+        enrolled_with_zero = []
+        for candidate in candidates.filter(fees_balance=0):
             if candidate.registration_category == 'Modular':
                 module_count = CandidateModule.objects.filter(candidate=candidate).count()
-                enrollment_info = f'{module_count} module(s)'
+                if module_count > 0:
+                    enrolled_with_zero.append((candidate, f'{module_count} module(s)'))
             elif candidate.registration_category == 'Formal':
                 level_count = CandidateLevel.objects.filter(candidate=candidate).count()
-                enrollment_info = f'{level_count} level(s)'
+                if level_count > 0:
+                    enrolled_with_zero.append((candidate, f'{level_count} level(s)'))
             else:
                 module_count = CandidateModule.objects.filter(candidate=candidate).count()
-                enrollment_info = f'{module_count} module(s)'
-            
-            self.stdout.write(
-                f'{candidate.reg_number:<20} '
-                f'{candidate.full_name[:28]:<30} '
-                f'{candidate.registration_category:<10} '
-                f'{enrollment_info:<15} '
-                f'UGX {candidate.fees_balance:>12,.2f}'
-            )
+                if module_count > 0:
+                    enrolled_with_zero.append((candidate, f'{module_count} module(s)'))
+        
+        if enrolled_with_zero:
+            self.stdout.write(f'Found {len(enrolled_with_zero)} enrolled candidates with zero fees:')
+            for candidate, enrollment_info in enrolled_with_zero[:10]:  # Show first 10
+                self.stdout.write(f'  {candidate.reg_number} ({candidate.registration_category}) - {enrollment_info}')
+            if len(enrolled_with_zero) > 10:
+                self.stdout.write(f'  ... and {len(enrolled_with_zero) - 10} more')
+        else:
+            self.stdout.write('No enrolled candidates with zero fees found.')
         
         self.stdout.write(self.style.SUCCESS(f'\n=== INVESTIGATION COMPLETE ==='))
