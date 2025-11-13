@@ -28,12 +28,16 @@ class Command(BaseCommand):
         else:
             self.stdout.write(f'Found {payment_records.count()} payment record(s):\n')
             
+            total_paid = Decimal('0.00')
             for record in payment_records:
                 series_name = record.assessment_series.name if record.assessment_series else 'No Series'
                 self.stdout.write(f'\nAssessment Series: {series_name}')
                 self.stdout.write(f'  Amount Paid: UGX {record.amount_paid:,.2f}')
-                self.stdout.write(f'  Payment Date: {record.payment_date}')
-                self.stdout.write(f'  Marked By: {record.marked_by}')
+                if hasattr(record, 'payment_date'):
+                    self.stdout.write(f'  Payment Date: {record.payment_date}')
+                total_paid += record.amount_paid
+            
+            self.stdout.write(f'\nTotal Across All Series: UGX {total_paid:,.2f}')
         
         # Check if there's a November 2025 series
         try:
