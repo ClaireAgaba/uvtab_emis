@@ -211,9 +211,9 @@
     </div>
     <nav class="flex items-center space-x-1">
       {% if candidates.has_previous %}
-        <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+        <a href="javascript:void(0)" onclick="goToPage(1)" 
            class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500 hover:bg-gray-50 rounded-l">First</a>
-        <a href="?page={{ candidates.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+        <a href="javascript:void(0)" onclick="goToPage({{ candidates.previous_page_number }})" 
            class="px-3 py-2 text-sm bg-white border-t border-b border-gray-300 text-gray-500 hover:bg-gray-50">‹ Prev</a>
       {% endif %}
       
@@ -224,15 +224,15 @@
         {% elif page_num == candidates.paginator.ELLIPSIS %}
           <span class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500">…</span>
         {% else %}
-          <a href="?page={{ page_num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+          <a href="javascript:void(0)" onclick="goToPage({{ page_num }})" 
              class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500 hover:bg-gray-50">{{ page_num }}</a>
         {% endif %}
       {% endfor %}
       
       {% if candidates.has_next %}
-        <a href="?page={{ candidates.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+        <a href="javascript:void(0)" onclick="goToPage({{ candidates.next_page_number }})" 
            class="px-3 py-2 text-sm bg-white border-t border-b border-gray-300 text-gray-500 hover:bg-gray-50">Next ›</a>
-        <a href="?page={{ candidates.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+        <a href="javascript:void(0)" onclick="goToPage({{ candidates.paginator.num_pages }})" 
            class="px-3 py-2 text-sm bg-white border border-gray-300 text-gray-500 hover:bg-gray-50 rounded-r">Last</a>
       {% endif %}
     </nav>
@@ -242,6 +242,17 @@
     Showing {{ candidates.paginator.count }} enrolled candidate{{ candidates.paginator.count|pluralize }}
   </div>
   {% endif %}
+
+  <script>
+  function goToPage(pageNum) {
+    // Get current URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    // Set the page parameter
+    urlParams.set('page', pageNum);
+    // Navigate to the new URL
+    window.location.href = '?' + urlParams.toString();
+  }
+  </script>
 
  </div>
 
