@@ -1,0 +1,65 @@
+================================================================================
+QUICK FIX REFERENCE - UBT154 Billing Issue
+================================================================================
+
+PROBLEM: Modular candidates showing 0.00 instead of 70k-90k in invoice
+
+================================================================================
+GIT COMMANDS (Run on Local Machine)
+================================================================================
+
+cd /home/claire/Desktop/projects/emis
+
+git add eims/management/commands/diagnose_center_billing.py
+git add eims/management/commands/fix_modular_billing.py
+git add eims/management/commands/harmonize_billing_status.py
+git add BILLING_FIX_GUIDE.md
+git add DEPLOYMENT_GUIDE.md
+
+git commit -m "Fix: Add management commands to fix modular billing issues"
+
+git push origin main
+
+================================================================================
+SERVER COMMANDS (Run on Production Server)
+================================================================================
+
+# 1. Pull latest code
+cd /path/to/emis
+git pull origin main
+
+# 2. Diagnose the issue
+python manage.py diagnose_center_billing UBT154
+
+# 3. Preview fixes (dry run)
+python manage.py fix_modular_billing --center UBT154 --dry-run
+python manage.py harmonize_billing_status --center UBT154 --dry-run
+
+# 4. Apply fixes
+python manage.py fix_modular_billing --center UBT154
+python manage.py harmonize_billing_status --center UBT154
+
+# 5. Verify
+python manage.py diagnose_center_billing UBT154
+
+# 6. Test invoice in browser
+# Go to: UVTAB Fees → Center Fees → Search UBT154 → Invoice
+
+================================================================================
+EXPECTED OUTCOME
+================================================================================
+
+Before: Modular = 0.00, Formal = 560,000, Total = 560,000
+After:  Modular = ~3.8M-4.8M, Formal = 560,000, Total = ~4.3M-5.4M
+
+================================================================================
+SYSTEM-WIDE FIX (If other centers have same issue)
+================================================================================
+
+python manage.py fix_modular_billing --dry-run
+python manage.py fix_modular_billing
+
+python manage.py harmonize_billing_status --dry-run
+python manage.py harmonize_billing_status
+
+================================================================================
