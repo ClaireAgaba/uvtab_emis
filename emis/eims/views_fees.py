@@ -732,7 +732,14 @@ def center_candidates_report(request, center_id, series_id=None):
         except Exception:
             amount_paid = Decimal('0.00')
         
-        total_bill = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
+        # FIXED: total_bill calculation
+        # If amount_paid > 0, it means center has payment history, show original total
+        # Otherwise, total_bill is just current outstanding
+        if amount_paid > 0:
+            total_bill = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
+        else:
+            total_bill = current_outstanding
+        
         amount_due = current_outstanding
         # Fallback for modular-cleared rows: reconstruct original bill when bill and paid read 0
         if (total_bill or Decimal('0.00')) == 0 and (amount_due or Decimal('0.00')) == 0:
@@ -921,9 +928,10 @@ def generate_pdf_invoice(request, center_id, series_id=None):
     
     # Authoritative totals for PDF:
     # - total_candidates: count of candidates in billing set
-    # - current_outstanding: sum of current fees_balance
+    # - current_outstanding: sum of current fees_balance (this is the amount still owed)
     # - amount_paid: CenterSeriesPayment.amount_paid for this center+series
-    # - total_bill = amount_paid + current_outstanding
+    # - total_bill = current_outstanding (since fees_balance already represents what's owed)
+    # - If amount_paid exists, total_bill = amount_paid + current_outstanding (original bill)
     total_candidates = candidates.count()
     current_outstanding = sum((c.fees_balance or Decimal('0.00')) for c in candidates)
     try:
@@ -940,7 +948,18 @@ def generate_pdf_invoice(request, center_id, series_id=None):
         amount_paid = pr.amount_paid if pr else Decimal('0.00')
     except Exception:
         amount_paid = Decimal('0.00')
-    total_bill = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
+    
+    # FIXED: total_bill should be current_outstanding (what's owed now)
+    # Only add amount_paid if we want to show historical total
+    # For centers that haven't paid anything, total_bill = current_outstanding
+    # For centers that paid partially, total_bill = amount_paid + current_outstanding
+    if amount_paid > 0:
+        # Has payment history - show original total bill
+        total_bill = (amount_paid or Decimal('0.00')) + (current_outstanding or Decimal('0.00'))
+    else:
+        # No payment yet - total bill is just current outstanding
+        total_bill = current_outstanding
+    
     amount_due = current_outstanding
     # Fallback for modular-cleared rows: reconstruct bill if both bill and paid are 0 while candidates exist
     if (total_bill or Decimal('0.00')) == 0 and (amount_due or Decimal('0.00')) == 0 and total_candidates > 0:
