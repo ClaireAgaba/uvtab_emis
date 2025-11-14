@@ -1,0 +1,77 @@
+================================================================================
+QUICK COMMANDS - BILLING FIXES FOR UBT154 & UVT847
+================================================================================
+
+GIT PUSH (Local Machine)
+================================================================================
+cd /home/claire/Desktop/projects/emis
+bash GIT_PUSH_ALL_FIXES.sh
+
+OR manually:
+git add eims/management/commands/*.py *.md *.txt
+git commit -m "Fix: Add billing fix commands for UBT154 and UVT847"
+git push origin main
+
+================================================================================
+SERVER DEPLOYMENT
+================================================================================
+cd /path/to/emis
+git pull origin main
+
+================================================================================
+FIX UBT154 (Modular Billing - 54 candidates showing 0.00)
+================================================================================
+python manage.py diagnose_center_billing UBT154
+python manage.py fix_modular_billing --center UBT154 --dry-run
+python manage.py fix_modular_billing --center UBT154
+python manage.py harmonize_billing_status --center UBT154
+python manage.py diagnose_center_billing UBT154
+
+Expected: Modular ~3.8M-4.8M, Formal 560k, Total ~4.3M-5.4M
+
+================================================================================
+FIX UVT847 (Multi-Level - Wrong breakdown)
+================================================================================
+python manage.py diagnose_multilevel_billing UVT847
+python manage.py fix_multilevel_billing UVT847 --dry-run
+python manage.py fix_multilevel_billing UVT847
+python manage.py diagnose_multilevel_billing UVT847
+
+Expected: Modular 280k, Level1 2.16M, Level2 1.6M, Level3 450k, Total 4.49M
+
+================================================================================
+SYSTEM-WIDE FIX (All Centers)
+================================================================================
+python manage.py fix_modular_billing --dry-run
+python manage.py fix_modular_billing
+
+python manage.py harmonize_billing_status --dry-run
+python manage.py harmonize_billing_status
+
+================================================================================
+VERIFY IN UI
+================================================================================
+1. Login to EMIS
+2. Go to: UVTAB Fees → Center Fees
+3. Search: UBT154 or UVT847
+4. Click: Invoice button
+5. Verify: Amounts match expected breakdown
+
+================================================================================
+FILES CREATED
+================================================================================
+Commands (5):
+- diagnose_center_billing.py
+- fix_modular_billing.py
+- harmonize_billing_status.py
+- diagnose_multilevel_billing.py
+- fix_multilevel_billing.py
+
+Docs (5):
+- BILLING_FIX_GUIDE.md
+- FIX_UVT847_GUIDE.md
+- DEPLOYMENT_GUIDE.md
+- BILLING_FIXES_SUMMARY.md
+- QUICK_COMMANDS.txt (this file)
+
+================================================================================
