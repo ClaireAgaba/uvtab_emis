@@ -57,7 +57,6 @@ class Command(BaseCommand):
             )
             self.stdout.write(f"\nExisting Payment Record Found:")
             self.stdout.write(f"  Amount Paid: UGX {payment_record.amount_paid:,.2f}")
-            self.stdout.write(f"  Last Updated: {payment_record.updated_at}")
             
             # Calculate what the correct payment should be
             # Total billed = 1,230,000
