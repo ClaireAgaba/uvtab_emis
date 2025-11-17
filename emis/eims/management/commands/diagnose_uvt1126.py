@@ -16,13 +16,27 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR("Center UVT1126 not found!"))
             return
         
-        # Get all enrolled candidates
-        candidates = Candidate.objects.filter(
-            assessment_center=center,
-            status='enrolled'
+        # Get ALL candidates at this center (regardless of status)
+        all_candidates = Candidate.objects.filter(
+            assessment_center=center
         ).order_by('registration_category', 'reg_number')
         
-        self.stdout.write(f"Total Enrolled Candidates: {candidates.count()}\n")
+        self.stdout.write(f"Total Candidates at Center: {all_candidates.count()}")
+        
+        # Show status breakdown
+        status_counts = {}
+        for c in all_candidates:
+            status_counts[c.status] = status_counts.get(c.status, 0) + 1
+        
+        self.stdout.write("\nStatus Breakdown:")
+        for status, count in status_counts.items():
+            self.stdout.write(f"  {status}: {count}")
+        
+        # Filter to only billed candidates (those with fees_balance set)
+        candidates = all_candidates.filter(fees_balance__gt=0) | all_candidates.filter(fees_balance=0)
+        candidates = candidates.distinct()
+        
+        self.stdout.write(f"\nBilled Candidates (with fees_balance): {candidates.count()}\n")
         
         # Track totals
         modular_count = 0
